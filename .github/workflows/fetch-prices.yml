@@ -1,0 +1,35 @@
+name: Fetch prices
+
+on:
+  schedule:
+    # Every 15 minutes. YAML requires the string to be quoted.
+    - cron: '*/15 * * * *'
+  workflow_dispatch:  # Allow manual trigger from the Actions tab
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed to push prices.json back to the repo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch prices from Twelve Data
+        env:
+          TD_API_KEY: ${{ secrets.TD_API_KEY }}
+        run: node fetch-prices.js
+
+      - name: Commit updated prices.json
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update prices"
+          file_pattern: prices.json
+
+      - name: Purge jsDelivr cache
+        run: |
+          curl -s "https://purge.jsdelivr.net/gh/$GITHUB_REPOSITORY@main/prices.json" || true
