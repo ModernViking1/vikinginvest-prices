@@ -13,8 +13,6 @@ const PAIRS = {
   eurgbp:'EUR/GBP', eurchf:'EUR/CHF', audchf:'AUD/CHF', gbpchf:'GBP/CHF',
   xauusd:'XAU/USD', xagusd:'XAG/USD', btcusd:'BTC/USD',
   dxy:'DXY'
-  // EXCLUDED (not on TD free tier or different endpoint):
-  //   gbpdkk, suiusd, usoil, de40 — dashboard uses baked overrides for these
 };
 
 function getJSON(url){
@@ -45,7 +43,7 @@ function getJSON(url){
   }
 
   console.log('Response top-level keys:', Object.keys(resp).slice(0,5).join(', '),
-              (Object.keys(resp).length > 5 ? `... (${Object.keys(resp).length} total)` : ''));
+              (Object.keys(resp).length > 5 ? '... (' + Object.keys(resp).length + ' total)' : ''));
 
   if(resp.code && resp.message){
     console.error('TD API error:', resp.code, resp.message);
@@ -58,7 +56,7 @@ function getJSON(url){
   Object.entries(PAIRS).forEach(([key, sym]) => {
     const row = resp[sym];
     if(!row){
-      console.warn('  MISSING:', sym, '(no key in response)');
+      console.warn('  MISSING:', sym);
       fail++; return;
     }
     if(row.code || row.status === 'error'){
@@ -80,7 +78,7 @@ function getJSON(url){
     ok++;
   });
 
-  console.log(`Result: ${ok} OK, ${fail} failed (of ${Object.keys(PAIRS).length})`);
+  console.log('Result: ' + ok + ' OK, ' + fail + ' failed (of ' + Object.keys(PAIRS).length + ')');
 
   if(ok === 0){
     console.error('All pairs failed — refusing to write empty prices.json');
