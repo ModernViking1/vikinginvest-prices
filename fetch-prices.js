@@ -16,8 +16,8 @@ const PAIRS = {
   usdcad:'USD/CAD',
   usdchf:'USD/CHF',
   xauusd:'XAU/USD',
-  xagusd:'XAG/USD',
-  dxy:'DXY'
+  euraud:'EUR/AUD',
+  audusd:'AUD/USD'
 };
 
 function getJSON(url){
