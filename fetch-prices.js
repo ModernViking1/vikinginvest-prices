@@ -1,17 +1,22 @@
-// fetch-prices.js — Viking Invest 15-min price fetcher (hardened)
+// fetch-prices.js — Viking Invest 15-min price fetcher (rate-limit aware)
 const fs = require('fs');
 const https = require('https');
 
 const API_KEY = process.env.TD_API_KEY;
 if(!API_KEY){ console.error('Missing TD_API_KEY env var'); process.exit(1); }
 
+// 8 core pairs fit inside the free tier's 8-credits/min limit in a single batch.
+// Total daily spend: 8 symbols × 96 runs/day = 768 credits/day (under 800 cap).
+// Remaining 15 pairs stay on dashboard's baked overrides — update manually
+// via the 📝 Prices button when needed.
 const PAIRS = {
-  eurusd:'EUR/USD', gbpusd:'GBP/USD', usdjpy:'USD/JPY', usdcad:'USD/CAD',
-  usdchf:'USD/CHF', nzdusd:'NZD/USD', audusd:'AUD/USD', usdsgd:'USD/SGD',
-  cadjpy:'CAD/JPY', eurjpy:'EUR/JPY', gbpjpy:'GBP/JPY', eurnzd:'EUR/NZD',
-  gbpaud:'GBP/AUD', euraud:'EUR/AUD', audnzd:'AUD/NZD',
-  eurgbp:'EUR/GBP', eurchf:'EUR/CHF', audchf:'AUD/CHF', gbpchf:'GBP/CHF',
-  xauusd:'XAU/USD', xagusd:'XAG/USD', btcusd:'BTC/USD',
+  eurusd:'EUR/USD',
+  gbpusd:'GBP/USD',
+  usdjpy:'USD/JPY',
+  usdcad:'USD/CAD',
+  usdchf:'USD/CHF',
+  xauusd:'XAU/USD',
+  xagusd:'XAG/USD',
   dxy:'DXY'
 };
 
@@ -42,11 +47,16 @@ function getJSON(url){
     process.exit(1);
   }
 
-  console.log('Response top-level keys:', Object.keys(resp).slice(0,5).join(', '),
-              (Object.keys(resp).length > 5 ? '... (' + Object.keys(resp).length + ' total)' : ''));
+  console.log('Response top-level keys:', Object.keys(resp).slice(0,8).join(', '),
+              (Object.keys(resp).length > 8 ? '... (' + Object.keys(resp).length + ' total)' : ''));
 
+  // Check for top-level API error (rate limit, bad key, etc)
   if(resp.code && resp.message){
     console.error('TD API error:', resp.code, resp.message);
+    // If rate limited, exit with warning but don't fail-loud on scheduled runs
+    if(resp.code === 429){
+      console.error('Hit rate limit — prices.json unchanged this cycle');
+    }
     process.exit(1);
   }
 
@@ -54,7 +64,9 @@ function getJSON(url){
   let ok = 0, fail = 0;
 
   Object.entries(PAIRS).forEach(([key, sym]) => {
-    const row = resp[sym];
+    // Single-symbol response has {meta, values} at top level, not nested under the symbol.
+    // Batch response is keyed by symbol. Handle both.
+    const row = resp[sym] || (resp.meta && resp.meta.symbol === sym ? resp : null);
     if(!row){
       console.warn('  MISSING:', sym);
       fail++; return;
