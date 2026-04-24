@@ -17,6 +17,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Verify fetch-prices.js exists
         run: |
@@ -41,6 +42,26 @@ jobs:
           commit_message: "chore: update prices"
           file_pattern: prices.json
 
+      - name: Build package.json for npm
+        run: |
+          VERSION="1.0.$(date +%s)"
+          cat > package.json <<PKG
+          {
+            "name": "vikinginvest-prices",
+            "version": "$VERSION",
+            "description": "Live FX prices for Viking Invest dashboard",
+            "main": "prices.json",
+            "jsdelivr": "prices.json",
+            "license": "MIT",
+            "repository": "github:ModernViking1/vikinginvest-prices"
+          }
+          PKG
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access=public
+
       - name: Purge jsDelivr cache
         run: |
-          curl -s "https://purge.jsdelivr.net/gh/$GITHUB_REPOSITORY@main/prices.json" || true
+          curl -s "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/prices.json" || true
