@@ -31,6 +31,10 @@ jobs:
           TD_API_KEY: ${{ secrets.TD_API_KEY }}
         run: node fetch-prices.js
 
+      - name: Pull latest before commit
+        run: |
+          git pull --rebase origin main || true
+
       - name: Commit updated prices.json
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
