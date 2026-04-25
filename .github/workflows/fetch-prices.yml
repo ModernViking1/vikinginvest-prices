@@ -27,10 +27,13 @@ jobs:
             exit 1
           fi
 
-      - name: Fetch prices from Twelve Data
+      - name: Fetch prices
         env:
           TD_API_KEY: ${{ secrets.TD_API_KEY }}
+          FH_API_KEY: ${{ secrets.FH_API_KEY }}
+          FORCE_HISTORY: 'true'   # ← keep this on your first run
         run: node fetch-prices.js
+
 
       - name: Pull latest before commit
         run: |
