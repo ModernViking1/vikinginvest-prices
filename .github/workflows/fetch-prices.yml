@@ -31,9 +31,8 @@ jobs:
         env:
           TD_API_KEY: ${{ secrets.TD_API_KEY }}
           FH_API_KEY: ${{ secrets.FH_API_KEY }}
-          FORCE_HISTORY: 'true'   # ← keep this on your first run
+          FORCE_HISTORY: 'true'
         run: node fetch-prices.js
-
 
       - name: Pull latest before commit
         run: |
@@ -43,7 +42,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: update prices"
-          file_pattern: prices.json
+          file_pattern: 'prices.json history.json'
 
       - name: Build package.json for npm
         run: |
@@ -56,7 +55,10 @@ jobs:
             "main": "prices.json",
             "jsdelivr": "prices.json",
             "license": "MIT",
-            "repository": "github:ModernViking1/vikinginvest-prices"
+            "repository": {
+              "type": "git",
+              "url": "git+https://github.com/ModernViking1/vikinginvest-prices.git"
+            }
           }
           PKG
 
@@ -68,3 +70,4 @@ jobs:
       - name: Purge jsDelivr cache
         run: |
           curl -s "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/prices.json" || true
+          curl -s "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/history.json" || true
