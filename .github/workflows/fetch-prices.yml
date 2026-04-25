@@ -31,7 +31,6 @@ jobs:
         env:
           TD_API_KEY: ${{ secrets.TD_API_KEY }}
           OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
-          FORCE_HISTORY: 'true'
         run: node fetch-prices.js
 
       - name: Pull latest before commit
