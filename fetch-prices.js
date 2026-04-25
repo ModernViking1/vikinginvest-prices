@@ -49,7 +49,10 @@ const OANDA_PAIRS = {
   audchf: 'AUD_CHF',
   xagusd: 'XAG_USD',     // silver
   usoil:  'WTICO_USD',   // West Texas Intermediate crude oil
-  de40:   'DE30_EUR'     // DAX (OANDA still uses old DE30 ticker)
+  de40:   'DE30_EUR',    // DAX (OANDA still uses old DE30 ticker)
+  // usdsek: not in dashboard MKTS list, but included in prices.json so the
+  // dashboard can compute DXY synthetically using the official ICE formula.
+  usdsek: 'USD_SEK'
 };
 
 // ── Coinbase: crypto pairs ───────────────────────────────────
