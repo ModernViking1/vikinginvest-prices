@@ -48,6 +48,10 @@ jobs:
           else
             echo "history.json does not exist (yet) - committing prices.json only"
           fi
+          if [ -f intraday.json ]; then
+            git add intraday.json
+            echo "Including intraday.json in commit"
+          fi
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
@@ -82,3 +86,4 @@ jobs:
         run: |
           curl -s "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/prices.json" || true
           curl -s "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/history.json" || true
+          curl -s "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/intraday.json" || true
