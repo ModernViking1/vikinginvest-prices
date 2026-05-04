@@ -1,0 +1,78 @@
+# .github/workflows/publish-intraday-ohlc.yml
+#
+# Frequent-cadence workflow that polls live prices, accumulates ticks
+# into 15m OHLC bars, and publishes intraday.json with proper OHLC.
+#
+# IMPORTANT: this REPLACES (or runs alongside) your existing intraday
+# publisher. Don't run both writing to the same file — pick one.
+#
+# Why a separate file from publish-events.yml? Different cadence
+# (this runs every 2-3 minutes; events runs hourly).
+#
+# State persistence note:
+# GitHub Actions runners don't share filesystem between runs. We persist
+# state by committing intraday-state.json back to the repo. This means
+# every workflow run results in a commit, which is noisy in git history
+# but works reliably. Alternatives include S3, GitHub artifact storage,
+# or a small KV store — for a 2-3 min cadence, repo commits are fine.
+
+name: Publish Intraday OHLC
+
+on:
+  schedule:
+    # Every 2 minutes is the lowest GitHub Actions cron supports reliably.
+    # If you need higher frequency, run a single workflow that loops
+    # internally with sleep() — see the "Long-running" alternative below.
+    - cron: '*/2 * * * *'
+  workflow_dispatch:
+
+# Prevent overlapping runs (one publisher at a time)
+concurrency:
+  group: publish-intraday-ohlc
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Need full history to commit state back
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Run publisher
+        env:
+          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+          OANDA_API_KEY: ${{ secrets.OANDA_API_KEY }}
+          OANDA_ACCOUNT_ID: ${{ secrets.OANDA_ACCOUNT_ID }}
+        run: |
+          python publish_intraday_ohlc.py --state intraday-state.json --output intraday.json
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add intraday.json intraday-state.json
+          if git diff --staged --quiet; then
+            echo "No changes — skipping commit"
+          else
+            git commit -m "chore: update intraday OHLC [skip ci]"
+            # Pull-rebase before push to handle concurrent commits
+            git pull --rebase --autostash || true
+            git push
+          fi
