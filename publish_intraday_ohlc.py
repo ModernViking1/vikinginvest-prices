@@ -88,9 +88,26 @@ def fetch_twelvedata_price(symbol: str, api_key: str) -> float | None:
     return None
 
 
-def fetch_oanda_price(instrument: str, api_key: str, account: str) -> float | None:
-    """Fetch current price from OANDA v20 pricing endpoint."""
+def fetch_oanda_price(instrument: str, api_key: str, account: str | None) -> float | None:
+    """Fetch current price from OANDA v20 pricing endpoint.
+
+    If `account` is None, fall back to the account-list endpoint to discover
+    the first available account ID. This avoids requiring OANDA_ACCOUNT_ID
+    in repo secrets when the existing setup didn't need it.
+    """
     try:
+        if not account:
+            # Discover account ID on the fly
+            ar = requests.get(
+                "https://api-fxpractice.oanda.com/v3/accounts",
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=10,
+            )
+            ar.raise_for_status()
+            accounts = ar.json().get("accounts", [])
+            if not accounts:
+                return None
+            account = accounts[0]["id"]
         r = requests.get(
             f"https://api-fxpractice.oanda.com/v3/accounts/{account}/pricing",
             params={"instruments": instrument},
@@ -125,16 +142,21 @@ def fetch_coinbase_price(product: str) -> float | None:
 
 
 def fetch_price_for_pair(key: str, sources: dict) -> float | None:
-    """Try sources in order, return first successful price."""
-    twelvedata_key = os.environ.get("TWELVEDATA_API_KEY")
-    oanda_key = os.environ.get("OANDA_API_KEY")
-    oanda_account = os.environ.get("OANDA_ACCOUNT_ID")
+    """Try sources in order, return first successful price.
+
+    Reads API credentials from environment. Names match the existing
+    Viking Invest setup (TD_API_KEY, OANDA_TOKEN) for compatibility
+    with the existing fetch-prices workflow's secrets.
+    """
+    twelvedata_key = os.environ.get("TD_API_KEY") or os.environ.get("TWELVEDATA_API_KEY")
+    oanda_key = os.environ.get("OANDA_TOKEN") or os.environ.get("OANDA_API_KEY")
+    oanda_account = os.environ.get("OANDA_ACCOUNT_ID")  # optional; discovered if missing
 
     if "twelvedata" in sources and twelvedata_key:
         p = fetch_twelvedata_price(sources["twelvedata"], twelvedata_key)
         if p is not None:
             return p
-    if "oanda" in sources and oanda_key and oanda_account:
+    if "oanda" in sources and oanda_key:
         p = fetch_oanda_price(sources["oanda"], oanda_key, oanda_account)
         if p is not None:
             return p
