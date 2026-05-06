@@ -1,0 +1,86 @@
+# .github/workflows/publish-events.yml
+#
+# Hourly workflow that fetches the Forex Factory economic calendar XML
+# and publishes events.json. Used by the dashboard for:
+#   - Per-pair event impact dots (red <2h, gold 2-6h, grey 6-24h)
+#   - 3/3 alert deferral when high-impact events imminent (<2h)
+#   - Events summary widget on the Backtest tab
+#
+# DEPLOYMENT NOTES:
+#   - Drop fetch_events.py at repo root
+#   - Drop this file at .github/workflows/publish-events.yml
+#   - No secrets needed (Forex Factory XML is public, no API key required)
+#   - Cron offset to :05 to avoid clashing with fetch-prices :00 cron
+#   - events.json gets included in npm package automatically when
+#     fetch-prices.yml next publishes (every 15 min)
+
+name: Publish Economic Events
+
+on:
+  schedule:
+    - cron: '5 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: publish-events
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Fetch and write events.json
+        run: |
+          python fetch_events.py --output events.json
+
+      - name: Commit results with retry
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add events.json
+          if git diff --staged --quiet; then
+            echo "events.json unchanged — skipping commit"
+            exit 0
+          fi
+          git commit -m "chore: update events.json [skip ci]"
+
+          ATTEMPT=0
+          MAX_ATTEMPTS=5
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT+1))
+            echo "Push attempt $ATTEMPT of $MAX_ATTEMPTS"
+            if git push origin main; then
+              echo "Push succeeded"
+              exit 0
+            fi
+            echo "Push failed (likely concurrent commit) — retrying"
+            git pull --rebase origin main || {
+              git rebase --abort || true
+              git fetch origin main
+              git reset --soft origin/main
+              git add events.json
+              git commit -m "chore: update events.json [skip ci]" || true
+            }
+            sleep 2
+          done
+          echo "::warning::Failed to push after $MAX_ATTEMPTS attempts"
+          exit 0
