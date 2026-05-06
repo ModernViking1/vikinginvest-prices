@@ -1,31 +1,32 @@
 # .github/workflows/publish-intraday-ohlc.yml
 #
-# Frequent-cadence workflow that polls live prices, accumulates ticks
-# into 15m OHLC bars, and publishes intraday-ohlc.json with full OHLC.
+# OHLC publisher v2 — OANDA-only, higher cadence via in-workflow loop.
 #
-# DEPLOYMENT NOTE — Path A (parallel filename):
-# This workflow writes to `intraday-ohlc.json`, NOT `intraday.json`.
-# The existing `fetch-prices.yml` workflow continues writing to
-# `intraday.json` unchanged. The dashboard prefers `intraday-ohlc.json`
-# when available, falls back to `intraday.json` otherwise.
+# DESIGN:
+#   - Cron triggers every 5 minutes
+#   - Each workflow run does 2 polls 60 seconds apart (--loop 2)
+#   - Net effect: ~5 ticks per 15-minute window per pair
+#   - All FX/commodity/index pairs use OANDA (one batched API call per poll)
+#   - Crypto pairs use Coinbase public ticker (no API key needed)
 #
-# This avoids the two workflows racing over the same file. Once the new
-# publisher has run reliably for 1-2 weeks, you can migrate to Path B
-# (replace the existing publisher's intraday output) for cleaner
-# architecture.
+# COST: ~2 minutes per workflow run × 12 runs/hour × 24h × 30d
+#       = ~17,280 minutes/month gross runtime
+#   But each run is ~2 minutes, so monthly Actions time ~5,760 min
+#   = ~$30/month over 2,000 min free tier (Linux runs at $0.008/min)
+#
+# If you need to stay strictly within free tier, change --loop 1 below
+# and the workflow will use ~2,880 min/month total. Tick density drops
+# to ~3 per bar instead of 5.
+#
+# If you want maximum density, change to --loop 4 (~$120/month).
 
 name: Publish Intraday OHLC
 
 on:
   schedule:
-    # Every 2 minutes for tick aggregation. The existing fetch-prices
-    # workflow runs every 15 minutes and continues to handle prices.json
-    # / history.json / intraday.json — this is purely an OHLC-enrichment
-    # supplement.
-    - cron: '*/2 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
-# Prevent overlapping runs (one publisher at a time)
 concurrency:
   group: publish-intraday-ohlc
   cancel-in-progress: false
@@ -35,6 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    timeout-minutes: 5
 
     steps:
       - name: Checkout
@@ -53,26 +55,42 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
-      - name: Run publisher
+      - name: Run publisher (2 polls × 60s)
         env:
-          # Uses the same secret names as fetch-prices.yml for consistency
-          TD_API_KEY: ${{ secrets.TD_API_KEY }}
           OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
         run: |
-          python publish_intraday_ohlc.py --state intraday-state.json --output intraday-ohlc.json
+          python publish_intraday_ohlc.py \
+            --state intraday-state.json \
+            --output intraday-ohlc.json \
+            --loop 2 \
+            --interval 60
 
-      - name: Pull latest before commit
-        run: |
-          git pull --rebase origin main || true
-
-      - name: Commit results
+      - name: Commit results with retry
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add intraday-ohlc.json intraday-state.json
           if git diff --staged --quiet; then
             echo "No changes — skipping commit"
-          else
-            git commit -m "chore: update intraday OHLC [skip ci]"
-            git push origin main
+            exit 0
           fi
+          git commit -m "chore: update intraday OHLC [skip ci]"
+
+          ATTEMPT=0
+          MAX_ATTEMPTS=5
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT+1))
+            if git push origin main; then
+              exit 0
+            fi
+            git pull --rebase origin main || {
+              git rebase --abort || true
+              git fetch origin main
+              git reset --soft origin/main
+              git add intraday-ohlc.json intraday-state.json
+              git commit -m "chore: update intraday OHLC [skip ci]" || true
+            }
+            sleep 2
+          done
+          echo "::warning::Failed to push after $MAX_ATTEMPTS attempts"
+          exit 0
