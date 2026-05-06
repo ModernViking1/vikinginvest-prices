@@ -1,50 +1,48 @@
 #!/usr/bin/env python3
 """
-publish_intraday_ohlc.py — Tick-aggregating intraday publisher.
+publish_intraday_ohlc.py — Tick-aggregating intraday publisher (v2).
 
-Replaces the single-price-per-15m model with proper OHLC bars by
-accumulating all observed ticks within each 15-minute window. At each
-15m boundary the window closes and the OHLC bar is emitted to
-intraday.json.
+CHANGES FROM v1:
+    - Drops TwelveData dependency (lower API cost, simpler error path)
+    - All FX pairs use OANDA v20 directly (free for our usage volume)
+    - Designed for 1-minute polling cadence
+    - Self-loop mode: runs N polls within a single workflow run, so
+      cron schedule doesn't dictate cadence. Default loop = 1 poll.
+    - Crypto pairs continue to use Coinbase public ticker (free)
 
-Designed to be run by a GitHub Actions cron workflow at high frequency
-(every 1-2 minutes). State is persisted to a small JSON file between
-runs so accumulated ticks survive across short-lived workflow runs.
+USAGE (cron mode, 1 poll per run):
+    python publish_intraday_ohlc.py --state intraday-state.json --output intraday-ohlc.json
 
-USAGE:
-    python publish_intraday_ohlc.py --state intraday-state.json --output intraday.json
+USAGE (loop mode, multiple polls per workflow run):
+    python publish_intraday_ohlc.py --loop 4 --interval 60
 
 DEPENDENCIES:
     pip install requests
 
-NOTE:
-    This is a reference implementation. Adapt the data source functions
-    (fetch_twelvedata_price, fetch_oanda_price, fetch_coinbase_price)
-    to match your existing setup. The aggregation logic and output
-    schema are what matter — the data sourcing is up to you.
+ENVIRONMENT:
+    OANDA_TOKEN        — OANDA v20 practice token (required for FX pairs)
+    OANDA_ACCOUNT_ID   — Optional; auto-discovered if not provided
 """
 import argparse
 import json
 import os
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
 
 # ── Config ──────────────────────────────────────────────────────────
-# Map dashboard pair keys to data-source identifiers. Adapt to your
-# actual keys / sources. Crypto and DXY excluded — handled separately
-# or skipped (DXY is synthesised; crypto uses Coinbase).
+# All FX pairs use OANDA. Crypto uses Coinbase. DXY synthesised separately.
 PAIRS = {
-    "eurusd":  {"twelvedata": "EUR/USD",  "oanda": "EUR_USD"},
-    "gbpusd":  {"twelvedata": "GBP/USD",  "oanda": "GBP_USD"},
-    "usdjpy":  {"twelvedata": "USD/JPY",  "oanda": "USD_JPY"},
-    "usdcad":  {"twelvedata": "USD/CAD",  "oanda": "USD_CAD"},
-    "usdchf":  {"twelvedata": "USD/CHF",  "oanda": "USD_CHF"},
-    "audusd":  {"twelvedata": "AUD/USD",  "oanda": "AUD_USD"},
-    "nzdusd":  {"twelvedata": "NZD/USD",  "oanda": "NZD_USD"},
+    "eurusd":  {"oanda": "EUR_USD"},
+    "gbpusd":  {"oanda": "GBP_USD"},
+    "usdjpy":  {"oanda": "USD_JPY"},
+    "usdcad":  {"oanda": "USD_CAD"},
+    "usdchf":  {"oanda": "USD_CHF"},
+    "audusd":  {"oanda": "AUD_USD"},
+    "nzdusd":  {"oanda": "NZD_USD"},
     "cadjpy":  {"oanda": "CAD_JPY"},
     "eurnzd":  {"oanda": "EUR_NZD"},
     "gbpaud":  {"oanda": "GBP_AUD"},
@@ -55,150 +53,133 @@ PAIRS = {
     "eurgbp":  {"oanda": "EUR_GBP"},
     "xauusd":  {"oanda": "XAU_USD"},
     "xagusd":  {"oanda": "XAG_USD"},
-    "usoil":   {"oanda": "BCO_USD"},  # Brent crude
-    "de40":    {"oanda": "DE30_EUR"}, # DAX
+    "usoil":   {"oanda": "BCO_USD"},
+    "de40":    {"oanda": "DE30_EUR"},
     "btcusd":  {"coinbase": "BTC-USD"},
     "suiusd":  {"coinbase": "SUI-USD"},
-    # dxy synthesised separately, no native price source
 }
 
-# Window length and how many windows to retain
 WINDOW_MINUTES = 15
-WINDOWS_TO_KEEP = 96  # 24 hours of 15m bars
+WINDOWS_TO_KEEP = 96
 
 
-# ── Data source stubs ─────────────────────────────────────────────
-# Replace these with your actual fetch logic. Each should return the
-# current price as a float, or None on error.
+# ── OANDA batched fetch ────────────────────────────────────────────
+# Fetch all FX prices in a single API call. OANDA's pricing endpoint
+# accepts a comma-separated list of instruments, which is much more
+# efficient than one call per pair.
 
-def fetch_twelvedata_price(symbol: str, api_key: str) -> float | None:
-    """Fetch current price from TwelveData /price endpoint."""
+_oanda_account_cache = None
+
+def _resolve_oanda_account(api_key: str) -> str | None:
+    global _oanda_account_cache
+    if _oanda_account_cache:
+        return _oanda_account_cache
+    explicit = os.environ.get("OANDA_ACCOUNT_ID")
+    if explicit:
+        _oanda_account_cache = explicit
+        return explicit
     try:
         r = requests.get(
-            "https://api.twelvedata.com/price",
-            params={"symbol": symbol, "apikey": api_key},
+            "https://api-fxpractice.oanda.com/v3/accounts",
+            headers={"Authorization": f"Bearer {api_key}"},
             timeout=10,
         )
         r.raise_for_status()
-        data = r.json()
-        if "price" in data:
-            return float(data["price"])
-    except (requests.RequestException, ValueError) as exc:
-        print(f"WARN twelvedata {symbol}: {exc}", file=sys.stderr)
+        accounts = r.json().get("accounts", [])
+        if accounts:
+            _oanda_account_cache = accounts[0]["id"]
+            return _oanda_account_cache
+    except (requests.RequestException, ValueError, KeyError) as exc:
+        print(f"WARN oanda account discovery: {exc}", file=sys.stderr)
     return None
 
 
-def fetch_oanda_price(instrument: str, api_key: str, account: str | None) -> float | None:
-    """Fetch current price from OANDA v20 pricing endpoint.
+def fetch_oanda_batch(instruments: list[str], api_key: str) -> dict:
+    """Fetch mid prices for multiple OANDA instruments in one call.
 
-    If `account` is None, fall back to the account-list endpoint to discover
-    the first available account ID. This avoids requiring OANDA_ACCOUNT_ID
-    in repo secrets when the existing setup didn't need it.
+    Returns dict mapping instrument code → mid price. Pairs that
+    failed are simply absent from the result.
     """
+    if not instruments:
+        return {}
+    account = _resolve_oanda_account(api_key)
+    if not account:
+        return {}
     try:
-        if not account:
-            # Discover account ID on the fly
-            ar = requests.get(
-                "https://api-fxpractice.oanda.com/v3/accounts",
-                headers={"Authorization": f"Bearer {api_key}"},
-                timeout=10,
-            )
-            ar.raise_for_status()
-            accounts = ar.json().get("accounts", [])
-            if not accounts:
-                return None
-            account = accounts[0]["id"]
         r = requests.get(
             f"https://api-fxpractice.oanda.com/v3/accounts/{account}/pricing",
-            params={"instruments": instrument},
+            params={"instruments": ",".join(instruments)},
             headers={"Authorization": f"Bearer {api_key}"},
             timeout=10,
         )
         r.raise_for_status()
         data = r.json()
-        if data.get("prices"):
-            p = data["prices"][0]
-            bid = float(p["bids"][0]["price"])
-            ask = float(p["asks"][0]["price"])
-            return (bid + ask) / 2
+        prices = {}
+        for p in data.get("prices", []):
+            try:
+                bid = float(p["bids"][0]["price"])
+                ask = float(p["asks"][0]["price"])
+                prices[p["instrument"]] = (bid + ask) / 2
+            except (KeyError, IndexError, ValueError):
+                continue
+        return prices
     except (requests.RequestException, ValueError, KeyError) as exc:
-        print(f"WARN oanda {instrument}: {exc}", file=sys.stderr)
-    return None
+        print(f"WARN oanda batch: {exc}", file=sys.stderr)
+        return {}
 
 
 def fetch_coinbase_price(product: str) -> float | None:
-    """Fetch current price from Coinbase public ticker."""
     try:
         r = requests.get(
             f"https://api.exchange.coinbase.com/products/{product}/ticker",
             timeout=10,
         )
         r.raise_for_status()
-        data = r.json()
-        return float(data["price"])
+        return float(r.json()["price"])
     except (requests.RequestException, ValueError, KeyError) as exc:
         print(f"WARN coinbase {product}: {exc}", file=sys.stderr)
-    return None
+        return None
 
 
-def fetch_price_for_pair(key: str, sources: dict) -> float | None:
-    """Try sources in order, return first successful price.
-
-    Reads API credentials from environment. Names match the existing
-    Viking Invest setup (TD_API_KEY, OANDA_TOKEN) for compatibility
-    with the existing fetch-prices workflow's secrets.
-    """
-    twelvedata_key = os.environ.get("TD_API_KEY") or os.environ.get("TWELVEDATA_API_KEY")
+def fetch_all_prices() -> dict:
+    """Return dict mapping our pair key → current price."""
     oanda_key = os.environ.get("OANDA_TOKEN") or os.environ.get("OANDA_API_KEY")
-    oanda_account = os.environ.get("OANDA_ACCOUNT_ID")  # optional; discovered if missing
+    out = {}
 
-    if "twelvedata" in sources and twelvedata_key:
-        p = fetch_twelvedata_price(sources["twelvedata"], twelvedata_key)
-        if p is not None:
-            return p
-    if "oanda" in sources and oanda_key:
-        p = fetch_oanda_price(sources["oanda"], oanda_key, oanda_account)
-        if p is not None:
-            return p
-    if "coinbase" in sources:
-        p = fetch_coinbase_price(sources["coinbase"])
-        if p is not None:
-            return p
-    return None
+    # Batch OANDA fetch
+    if oanda_key:
+        oanda_pairs = {k: v["oanda"] for k, v in PAIRS.items() if "oanda" in v}
+        instruments = list(oanda_pairs.values())
+        prices = fetch_oanda_batch(instruments, oanda_key)
+        # Reverse-map back to our keys
+        rev = {v: k for k, v in oanda_pairs.items()}
+        for instr, px in prices.items():
+            if instr in rev:
+                out[rev[instr]] = px
+
+    # Coinbase one-by-one (only 2 pairs)
+    for k, v in PAIRS.items():
+        if "coinbase" in v:
+            px = fetch_coinbase_price(v["coinbase"])
+            if px is not None:
+                out[k] = px
+
+    return out
 
 
-# ── Window math ────────────────────────────────────────────────────
+# ── Window math + state ────────────────────────────────────────────
 
 def current_window_start(now: datetime) -> datetime:
-    """Return the start of the 15-minute window containing `now`."""
     minutes_into_hour = now.minute - (now.minute % WINDOW_MINUTES)
     return now.replace(minute=minutes_into_hour, second=0, microsecond=0)
 
-
-# ── State management ───────────────────────────────────────────────
-# State JSON shape:
-# {
-#   "pairs": {
-#     "eurusd": {
-#       "current_window": {
-#         "t": "2026-05-04T13:00:00+00:00",
-#         "ticks": [1.17220, 1.17225, 1.17240, ...]
-#       },
-#       "completed_bars": [
-#         {"t": "...", "o": ..., "h": ..., "l": ..., "c": ..., "p": ...},
-#         ...
-#       ]
-#     }
-#   }
-# }
 
 def load_state(path: Path) -> dict:
     if not path.exists():
         return {"pairs": {}}
     try:
         return json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError) as exc:
-        print(f"WARN load_state failed, starting fresh: {exc}", file=sys.stderr)
+    except (json.JSONDecodeError, OSError):
         return {"pairs": {}}
 
 
@@ -208,55 +189,34 @@ def save_state(path: Path, state: dict) -> None:
 
 
 def update_pair(state: dict, key: str, price: float, now: datetime) -> None:
-    """Add a tick to the current window; close window if past boundary."""
     if key not in state["pairs"]:
         state["pairs"][key] = {"current_window": None, "completed_bars": []}
     pair_state = state["pairs"][key]
-
-    win_start = current_window_start(now)
-    win_start_iso = win_start.isoformat()
-
+    win_start_iso = current_window_start(now).isoformat()
     cur = pair_state["current_window"]
     if cur is None or cur["t"] != win_start_iso:
-        # New window — close out the old one if it exists
+        # Window roll-over: close out old, start new
         if cur is not None and cur.get("ticks"):
             ticks = cur["ticks"]
-            bar = {
+            pair_state["completed_bars"].append({
                 "t": cur["t"],
                 "o": ticks[0],
                 "h": max(ticks),
                 "l": min(ticks),
                 "c": ticks[-1],
-                "p": ticks[-1],  # backwards compat with single-price schema
-            }
-            pair_state["completed_bars"].append(bar)
-            # Keep only the last N bars
+                "p": ticks[-1],
+            })
             if len(pair_state["completed_bars"]) > WINDOWS_TO_KEEP:
                 pair_state["completed_bars"] = pair_state["completed_bars"][-WINDOWS_TO_KEEP:]
-        # Start a fresh window
         pair_state["current_window"] = {"t": win_start_iso, "ticks": [price]}
     else:
         cur["ticks"].append(price)
 
 
 def build_output(state: dict, now: datetime) -> dict:
-    """Build the intraday.json output from accumulated state.
-
-    Includes both completed bars AND the still-open current window
-    (so the dashboard sees fresh data instead of waiting up to 15
-    minutes for the bar to close).
-
-    SCHEMA NOTE: the top-level field is `intraday` (not `data`) to
-    match the existing dashboard's expectation in fetchVikingIntraday()
-    where it reads `data.intraday`. The `ohlc: true` flag at the top
-    level signals to the dashboard that bars include native OHLC and
-    detect15mLevels() will switch from approximated to native mode
-    automatically.
-    """
     out = {"updated": now.isoformat(), "ohlc": True, "intraday": {}}
     for key, pair_state in state["pairs"].items():
         bars = list(pair_state.get("completed_bars", []))
-        # Append the current (still-open) window as a "live" bar
         cur = pair_state.get("current_window")
         if cur and cur.get("ticks"):
             ticks = cur["ticks"]
@@ -274,42 +234,47 @@ def build_output(state: dict, now: datetime) -> dict:
 
 # ── Main ───────────────────────────────────────────────────────────
 
+def run_one_poll(state: dict, now: datetime) -> int:
+    """Fetch all prices and update state. Returns count of pairs updated."""
+    prices = fetch_all_prices()
+    for key, price in prices.items():
+        update_pair(state, key, price, now)
+    return len(prices)
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--state", default="intraday-state.json",
-                        help="Path to persisted tick-accumulator state")
-    parser.add_argument("--output", default="intraday.json",
-                        help="Path to publish intraday.json")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Print output instead of writing")
+    parser.add_argument("--state", default="intraday-state.json")
+    parser.add_argument("--output", default="intraday-ohlc.json")
+    parser.add_argument("--loop", type=int, default=1,
+                        help="Number of poll cycles within this run (default 1)")
+    parser.add_argument("--interval", type=int, default=60,
+                        help="Seconds between polls when --loop > 1 (default 60)")
+    parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
     state_path = Path(args.state)
     output_path = Path(args.output)
     state = load_state(state_path)
 
-    now = datetime.now(timezone.utc)
+    total_updates = 0
+    for cycle in range(args.loop):
+        now = datetime.now(timezone.utc)
+        count = run_one_poll(state, now)
+        total_updates += count
+        print(f"Cycle {cycle+1}/{args.loop}: fetched {count} pairs at {now.isoformat()}", flush=True)
+        if cycle < args.loop - 1:
+            time.sleep(args.interval)
 
-    # Fetch and accumulate ticks for each configured pair
-    fetched = 0
-    for key, sources in PAIRS.items():
-        price = fetch_price_for_pair(key, sources)
-        if price is None:
-            continue
-        update_pair(state, key, price, now)
-        fetched += 1
-
-    # Save updated state for next run
     save_state(state_path, state)
 
-    # Build and publish intraday.json
-    output = build_output(state, now)
+    output = build_output(state, datetime.now(timezone.utc))
     if args.dry_run:
         print(json.dumps(output, indent=2))
     else:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(json.dumps(output, indent=2))
-        print(f"Wrote {fetched} pairs with OHLC bars to {output_path}")
+        print(f"Wrote {len(output['intraday'])} pairs to {output_path}")
 
 
 if __name__ == "__main__":
