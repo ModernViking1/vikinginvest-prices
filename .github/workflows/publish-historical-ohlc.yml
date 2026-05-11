@@ -1,0 +1,109 @@
+name: Historical OHLC Backfill
+
+# Manual trigger only — this is a one-shot bulk fetch (~3-5 minutes runtime).
+# Subsequent runs replace the historical-ohlc.json published to npm/jsDelivr.
+#
+# To run:
+#   1. Go to Actions tab in the repo
+#   2. Select "Historical OHLC Backfill" workflow
+#   3. Click "Run workflow" → choose branch (main) → Run workflow
+#   4. Wait ~3-5 minutes for completion
+#   5. Verify the new historical-ohlc.json was committed and published
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'History window in days (default 365)'
+        required: false
+        default: '365'
+      pairs:
+        description: 'Optional subset of pairs (comma-separated, leave blank for all 22)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30  # safety upper bound; typical run ~5 min
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Run historical OHLC backfill
+        env:
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+        run: |
+          PAIRS_ARG=""
+          if [ -n "${{ inputs.pairs }}" ]; then
+            PAIRS_ARG="--pairs ${{ inputs.pairs }}"
+          fi
+          python fetch_historical_ohlc.py \
+            --days ${{ inputs.days }} \
+            --output historical-ohlc.json \
+            $PAIRS_ARG
+          ls -lh historical-ohlc.json
+
+      - name: Verify output sanity
+        run: |
+          python -c "
+          import json, sys
+          with open('historical-ohlc.json') as f:
+              d = json.load(f)
+          pairs = d.get('pairs', {})
+          if not pairs:
+              print('ERROR: no pairs in output')
+              sys.exit(1)
+          total = 0
+          missing = []
+          for k, v in pairs.items():
+              n_m15 = len(v.get('m15', []))
+              n_h1 = len(v.get('h1', []))
+              n_d = len(v.get('daily', []))
+              total += n_m15 + n_h1 + n_d
+              if n_m15 < 1000 or n_h1 < 100 or n_d < 30:
+                  missing.append(f'{k} (m15={n_m15}, h1={n_h1}, d={n_d})')
+          print(f'Total bars: {total:,} across {len(pairs)} pairs')
+          if missing:
+              print('WARN: pairs with thin data:', ', '.join(missing))
+          import os
+          print(f'File size: {os.path.getsize(\"historical-ohlc.json\")/(1024*1024):.2f} MB')
+          "
+
+      - name: Commit historical-ohlc.json to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Bump version in package.json so jsDelivr picks up the new file
+          if [ -f package.json ]; then
+            python -c "
+          import json, re
+          with open('package.json') as f:
+              p = json.load(f)
+          v = p.get('version', '0.0.0')
+          parts = v.split('.')
+          parts[-1] = str(int(parts[-1]) + 1)
+          p['version'] = '.'.join(parts)
+          with open('package.json', 'w') as f:
+              json.dump(p, f, indent=2)
+          print('Bumped version to', p['version'])
+          "
+            git add package.json
+          fi
+          git add historical-ohlc.json
+          git commit -m "Historical OHLC backfill — ${{ inputs.days }}d" || echo "No changes to commit"
+          git push
