@@ -1,24 +1,17 @@
 # .github/workflows/publish-intraday-ohlc.yml
 #
-# OHLC publisher v2 — OANDA-only, higher cadence via in-workflow loop.
+# OHLC publisher v3 — OANDA-only, with race-condition-resistant push.
 #
 # DESIGN:
 #   - Cron triggers every 5 minutes
 #   - Each workflow run does 2 polls 60 seconds apart (--loop 2)
 #   - Net effect: ~5 ticks per 15-minute window per pair
 #   - All FX/commodity/index pairs use OANDA (one batched API call per poll)
-#   - Crypto pairs use Coinbase public ticker (no API key needed)
 #
-# COST: ~2 minutes per workflow run × 12 runs/hour × 24h × 30d
-#       = ~17,280 minutes/month gross runtime
-#   But each run is ~2 minutes, so monthly Actions time ~5,760 min
-#   = ~$30/month over 2,000 min free tier (Linux runs at $0.008/min)
-#
-# If you need to stay strictly within free tier, change --loop 1 below
-# and the workflow will use ~2,880 min/month total. Tick density drops
-# to ~3 per bar instead of 5.
-#
-# If you want maximum density, change to --loop 4 (~$120/month).
+# WHY v3: previous version's git rebase recovery wasn't handling all race
+# conditions (e.g. when both fetch-prices and intraday workflows committed
+# simultaneously). v3 uses the same retry-with-rebase pattern that works
+# for fetch-prices.yml.
 
 name: Publish Intraday OHLC
 
@@ -65,32 +58,53 @@ jobs:
             --loop 2 \
             --interval 60
 
-      - name: Commit results with retry
+      - name: Commit and push with race-condition retry
         run: |
+          set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Stage data files
           git add intraday-ohlc.json intraday-state.json
-          if git diff --staged --quiet; then
-            echo "No changes — skipping commit"
+
+          # If nothing changed, exit cleanly
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
             exit 0
           fi
+
+          # Commit locally first
           git commit -m "chore: update intraday OHLC [skip ci]"
 
-          ATTEMPT=0
+          # Retry push loop — handle race conditions with other workflows
+          # (fetch-prices, deploy-dashboard, publish-economic-events) that
+          # all write to main concurrently.
           MAX_ATTEMPTS=5
-          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-            ATTEMPT=$((ATTEMPT+1))
-            if git push origin main; then
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Push attempt $attempt of $MAX_ATTEMPTS"
+            if git push origin main 2>&1; then
+              echo "✅ Push succeeded on attempt $attempt"
               exit 0
             fi
-            git pull --rebase origin main || {
-              git rebase --abort || true
-              git fetch origin main
-              git reset --soft origin/main
-              git add intraday-ohlc.json intraday-state.json
-              git commit -m "chore: update intraday OHLC [skip ci]" || true
-            }
-            sleep 2
+
+            if [ "$attempt" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::Push failed after $MAX_ATTEMPTS attempts"
+              exit 1
+            fi
+
+            echo "Push rejected — fetching latest main and rebasing..."
+            git fetch origin main
+            if ! git rebase origin/main; then
+              echo "Rebase conflict — taking our newly published intraday data"
+              # During rebase, --theirs refers to the commit being replayed
+              # (our new intraday data). --ours is origin/main. We want OUR data.
+              for f in intraday-ohlc.json intraday-state.json; do
+                if [ -f "$f" ]; then
+                  git checkout --theirs "$f" 2>/dev/null || true
+                  git add "$f" 2>/dev/null || true
+                fi
+              done
+              git rebase --continue || git rebase --abort
+            fi
+            sleep $((attempt * 3))
           done
-          echo "::warning::Failed to push after $MAX_ATTEMPTS attempts"
-          exit 0
