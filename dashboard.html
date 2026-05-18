@@ -1579,13 +1579,15 @@ function updateOV(k){
       if(iSig && (iSig.state === 'armed' || iSig.state === 'triggered' || iSig.state === 'invalidated')){
         var iColor, iAnim, iTip, iIcon;
         if(iSig.state === 'invalidated'){
-          // Pre-trigger invalidation by opposing CHoCH. Without this branch,
-          // the icon would silently disappear when the structure flipped
-          // before the retest, leaving the user no cue that the alert
-          // was cancelled.
+          // Pre-trigger invalidation. Either an opposing CHoCH printed
+          // before retest, or 15m/hourly direction has flipped against the
+          // macro since the setup armed. Without this branch the icon
+          // would silently disappear, leaving the user no cue.
           iColor = 'var(--bear)'; iAnim = '';
           iIcon = '⊘';
-          iTip = 'Intraday 1:1 CANCELLED — opposing CHoCH printed before retest, setup no longer valid';
+          iTip = iSig.alignmentBroken
+            ? 'Intraday 1:1 CANCELLED — 15m structure flipped vs macro; setup no longer valid'
+            : 'Intraday 1:1 CANCELLED — opposing CHoCH printed before retest, setup no longer valid';
         } else if(iSig.state === 'armed'){
           iColor = 'var(--gold)'; iAnim = '';
           iIcon = '⏳';
@@ -1601,7 +1603,9 @@ function updateOV(k){
         } else if(iSig.outcome === 'choch-invalidated'){
           iColor = 'var(--bear)'; iAnim = '';
           iIcon = '⊘';
-          iTip = 'Intraday 1:1 INVALIDATED — opposing CHoCH printed, structure flipped';
+          iTip = iSig.alignmentBroken
+            ? 'Intraday 1:1 INVALIDATED — 15m structure flipped vs macro, exit at CHoCH flip'
+            : 'Intraday 1:1 INVALIDATED — opposing CHoCH printed, structure flipped';
         } else {
           // triggered, in trade
           iColor = 'var(--gold)';
@@ -1825,9 +1829,12 @@ function getLayerDet(k,layer,sig){
           var entryDescriptor = iDir === 'bull' ? 'creator low / wick' : 'creator high / wick';
           var stateLabel, stateColor, stateIcon;
           if(iSig.state === 'invalidated'){
-            // Pre-trigger invalidation — the setup armed but an opposing
-            // CHoCH printed before the retest, so the trade thesis is dead.
-            stateLabel = 'CANCELLED &middot; opposing CHoCH pre-trigger';
+            // Pre-trigger invalidation — either the setup armed and an
+            // opposing CHoCH printed before the retest, or the 15m
+            // structure flipped against the macro after arming.
+            stateLabel = iSig.alignmentBroken
+              ? 'CANCELLED &middot; 15m flipped vs macro'
+              : 'CANCELLED &middot; opposing CHoCH pre-trigger';
             stateColor = 'var(--bear)';
             stateIcon = '⊘';
           } else if(iSig.state === 'armed'){
@@ -1837,7 +1844,12 @@ function getLayerDet(k,layer,sig){
           } else {
             if(iSig.outcome === 'target-hit'){ stateLabel = 'TRIGGERED &middot; target hit ✓'; stateColor = 'var(--bull)'; stateIcon = '⚡'; }
             else if(iSig.outcome === 'stop-hit'){ stateLabel = 'TRIGGERED &middot; stop hit ✗'; stateColor = 'var(--bear)'; stateIcon = '⚡'; }
-            else if(iSig.outcome === 'choch-invalidated'){ stateLabel = 'INVALIDATED &middot; opposing CHoCH'; stateColor = 'var(--bear)'; stateIcon = '⊘'; }
+            else if(iSig.outcome === 'choch-invalidated'){
+              stateLabel = iSig.alignmentBroken
+                ? 'INVALIDATED &middot; 15m flipped vs macro'
+                : 'INVALIDATED &middot; opposing CHoCH';
+              stateColor = 'var(--bear)'; stateIcon = '⊘';
+            }
             else { stateLabel = 'TRIGGERED &middot; in trade'; stateColor = 'var(--gold)'; stateIcon = '⚡'; }
           }
           // Timestamp: when the signal armed (creator) and when it triggered (if any)
@@ -9332,9 +9344,13 @@ function detectIntradaySignal(k){
 
   // 3/3 alignment requirement — the safety filter
   if(!ewDir || !tlDir || !nwDir) return null;
-  if(ewDir !== tlDir || tlDir !== nwDir) return null;
   if(ewDir !== 'bull' && ewDir !== 'bear') return null;
   var dir = ewDir;
+  // Detect alignment break without bailing. If EW disagrees with TL/NW, the
+  // setup has been cancelled — but we want to keep computing levels so the
+  // dashboard can render an explicit "CANCELLED" indicator instead of
+  // silently hiding the intraday signal when the 15m flips against macro.
+  var alignmentBroken = (ewDir !== tlDir || tlDir !== nwDir);
 
   // ── SEED/ENGINE CONFLICT GUARD ───────────────────────────────
   // The intraday signal is a sub-strategy of the 3/3 macro setup.
@@ -9415,10 +9431,13 @@ function detectIntradaySignal(k){
     }
   }
   // If we found a recent break and it disagrees with the seed direction,
-  // suppress the signal. The intraday market is making a different move
-  // than the macro suggests.
+  // the intraday is making a different move than the macro suggests.
+  // Previously we bailed here, which silently hid the signal once it
+  // had been invalidated by an opposing CHoCH. Now we just mark
+  // alignmentBroken so the function can still find the (now-cancelled)
+  // creator candle and report the trade as invalidated.
   if(mostRecentBreakDir && mostRecentBreakDir !== dir){
-    return null;
+    alignmentBroken = true;
   }
 
   // ── FIND THE CREATOR CANDLE ────────────────────────────────
@@ -9722,6 +9741,19 @@ function detectIntradaySignal(k){
     }
   } catch(e){ chochDiag = null; }
 
+  // If 3/3 alignment was broken between arm and now (NW or TL flipped vs
+  // macro), force the signal into a cancelled state regardless of what
+  // the in-bar walk concluded. The misalignment IS the invalidation —
+  // there's no point in continuing to track an "armed" or "in trade" setup
+  // when the structural pillars have already disagreed with each other.
+  if(alignmentBroken){
+    if(state === 'armed'){
+      state = 'invalidated';
+    } else if(state === 'triggered' && !outcome){
+      outcome = 'choch-invalidated';
+    }
+  }
+
   return {
     state: state,
     dir: dir,
@@ -9738,7 +9770,8 @@ function detectIntradaySignal(k){
     triggerBarIdx: triggerBarIdx,
     outcome: outcome,
     chochDiag: chochDiag,
-    ohlcSource: hasNative ? 'native' : 'approximated'
+    ohlcSource: hasNative ? 'native' : 'approximated',
+    alignmentBroken: alignmentBroken
   };
 }
 
@@ -10492,11 +10525,24 @@ function applyPrice(k,pd) {
   // ── LAYER 3: 15m NOWICK (Independent) ─────────────────────────
   // Reads HISTORY[k].m15 (or INTRADAY[k] if richer). Computes its own
   // direction from 15m structural breaks — does NOT inherit from EW.
+  var prevNwDir = STATE[k].nw;  // capture before update for flip detection
   var nwCalc = (typeof calcIndependentNWDir === 'function') ? calcIndependentNWDir(k) : null;
   if(nwCalc === 'bull' || nwCalc === 'bear'){
     STATE[k].nw = nwCalc;
   } else if(!STATE[k].nw){
     STATE[k].nw = STATE[k].ew || 'neutral';
+  }
+  // If the 15m structural direction just flipped, cancel any previously
+  // logged 3/3 alert in the old direction. calcNWDir's CHoCH detector
+  // (used below) only fires on the exact bar where price crosses the
+  // pivot — too narrow to catch every flip, especially when intraday
+  // data refreshes mid-rally. The structural-break flip is the more
+  // reliable signal for "the setup is dead".
+  if(prevNwDir && nwCalc && (nwCalc === 'bull' || nwCalc === 'bear') && prevNwDir !== nwCalc){
+    if(typeof logCancellation === 'function'){
+      try { logCancellation(k, prevNwDir, '15m structural flip (' + prevNwDir + ' → ' + nwCalc + ')'); }
+      catch(e){}
+    }
   }
 
   // ── EW GRADUATION: promote WickatorFX baseline to LIVE when ready ──
@@ -10613,7 +10659,14 @@ function applyPrice(k,pd) {
   // ── LAYER 3: NOWICK 15m CHoCH ──────────────────────────────────
   // Reads HISTORY[k].m15. Returns direction + pivot structure.
   var nwResult = calcNWDir(k, ew);
-  STATE[k].nw = nwResult.dir;
+  // Do NOT overwrite STATE[k].nw with nwResult.dir here. calcNWDir is a
+  // moment-of-CHoCH detector — at the exact bar where the close crosses
+  // the opposing pivot it returns the new direction; on every other bar
+  // its fallback is `ew` (the macro direction). Overwriting with that
+  // erased the structural-break direction set above by calcIndependentNWDir
+  // one line later, so a 15m bullish reversal during a bear macro would
+  // silently snap back to 'bear' on the very next tick. We only need the
+  // pivot levels and the CHoCH flag from this call.
   STATE[k].nwTop = nwResult.activeTop;
   STATE[k].nwBtm = nwResult.activeBtm;
   STATE[k].nwChoCH = nwResult.choch;
