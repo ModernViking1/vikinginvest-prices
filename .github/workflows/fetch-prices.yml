@@ -119,6 +119,13 @@ jobs:
 
       - name: Purge jsDelivr cache (non-fatal)
         run: |
+          # /npm/ cache: invalidate every data file the npm publish above
+          # just bundled, so the dashboard's npm fallback paths return the
+          # snapshot we just published rather than the previous version.
           curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/prices.json" || echo "purge npm prices failed"
           curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/history.json" || echo "purge npm history failed"
+          curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/intraday-ohlc.json" || echo "purge npm intraday-ohlc failed"
+          curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/events.json" || echo "purge npm events failed"
+          # /gh/@main cache: prices.json updates here too (history.json is
+          # large enough that gh@main is rarely fetched).
           curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/prices.json" || echo "purge gh prices failed"

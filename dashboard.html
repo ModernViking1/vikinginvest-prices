@@ -1576,9 +1576,17 @@ function updateOV(k){
   if(typeof detectIntradaySignal === 'function'){
     try {
       var iSig = detectIntradaySignal(k);
-      if(iSig && (iSig.state === 'armed' || iSig.state === 'triggered')){
+      if(iSig && (iSig.state === 'armed' || iSig.state === 'triggered' || iSig.state === 'invalidated')){
         var iColor, iAnim, iTip, iIcon;
-        if(iSig.state === 'armed'){
+        if(iSig.state === 'invalidated'){
+          // Pre-trigger invalidation by opposing CHoCH. Without this branch,
+          // the icon would silently disappear when the structure flipped
+          // before the retest, leaving the user no cue that the alert
+          // was cancelled.
+          iColor = 'var(--bear)'; iAnim = '';
+          iIcon = '⊘';
+          iTip = 'Intraday 1:1 CANCELLED — opposing CHoCH printed before retest, setup no longer valid';
+        } else if(iSig.state === 'armed'){
           iColor = 'var(--gold)'; iAnim = '';
           iIcon = '⏳';
           iTip = 'Intraday 1:1 ARMED — awaiting retest at ' + iSig.entry.toFixed(iSig.entry < 10 ? 4 : (iSig.entry < 100 ? 3 : 2));
@@ -1801,7 +1809,7 @@ function getLayerDet(k,layer,sig){
     try {
       if(typeof detectIntradaySignal === 'function'){
         var iSig = detectIntradaySignal(k);
-        if(iSig && (iSig.state === 'armed' || iSig.state === 'triggered')){
+        if(iSig && (iSig.state === 'armed' || iSig.state === 'triggered' || iSig.state === 'invalidated')){
           var iDir = iSig.dir;
           var fmt = function(v){
             if(v == null) return '—';
@@ -1816,7 +1824,13 @@ function getLayerDet(k,layer,sig){
           var actionVerb = iDir === 'bull' ? 'BUY' : 'SELL';
           var entryDescriptor = iDir === 'bull' ? 'creator low / wick' : 'creator high / wick';
           var stateLabel, stateColor, stateIcon;
-          if(iSig.state === 'armed'){
+          if(iSig.state === 'invalidated'){
+            // Pre-trigger invalidation — the setup armed but an opposing
+            // CHoCH printed before the retest, so the trade thesis is dead.
+            stateLabel = 'CANCELLED &middot; opposing CHoCH pre-trigger';
+            stateColor = 'var(--bear)';
+            stateIcon = '⊘';
+          } else if(iSig.state === 'armed'){
             stateLabel = 'ARMED &middot; awaiting retest';
             stateColor = 'var(--gold)';
             stateIcon = '⏳';
@@ -3249,14 +3263,33 @@ function eventsAffecting(k, hoursAhead){
 // Fetches events.json from the public CDN. Best-effort: if it fails,
 // the dashboard simply behaves as if there are no upcoming events.
 function fetchEvents(){
-  var url = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/events.json';
-  return fetch(url, {method:'GET', cache:'no-store'})
-    .then(function(r){
-      if(!r.ok) throw new Error('HTTP'+r.status);
-      return r.json();
+  // events.json is written by publish-events.yml every hour but is NOT
+  // republished to npm on its own (only fetch-prices.yml does npm publish).
+  // Use /gh/@main first so the file reflects git HEAD; fall back to npm
+  // (older but stable) and raw.githubusercontent (uncached, last resort).
+  var urlGh  = 'https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/events.json';
+  var urlNpm = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/events.json';
+  var urlRaw = 'https://raw.githubusercontent.com/ModernViking1/vikinginvest-prices/main/events.json';
+
+  function tryFetch(url, label){
+    return fetch(url, {method:'GET', cache:'no-store'})
+      .then(function(r){
+        if(!r.ok) throw new Error('HTTP'+r.status+'_at_'+label);
+        return r.json();
+      })
+      .then(function(d){
+        if(!d || !Array.isArray(d.events)) throw new Error('no_events_field_at_'+label);
+        return d;
+      });
+  }
+
+  return tryFetch(urlGh, 'gh')
+    .catch(function(e1){
+      return tryFetch(urlNpm, 'npm').catch(function(e2){
+        return tryFetch(urlRaw, 'raw');
+      });
     })
     .then(function(d){
-      if(!d || !Array.isArray(d.events)) throw new Error('no_events_field');
       EVENTS = d.events;
       EVENTS_UPDATED = d.updated || null;
       EVENTS_ERR = null;
@@ -3501,8 +3534,16 @@ function fetchVikingIntraday(){
   //
   // Heuristic for "richer": pair count × min-ticks-per-pair. A file
   // with 22 pairs at 96 bars each beats one with 22 pairs at 5 bars.
-  var urlOhlc   = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/intraday-ohlc.json';
-  var urlLegacy = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/intraday.json';
+  // Multi-source OHLC fetch. The /npm/ path lags because the npm package
+  // is only re-published by fetch-prices.yml (every ~15 min cron, often
+  // throttled by GitHub Actions) — but intraday-ohlc.json itself updates
+  // every ~5 min in git. /gh/@main and raw.githubusercontent reflect git
+  // HEAD directly, so they're typically much fresher. The freshness
+  // selector below picks whichever source has the newest last tick.
+  var urlOhlcGh  = 'https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/intraday-ohlc.json';
+  var urlOhlcNpm = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/intraday-ohlc.json';
+  var urlOhlcRaw = 'https://raw.githubusercontent.com/ModernViking1/vikinginvest-prices/main/intraday-ohlc.json';
+  var urlLegacy  = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/intraday.json';
 
   var tryUrl = function(url){
     return fetch(url, {method:'GET', cache:'no-store'})
@@ -3542,13 +3583,39 @@ function fetchVikingIntraday(){
     return latest;
   };
 
-  return Promise.all([tryUrl(urlOhlc), tryUrl(urlLegacy)])
+  return Promise.all([
+      tryUrl(urlOhlcGh),
+      tryUrl(urlOhlcNpm),
+      tryUrl(urlOhlcRaw),
+      tryUrl(urlLegacy)
+    ])
     .then(function(results){
-      var ohlcData   = results[0];
-      var legacyData = results[1];
+      // Pick the freshest OHLC source from gh@main / npm / raw. Each path
+      // can be at a different cache age — gh@main is purged on every
+      // intraday workflow commit, npm only refreshes on fetch-prices runs,
+      // raw is uncached but rate-limited. Whichever has the newest tick wins.
+      var ohlcSources = [
+        { data: results[0], label: 'gh'  },
+        { data: results[1], label: 'npm' },
+        { data: results[2], label: 'raw' }
+      ];
+      var ohlcData = null, ohlcSourceLabel = 'none';
+      var ohlcFresh = 0;
+      ohlcSources.forEach(function(s){
+        var fr = freshnessOf(s.data);
+        if(fr > ohlcFresh){ ohlcFresh = fr; ohlcData = s.data; ohlcSourceLabel = s.label; }
+      });
+      // If none had usable freshness (e.g. all empty), fall back to whichever
+      // returned something at all, just to populate the dashboard with shape.
+      if(!ohlcData){
+        for(var i=0; i<ohlcSources.length; i++){
+          if(ohlcSources[i].data){ ohlcData = ohlcSources[i].data; ohlcSourceLabel = ohlcSources[i].label; break; }
+        }
+      }
+      window._intradayOhlcSourceLabel = ohlcSourceLabel;
+      var legacyData = results[3];
       var ohlcScore   = scoreData(ohlcData);
       var legacyScore = scoreData(legacyData);
-      var ohlcFresh   = freshnessOf(ohlcData);
       var legacyFresh = freshnessOf(legacyData);
 
       // ── SELECTION LOGIC v2 ──
@@ -4961,6 +5028,28 @@ function setView(k,tf,btn){STATE[k].view=tf;var parent=btn.closest('.cbtns');if(
 
 // ── Log ───────────────────────────────────────────────────────
 function logSignal(k,dir){var key=k+'-'+dir;if(loggedSess[key])return;loggedSess[key]=true;var m=MKTS[k],t=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),col=dir==='bear'?'var(--bear)':'var(--bull)',bg=dir==='bear'?'var(--beart)':'var(--bullt)';var snapId=null;try{snapId=captureTradingSnapshot(k,dir);}catch(e){}var msg=(dir==='bear'?'&#128308;':'&#128994;')+' '+m.sym+' 3/3 '+(dir==='bear'?'BEAR':'BULL')+' &#183; Watch zone:'+setupField(k,'entry')+' &#183; Stop ref:'+setupField(k,'stop')+' &#183; Target:'+setupField(k,'tgt')+' &#183; '+setupField(k,'rr')+' &#183; Confirm on 15m';logItems.unshift({k:k,dir:dir,msg:msg,t:t,col:col,bg:bg,sym:m.sym,snapId:snapId});if(logItems.length>80)logItems.pop();renderLog();}
+
+// Emit a "cancelled" entry to the signal log when a previously-logged 3/3
+// alert is invalidated by an opposing 15m Nowick CHoCH. Clears loggedSess
+// for that direction so a future re-flip can re-arm the alert normally.
+function logCancellation(k, cancelledDir, reason){
+  var m = MKTS[k]; if(!m) return;
+  var key = k + '-' + cancelledDir;
+  // Only emit if we actually had a logged alert in that direction
+  if(typeof loggedSess === 'undefined' || !loggedSess[key]) return;
+  delete loggedSess[key];
+  var t = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+  var dirWord = cancelledDir === 'bear' ? 'BEAR' : 'BULL';
+  var msg = '⊘ ' + m.sym + ' 3/3 ' + dirWord + ' CANCELLED &#183; '
+          + reason + ' &#183; structure flipped, setup no longer valid';
+  logItems.unshift({
+    k: k, dir: cancelledDir, msg: msg, t: t,
+    col: 'var(--inkd)', bg: 'rgba(0,0,0,0.04)',
+    sym: m.sym, cancelled: true
+  });
+  if(logItems.length > 80) logItems.pop();
+  try { renderLog(); } catch(e){}
+}
 
 // ── TRADE JOURNAL ──────────────────────────────────────────────
 // Single source of truth for the journal lives further below
@@ -10537,6 +10626,15 @@ function applyPrice(k,pd) {
       // Log this trade signal
       logLiveSignal(k, setup);
     }
+    // Opposing-CHoCH cancellation: if a 3/3 alert was previously logged in
+    // the opposite direction, emit an explicit cancellation entry so the
+    // user has a visible signal that the prior setup is dead.
+    try {
+      var oppDir = nwResult.dir === 'bull' ? 'bear' : (nwResult.dir === 'bear' ? 'bull' : null);
+      if(oppDir && typeof logCancellation === 'function'){
+        logCancellation(k, oppDir, 'opposing 15m Nowick CHoCH');
+      }
+    } catch(e){}
   }
 
   // Chart data — real candles from HISTORICAL/HISTORY buffers (with
