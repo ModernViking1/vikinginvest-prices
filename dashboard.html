@@ -1708,21 +1708,10 @@ function buildPanel(k){
   var lg=document.createElement('div');lg.className='lgrid';
   [{key:'ew',ttl:'Macro (Daily)',tf:'D/W'},{key:'tl',ttl:'Hourly',tf:'1H'},{key:'nw',ttl:'15m',tf:'15m'}].forEach(function(ld,i){
     var sig=STATE[k][ld.key];
-    // Direction-conflict override. getLayerDet() reads setup
-    // targets/zones from the WickatorFX seed baseline via setupField().
-    // When the engine direction has flipped but the seed hasn't (the
-    // "DIRECTION CONFLICT — awaiting auto-EW" banner state), showing
-    // a ▲ BULL pill alongside SELL-ZONE / bearish-target text is
-    // contradictory — SUI is a clear example. Switch the pill +
-    // description to seed direction so the card reads coherently with
-    // the numbers shown on it. The top conflict banner already explains
-    // why the engine disagrees, so we're not hiding information.
-    try {
-      var seedW = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k]) ? WICKATOR_EW[k] : null;
-      if(seedW && seedW.dir && sig && seedW.dir !== sig){
-        sig = seedW.dir;
-      }
-    } catch(e){}
+    // (No seed-override here — pills must reflect engine direction so
+    // they match the score badge from sc(k). Conflict between seed and
+    // engine is surfaced inside getLayerDet via a "⚠ engine X but seed Y"
+    // tag on the macro card body.)
     var card=document.createElement('div');card.className='lcard '+(sig==='bear'?'ab':sig==='bull'?'ag':'an');card.id='lc-'+k+'-'+ld.key;
     var pc=sig==='bear'?'pb':sig==='bull'?'pg':'pn',pt=sig==='bear'?'&#9660; BEAR':sig==='bull'?'&#9650; BULL':'&#9679; NEUTRAL';
     card.innerHTML='<div class="lhd"><div class="lnum">'+(i+1)+'</div><div class="lttl">'+ld.ttl+'</div><div class="ltf">'+ld.tf+'</div></div><div class="lbdy"><div class="lpill '+pc+'" id="lp-'+k+'-'+ld.key+'">'+pt+'</div><div class="ldet" id="ld-'+k+'-'+ld.key+'">'+getLayerDet(k,ld.key,sig)+'</div></div>';
@@ -1785,8 +1774,21 @@ function getLayerDet(k,layer,sig){
                    '<span class="rb">Inv</span> '+invTxt+srcTag+'</span>';
       }
     } catch(e){}
-    if(sig==='bear')return '<span class="rb">Bearish</span> macro. LH/LL daily structure. Target: <span class="rb">'+setupField(k,'tgt')+'</span>'+waveSuffix+tpSuffix;
-    if(sig==='bull')return '<span class="rg">Bullish</span> macro. HH/HL daily structure. Target: <span class="rg">'+setupField(k,'tgt')+'</span>'+waveSuffix+tpSuffix;
+    // Conflict marker: setupField() targets come from the WickatorFX seed,
+    // but `sig` is the engine direction. When they disagree, the card
+    // would otherwise show e.g. "Bullish macro. Target: <bearish levels>"
+    // with no visible explanation of why. Surface the conflict explicitly
+    // here so the user sees it inside the same card where the mismatch
+    // would appear.
+    var conflictTag = '';
+    try {
+      var _seedEW = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k]) ? WICKATOR_EW[k] : null;
+      if(_seedEW && _seedEW.dir && (sig === 'bull' || sig === 'bear') && _seedEW.dir !== sig){
+        conflictTag = ' <span style="color:var(--gold);font-size:8.5px;font-weight:700;" title="Engine ('+sig.toUpperCase()+') and WickatorFX seed ('+_seedEW.dir.toUpperCase()+') disagree on macro direction. Targets shown are seed-direction; engine has not yet confirmed.">&#9888; engine '+sig.toUpperCase()+' / seed '+_seedEW.dir.toUpperCase()+'</span>';
+      }
+    } catch(e){}
+    if(sig==='bear')return '<span class="rb">Bearish</span> macro. LH/LL daily structure. Target: <span class="rb">'+setupField(k,'tgt')+'</span>'+conflictTag+waveSuffix+tpSuffix;
+    if(sig==='bull')return '<span class="rg">Bullish</span> macro. HH/HL daily structure. Target: <span class="rg">'+setupField(k,'tgt')+'</span>'+conflictTag+waveSuffix+tpSuffix;
     return '<span class="ro">Neutral</span> &#8212; transitioning. Await structure formation.'+waveSuffix+tpSuffix;
   }
   if(layer==='tl'){
@@ -2042,20 +2044,14 @@ function refreshAlert(k){
   var score=sc(k),m=MKTS[k];
   var ab=document.getElementById('alert-'+k),ico=document.getElementById('ico-'+k),atit=document.getElementById('atit-'+k),adsc=document.getElementById('adsc-'+k),sco=document.getElementById('sco-'+k);
   if(!ab)return;
-  // Same direction-conflict override as buildPanel's layer-card render:
-  // when seed and engine disagree, the displayed setup targets come from
-  // the seed via setupField(), so the pill + descriptive text should also
-  // reflect the seed direction so the card is internally consistent.
-  // (See the comment in buildPanel for full rationale.)
-  var _seedW = null;
-  try {
-    _seedW = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k]) ? WICKATOR_EW[k] : null;
-  } catch(e){}
+  // Pills derive directly from STATE[layer] (engine direction) so they
+  // match the score badge from sc(k). Conflict between engine and seed
+  // is surfaced inside getLayerDet via a "⚠ engine X but seed Y" tag on
+  // the macro card body instead of by overriding the pill — that earlier
+  // approach forced neutral pills to seed direction and produced 3-BULL
+  // pills with a 1/3 score badge.
   ['ew','tl','nw'].forEach(function(l){
     var sig=STATE[k][l];
-    if(_seedW && _seedW.dir && sig && _seedW.dir !== sig){
-      sig = _seedW.dir;
-    }
     var card=document.getElementById('lc-'+k+'-'+l),
         pill=document.getElementById('lp-'+k+'-'+l),
         det=document.getElementById('ld-'+k+'-'+l);
