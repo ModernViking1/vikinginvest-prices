@@ -355,6 +355,20 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     </div>
   </div>
 
+  <!-- ── 1b. FORCE RE-RUN — clears the localStorage backtest cache and
+       recomputes every pair against the latest detection logic. Useful
+       after a logic change (e.g. PR #3 alignment-broken, PR #4
+       TRIGGERED_MAX_BARS) lands and you want to see updated numbers
+       without waiting for the 4-h cache TTL. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btForceRerunBtn"
+            onclick="forceRerunAllBacktests();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid var(--gold);background:rgba(200,134,10,0.08);color:var(--gold);border-radius:3px;cursor:pointer;">
+      ↻ FORCE RE-RUN BACKTESTS
+    </button>
+    <span id="btForceRerunStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+
   <!-- ── 2. PER-PAIR BACKTEST CARDS (the actual content) ── -->
   <div class="mktcards" id="mktCards"></div>
 
@@ -8337,7 +8351,11 @@ function calcIndependentNWDir(k){
 //
 // Or null if pair has insufficient buffered data for analysis.
 
-var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v1';
+// v2 — bumped to invalidate older cached results that pre-date the
+// TRIGGERED_MAX_BARS (PR #4) and alignment-broken (PR #3) parity
+// updates inside calcRecentBacktest. Old cached entries computed
+// without those exits will be stale on next page load.
+var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v2';
 var RECENT_BT_CACHE_TTL_MS = 4 * 60 * 60 * 1000;  // 4 hours
 
 function _loadRecentBtCache(){
@@ -8663,6 +8681,7 @@ function calcRecentBacktest(k){
     // win/loss/invalidation. New CHoCH bars are continuation noise within
     // the move we already entered.
     var triggered = false;
+    var triggerBarJ = -1;     // bar where trigger fired (for TRIGGERED_MAX_BARS check)
     var resolved = null;
     var resolvedAt = i;
     var failureMode = null;
@@ -8785,9 +8804,10 @@ function calcRecentBacktest(k){
         }
         var reaches = (alignedDir === 'bear' && b.h >= entryLive) ||
                       (alignedDir === 'bull' && b.l <= entryLive);
-        if(reaches){ triggered = true; resolvedAt = j; }
+        if(reaches){ triggered = true; triggerBarJ = j; resolvedAt = j; }
       } else {
         // ── AFTER TRIGGER: no re-arm. Manage existing trade. ──
+        // Target / stop always come first — they're the actionable exits.
         if(alignedDir === 'bear'){
           var fav = (entryLive - b.l) / RLive;
           if(fav > maxFavorable) maxFavorable = fav;
@@ -8807,11 +8827,33 @@ function calcRecentBacktest(k){
             resolvedAt = j; break;
           }
         }
+        // Opposing m15 CHoCH (NW flip detected via structure scan)
         if(typeof detectOpposingCHoCH === 'function'){
           var oppPost = detectOpposingCHoCH(m15Bars, i, j, alignedDir, minProm);
           if(oppPost > resolvedAt){
             resolved = 'invalidated'; failureMode = 'choch-post-trigger'; resolvedAt = j; break;
           }
+        }
+        // PR #3 parity: alignment-broken post-trigger. If EW (daily) or TL
+        // (hourly) has flipped against alignedDir while in trade, the live
+        // detector would exit via outcome='choch-invalidated' with
+        // alignmentBroken=true. Mirror that here. ewDirAtTime is cached
+        // per-day so it's cheap; tlBreakDir is incrementally maintained.
+        var ewAtJpost = (typeof ewDirAtTime === 'function') ? ewDirAtTime(k, m15Ts[j]) : null;
+        var h1IdxJpost = findH1IdxAt(m15Ts[j]);
+        if(h1IdxJpost >= 0) updateTLDir(h1IdxJpost);
+        if(ewAtJpost && ewAtJpost !== alignedDir){
+          resolved = 'invalidated'; failureMode = 'alignment-broken-ew-post-trigger'; resolvedAt = j; break;
+        }
+        if(tlBreakDir && tlBreakDir !== alignedDir){
+          resolved = 'invalidated'; failureMode = 'alignment-broken-tl-post-trigger'; resolvedAt = j; break;
+        }
+        // PR #4 parity: TRIGGERED_MAX_BARS = 16 (4h on 15m). Trades that
+        // haven't resolved within 4h post-trigger are marked stale-expired
+        // by the live detector; the backtest now counts them the same way
+        // instead of letting them run to the outer 32-bar window cap.
+        if(triggerBarJ >= 0 && (j - triggerBarJ) > 16){
+          resolved = 'expired'; failureMode = 'stale-no-resolution-post-trigger'; resolvedAt = j; break;
         }
       }
     }
@@ -9000,6 +9042,43 @@ function computeAllRecentBacktests(forceRefresh){
 // onComplete(results) is called when all pairs done.
 //
 // Returns immediately; work runs async via setTimeout(0).
+// User-facing handler for the "↻ FORCE RE-RUN BACKTESTS" button on
+// the Backtest tab. Clears the localStorage cache, kicks off an async
+// recompute across all pairs, and re-renders the affected UI sections
+// when done. Also re-renders the failure-mode analysis since that
+// reads from the same per-pair classifySimulatedTrades source.
+function forceRerunAllBacktests(){
+  var btn = document.getElementById('btForceRerunBtn');
+  var statusEl = document.getElementById('btForceRerunStatus');
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '↻ RUNNING...'; }
+  if(statusEl) statusEl.textContent = 'Clearing cache and recomputing all pairs...';
+  try { localStorage.removeItem(RECENT_BT_CACHE_KEY); } catch(e){}
+  // computeAllRecentBacktestsAsync with forceRefresh=true skips the
+  // cache load step. Progress callback updates the status line so the
+  // user has feedback during the (~5-15 sec) compute.
+  if(typeof computeAllRecentBacktestsAsync !== 'function'){
+    if(statusEl) statusEl.textContent = 'Backtest engine not loaded';
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '↻ FORCE RE-RUN BACKTESTS'; }
+    return;
+  }
+  computeAllRecentBacktestsAsync(true,
+    function(done, total, pairKey){
+      if(statusEl) statusEl.textContent = 'Computing... ' + done + '/' + total + ' (' + (pairKey || '...') + ')';
+    },
+    function(results, fromCache){
+      if(statusEl){
+        var ts = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+        statusEl.textContent = '✓ Completed ' + Object.keys(results).length + ' pairs at ' + ts;
+      }
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '↻ FORCE RE-RUN BACKTESTS'; }
+      // Re-render any UI that depends on backtest results
+      try { if(typeof refreshBacktestWR === 'function') refreshBacktestWR(); } catch(e){}
+      try { if(typeof renderFailureModeAnalysis === 'function') renderFailureModeAnalysis(); } catch(e){}
+      try { Object.keys(MKTS).forEach(function(k){ if(typeof refreshAlert === 'function') refreshAlert(k); }); } catch(e){}
+    }
+  );
+}
+
 function computeAllRecentBacktestsAsync(forceRefresh, onProgress, onComplete){
   if(!forceRefresh){
     var cached = _loadRecentBtCache();
@@ -10341,6 +10420,21 @@ function classifySimulatedTrades(k){
           if(pctToTarget > reachToTarget) reachToTarget = pctToTarget;
           if(b.h >= setup.target){ resolved='win'; resolvedAt=j; break; }
           if(b.l <= setup.stop){ resolved='loss'; resolvedAt=j; break; }
+        }
+        // PR #3 parity (post-trigger opposing CHoCH). Match the live
+        // detector by exiting if structure has flipped on m15 after
+        // trigger. classifySimulatedTrades doesn't carry EW/TL per-bar
+        // state so we only check m15 here.
+        if(typeof detectOpposingCHoCH === 'function'){
+          var clsOppPost = detectOpposingCHoCH(bars, setup.creatorIdx, j, setup.dir, clsMinProminence);
+          if(clsOppPost > triggeredAt){
+            resolved='invalidated'; resolvedAt=j; break;
+          }
+        }
+        // PR #4 parity. After TRIGGERED_MAX_BARS (16) without resolution
+        // the live detector now exits with outcome='stale-expired'.
+        if(triggeredAt >= 0 && (j - triggeredAt) > 16){
+          resolved='expired'; resolvedAt=j; break;
         }
       }
     }
