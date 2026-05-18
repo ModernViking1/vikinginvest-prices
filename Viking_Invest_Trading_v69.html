@@ -6588,60 +6588,88 @@ function getUserOverrides() {
 // been observed to block /gh/ paths (CORS/CSP) while allowing /npm/ paths.
 // Fawaz works via /npm/ so we know that path is whitelisted. If npm publish
 // fails or hasn't happened yet, we fall through to /gh/ and raw.github.
+// Multi-source prices fetch.
+//
+// Previously this was a 4-tier cascade (npm → gh@main → gh@latest → raw)
+// that only fell through to the next URL on HTTP error. That hid stale
+// reads: jsDelivr's /npm/@latest path caches the resolution of the npm
+// "latest" tag and can serve a previous version's prices.json long after
+// a new version has been published, returning 200 OK on stale content.
+// The dashboard would happily render that as "live" forever.
+//
+// New behaviour: fetch all four in parallel, then pick the source whose
+// `updated` timestamp is freshest. iOS WebView restrictions on /gh/
+// paths still apply — when those fail, the freshness selector simply
+// falls back to whichever source did succeed. The npm path remains a
+// supported fallback because Fawaz / Claude.ai iOS contexts have been
+// observed blocking the /gh/ paths.
 function fetchViking15min() {
-  // PRIMARY: npm path (matches Fawaz's working pattern — should work in iOS WebView)
   var urlNpm    = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/prices.json';
-  // Fallbacks: /gh/ paths (may fail in Claude.ai iOS WebView)
   var urlGhMain = 'https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/prices.json';
   var urlGhLat  = 'https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices/prices.json';
-  // Last resort: raw GitHub (bypasses jsDelivr entirely)
   var urlRaw    = 'https://raw.githubusercontent.com/ModernViking1/vikinginvest-prices/main/prices.json';
 
   function tryFetch(url, tag){
     return fetch(url, {method:'GET', cache:'no-store'})
       .then(function(r){
-        window._vikHttp = r.status;
-        window._vikUrl = tag;
-        if(!r.ok) throw new Error('HTTP'+r.status);
+        if(!r.ok) return null;
         return r.json();
       })
       .then(function(d){
-        if(!d || !d.prices) throw new Error('no_prices_field');
+        if(!d || !d.prices) return null;
         var out = {};
         Object.keys(d.prices).forEach(function(k){
           var row = d.prices[k];
           if(row && row.price > 0) out[k] = {price: row.price, chgPct: row.chgPct || 0};
         });
-        var cnt = Object.keys(out).length;
-        if(cnt === 0) throw new Error('empty_prices');
-        window._vikCount = cnt;
-        window._vikUpdated = d.updated;
-        try { if(typeof updateStalenessBanner === 'function') updateStalenessBanner(); } catch(e){}
-        window._vikErr = null;
-        return out;
-      });
+        if(Object.keys(out).length === 0) return null;
+        return { source: tag, updated: d.updated || null, prices: out };
+      })
+      .catch(function(){ return null; });
   }
 
-  // 4-tier cascade: npm → gh@main → gh@latest → raw.github
-  return tryFetch(urlNpm, 'npm')
-    .catch(function(e1){
-      var err1 = (e1 && e1.message) ? e1.message.substring(0,15) : 'fail';
-      return tryFetch(urlGhMain, 'gh-main')
-        .catch(function(e2){
-          var err2 = (e2 && e2.message) ? e2.message.substring(0,15) : 'fail';
-          return tryFetch(urlGhLat, 'gh-latest')
-            .catch(function(e3){
-              var err3 = (e3 && e3.message) ? e3.message.substring(0,15) : 'fail';
-              return tryFetch(urlRaw, 'raw')
-                .catch(function(e4){
-                  var err4 = (e4 && e4.message) ? e4.message.substring(0,15) : 'fail';
-                  window._vikErr = 'npm:'+err1+'|gh:'+err2+'|ghL:'+err3+'|raw:'+err4;
-                  window._vikCount = 0;
-                  return {};
-                });
-            });
-        });
+  return Promise.all([
+    tryFetch(urlNpm,    'npm'),
+    tryFetch(urlGhMain, 'gh-main'),
+    tryFetch(urlGhLat,  'gh-latest'),
+    tryFetch(urlRaw,    'raw')
+  ]).then(function(results){
+    // Pick the source with the freshest `updated` timestamp. If none of
+    // the successful responses carry an `updated` field, fall back to
+    // the first non-null result in priority order (npm first to match
+    // legacy behaviour on iOS WebView).
+    var best = null, bestAge = Infinity;
+    var errParts = [];
+    var sourceTags = ['npm','gh-main','gh-latest','raw'];
+    results.forEach(function(r, i){
+      if(!r){ errParts.push(sourceTags[i] + ':fail'); return; }
+      var ms = r.updated ? new Date(r.updated).getTime() : NaN;
+      var age = isFinite(ms) ? (Date.now() - ms) : Infinity;
+      if(age < bestAge){
+        bestAge = age;
+        best = r;
+      }
     });
+    if(!best){
+      for(var i = 0; i < results.length; i++){
+        if(results[i]){ best = results[i]; break; }
+      }
+    }
+    if(!best){
+      window._vikErr = errParts.join('|') || 'all_sources_failed';
+      window._vikCount = 0;
+      window._vikHttp = 0;
+      window._vikUrl = 'none';
+      return {};
+    }
+    window._vikHttp = 200;
+    window._vikUrl = best.source;
+    window._vikCount = Object.keys(best.prices).length;
+    window._vikUpdated = best.updated;
+    window._vikErr = errParts.length ? errParts.join('|') : null;
+    try { if(typeof updateStalenessBanner === 'function') updateStalenessBanner(); } catch(e){}
+    return best.prices;
+  });
 }
 
 function fetchFawazPrimary() {
