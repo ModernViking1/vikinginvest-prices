@@ -1576,9 +1576,17 @@ function updateOV(k){
   if(typeof detectIntradaySignal === 'function'){
     try {
       var iSig = detectIntradaySignal(k);
-      if(iSig && (iSig.state === 'armed' || iSig.state === 'triggered')){
+      if(iSig && (iSig.state === 'armed' || iSig.state === 'triggered' || iSig.state === 'invalidated')){
         var iColor, iAnim, iTip, iIcon;
-        if(iSig.state === 'armed'){
+        if(iSig.state === 'invalidated'){
+          // Pre-trigger invalidation by opposing CHoCH. Without this branch,
+          // the icon would silently disappear when the structure flipped
+          // before the retest, leaving the user no cue that the alert
+          // was cancelled.
+          iColor = 'var(--bear)'; iAnim = '';
+          iIcon = '⊘';
+          iTip = 'Intraday 1:1 CANCELLED — opposing CHoCH printed before retest, setup no longer valid';
+        } else if(iSig.state === 'armed'){
           iColor = 'var(--gold)'; iAnim = '';
           iIcon = '⏳';
           iTip = 'Intraday 1:1 ARMED — awaiting retest at ' + iSig.entry.toFixed(iSig.entry < 10 ? 4 : (iSig.entry < 100 ? 3 : 2));
@@ -1801,7 +1809,7 @@ function getLayerDet(k,layer,sig){
     try {
       if(typeof detectIntradaySignal === 'function'){
         var iSig = detectIntradaySignal(k);
-        if(iSig && (iSig.state === 'armed' || iSig.state === 'triggered')){
+        if(iSig && (iSig.state === 'armed' || iSig.state === 'triggered' || iSig.state === 'invalidated')){
           var iDir = iSig.dir;
           var fmt = function(v){
             if(v == null) return '—';
@@ -1816,7 +1824,13 @@ function getLayerDet(k,layer,sig){
           var actionVerb = iDir === 'bull' ? 'BUY' : 'SELL';
           var entryDescriptor = iDir === 'bull' ? 'creator low / wick' : 'creator high / wick';
           var stateLabel, stateColor, stateIcon;
-          if(iSig.state === 'armed'){
+          if(iSig.state === 'invalidated'){
+            // Pre-trigger invalidation — the setup armed but an opposing
+            // CHoCH printed before the retest, so the trade thesis is dead.
+            stateLabel = 'CANCELLED &middot; opposing CHoCH pre-trigger';
+            stateColor = 'var(--bear)';
+            stateIcon = '⊘';
+          } else if(iSig.state === 'armed'){
             stateLabel = 'ARMED &middot; awaiting retest';
             stateColor = 'var(--gold)';
             stateIcon = '⏳';
@@ -5014,6 +5028,28 @@ function setView(k,tf,btn){STATE[k].view=tf;var parent=btn.closest('.cbtns');if(
 
 // ── Log ───────────────────────────────────────────────────────
 function logSignal(k,dir){var key=k+'-'+dir;if(loggedSess[key])return;loggedSess[key]=true;var m=MKTS[k],t=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),col=dir==='bear'?'var(--bear)':'var(--bull)',bg=dir==='bear'?'var(--beart)':'var(--bullt)';var snapId=null;try{snapId=captureTradingSnapshot(k,dir);}catch(e){}var msg=(dir==='bear'?'&#128308;':'&#128994;')+' '+m.sym+' 3/3 '+(dir==='bear'?'BEAR':'BULL')+' &#183; Watch zone:'+setupField(k,'entry')+' &#183; Stop ref:'+setupField(k,'stop')+' &#183; Target:'+setupField(k,'tgt')+' &#183; '+setupField(k,'rr')+' &#183; Confirm on 15m';logItems.unshift({k:k,dir:dir,msg:msg,t:t,col:col,bg:bg,sym:m.sym,snapId:snapId});if(logItems.length>80)logItems.pop();renderLog();}
+
+// Emit a "cancelled" entry to the signal log when a previously-logged 3/3
+// alert is invalidated by an opposing 15m Nowick CHoCH. Clears loggedSess
+// for that direction so a future re-flip can re-arm the alert normally.
+function logCancellation(k, cancelledDir, reason){
+  var m = MKTS[k]; if(!m) return;
+  var key = k + '-' + cancelledDir;
+  // Only emit if we actually had a logged alert in that direction
+  if(typeof loggedSess === 'undefined' || !loggedSess[key]) return;
+  delete loggedSess[key];
+  var t = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+  var dirWord = cancelledDir === 'bear' ? 'BEAR' : 'BULL';
+  var msg = '⊘ ' + m.sym + ' 3/3 ' + dirWord + ' CANCELLED &#183; '
+          + reason + ' &#183; structure flipped, setup no longer valid';
+  logItems.unshift({
+    k: k, dir: cancelledDir, msg: msg, t: t,
+    col: 'var(--inkd)', bg: 'rgba(0,0,0,0.04)',
+    sym: m.sym, cancelled: true
+  });
+  if(logItems.length > 80) logItems.pop();
+  try { renderLog(); } catch(e){}
+}
 
 // ── TRADE JOURNAL ──────────────────────────────────────────────
 // Single source of truth for the journal lives further below
@@ -10590,6 +10626,15 @@ function applyPrice(k,pd) {
       // Log this trade signal
       logLiveSignal(k, setup);
     }
+    // Opposing-CHoCH cancellation: if a 3/3 alert was previously logged in
+    // the opposite direction, emit an explicit cancellation entry so the
+    // user has a visible signal that the prior setup is dead.
+    try {
+      var oppDir = nwResult.dir === 'bull' ? 'bear' : (nwResult.dir === 'bear' ? 'bull' : null);
+      if(oppDir && typeof logCancellation === 'function'){
+        logCancellation(k, oppDir, 'opposing 15m Nowick CHoCH');
+      }
+    } catch(e){}
   }
 
   // Chart data — real candles from HISTORICAL/HISTORY buffers (with
