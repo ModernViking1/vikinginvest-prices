@@ -58,11 +58,13 @@ jobs:
           git commit -m "chore: update events.json [skip ci]"
 
           MAX_ATTEMPTS=5
+          PUSHED=0
           for attempt in $(seq 1 $MAX_ATTEMPTS); do
             echo "Push attempt $attempt of $MAX_ATTEMPTS"
             if git push origin main 2>&1; then
               echo "✅ Push succeeded on attempt $attempt"
-              exit 0
+              PUSHED=1
+              break
             fi
 
             if [ "$attempt" -eq "$MAX_ATTEMPTS" ]; then
@@ -80,3 +82,11 @@ jobs:
             fi
             sleep $((attempt * 3))
           done
+
+          # Purge jsDelivr cache for the /gh/@main path so the dashboard's
+          # primary events fetch returns the freshly-pushed file. The npm
+          # @latest mirror is refreshed separately by fetch-prices.yml.
+          if [ "$PUSHED" = "1" ]; then
+            echo "Purging jsDelivr cache for events.json"
+            curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/events.json" || echo "purge events.json failed"
+          fi

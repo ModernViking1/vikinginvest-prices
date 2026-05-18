@@ -80,11 +80,13 @@ jobs:
           # (fetch-prices, deploy-dashboard, publish-economic-events) that
           # all write to main concurrently.
           MAX_ATTEMPTS=5
+          PUSHED=0
           for attempt in $(seq 1 $MAX_ATTEMPTS); do
             echo "Push attempt $attempt of $MAX_ATTEMPTS"
             if git push origin main 2>&1; then
               echo "✅ Push succeeded on attempt $attempt"
-              exit 0
+              PUSHED=1
+              break
             fi
 
             if [ "$attempt" -eq "$MAX_ATTEMPTS" ]; then
@@ -108,3 +110,13 @@ jobs:
             fi
             sleep $((attempt * 3))
           done
+
+          # Purge jsDelivr CDN cache so the dashboard's /gh/@main fetch path
+          # serves the freshly-pushed file instead of the previous cached
+          # copy. The npm @latest path is intentionally NOT purged here
+          # because it only refreshes when fetch-prices.yml does npm publish.
+          if [ "$PUSHED" = "1" ]; then
+            echo "Purging jsDelivr cache for intraday-ohlc.json + intraday-state.json"
+            curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/intraday-ohlc.json" || echo "purge intraday-ohlc.json failed"
+            curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/intraday-state.json" || echo "purge intraday-state.json failed"
+          fi

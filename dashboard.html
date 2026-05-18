@@ -3249,14 +3249,33 @@ function eventsAffecting(k, hoursAhead){
 // Fetches events.json from the public CDN. Best-effort: if it fails,
 // the dashboard simply behaves as if there are no upcoming events.
 function fetchEvents(){
-  var url = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/events.json';
-  return fetch(url, {method:'GET', cache:'no-store'})
-    .then(function(r){
-      if(!r.ok) throw new Error('HTTP'+r.status);
-      return r.json();
+  // events.json is written by publish-events.yml every hour but is NOT
+  // republished to npm on its own (only fetch-prices.yml does npm publish).
+  // Use /gh/@main first so the file reflects git HEAD; fall back to npm
+  // (older but stable) and raw.githubusercontent (uncached, last resort).
+  var urlGh  = 'https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/events.json';
+  var urlNpm = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/events.json';
+  var urlRaw = 'https://raw.githubusercontent.com/ModernViking1/vikinginvest-prices/main/events.json';
+
+  function tryFetch(url, label){
+    return fetch(url, {method:'GET', cache:'no-store'})
+      .then(function(r){
+        if(!r.ok) throw new Error('HTTP'+r.status+'_at_'+label);
+        return r.json();
+      })
+      .then(function(d){
+        if(!d || !Array.isArray(d.events)) throw new Error('no_events_field_at_'+label);
+        return d;
+      });
+  }
+
+  return tryFetch(urlGh, 'gh')
+    .catch(function(e1){
+      return tryFetch(urlNpm, 'npm').catch(function(e2){
+        return tryFetch(urlRaw, 'raw');
+      });
     })
     .then(function(d){
-      if(!d || !Array.isArray(d.events)) throw new Error('no_events_field');
       EVENTS = d.events;
       EVENTS_UPDATED = d.updated || null;
       EVENTS_ERR = null;
@@ -3501,8 +3520,16 @@ function fetchVikingIntraday(){
   //
   // Heuristic for "richer": pair count × min-ticks-per-pair. A file
   // with 22 pairs at 96 bars each beats one with 22 pairs at 5 bars.
-  var urlOhlc   = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/intraday-ohlc.json';
-  var urlLegacy = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/intraday.json';
+  // Multi-source OHLC fetch. The /npm/ path lags because the npm package
+  // is only re-published by fetch-prices.yml (every ~15 min cron, often
+  // throttled by GitHub Actions) — but intraday-ohlc.json itself updates
+  // every ~5 min in git. /gh/@main and raw.githubusercontent reflect git
+  // HEAD directly, so they're typically much fresher. The freshness
+  // selector below picks whichever source has the newest last tick.
+  var urlOhlcGh  = 'https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/intraday-ohlc.json';
+  var urlOhlcNpm = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/intraday-ohlc.json';
+  var urlOhlcRaw = 'https://raw.githubusercontent.com/ModernViking1/vikinginvest-prices/main/intraday-ohlc.json';
+  var urlLegacy  = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/intraday.json';
 
   var tryUrl = function(url){
     return fetch(url, {method:'GET', cache:'no-store'})
@@ -3542,13 +3569,39 @@ function fetchVikingIntraday(){
     return latest;
   };
 
-  return Promise.all([tryUrl(urlOhlc), tryUrl(urlLegacy)])
+  return Promise.all([
+      tryUrl(urlOhlcGh),
+      tryUrl(urlOhlcNpm),
+      tryUrl(urlOhlcRaw),
+      tryUrl(urlLegacy)
+    ])
     .then(function(results){
-      var ohlcData   = results[0];
-      var legacyData = results[1];
+      // Pick the freshest OHLC source from gh@main / npm / raw. Each path
+      // can be at a different cache age — gh@main is purged on every
+      // intraday workflow commit, npm only refreshes on fetch-prices runs,
+      // raw is uncached but rate-limited. Whichever has the newest tick wins.
+      var ohlcSources = [
+        { data: results[0], label: 'gh'  },
+        { data: results[1], label: 'npm' },
+        { data: results[2], label: 'raw' }
+      ];
+      var ohlcData = null, ohlcSourceLabel = 'none';
+      var ohlcFresh = 0;
+      ohlcSources.forEach(function(s){
+        var fr = freshnessOf(s.data);
+        if(fr > ohlcFresh){ ohlcFresh = fr; ohlcData = s.data; ohlcSourceLabel = s.label; }
+      });
+      // If none had usable freshness (e.g. all empty), fall back to whichever
+      // returned something at all, just to populate the dashboard with shape.
+      if(!ohlcData){
+        for(var i=0; i<ohlcSources.length; i++){
+          if(ohlcSources[i].data){ ohlcData = ohlcSources[i].data; ohlcSourceLabel = ohlcSources[i].label; break; }
+        }
+      }
+      window._intradayOhlcSourceLabel = ohlcSourceLabel;
+      var legacyData = results[3];
       var ohlcScore   = scoreData(ohlcData);
       var legacyScore = scoreData(legacyData);
-      var ohlcFresh   = freshnessOf(ohlcData);
       var legacyFresh = freshnessOf(legacyData);
 
       // ── SELECTION LOGIC v2 ──
