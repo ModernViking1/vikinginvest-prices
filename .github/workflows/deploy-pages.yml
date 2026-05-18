@@ -1,0 +1,73 @@
+name: Deploy Pages
+
+# Replaces GitHub's default "Deploy from branch" Pages build, which rebuilds
+# Pages on EVERY commit to main — including all the data-file commits from
+# fetch-prices, publish-intraday-ohlc, and publish-events. At ~10-17 commits
+# per hour from those workflows that was 240-400+ pages-build-deployment
+# runs per day doing nothing useful (the dashboard fetches data from the
+# CDN, not from Pages-served files), burning workflow runs and indirectly
+# worsening the cron throttle on the data workflows.
+#
+# This workflow only fires when files that actually appear on the live site
+# change. Data-file commits are skipped entirely.
+#
+# REQUIRES MANUAL ONE-TIME SETUP:
+#   Repo Settings → Pages → "Build and deployment" → Source: "GitHub Actions"
+# (Currently "Deploy from a branch". The default branch deploy must be
+# turned off or this workflow's deploys won't take effect.)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dashboard.html'
+      - 'index.html'
+      - 'Viking_Invest_Trading_v*.html'
+      - 'CNAME'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deploy at a time; don't cancel in-progress ones.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build static site (HTML only — data is fetched from CDN)
+        run: |
+          mkdir -p _site
+          cp dashboard.html _site/
+          # Include all versioned HTML files so older bookmarks keep working
+          cp Viking_Invest_Trading_v*.html _site/ 2>/dev/null || true
+          # Optional landing page if present
+          cp index.html _site/ 2>/dev/null || true
+          # Custom domain if present
+          cp CNAME _site/ 2>/dev/null || true
+          echo "Files staged for Pages:"
+          ls -la _site
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+      - name: Deploy to Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
