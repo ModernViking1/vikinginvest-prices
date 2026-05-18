@@ -1617,11 +1617,30 @@ function updateOV(k){
           iIcon = '⌛';
           iTip = 'Intraday 1:1 EXPIRED — triggered >4h ago without target/stop/CHoCH; treat as stale';
         } else {
-          // triggered, in trade
-          iColor = 'var(--gold)';
-          iAnim = 'animation:spulse 1.5s ease-in-out infinite;';
-          iIcon = '⚡';
-          iTip = 'Intraday 1:1 TRIGGERED — in trade, target ' + iSig.target.toFixed(iSig.target < 10 ? 4 : (iSig.target < 100 ? 3 : 2));
+          // Default "triggered, in trade" branch. If the underlying 15m
+          // data is more than 15 min behind real time, don't show the
+          // confident pulsing ⚡ — the algorithm can't see anything that
+          // happened after the data ends, so an "in trade" assessment on
+          // stale data could be silently wrong about whether the trade
+          // has been invalidated by recent price action.
+          var dataAgeMinOv = null;
+          try {
+            var lastTickOv = window._intradayLastTickPerPair && window._intradayLastTickPerPair[k];
+            if(lastTickOv){
+              var msOv = new Date(lastTickOv).getTime();
+              if(isFinite(msOv)) dataAgeMinOv = Math.max(0, Math.round((Date.now() - msOv) / 60000));
+            }
+          } catch(e){}
+          if(dataAgeMinOv !== null && dataAgeMinOv > 15){
+            iColor = 'var(--bear)'; iAnim = '';
+            iIcon = '⏸';
+            iTip = 'Intraday signal stale — last 15m bar is ' + dataAgeMinOv + ' min old, recent price action not yet evaluated. Verify on TradingView.';
+          } else {
+            iColor = 'var(--gold)';
+            iAnim = 'animation:spulse 1.5s ease-in-out infinite;';
+            iIcon = '⚡';
+            iTip = 'Intraday 1:1 TRIGGERED — in trade, target ' + iSig.target.toFixed(iSig.target < 10 ? 4 : (iSig.target < 100 ? 3 : 2));
+          }
         }
         ovIntra = '<span style="display:inline-block;font-size:11px;margin-left:4px;color:'+iColor+';font-weight:900;'+iAnim+'cursor:help;vertical-align:middle;line-height:1;" title="'+iTip+'">'+iIcon+'</span>';
       }
@@ -1907,6 +1926,57 @@ function getLayerDet(k,layer,sig){
           var precisionTag = iSig.ohlcSource === 'approximated'
             ? ' <span style="font-size:7.5px;color:var(--inkd);">[approx]</span>'
             : ' <span style="font-size:7.5px;color:var(--bull);">[native]</span>';
+          // Data-age tag. The intraday workflow can be 30+ min behind real
+          // time when GitHub Actions cron throttles, so an "in trade"
+          // assessment can be acting on data that doesn't include the
+          // last hour of price action. Surface that directly on the trade
+          // card — same information as the global staleness banner but
+          // in the place the user is actually looking when deciding
+          // whether to act.
+          var dataAgeTag = '';
+          var dataIsStale = false;
+          try {
+            var lastTickStr = window._intradayLastTickPerPair && window._intradayLastTickPerPair[k];
+            if(lastTickStr){
+              var lastMs = new Date(lastTickStr).getTime();
+              if(isFinite(lastMs)){
+                var ageMinD = Math.max(0, Math.round((Date.now() - lastMs) / 60000));
+                var dataTimeLabel = fmtTs(lastTickStr);
+                var ageColor, prefix;
+                if(ageMinD <= 15){
+                  ageColor = 'var(--bull)'; prefix = '';
+                } else if(ageMinD <= 30){
+                  ageColor = 'var(--gold)'; prefix = '⚠ ';
+                  dataIsStale = true;
+                } else {
+                  ageColor = 'var(--bear)'; prefix = '⚠ STALE ';
+                  dataIsStale = true;
+                }
+                dataAgeTag = ' <span style="font-size:7.5px;color:'+ageColor+';font-weight:700;" title="Latest 15m bar in dashboard data. If well behind current time, signals do not reflect the most recent price action.">'+prefix+'data thru '+dataTimeLabel+' ('+ageMinD+'m)</span>';
+              }
+            }
+          } catch(e){}
+          // When data is stale AND the algorithm thinks the trade is live,
+          // override the descriptor to make it clear the assessment is
+          // based on lagged data. The signal isn't necessarily wrong, but
+          // it can't possibly see anything that happened after the data
+          // ends — so blindly trusting the "in trade" indicator is unsafe.
+          var liveDescriptor;
+          if(iSig.state === 'armed'){
+            liveDescriptor = 'Expires in '+iSig.barsRemaining+' bars';
+          } else if(iSig.outcome === 'target-hit'){
+            liveDescriptor = '+1R realised';
+          } else if(iSig.outcome === 'stop-hit'){
+            liveDescriptor = '-1R realised';
+          } else if(iSig.outcome === 'choch-invalidated'){
+            liveDescriptor = 'exit @ CHoCH flip';
+          } else if(iSig.outcome === 'stale-expired'){
+            liveDescriptor = 'expired — no resolution';
+          } else if(dataIsStale){
+            liveDescriptor = '<span style="color:var(--bear);font-weight:700;">data stale — verify on TradingView</span>';
+          } else {
+            liveDescriptor = 'live trade';
+          }
           intraMsg = '<br><div style="margin-top:6px;padding:6px 8px;background:rgba(200,134,10,0.06);border-left:2px solid var(--gold);border-radius:2px;font-size:9px;line-height:1.5;">'
             + '<div style="font-weight:700;color:'+stateColor+';letter-spacing:0.5px;text-transform:uppercase;font-size:8px;">'
             +   stateIcon + ' INTRADAY SIGNAL (1:1 R:R) &middot; '+stateLabel + armedAtTxt
@@ -1918,12 +1988,9 @@ function getLayerDet(k,layer,sig){
             + '</div>'
             + '<div style="margin-top:2px;color:var(--inkd);font-size:8px;">'
             +   'Risk: '+pipsLabel+' &middot; Reward: '+pipsTarget+ triggeredAtTxt + ' &middot; '
-            +   (iSig.state === 'armed'
-                ? 'Expires in '+iSig.barsRemaining+' bars'
-                : (iSig.outcome
-                    ? (iSig.outcome === 'target-hit' ? '+1R realised' : (iSig.outcome === 'stop-hit' ? '-1R realised' : (iSig.outcome === 'choch-invalidated' ? 'exit @ CHoCH flip' : (iSig.outcome === 'stale-expired' ? 'expired — no resolution' : 'live'))))
-                    : 'live trade'))
+            +   liveDescriptor
             +   precisionTag
+            +   dataAgeTag
             + '</div>';
 
           // ── CHoCH DIAGNOSTIC LINE ──
