@@ -1,0 +1,203 @@
+name: Fetch Data (prices + intraday OHLC)
+
+# Replaces fetch-prices.yml and publish-intraday-ohlc.yml.
+#
+# Combining the two scheduled workflows into one reduces simultaneous
+# scheduler queue contention on this repo (GitHub throttles aggressively
+# when multiple scheduled workflows share minute marks). The offset cron
+# (minute :03 / :13 / :23 / ... instead of :00 / :10 / ...) also dodges
+# the heavily-oversubscribed top-of-the-minute slot.
+#
+# Steps:
+#   1. Setup Node + Python
+#   2. Fetch live prices (TwelveData / OANDA / Coinbase) — writes prices.json
+#   3. Publish intraday OHLC (OANDA poll, 2 ticks × 60s) — writes
+#      intraday-ohlc.json + intraday-state.json
+#   4. Single commit + retry-on-race-condition push
+#   5. Build package.json, npm publish (snapshots BOTH files together,
+#      unlike the old split workflows where intraday-ohlc.json was
+#      always one fetch-prices cycle behind in npm)
+#   6. jsDelivr cache purges for both /gh/@main and /npm/@latest paths
+
+on:
+  schedule:
+    # Offset crons to dodge the :00 / :10 / :20 herd. Minute :03 is far
+    # less subscribed than minute :00, which materially improves the
+    # fire-rate against GH's scheduler throttle. Same 10-min cadence.
+    - cron: '3,13,23,33,43,53 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: fetch-data
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Verify scripts exist
+        run: |
+          missing=0
+          if [ ! -f fetch-prices.js ]; then
+            echo "::error::fetch-prices.js missing from repo root"
+            missing=1
+          fi
+          if [ ! -f publish_intraday_ohlc.py ]; then
+            echo "::error::publish_intraday_ohlc.py missing from repo root"
+            missing=1
+          fi
+          if [ "$missing" -eq 1 ]; then
+            ls -la
+            exit 1
+          fi
+
+      # Step 1: live prices via Node script (TwelveData / OANDA / Coinbase)
+      - name: Fetch prices
+        env:
+          TD_API_KEY: ${{ secrets.TD_API_KEY }}
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+        run: node fetch-prices.js
+
+      # Step 2: intraday OHLC poll (~2 min runtime; 2 ticks × 60s interval).
+      # Runs unconditionally — if prices fetch failed, intraday may still
+      # succeed (different provider call) and a partial commit beats none.
+      - name: Publish intraday OHLC
+        env:
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+        run: |
+          python publish_intraday_ohlc.py \
+            --state intraday-state.json \
+            --output intraday-ohlc.json \
+            --loop 2 \
+            --interval 60
+
+      # Step 3: commit all changed data files in a single commit.
+      # Race-condition-resistant push (rebase + retry on conflict) carries
+      # forward from the old split workflows.
+      - name: Commit and push with race-condition retry
+        id: push
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Stage every data file we may have touched.
+          for f in prices.json history.json intraday-ohlc.json intraday-state.json intraday.json; do
+            if [ -f "$f" ]; then
+              git add "$f"
+            fi
+          done
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit — exiting"
+            echo "pushed=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          git commit -m "chore: update data (prices + intraday)"
+
+          MAX_ATTEMPTS=5
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Push attempt $attempt of $MAX_ATTEMPTS"
+            if git push origin main 2>&1; then
+              echo "✅ Push succeeded on attempt $attempt"
+              echo "pushed=1" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+
+            if [ "$attempt" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::Push failed after $MAX_ATTEMPTS attempts"
+              exit 1
+            fi
+
+            echo "Push rejected — fetching latest main and rebasing..."
+            git fetch origin main
+            if ! git rebase origin/main; then
+              echo "Rebase conflict — taking our newly fetched data"
+              for f in prices.json history.json intraday-ohlc.json intraday-state.json intraday.json; do
+                if [ -f "$f" ]; then
+                  git checkout --theirs "$f" 2>/dev/null || true
+                  git add "$f" 2>/dev/null || true
+                fi
+              done
+              git rebase --continue || git rebase --abort
+            fi
+            sleep $((attempt * 3))
+          done
+
+      - name: Build package.json for npm
+        if: steps.push.outputs.pushed == '1'
+        run: |
+          VERSION="1.0.$(date +%s)"
+          cat > package.json <<PKG
+          {
+            "name": "vikinginvest-prices",
+            "version": "$VERSION",
+            "description": "Live FX prices for Viking Invest dashboard",
+            "main": "prices.json",
+            "jsdelivr": "prices.json",
+            "license": "MIT",
+            "repository": {
+              "type": "git",
+              "url": "git+https://github.com/ModernViking1/vikinginvest-prices.git"
+            }
+          }
+          PKG
+
+      - name: Publish to npm (non-fatal)
+        if: steps.push.outputs.pushed == '1'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # npm publish failures must not fail this workflow — the
+          # canonical data is already in the GitHub repo, and statically.io
+          # and jsDelivr's /gh/ endpoint serve it without depending on npm.
+          if npm publish --access=public 2>&1; then
+            echo "✅ npm publish succeeded"
+          else
+            echo "::warning::npm publish failed (non-fatal). Data still served via /gh/@main and raw.github."
+          fi
+
+      - name: Purge jsDelivr cache (non-fatal)
+        if: steps.push.outputs.pushed == '1'
+        run: |
+          # /gh/@main path — used by the dashboard's fetchVikingIntraday
+          # and fetchViking15min as the freshest source. Purging here
+          # makes the new git commit visible at the CDN within seconds.
+          curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/prices.json" || echo "purge gh prices failed"
+          curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/intraday-ohlc.json" || echo "purge gh intraday-ohlc failed"
+          curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/intraday-state.json" || echo "purge gh intraday-state failed"
+
+          # /npm/@latest path — same as the old fetch-prices.yml. The
+          # @latest resolution caches separately from file content; both
+          # need to be invalidated to clear the version pointer.
+          curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/prices.json" || echo "purge npm prices failed"
+          curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/history.json" || echo "purge npm history failed"
+          curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/intraday-ohlc.json" || echo "purge npm intraday-ohlc failed"
+          curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/events.json" || echo "purge npm events failed"
