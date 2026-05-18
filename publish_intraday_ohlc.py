@@ -94,51 +94,82 @@ def _resolve_oanda_account(api_key: str) -> str | None:
     return None
 
 
+class OandaAuthError(Exception):
+    """Raised when OANDA returns 401/403 — token has likely expired."""
+    pass
+
+
 def fetch_oanda_batch(instruments: list[str], api_key: str) -> dict:
     """Fetch mid prices for multiple OANDA instruments in one call.
 
     Returns dict mapping instrument code → mid price. Pairs that
     failed are simply absent from the result.
+
+    Raises OandaAuthError on 401/403 so the caller can decide whether
+    to write a partial output or refuse and preserve existing data.
+    Retries transient errors up to 3 times with exponential backoff.
     """
     if not instruments:
         return {}
     account = _resolve_oanda_account(api_key)
     if not account:
         return {}
-    try:
-        r = requests.get(
-            f"https://api-fxpractice.oanda.com/v3/accounts/{account}/pricing",
-            params={"instruments": ",".join(instruments)},
-            headers={"Authorization": f"Bearer {api_key}"},
-            timeout=10,
-        )
-        r.raise_for_status()
-        data = r.json()
-        prices = {}
-        for p in data.get("prices", []):
-            try:
-                bid = float(p["bids"][0]["price"])
-                ask = float(p["asks"][0]["price"])
-                prices[p["instrument"]] = (bid + ask) / 2
-            except (KeyError, IndexError, ValueError):
-                continue
-        return prices
-    except (requests.RequestException, ValueError, KeyError) as exc:
-        print(f"WARN oanda batch: {exc}", file=sys.stderr)
-        return {}
+    for attempt in range(3):
+        try:
+            r = requests.get(
+                f"https://api-fxpractice.oanda.com/v3/accounts/{account}/pricing",
+                params={"instruments": ",".join(instruments)},
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=15,
+            )
+            # Auth errors are not retryable — token needs rotation
+            if r.status_code in (401, 403):
+                msg = f"OANDA auth failed: HTTP {r.status_code} — token likely expired"
+                print(f"FATAL: {msg}", file=sys.stderr)
+                raise OandaAuthError(msg)
+            r.raise_for_status()
+            data = r.json()
+            prices = {}
+            for p in data.get("prices", []):
+                try:
+                    bid = float(p["bids"][0]["price"])
+                    ask = float(p["asks"][0]["price"])
+                    prices[p["instrument"]] = (bid + ask) / 2
+                except (KeyError, IndexError, ValueError):
+                    continue
+            return prices
+        except OandaAuthError:
+            raise  # propagate, don't retry
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            wait = 2 ** attempt
+            print(f"WARN oanda batch transient error (attempt {attempt+1}/3): {exc}, sleeping {wait}s", file=sys.stderr)
+            if attempt < 2:
+                time.sleep(wait)
+        except (requests.RequestException, ValueError, KeyError) as exc:
+            print(f"WARN oanda batch: {exc}", file=sys.stderr)
+            return {}
+    return {}
 
 
 def fetch_coinbase_price(product: str) -> float | None:
-    try:
-        r = requests.get(
-            f"https://api.exchange.coinbase.com/products/{product}/ticker",
-            timeout=10,
-        )
-        r.raise_for_status()
-        return float(r.json()["price"])
-    except (requests.RequestException, ValueError, KeyError) as exc:
-        print(f"WARN coinbase {product}: {exc}", file=sys.stderr)
-        return None
+    for attempt in range(3):
+        try:
+            r = requests.get(
+                f"https://api.exchange.coinbase.com/products/{product}/ticker",
+                timeout=10,
+            )
+            r.raise_for_status()
+            return float(r.json()["price"])
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+                continue
+            print(f"WARN coinbase {product}: {exc}", file=sys.stderr)
+            return None
+        except (requests.RequestException, ValueError, KeyError) as exc:
+            print(f"WARN coinbase {product}: {exc}", file=sys.stderr)
+            return None
+    return None
 
 
 def fetch_all_prices() -> dict:
@@ -251,6 +282,10 @@ def main():
     parser.add_argument("--interval", type=int, default=60,
                         help="Seconds between polls when --loop > 1 (default 60)")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--min-pairs", type=int, default=15,
+                        help="Minimum pairs that must be fetched at least once "
+                             "this run, otherwise we refuse to overwrite output. "
+                             "Set to 0 to disable guard. Default 15 of 21 pairs.")
     args = parser.parse_args()
 
     state_path = Path(args.state)
@@ -258,13 +293,43 @@ def main():
     state = load_state(state_path)
 
     total_updates = 0
+    distinct_pairs_seen: set[str] = set()
+    auth_failed = False
+
     for cycle in range(args.loop):
         now = datetime.now(timezone.utc)
-        count = run_one_poll(state, now)
+        try:
+            count = run_one_poll(state, now)
+        except OandaAuthError as exc:
+            print(f"FATAL OANDA auth failure on cycle {cycle+1}: {exc}", file=sys.stderr)
+            print("Refusing to overwrite output to preserve existing data.", file=sys.stderr)
+            print("ACTION REQUIRED: rotate OANDA_TOKEN in repo Settings → Secrets.", file=sys.stderr)
+            auth_failed = True
+            break
         total_updates += count
+        # Track distinct pairs across all cycles (count is per-cycle)
+        for k in state.get("pairs", {}):
+            cw = state["pairs"][k].get("current_window")
+            if cw and cw.get("t"):
+                # this pair has a current bar — was updated at some point
+                distinct_pairs_seen.add(k)
         print(f"Cycle {cycle+1}/{args.loop}: fetched {count} pairs at {now.isoformat()}", flush=True)
         if cycle < args.loop - 1:
             time.sleep(args.interval)
+
+    if auth_failed:
+        # Don't write anything — preserve existing intraday-ohlc.json
+        # The health-check workflow will catch staleness within 30 min
+        # and open an issue prompting token rotation.
+        sys.exit(1)
+
+    # Refuse-to-overwrite guard: ensure we got enough pairs
+    if args.min_pairs > 0 and len(distinct_pairs_seen) < args.min_pairs:
+        print(f"WARN: only {len(distinct_pairs_seen)} pairs fetched "
+              f"(min required: {args.min_pairs}). Preserving existing output.",
+              file=sys.stderr)
+        save_state(state_path, state)
+        sys.exit(1)
 
     save_state(state_path, state)
 

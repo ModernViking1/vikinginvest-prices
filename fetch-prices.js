@@ -330,79 +330,61 @@ async function fetchCoinbaseHistory(){
     + ', OANDA:' + Object.keys(oandaLive).length
     + ', Coinbase:' + Object.keys(cbLive).length + ')');
 
-  // ── 15-MIN INTRADAY ACCUMULATOR ─────────────────────────────
-  // Each run, append the current 15-min snapshot to a rolling intraday history.
-  // After ~7 days we'll have ~672 candles per pair (96 candles/day × 7).
-  // This unlocks 15-min OB/FVG detection in the dashboard without paying for
-  // TwelveData Grow tier.
+  // ── 15-MIN INTRADAY ACCUMULATOR (DISABLED v5+) ──────────────
+  // Previously this script wrote intraday.json with {t,p} price snapshots.
+  // That file has been superseded by intraday-ohlc.json produced by
+  // publish_intraday_ohlc.py which writes real OHLC bars every 5 min.
   //
-  // Schema: { updated: ISO, intraday: { pair: [{t, o, h, l, c}, ...] } }
-  // Each candle is a 15-min snapshot (OHLC approximated from the live tick —
-  // since we don't have actual OHLC from a single fetch, we use price as
-  // close, and reconstruct H/L from min/max of consecutive snapshots).
+  // We now SKIP writing intraday.json from this workflow because:
+  //   - Two writers to the same data type cause git race conditions
+  //   - The dashboard's freshness picker still chose the wrong file in
+  //     edge cases when both existed
+  //   - The OHLC publisher has real high/low data; this one only had
+  //     close-price snapshots
   //
-  // For this to be useful, we need to track high/low ACROSS the 15-min window.
-  // First implementation (simpler): just record close prices with timestamps.
-  // The dashboard can then compute its own OHLC from groupings of these.
-  // After 1 week of accumulation, we'll have enough data for OB detection.
-
-  try {
-    let intraday = {};
+  // To re-enable for emergency use (if intraday-ohlc.json publisher
+  // breaks for >7 days), set FORCE_LEGACY_INTRADAY=true in the workflow.
+  const forceLegacy = process.env.FORCE_LEGACY_INTRADAY === 'true';
+  if(forceLegacy){
     try {
-      if(fs.existsSync('intraday.json')){
-        const existing = JSON.parse(fs.readFileSync('intraday.json', 'utf8'));
-        intraday = existing.intraday || {};
+      let intraday = {};
+      try {
+        if(fs.existsSync('intraday.json')){
+          const existing = JSON.parse(fs.readFileSync('intraday.json', 'utf8'));
+          intraday = existing.intraday || {};
+        }
+      } catch(e){
+        console.warn('  Warning: intraday.json read failed, starting fresh:', e.message);
+        intraday = {};
       }
+
+      const ts = new Date().toISOString();
+      const MAX_BARS_PER_PAIR = 700;
+      let appended = 0;
+
+      Object.keys(allLive).forEach(function(k){
+        if(!intraday[k]) intraday[k] = [];
+        const px = allLive[k] && allLive[k].price;
+        if(!isFinite(px) || px <= 0) return;
+        const last = intraday[k][intraday[k].length - 1];
+        if(last && last.t === ts) return;
+        intraday[k].push({ t: ts, p: px });
+        appended++;
+        if(intraday[k].length > MAX_BARS_PER_PAIR){
+          intraday[k] = intraday[k].slice(-MAX_BARS_PER_PAIR);
+        }
+      });
+
+      fs.writeFileSync('intraday.json', JSON.stringify({
+        updated: ts,
+        intraday: intraday
+      }));
+      console.log('✓ Wrote intraday.json (FORCE_LEGACY_INTRADAY=true) — ' + appended + ' new ticks');
     } catch(e){
-      console.warn('  Warning: intraday.json read failed, starting fresh:', e.message);
-      intraday = {};
+      console.error('  Error in legacy intraday accumulator (non-fatal):', e.message);
     }
-
-    const ts = new Date().toISOString();
-    const MAX_BARS_PER_PAIR = 700; // ~7.3 days at 15-min resolution
-    let appended = 0;
-
-    Object.keys(allLive).forEach(function(k){
-      if(!intraday[k]) intraday[k] = [];
-      const px = allLive[k] && allLive[k].price;
-      if(!isFinite(px) || px <= 0) return;
-
-      // Append the new tick. Each entry: {t, p}.
-      // Note: this is not true OHLC — it's a single price snapshot every 15 min.
-      // The dashboard will treat consecutive snapshots as bar boundaries.
-      const last = intraday[k][intraday[k].length - 1];
-      // Skip duplicate timestamps (workflow re-run within same minute)
-      if(last && last.t === ts) return;
-      intraday[k].push({ t: ts, p: px });
-      appended++;
-
-      // Trim to rolling window
-      if(intraday[k].length > MAX_BARS_PER_PAIR){
-        intraday[k] = intraday[k].slice(-MAX_BARS_PER_PAIR);
-      }
-    });
-
-    fs.writeFileSync('intraday.json', JSON.stringify({
-      updated: ts,
-      intraday: intraday
-    }));
-
-    // Stats: total candles, candles per pair, oldest timestamp
-    const pairCount = Object.keys(intraday).length;
-    let totalCandles = 0;
-    let oldestTs = ts;
-    Object.keys(intraday).forEach(function(k){
-      totalCandles += intraday[k].length;
-      if(intraday[k].length > 0 && intraday[k][0].t < oldestTs){
-        oldestTs = intraday[k][0].t;
-      }
-    });
-    console.log('✓ Wrote intraday.json — ' + appended + ' new ticks, '
-      + totalCandles + ' total across ' + pairCount + ' pairs');
-    console.log('  Oldest tick: ' + oldestTs);
-    console.log('  At ~672 ticks/pair (7 days), 15-min OB detection will activate.');
-  } catch(e){
-    console.error('  Error in intraday accumulator (non-fatal):', e.message);
+  } else {
+    console.log('Skipping legacy intraday.json write (use FORCE_LEGACY_INTRADAY=true to override). The OHLC publisher (publish_intraday_ohlc.py) is the canonical source.');
   }
 
   // History — only in 00:00-00:30 UTC, or if FORCE_HISTORY=true
