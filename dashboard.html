@@ -286,6 +286,12 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   </div>
 </div>
 
+<!-- Data freshness banner: shown when the price/intraday feeds are older
+     than 15 min. GitHub Actions cron is throttled on this repo, so feeds
+     can lag 1-3 hours; without this banner the dashboard silently shows
+     stale signals as if they were live. -->
+<div id="dataStalenessBanner" style="display:none;text-align:center;padding:7px 14px;font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.5px;"></div>
+
 <!-- NAV -->
 <div class="nav">
   <button class="ntab active" onclick="switchPage('dash')">📊 Dashboard</button>
@@ -1606,6 +1612,10 @@ function updateOV(k){
           iTip = iSig.alignmentBroken
             ? 'Intraday 1:1 INVALIDATED — 15m structure flipped vs macro, exit at CHoCH flip'
             : 'Intraday 1:1 INVALIDATED — opposing CHoCH printed, structure flipped';
+        } else if(iSig.outcome === 'stale-expired'){
+          iColor = 'var(--inkd)'; iAnim = '';
+          iIcon = '⌛';
+          iTip = 'Intraday 1:1 EXPIRED — triggered >4h ago without target/stop/CHoCH; treat as stale';
         } else {
           // triggered, in trade
           iColor = 'var(--gold)';
@@ -1850,6 +1860,10 @@ function getLayerDet(k,layer,sig){
                 : 'INVALIDATED &middot; opposing CHoCH';
               stateColor = 'var(--bear)'; stateIcon = '⊘';
             }
+            else if(iSig.outcome === 'stale-expired'){
+              stateLabel = 'EXPIRED &middot; >4h without resolution';
+              stateColor = 'var(--inkd)'; stateIcon = '⌛';
+            }
             else { stateLabel = 'TRIGGERED &middot; in trade'; stateColor = 'var(--gold)'; stateIcon = '⚡'; }
           }
           // Timestamp: when the signal armed (creator) and when it triggered (if any)
@@ -1891,7 +1905,7 @@ function getLayerDet(k,layer,sig){
             +   (iSig.state === 'armed'
                 ? 'Expires in '+iSig.barsRemaining+' bars'
                 : (iSig.outcome
-                    ? (iSig.outcome === 'target-hit' ? '+1R realised' : (iSig.outcome === 'stop-hit' ? '-1R realised' : (iSig.outcome === 'choch-invalidated' ? 'exit @ CHoCH flip' : 'live')))
+                    ? (iSig.outcome === 'target-hit' ? '+1R realised' : (iSig.outcome === 'stop-hit' ? '-1R realised' : (iSig.outcome === 'choch-invalidated' ? 'exit @ CHoCH flip' : (iSig.outcome === 'stale-expired' ? 'expired — no resolution' : 'live'))))
                     : 'live trade'))
             +   precisionTag
             + '</div>';
@@ -3686,6 +3700,7 @@ function fetchVikingIntraday(){
       if(!window._intradayFeedUpdated && latestTickGlobal > 0){
         window._intradayFeedUpdated = new Date(latestTickGlobal).toISOString();
       }
+      try { if(typeof updateStalenessBanner === 'function') updateStalenessBanner(); } catch(e){}
       var pairCount = Object.keys(INTRADAY).length;
       var totalTicks = 0;
       var minTicks = Infinity;
@@ -6601,6 +6616,7 @@ function fetchViking15min() {
         if(cnt === 0) throw new Error('empty_prices');
         window._vikCount = cnt;
         window._vikUpdated = d.updated;
+        try { if(typeof updateStalenessBanner === 'function') updateStalenessBanner(); } catch(e){}
         window._vikErr = null;
         return out;
       });
@@ -9684,6 +9700,20 @@ function detectIntradaySignal(k){
         }
       }
     }
+    // Time-based expiry for in-trade signals. Without this, a triggered
+    // signal stays "in trade" indefinitely until target/stop/CHoCH —
+    // which on heavily-throttled data feeds can be 6-12+ hours, well
+    // beyond the strategy's intended holding window. After
+    // TRIGGERED_MAX_BARS (16 = 4h on 15m), force the signal to a
+    // 'stale-expired' outcome so the dashboard stops showing it as
+    // an actionable live trade.
+    if(!outcome && triggerBarIdx >= 0){
+      var TRIGGERED_MAX_BARS = 16;
+      var barsSinceTrigger = n - 1 - triggerBarIdx;
+      if(barsSinceTrigger > TRIGGERED_MAX_BARS){
+        outcome = 'stale-expired';
+      }
+    }
   }
 
   // ── CHoCH DIAGNOSTIC ──
@@ -10738,6 +10768,65 @@ function setBadge(state,n,src){
     b.style.color='var(--bear)';b.style.borderColor='var(--bear)';if(sp)sp.style.display='none';
   }
 }
+
+// Compute the age (in minutes) of the freshest data source available, or
+// null if no source has reported a timestamp yet. We take the MIN of the
+// two ages (most recent) rather than the max because either source being
+// fresh is enough to render meaningful per-pair info.
+function getDataAgeMinutes(){
+  var ages = [];
+  if(window._intradayFeedUpdated){
+    var a1 = (Date.now() - new Date(window._intradayFeedUpdated).getTime()) / 60000;
+    if(isFinite(a1) && a1 >= 0) ages.push(a1);
+  }
+  if(window._vikUpdated){
+    var a2 = (Date.now() - new Date(window._vikUpdated).getTime()) / 60000;
+    if(isFinite(a2) && a2 >= 0) ages.push(a2);
+  }
+  if(ages.length === 0) return null;
+  return Math.min.apply(null, ages);
+}
+
+// Render the global data-staleness banner. Called on every refresh and on a
+// 60s interval (so the banner age increments even if no fetch fires). Three
+// regimes: <15min fresh (hidden), 15-30min warm (amber, advisory), >30min
+// stale (red, prominent \u2014 signals are unreliable, workflow likely throttled).
+function updateStalenessBanner(){
+  var el = document.getElementById('dataStalenessBanner');
+  if(!el) return;
+  var age = getDataAgeMinutes();
+  if(age === null){
+    el.style.display = 'none';
+    return;
+  }
+  var ageMin = Math.round(age);
+  if(ageMin < 15){
+    el.style.display = 'none';
+    return;
+  }
+  var hrs = Math.floor(ageMin / 60);
+  var mins = ageMin % 60;
+  var ageLabel = hrs > 0 ? hrs + 'h ' + mins + 'm' : ageMin + ' min';
+  if(ageMin < 30){
+    el.style.display = 'block';
+    el.style.background = 'rgba(200,134,10,0.12)';
+    el.style.borderBottom = '1px solid var(--gold)';
+    el.style.borderTop = '1px solid var(--gold)';
+    el.style.color = 'var(--gold)';
+    el.textContent = '\u26a0 DATA AGE: ' + ageLabel + ' \u2022 refresh recommended';
+  } else {
+    el.style.display = 'block';
+    el.style.background = 'rgba(224,64,64,0.14)';
+    el.style.borderBottom = '2px solid var(--bear)';
+    el.style.borderTop = '2px solid var(--bear)';
+    el.style.color = 'var(--bear)';
+    el.textContent = '\u26a0 DATA STALE: ' + ageLabel + ' old \u2022 signals UNRELIABLE \u2022 workflow likely throttled';
+  }
+}
+
+// Tick the banner once a minute so the age increments visibly even if the
+// dashboard isn't actively fetching.
+try { setInterval(updateStalenessBanner, 60000); } catch(e){}
 function updateTimeDisplay(src){
   var el=document.getElementById('lastRefreshTime');
   if(el&&lastFetch) el.textContent='Live: '
