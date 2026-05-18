@@ -5,14 +5,6 @@
 #   - Per-pair event impact dots (red <2h, gold 2-6h, grey 6-24h)
 #   - 3/3 alert deferral when high-impact events imminent (<2h)
 #   - Events summary widget on the Backtest tab
-#
-# DEPLOYMENT NOTES:
-#   - Drop fetch_events.py at repo root
-#   - Drop this file at .github/workflows/publish-events.yml
-#   - No secrets needed (Forex Factory XML is public, no API key required)
-#   - Cron offset to :05 to avoid clashing with fetch-prices :00 cron
-#   - events.json gets included in npm package automatically when
-#     fetch-prices.yml next publishes (every 15 min)
 
 name: Publish Economic Events
 
@@ -52,35 +44,39 @@ jobs:
         run: |
           python fetch_events.py --output events.json
 
-      - name: Commit results with retry
+      - name: Commit and push with race-condition retry
         run: |
+          set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add events.json
-          if git diff --staged --quiet; then
+          if git diff --cached --quiet; then
             echo "events.json unchanged — skipping commit"
             exit 0
           fi
           git commit -m "chore: update events.json [skip ci]"
 
-          ATTEMPT=0
           MAX_ATTEMPTS=5
-          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-            ATTEMPT=$((ATTEMPT+1))
-            echo "Push attempt $ATTEMPT of $MAX_ATTEMPTS"
-            if git push origin main; then
-              echo "Push succeeded"
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Push attempt $attempt of $MAX_ATTEMPTS"
+            if git push origin main 2>&1; then
+              echo "✅ Push succeeded on attempt $attempt"
               exit 0
             fi
-            echo "Push failed (likely concurrent commit) — retrying"
-            git pull --rebase origin main || {
-              git rebase --abort || true
-              git fetch origin main
-              git reset --soft origin/main
-              git add events.json
-              git commit -m "chore: update events.json [skip ci]" || true
-            }
-            sleep 2
+
+            if [ "$attempt" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::Push failed after $MAX_ATTEMPTS attempts"
+              exit 1
+            fi
+
+            echo "Push rejected — fetching latest main and rebasing..."
+            git fetch origin main
+            if ! git rebase origin/main; then
+              echo "Rebase conflict — taking our newly fetched events"
+              git checkout --theirs events.json 2>/dev/null || true
+              git add events.json 2>/dev/null || true
+              git rebase --continue || git rebase --abort
+            fi
+            sleep $((attempt * 3))
           done
-          echo "::warning::Failed to push after $MAX_ATTEMPTS attempts"
-          exit 0

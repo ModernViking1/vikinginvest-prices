@@ -2,14 +2,6 @@ name: Deploy Dashboard
 
 # Automatically copies the latest Viking_Invest_Trading_v*.html into dashboard.html
 # at the repo root, where GitHub Pages serves it.
-#
-# Triggers on:
-#   - any push that adds/modifies a versioned HTML file at the repo root
-#   - manual run via the Actions tab
-#
-# Once GitHub Pages is enabled (Settings → Pages → Source: main / root),
-# the dashboard is live at:
-#   https://modernviking1.github.io/vikinginvest-prices/dashboard.html
 
 on:
   push:
@@ -43,15 +35,39 @@ jobs:
           echo "Deployed ${{ steps.latest.outputs.latest }} -> dashboard.html"
           ls -la dashboard.html
 
-      - name: Commit and push
+      - name: Commit and push with race-condition retry
         run: |
+          set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add dashboard.html
           if git diff --staged --quiet; then
             echo "No changes to commit (dashboard.html already up to date)"
-          else
-            git commit -m "Auto-deploy ${{ steps.latest.outputs.latest }} to dashboard.html"
-            git push
-            echo "✅ Deployed and pushed"
+            exit 0
           fi
+
+          git commit -m "Auto-deploy ${{ steps.latest.outputs.latest }} to dashboard.html"
+
+          MAX_ATTEMPTS=5
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Push attempt $attempt of $MAX_ATTEMPTS"
+            if git push origin main 2>&1; then
+              echo "✅ Deployed and pushed"
+              exit 0
+            fi
+
+            if [ "$attempt" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::Push failed after $MAX_ATTEMPTS attempts"
+              exit 1
+            fi
+
+            echo "Push rejected — fetching latest main and rebasing..."
+            git fetch origin main
+            if ! git rebase origin/main; then
+              echo "Rebase conflict — taking our deployed dashboard"
+              git checkout --theirs dashboard.html 2>/dev/null || true
+              git add dashboard.html 2>/dev/null || true
+              git rebase --continue || git rebase --abort
+            fi
+            sleep $((attempt * 3))
+          done

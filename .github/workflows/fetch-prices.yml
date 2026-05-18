@@ -39,31 +39,25 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Stage all data files first (don't commit yet — we need to
-          # check if they actually changed after a potential rebase).
           git add prices.json
           if [ -f history.json ]; then
             git add history.json
             echo "Including history.json"
           fi
+          # NOTE: intraday.json no longer written by default (see fetch-prices.js).
+          # Stage if present, for FORCE_LEGACY_INTRADAY=true cases.
           if [ -f intraday.json ]; then
             git add intraday.json
-            echo "Including intraday.json"
+            echo "Including intraday.json (legacy/forced)"
           fi
 
-          # If nothing staged, exit cleanly.
           if git diff --cached --quiet; then
             echo "No changes to commit — exiting"
             exit 0
           fi
 
-          # Commit locally first. We'll resolve any race against remote
-          # via rebase-on-push retry below.
           git commit -m "chore: update prices"
 
-          # Retry-push loop. Handles the race when other workflows
-          # (publish-intraday-ohlc, deploy-dashboard, pages-build-deployment)
-          # commit to main between our last pull and our push.
           MAX_ATTEMPTS=5
           for attempt in $(seq 1 $MAX_ATTEMPTS); do
             echo "Push attempt $attempt of $MAX_ATTEMPTS"
@@ -77,18 +71,10 @@ jobs:
               exit 1
             fi
 
-            # Push failed (likely race). Rebase our commit onto the new
-            # remote main and retry. If rebase fails due to conflicts in
-            # JSON files (which can happen if both workflows updated the
-            # same fields), we strategy-choose: prefer OUR data (newer
-            # fetched prices) over the remote's stale snapshot.
             echo "Push rejected — fetching latest main and rebasing..."
             git fetch origin main
             if ! git rebase origin/main; then
               echo "Rebase conflict — taking our newly fetched data"
-              # During rebase, "--theirs" refers to the commit being replayed
-              # on top (our newly fetched data), while "--ours" refers to the
-              # current HEAD which is origin/main. We want OUR new data, so:
               for f in prices.json history.json intraday.json; do
                 if [ -f "$f" ]; then
                   git checkout --theirs "$f" 2>/dev/null || true
@@ -97,7 +83,6 @@ jobs:
               done
               git rebase --continue || git rebase --abort
             fi
-            # Small backoff so concurrent workflows have a chance to finish
             sleep $((attempt * 3))
           done
 
@@ -119,13 +104,21 @@ jobs:
           }
           PKG
 
-      - name: Publish to npm
+      - name: Publish to npm (non-fatal)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access=public
-
-      - name: Purge jsDelivr cache
         run: |
-          curl -s "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/prices.json" || true
-          curl -s "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/history.json" || true
-          curl -s "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/intraday.json" || true
+          # npm publish failures must not fail this workflow — the canonical
+          # data is already in the GitHub repo. statically.io and jsDelivr's
+          # gh endpoint serve it without depending on npm.
+          if npm publish --access=public 2>&1; then
+            echo "✅ npm publish succeeded"
+          else
+            echo "::warning::npm publish failed (non-fatal). Data still served via statically.io and jsDelivr gh."
+          fi
+
+      - name: Purge jsDelivr cache (non-fatal)
+        run: |
+          curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/prices.json" || echo "purge npm prices failed"
+          curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/history.json" || echo "purge npm history failed"
+          curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/prices.json" || echo "purge gh prices failed"

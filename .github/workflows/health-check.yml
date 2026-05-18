@@ -1,0 +1,186 @@
+name: Health Check
+
+# Runs every 30 minutes. Checks freshness of each data file the dashboard
+# depends on. If any are stale beyond their SLA, opens (or reuses) a
+# GitHub Issue so you get an email/notification.
+#
+# WHY THIS EXISTS:
+#   Without monitoring, broken workflows produce stale data silently for
+#   hours/days before anyone notices via the dashboard. This is the
+#   "smoke alarm" for the publishing pipeline.
+#
+# WHAT IT CHECKS:
+#   - intraday-ohlc.json    SLA: updated within last 30 min (5-min cron)
+#   - prices.json           SLA: updated within last 30 min (15-min cron)
+#   - intraday.json         SLA: updated within last 30 min (15-min cron, legacy)
+#   - events.json           SLA: updated within last 90 min (60-min cron)
+#   - historical-ohlc.json  SLA: <30 days old (manual backfill)
+#
+# WHEN IT FIRES:
+#   - Any data file is stale beyond its SLA → opens "Pipeline Health Issue"
+#   - All files fresh → closes any open issue with the same title
+#
+# IF DISABLED:
+#   The notifications stop but the workflows continue to run/fail silently.
+#   Re-enable from Actions → Health Check → "Enable workflow".
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run health check
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python <<'PYEOF'
+          import json, os, sys, urllib.request, urllib.error
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          # File -> SLA in minutes
+          SLAS = {
+              "intraday-ohlc.json": 30,
+              "prices.json":         30,
+              "intraday.json":       30,
+              "events.json":         90,
+              "historical-ohlc.json": 30 * 24 * 60,  # 30 days
+          }
+
+          now = datetime.now(timezone.utc)
+          stale = []
+          missing = []
+          fresh = []
+
+          for filename, sla_min in SLAS.items():
+              path = Path(filename)
+              if not path.exists():
+                  missing.append(filename)
+                  continue
+              try:
+                  data = json.loads(path.read_text())
+              except (json.JSONDecodeError, OSError) as e:
+                  stale.append(f"{filename}: unparseable ({e})")
+                  continue
+
+              # Try common timestamp keys
+              ts_str = data.get("updated") or data.get("generated")
+              if not ts_str:
+                  stale.append(f"{filename}: no 'updated' or 'generated' field")
+                  continue
+
+              # Normalize ISO format
+              ts_norm = ts_str.replace("Z", "+00:00")
+              try:
+                  ts = datetime.fromisoformat(ts_norm)
+              except ValueError:
+                  stale.append(f"{filename}: unparseable timestamp '{ts_str}'")
+                  continue
+
+              age_min = int((now - ts).total_seconds() / 60)
+              if age_min > sla_min:
+                  age_str = f"{age_min} min" if age_min < 120 else f"{age_min // 60}h {age_min % 60}m"
+                  sla_str = f"{sla_min} min" if sla_min < 120 else f"{sla_min // 60}h"
+                  stale.append(f"{filename}: {age_str} old (SLA: {sla_str})")
+              else:
+                  fresh.append(f"{filename}: {age_min}min old (OK)")
+
+          # Build report
+          report_lines = ["# Pipeline Health Report", ""]
+          report_lines.append(f"Checked at: {now.isoformat()}")
+          report_lines.append("")
+          if stale or missing:
+              report_lines.append("## ⚠️ Issues Found")
+              for s in missing:
+                  report_lines.append(f"- **MISSING**: `{s}`")
+              for s in stale:
+                  report_lines.append(f"- **STALE**: {s}")
+              report_lines.append("")
+              report_lines.append("## What to check")
+              report_lines.append("1. Go to Actions tab")
+              report_lines.append("2. Look for failed runs of: publish-intraday-ohlc, fetch-prices, publish-events")
+              report_lines.append("3. If workflow is disabled (yellow banner), click 'Enable workflow'")
+              report_lines.append("4. If runs are failing: check logs for OANDA 401 (token expired) or network errors")
+              report_lines.append("5. To recover: trigger workflow manually from Actions tab")
+          report_lines.append("")
+          if fresh:
+              report_lines.append("## ✅ Fresh files")
+              for s in fresh:
+                  report_lines.append(f"- {s}")
+          report = "\n".join(report_lines)
+
+          print(report)
+          print()
+
+          # Decide outcome
+          if not stale and not missing:
+              print("All files fresh — no issue needed")
+              # Write outputs for the next step
+              with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                  f.write("status=ok\n")
+                  f.write("report<<REPORT_EOF\n")
+                  f.write(report + "\n")
+                  f.write("REPORT_EOF\n")
+              sys.exit(0)
+          else:
+              print(f"Issues found: {len(stale)} stale, {len(missing)} missing")
+              with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                  f.write("status=stale\n")
+                  f.write("report<<REPORT_EOF\n")
+                  f.write(report + "\n")
+                  f.write("REPORT_EOF\n")
+              sys.exit(0)
+          PYEOF
+
+      - name: Open or update issue if stale
+        if: steps.check.outputs.status == 'stale'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Find existing open "Pipeline Health Issue" or create new one
+          ISSUE_TITLE="🚨 Pipeline Health: data files are stale"
+          EXISTING=$(gh issue list --state open --search "$ISSUE_TITLE in:title" --json number,title --jq '.[] | select(.title=="'"$ISSUE_TITLE"'") | .number' | head -1)
+          REPORT=$(cat <<'EOF'
+          ${{ steps.check.outputs.report }}
+          EOF
+          )
+          if [ -z "$EXISTING" ]; then
+            gh issue create --title "$ISSUE_TITLE" --body "$REPORT" --label "health-check" 2>/dev/null || \
+              gh issue create --title "$ISSUE_TITLE" --body "$REPORT"
+            echo "Opened new issue"
+          else
+            gh issue comment "$EXISTING" --body "$REPORT"
+            echo "Updated existing issue #$EXISTING"
+          fi
+
+      - name: Close issue if all fresh
+        if: steps.check.outputs.status == 'ok'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE_TITLE="🚨 Pipeline Health: data files are stale"
+          EXISTING=$(gh issue list --state open --search "$ISSUE_TITLE in:title" --json number,title --jq '.[] | select(.title=="'"$ISSUE_TITLE"'") | .number' | head -1)
+          if [ -n "$EXISTING" ]; then
+            gh issue close "$EXISTING" --comment "✅ All files fresh as of $(date -u +%Y-%m-%dT%H:%M:%SZ). Auto-closing."
+            echo "Closed issue #$EXISTING"
+          fi
