@@ -1688,7 +1688,23 @@ function buildPanel(k){
   // Three layers
   var lg=document.createElement('div');lg.className='lgrid';
   [{key:'ew',ttl:'Macro (Daily)',tf:'D/W'},{key:'tl',ttl:'Hourly',tf:'1H'},{key:'nw',ttl:'15m',tf:'15m'}].forEach(function(ld,i){
-    var sig=STATE[k][ld.key],card=document.createElement('div');card.className='lcard '+(sig==='bear'?'ab':sig==='bull'?'ag':'an');card.id='lc-'+k+'-'+ld.key;
+    var sig=STATE[k][ld.key];
+    // Direction-conflict override. getLayerDet() reads setup
+    // targets/zones from the WickatorFX seed baseline via setupField().
+    // When the engine direction has flipped but the seed hasn't (the
+    // "DIRECTION CONFLICT — awaiting auto-EW" banner state), showing
+    // a ▲ BULL pill alongside SELL-ZONE / bearish-target text is
+    // contradictory — SUI is a clear example. Switch the pill +
+    // description to seed direction so the card reads coherently with
+    // the numbers shown on it. The top conflict banner already explains
+    // why the engine disagrees, so we're not hiding information.
+    try {
+      var seedW = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k]) ? WICKATOR_EW[k] : null;
+      if(seedW && seedW.dir && sig && seedW.dir !== sig){
+        sig = seedW.dir;
+      }
+    } catch(e){}
+    var card=document.createElement('div');card.className='lcard '+(sig==='bear'?'ab':sig==='bull'?'ag':'an');card.id='lc-'+k+'-'+ld.key;
     var pc=sig==='bear'?'pb':sig==='bull'?'pg':'pn',pt=sig==='bear'?'&#9660; BEAR':sig==='bull'?'&#9650; BULL':'&#9679; NEUTRAL';
     card.innerHTML='<div class="lhd"><div class="lnum">'+(i+1)+'</div><div class="lttl">'+ld.ttl+'</div><div class="ltf">'+ld.tf+'</div></div><div class="lbdy"><div class="lpill '+pc+'" id="lp-'+k+'-'+ld.key+'">'+pt+'</div><div class="ldet" id="ld-'+k+'-'+ld.key+'">'+getLayerDet(k,ld.key,sig)+'</div></div>';
     lg.appendChild(card);
@@ -1959,9 +1975,21 @@ function refreshAlert(k){
   var score=sc(k),m=MKTS[k];
   var ab=document.getElementById('alert-'+k),ico=document.getElementById('ico-'+k),atit=document.getElementById('atit-'+k),adsc=document.getElementById('adsc-'+k),sco=document.getElementById('sco-'+k);
   if(!ab)return;
+  // Same direction-conflict override as buildPanel's layer-card render:
+  // when seed and engine disagree, the displayed setup targets come from
+  // the seed via setupField(), so the pill + descriptive text should also
+  // reflect the seed direction so the card is internally consistent.
+  // (See the comment in buildPanel for full rationale.)
+  var _seedW = null;
+  try {
+    _seedW = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k]) ? WICKATOR_EW[k] : null;
+  } catch(e){}
   ['ew','tl','nw'].forEach(function(l){
-    var sig=STATE[k][l],
-        card=document.getElementById('lc-'+k+'-'+l),
+    var sig=STATE[k][l];
+    if(_seedW && _seedW.dir && sig && _seedW.dir !== sig){
+      sig = _seedW.dir;
+    }
+    var card=document.getElementById('lc-'+k+'-'+l),
         pill=document.getElementById('lp-'+k+'-'+l),
         det=document.getElementById('ld-'+k+'-'+l);
     if(card)card.className='lcard '+(sig==='bear'?'ab':sig==='bull'?'ag':'an');
