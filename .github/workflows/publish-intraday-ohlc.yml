@@ -17,7 +17,12 @@ name: Publish Intraday OHLC
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    # Every 10 minutes (was */5). GitHub Actions cron is throttled hard on
+    # high-activity repos — at */5 most slots were being dropped anyway, so
+    # the effective cadence was already 1-3h. */10 halves the scheduled
+    # workflow count without losing meaningful freshness (each run still
+    # polls OANDA twice via --loop 2 --interval 60).
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 concurrency:
