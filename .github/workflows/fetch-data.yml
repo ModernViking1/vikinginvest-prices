@@ -26,6 +26,19 @@ on:
     # fire-rate against GH's scheduler throttle. Same 10-min cadence.
     - cron: '3,13,23,33,43,53 * * * *'
   workflow_dispatch:
+  # External-scheduler entry point. Lets cron-job.org / Uptime Kuma / etc.
+  # trigger this workflow via the GitHub REST `repository_dispatch` API,
+  # bypassing the internal cron throttle that's been giving 1-3 h gaps.
+  #
+  # External pinger POSTs to
+  #   https://api.github.com/repos/ModernViking1/vikinginvest-prices/dispatches
+  # with body
+  #   {"event_type": "fetch-data"}
+  # and an `Authorization: Bearer <fine-grained-PAT>` header. Auth needs
+  # repo `Contents: Read & write` permission (or `Actions: Write` for
+  # tighter scope).
+  repository_dispatch:
+    types: [fetch-data]
 
 concurrency:
   group: fetch-data
