@@ -286,12 +286,6 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   </div>
 </div>
 
-<!-- Data freshness banner: shown when the price/intraday feeds are older
-     than 15 min. GitHub Actions cron is throttled on this repo, so feeds
-     can lag 1-3 hours; without this banner the dashboard silently shows
-     stale signals as if they were live. -->
-<div id="dataStalenessBanner" style="display:none;text-align:center;padding:7px 14px;font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.5px;"></div>
-
 <!-- NAV -->
 <div class="nav">
   <button class="ntab active" onclick="switchPage('dash')">📊 Dashboard</button>
@@ -406,6 +400,12 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 
 <!-- ════ LOG ════ -->
 <div class="page" id="page-log">
+  <!-- Data freshness banner: shown when the price/intraday feeds are older
+       than 15 min. GitHub Actions cron is throttled on this repo, so feeds
+       can lag 1-3 hours. Lives on the Signal Log page (not the main
+       dashboard) per user request — signals are what need the staleness
+       caveat, the dashboard top is reserved for current confluence state. -->
+  <div id="dataStalenessBanner" style="display:none;text-align:center;padding:7px 14px;font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.5px;margin-bottom:8px;border-radius:3px;"></div>
   <div class="logsect">
     <div class="loghdr">
       <h3>▸ Full Signal History — All 21 Markets</h3>
