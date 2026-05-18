@@ -14,6 +14,12 @@ on:
     # marks to dodge GH Actions cron throttling. Still hourly.
     - cron: '27 * * * *'
   workflow_dispatch:
+  # External-scheduler entry point. See fetch-data.yml for the setup
+  # description. POST event_type "publish-events" to trigger this one.
+  # Optional — events.json only needs hourly refresh; only wire this up
+  # if the hourly cron is being throttled too.
+  repository_dispatch:
+    types: [publish-events]
 
 concurrency:
   group: publish-events
