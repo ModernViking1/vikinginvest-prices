@@ -2798,8 +2798,17 @@ function buildBacktest(){
         },
         function(results, fromCache){
           _hideBacktestProgressOverlay();
-          // Re-render now that data is ready
-          if(typeof buildBacktest === 'function') buildBacktest();
+          // Don't call buildBacktest() recursively from here — if the
+          // walk's cache save just failed silently (mobile quota), the
+          // recursive call sees an empty cache, kicks another walk, and
+          // we're in an infinite loop. Re-render the per-pair cards +
+          // failure-mode analysis directly instead. They read from the
+          // in-memory `results` parameter via the same load-or-recompute
+          // path, but skip the buildBacktest entry point that would
+          // otherwise re-show the progress overlay.
+          try { if(typeof refreshBacktestWR === 'function') refreshBacktestWR(); } catch(e){}
+          try { if(typeof renderFailureModeAnalysis === 'function') renderFailureModeAnalysis(); } catch(e){}
+          try { Object.keys(MKTS).forEach(function(k){ if(typeof refreshAlert === 'function') refreshAlert(k); }); } catch(e){}
         });
       // Show a placeholder while computing — don't render full UI yet
       return;
@@ -8359,7 +8368,10 @@ function calcIndependentNWDir(k){
 // totalSignals=0 and the dashboard fell back to the m.bw/m.bl seed
 // (identical 18W/6L "STATS: EW EST" on every card). v3 stores results
 // from the fixed local-only TL calc.
-var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v3';
+// v4 — bumped because v3 results were full per-pair `trades` arrays
+// that exceed mobile localStorage quota. v4 is the slim version with
+// `trades` stripped at save time.
+var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v4';
 var RECENT_BT_CACHE_TTL_MS = 4 * 60 * 60 * 1000;  // 4 hours
 
 function _loadRecentBtCache(){
@@ -8372,13 +8384,44 @@ function _loadRecentBtCache(){
     return parsed.data || null;
   } catch(e){ return null; }
 }
+// Persist a slim copy of the per-pair backtest results.
+//
+// calcRecentBacktest returns each pair's full `trades` array (per-trade
+// outcome records) for downstream classifySimulatedTrades consumption —
+// but classifySimulatedTrades is a separate function call path and
+// nothing reads `rb.trades` from the cache. With 22 pairs × hundreds
+// of trades each, the serialised JSON easily exceeds mobile Safari's
+// 5 MB localStorage quota; setItem then throws QuotaExceededError,
+// the older silent catch swallowed it, the cache stayed empty, and
+// the next buildBacktest() (called recursively from a walk's
+// onComplete) saw the empty cache and kicked another walk — the
+// "progress jumps then reverts to zero" loop the user saw.
+//
+// Strip `trades` before stringifying. Surface save failures via
+// console.warn instead of swallowing so the next quota problem is
+// visible.
 function _saveRecentBtCache(data){
+  var slim = {};
+  Object.keys(data || {}).forEach(function(k){
+    var rb = data[k];
+    if(!rb){ slim[k] = null; return; }
+    // Shallow copy everything except the heavy per-trade array.
+    var copy = {};
+    Object.keys(rb).forEach(function(field){
+      if(field !== 'trades') copy[field] = rb[field];
+    });
+    slim[k] = copy;
+  });
   try {
     localStorage.setItem(RECENT_BT_CACHE_KEY, JSON.stringify({
       timestamp: Date.now(),
-      data: data
+      data: slim
     }));
-  } catch(e){ /* quota or disabled — ignore */ }
+  } catch(e){
+    // Most commonly QuotaExceededError on mobile. Don't loop silently —
+    // log so the in-flight buildBacktest can break instead of recursing.
+    try { console.warn('Backtest cache save failed:', e && e.message || e); } catch(_){}
+  }
 }
 
 // Compute the EW (macro) direction at a particular historical timestamp.
