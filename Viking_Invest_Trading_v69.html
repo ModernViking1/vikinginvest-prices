@@ -8351,11 +8351,15 @@ function calcIndependentNWDir(k){
 //
 // Or null if pair has insufficient buffered data for analysis.
 
-// v2 — bumped to invalidate older cached results that pre-date the
-// TRIGGERED_MAX_BARS (PR #4) and alignment-broken (PR #3) parity
-// updates inside calcRecentBacktest. Old cached entries computed
-// without those exits will be stale on next page load.
-var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v2';
+// v3 — bumped because v2 results (PR #13) were corrupted by a state-
+// mutation bug inside the post-trigger loop: updateTLDir(h1IdxJpost)
+// advanced the outer loop's shared lastH1IdxSeen cursor past the
+// current bar, causing every subsequent setup in the outer walk to see
+// a forward-stale tlBreakDir and skip itself. Every pair returned
+// totalSignals=0 and the dashboard fell back to the m.bw/m.bl seed
+// (identical 18W/6L "STATS: EW EST" on every card). v3 stores results
+// from the fixed local-only TL calc.
+var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v3';
 var RECENT_BT_CACHE_TTL_MS = 4 * 60 * 60 * 1000;  // 4 hours
 
 function _loadRecentBtCache(){
@@ -8836,17 +8840,39 @@ function calcRecentBacktest(k){
         }
         // PR #3 parity: alignment-broken post-trigger. If EW (daily) or TL
         // (hourly) has flipped against alignedDir while in trade, the live
-        // detector would exit via outcome='choch-invalidated' with
-        // alignmentBroken=true. Mirror that here. ewDirAtTime is cached
-        // per-day so it's cheap; tlBreakDir is incrementally maintained.
+        // detector exits via outcome='choch-invalidated' with
+        // alignmentBroken=true. Mirror that here.
+        //
+        // CRITICAL: do NOT call updateTLDir() from inside the post-trigger
+        // loop — it mutates the outer loop's `lastH1IdxSeen` cursor and
+        // advances tlBreakDir past the current outer-loop bar. Every
+        // subsequent outer iteration then sees a forward-stale tlDir and
+        // skips its setup. Symptom was totalSignals=0 for every pair, with
+        // the per-pair cards falling back to the m.bw/m.bl seed (identical
+        // 18W/6L on every card, "STATS: EW EST"). Compute TL direction at
+        // the post-trigger bar LOCALLY instead — read-only, no shared
+        // cursor advance. EW is fine because ewDirAtTime is a cached pure
+        // lookup with no shared mutable cursor.
         var ewAtJpost = (typeof ewDirAtTime === 'function') ? ewDirAtTime(k, m15Ts[j]) : null;
-        var h1IdxJpost = findH1IdxAt(m15Ts[j]);
-        if(h1IdxJpost >= 0) updateTLDir(h1IdxJpost);
         if(ewAtJpost && ewAtJpost !== alignedDir){
           resolved = 'invalidated'; failureMode = 'alignment-broken-ew-post-trigger'; resolvedAt = j; break;
         }
-        if(tlBreakDir && tlBreakDir !== alignedDir){
-          resolved = 'invalidated'; failureMode = 'alignment-broken-tl-post-trigger'; resolvedAt = j; break;
+        var h1IdxJpost = findH1IdxAt(m15Ts[j]);
+        if(h1IdxJpost >= 1 && h1IdxJpost < h1Bars.length){
+          var localTlStart = Math.max(0, h1IdxJpost - 8);
+          var localSwHi = -Infinity, localSwLo = Infinity;
+          for(var wj = localTlStart; wj < h1IdxJpost; wj++){
+            if(h1Bars[wj].h > localSwHi) localSwHi = h1Bars[wj].h;
+            if(h1Bars[wj].l < localSwLo) localSwLo = h1Bars[wj].l;
+          }
+          var localPxA = Math.abs(h1Bars[h1IdxJpost].c);
+          var localMp = localPxA > 1000 ? localPxA * 0.001 : (localPxA > 5 ? localPxA * 0.0008 : 0.0005);
+          var localTlDir = null;
+          if(h1Bars[h1IdxJpost].c > localSwHi && (h1Bars[h1IdxJpost].c - localSwHi) >= localMp) localTlDir = 'bull';
+          else if(h1Bars[h1IdxJpost].c < localSwLo && (localSwLo - h1Bars[h1IdxJpost].c) >= localMp) localTlDir = 'bear';
+          if(localTlDir && localTlDir !== alignedDir){
+            resolved = 'invalidated'; failureMode = 'alignment-broken-tl-post-trigger'; resolvedAt = j; break;
+          }
         }
         // PR #4 parity: TRIGGERED_MAX_BARS = 16 (4h on 15m). Trades that
         // haven't resolved within 4h post-trigger are marked stale-expired
