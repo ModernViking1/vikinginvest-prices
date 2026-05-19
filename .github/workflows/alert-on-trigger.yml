@@ -20,6 +20,11 @@ on:
     workflows: ["Fetch Data (prices + intraday OHLC)"]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      send_all_aligned:
+        description: 'One-shot: also send Telegram messages for every currently-aligned pair, ignoring stored state. Useful for verifying the pipeline end-to-end after first setup. Set "true" to enable.'
+        required: false
+        default: 'false'
 
 permissions:
   contents: write
@@ -67,6 +72,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SEND_ALL_ALIGNED: ${{ github.event.inputs.send_all_aligned || 'false' }}
         run: python detect_triggers.py
 
       - name: Commit updated state
