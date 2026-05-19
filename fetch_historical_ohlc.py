@@ -65,6 +65,7 @@ import requests
 # ── Pair configuration ──────────────────────────────────────────────
 # Same 22 pairs as the live intraday bridge for consistency.
 PAIRS: Dict[str, Dict[str, str]] = {
+    # Must stay in sync with publish_intraday_ohlc.py + fetch-prices.js.
     "eurusd":  {"oanda": "EUR_USD"},
     "gbpusd":  {"oanda": "GBP_USD"},
     "usdjpy":  {"oanda": "USD_JPY"},
@@ -80,12 +81,29 @@ PAIRS: Dict[str, Dict[str, str]] = {
     "audnzd":  {"oanda": "AUD_NZD"},
     "audchf":  {"oanda": "AUD_CHF"},
     "eurgbp":  {"oanda": "EUR_GBP"},
+    # v5 additions
+    "audcad":  {"oanda": "AUD_CAD"},
+    "gbpcad":  {"oanda": "GBP_CAD"},
+    "nzdjpy":  {"oanda": "NZD_JPY"},
+    "usdnok":  {"oanda": "USD_NOK"},
+    "gbpnzd":  {"oanda": "GBP_NZD"},
+    "eursek":  {"oanda": "EUR_SEK"},
+    # Commodities
     "xauusd":  {"oanda": "XAU_USD"},
     "xagusd":  {"oanda": "XAG_USD"},
     "usoil":   {"oanda": "BCO_USD"},
+    # Equity indices
     "de40":    {"oanda": "DE30_EUR"},
+    "ftse100": {"oanda": "UK100_GBP"},
+    "dj30":    {"oanda": "US30_USD"},
+    "nas100":  {"oanda": "NAS100_USD"},
+    # Crypto
     "btcusd":  {"coinbase": "BTC-USD"},
     "suiusd":  {"coinbase": "SUI-USD"},
+    "ethusd":  {"coinbase": "ETH-USD"},
+    "solusd":  {"coinbase": "SOL-USD"},
+    "xrpusd":  {"coinbase": "XRP-USD"},
+    "taousd":  {"coinbase": "TAO-USD"},
 }
 
 # OANDA granularity codes
