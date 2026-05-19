@@ -103,6 +103,96 @@ def calc_independent_dir(bars, lookback=8):
     return last_break_dir
 
 
+def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry_bars=8):
+    """Port of the essential parts of detectIntradaySignal from
+    dashboard.html (~L9290). Detects the state of the 1:1-RR intraday
+    signal for a 3/3-aligned pair on the 15m timeframe.
+
+    Returns dict with:
+      state: 'armed' | 'triggered' | 'expired' | None
+      creator_idx: index of the creator bar (most recent CHoCH in alignedDir)
+      creator_ts: timestamp of creator bar
+      creator_high / creator_low: wick extremes used as entry
+      entry: float — wick extreme on the entry side
+      trigger_bar_idx / trigger_ts: if state == 'triggered'
+
+    Returns None if no creator found in the search window or bars are
+    too short.
+    """
+    n = len(bars)
+    if n < lookback + 2:
+        return None
+
+    # Find most recent creator bar (close beyond 8-bar swing in alignedDir).
+    creator_idx = -1
+    search_start = max(lookback, n - search_bars)
+    for i in range(search_start, n):
+        lb = bars[max(0, i - lookback):i]
+        if len(lb) < 5:
+            continue
+        swing_hi = max(b.get('h', float('-inf')) for b in lb)
+        swing_lo = min(b.get('l', float('inf')) for b in lb)
+        c = bars[i].get('c')
+        if c is None:
+            continue
+        if aligned_dir == 'bull' and c > swing_hi:
+            creator_idx = i
+        elif aligned_dir == 'bear' and c < swing_lo:
+            creator_idx = i
+
+    if creator_idx == -1:
+        return None
+
+    creator = bars[creator_idx]
+    bars_ago = n - 1 - creator_idx
+    creator_high = creator.get('h')
+    creator_low = creator.get('l')
+
+    # Expiry check — matches detectIntradaySignal's EXPIRY_BARS=8.
+    if bars_ago > expiry_bars:
+        return {
+            'state': 'expired',
+            'creator_idx': creator_idx,
+            'creator_ts': creator.get('t'),
+            'creator_high': creator_high,
+            'creator_low': creator_low,
+            'entry': None,
+            'trigger_bar_idx': -1,
+            'trigger_ts': None,
+        }
+
+    # Entry is the wick extreme on the entry side: high for bear, low for bull.
+    entry = creator_high if aligned_dir == 'bear' else creator_low
+
+    # Trigger: walk forward from creator+1, check if any bar's range reaches entry.
+    trigger_bar_idx = -1
+    if entry is not None:
+        for j in range(creator_idx + 1, n):
+            b = bars[j]
+            bh, bl = b.get('h'), b.get('l')
+            if bh is None or bl is None:
+                continue
+            reaches = (
+                (aligned_dir == 'bear' and bh >= entry) or
+                (aligned_dir == 'bull' and bl <= entry)
+            )
+            if reaches:
+                trigger_bar_idx = j
+                break
+
+    state = 'triggered' if trigger_bar_idx >= 0 else 'armed'
+    return {
+        'state': state,
+        'creator_idx': creator_idx,
+        'creator_ts': creator.get('t'),
+        'creator_high': creator_high,
+        'creator_low': creator_low,
+        'entry': entry,
+        'trigger_bar_idx': trigger_bar_idx,
+        'trigger_ts': bars[trigger_bar_idx].get('t') if trigger_bar_idx >= 0 else None,
+    }
+
+
 def aggregate_m15_to_h1(m15_bars):
     """Group consecutive m15 bars into h1 OHLC bars by hour key."""
     groups = defaultdict(list)
@@ -190,12 +280,23 @@ def scan_pairs(intraday_data, historical_data):
         if last_bar:
             last_price = last_bar.get('c') or last_bar.get('p')
 
+        # Phase 2: if 3/3 aligned, detect intraday signal state (armed /
+        # triggered / expired). Ports the essential part of
+        # detectIntradaySignal so we can alert when a setup triggers.
+        sig = None
+        if aligned_dir is not None:
+            sig = detect_intraday_signal(m15, aligned_dir)
+
         out[pair] = {
             'ew': ew,
             'tl': tl,
             'nw': nw,
             'aligned_dir': aligned_dir,
             'price': last_price,
+            'sig_state': sig.get('state') if sig else None,
+            'sig_creator_ts': sig.get('creator_ts') if sig else None,
+            'sig_entry': sig.get('entry') if sig else None,
+            'sig_trigger_ts': sig.get('trigger_ts') if sig else None,
         }
     return out
 
@@ -226,12 +327,37 @@ def send_telegram(token, chat_id, text):
         return False
 
 
+def _fmt_price(p):
+    if p is None:
+        return '?'
+    ap = abs(p)
+    if ap < 100:
+        return f"{p:.5f}"
+    if ap < 1000:
+        return f"{p:.3f}"
+    return f"{p:,.0f}"
+
+
 def format_alert(pair, info, kind):
-    """kind: 'newly-aligned' | 'flipped' | 'currently-aligned'."""
+    """kind: 'newly-aligned' | 'flipped' | 'currently-aligned' | 'triggered'."""
     sym = PAIR_DISPLAY.get(pair, pair.upper())
     direction = info['aligned_dir']
-    arrow = '🟢▲' if direction == 'bull' else '🔴▼'
     action = 'BUY' if direction == 'bull' else 'SELL'
+
+    if kind == 'triggered':
+        # Phase 2 — intraday 1:1 retest fired. Higher-priority alert
+        # with the entry price and a louder header.
+        entry_str = _fmt_price(info.get('sig_entry'))
+        text = (
+            f"🎯 <b>TRIGGERED — {action} {sym}</b>\n"
+            f"Entry hit: <code>{entry_str}</code> (creator wick)\n"
+            f"Current px: <code>{_fmt_price(info['price'])}</code>\n"
+            f"EW {info['ew']} · TL {info['tl']} · NW {info['nw']}\n"
+            f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
+        )
+        return text
+
+    arrow = '🟢▲' if direction == 'bull' else '🔴▼'
     if kind == 'newly-aligned':
         title = '3/3 ALIGNED'
     elif kind == 'flipped':
@@ -239,13 +365,9 @@ def format_alert(pair, info, kind):
     else:
         title = '3/3 STATUS (catchup)'
 
-    price_str = f"{info['price']:.5f}" if info['price'] and abs(info['price']) < 100 else \
-                f"{info['price']:.3f}" if info['price'] and abs(info['price']) < 1000 else \
-                f"{info['price']:,.0f}" if info['price'] else '?'
-
     text = (
         f"{arrow} <b>{title} — {action} {sym}</b>\n"
-        f"Price: <code>{price_str}</code>\n"
+        f"Price: <code>{_fmt_price(info['price'])}</code>\n"
         f"EW {info['ew']} · TL {info['tl']} · NW {info['nw']}\n"
         f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
     )
@@ -290,29 +412,41 @@ def main():
         prev = prev_state.get(pair, {})
         prev_dir = prev.get('aligned_dir')
         cur_dir = info['aligned_dir']
+        prev_sig_state = prev.get('sig_state')
+        cur_sig_state = info.get('sig_state')
 
-        # Decide whether to alert
-        should_alert = False
-        kind = None
+        # Alignment-level alerts (existing behaviour).
+        should_alert_alignment = False
+        align_kind = None
         if cur_dir is not None:
             if prev_dir is None:
-                should_alert = True
-                kind = 'newly-aligned'
+                should_alert_alignment = True
+                align_kind = 'newly-aligned'
             elif prev_dir != cur_dir:
-                should_alert = True
-                kind = 'flipped'
+                should_alert_alignment = True
+                align_kind = 'flipped'
             elif send_all_aligned:
-                # Manual one-shot catchup — fire even though state hasn't changed.
-                should_alert = True
-                kind = 'currently-aligned'
+                should_alert_alignment = True
+                align_kind = 'currently-aligned'
 
-        # send_all_aligned overrides the first-run baseline silence too —
-        # if the user explicitly asked for it, they want the messages.
-        if should_alert and (not is_first_run or send_all_aligned):
-            print(f'  ALERT: {pair} {prev_dir} -> {cur_dir} ({kind})')
-            text = format_alert(pair, info, kind)
+        if should_alert_alignment and (not is_first_run or send_all_aligned):
+            print(f'  ALERT(align): {pair} {prev_dir} -> {cur_dir} ({align_kind})')
+            text = format_alert(pair, info, align_kind)
             if send_telegram(token, chat_id, text):
                 alerts_sent += 1
+
+        # Phase 2: intraday-trigger alerts. Fires when a previously-armed
+        # signal newly reaches the creator's wick entry. We deliberately
+        # gate on prev_sig_state == 'armed' AND cur_sig_state == 'triggered'
+        # so we only push once per setup — if the user reloads the workflow
+        # or we re-run, we won't re-alert as long as the state file
+        # remembers it was already triggered.
+        if cur_sig_state == 'triggered' and prev_sig_state == 'armed':
+            if not is_first_run or send_all_aligned:
+                print(f'  ALERT(trigger): {pair} armed -> triggered (creator={info.get("sig_creator_ts")}, entry={info.get("sig_entry")})')
+                text = format_alert(pair, info, 'triggered')
+                if send_telegram(token, chat_id, text):
+                    alerts_sent += 1
 
         new_state[pair] = {
             'aligned_dir': cur_dir,
@@ -320,6 +454,10 @@ def main():
             'tl': info['tl'],
             'nw': info['nw'],
             'price': info['price'],
+            'sig_state': cur_sig_state,
+            'sig_creator_ts': info.get('sig_creator_ts'),
+            'sig_entry': info.get('sig_entry'),
+            'sig_trigger_ts': info.get('sig_trigger_ts'),
             'last_check': now_iso,
         }
 
