@@ -90,10 +90,13 @@ jobs:
             exit 1
           fi
 
-      # Step 1: live prices via Node script (TwelveData / OANDA / Coinbase)
+      # Step 1: live prices via Node script (OANDA + Coinbase).
+      # TwelveData dependency removed in v5 — all FX/index/commodity
+      # data comes from OANDA, all crypto from Coinbase. TD_API_KEY
+      # secret can be deleted from repo settings if no other workflow
+      # uses it.
       - name: Fetch prices
         env:
-          TD_API_KEY: ${{ secrets.TD_API_KEY }}
           OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
         run: node fetch-prices.js
 

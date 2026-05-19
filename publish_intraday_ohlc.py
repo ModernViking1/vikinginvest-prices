@@ -34,8 +34,11 @@ from pathlib import Path
 import requests
 
 # ── Config ──────────────────────────────────────────────────────────
-# All FX pairs use OANDA. Crypto uses Coinbase. DXY synthesised separately.
+# All FX, commodity, and index pairs use OANDA. Crypto uses Coinbase.
+# Must stay in sync with fetch-prices.js OANDA_PAIRS / COINBASE_PAIRS and
+# with fetch_historical_ohlc.py PAIRS.
 PAIRS = {
+    # FX majors
     "eurusd":  {"oanda": "EUR_USD"},
     "gbpusd":  {"oanda": "GBP_USD"},
     "usdjpy":  {"oanda": "USD_JPY"},
@@ -43,6 +46,7 @@ PAIRS = {
     "usdchf":  {"oanda": "USD_CHF"},
     "audusd":  {"oanda": "AUD_USD"},
     "nzdusd":  {"oanda": "NZD_USD"},
+    # FX crosses (existing)
     "cadjpy":  {"oanda": "CAD_JPY"},
     "eurnzd":  {"oanda": "EUR_NZD"},
     "gbpaud":  {"oanda": "GBP_AUD"},
@@ -51,12 +55,29 @@ PAIRS = {
     "audnzd":  {"oanda": "AUD_NZD"},
     "audchf":  {"oanda": "AUD_CHF"},
     "eurgbp":  {"oanda": "EUR_GBP"},
+    # FX additions (v5)
+    "audcad":  {"oanda": "AUD_CAD"},
+    "gbpcad":  {"oanda": "GBP_CAD"},
+    "nzdjpy":  {"oanda": "NZD_JPY"},
+    "usdnok":  {"oanda": "USD_NOK"},
+    "gbpnzd":  {"oanda": "GBP_NZD"},
+    "eursek":  {"oanda": "EUR_SEK"},
+    # Commodities
     "xauusd":  {"oanda": "XAU_USD"},
     "xagusd":  {"oanda": "XAG_USD"},
     "usoil":   {"oanda": "BCO_USD"},
+    # Equity indices
     "de40":    {"oanda": "DE30_EUR"},
+    "ftse100": {"oanda": "UK100_GBP"},
+    "dj30":    {"oanda": "US30_USD"},
+    "nas100":  {"oanda": "NAS100_USD"},
+    # Crypto
     "btcusd":  {"coinbase": "BTC-USD"},
     "suiusd":  {"coinbase": "SUI-USD"},
+    "ethusd":  {"coinbase": "ETH-USD"},
+    "solusd":  {"coinbase": "SOL-USD"},
+    "xrpusd":  {"coinbase": "XRP-USD"},
+    "taousd":  {"coinbase": "TAO-USD"},
 }
 
 WINDOW_MINUTES = 15

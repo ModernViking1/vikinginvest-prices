@@ -44,8 +44,17 @@ PAIR_DISPLAY = {
     'nzdusd': 'NZD/USD', 'usdsgd': 'USD/SGD', 'cadjpy': 'CAD/JPY',
     'eurnzd': 'EUR/NZD', 'gbpaud': 'GBP/AUD', 'euraud': 'EUR/AUD',
     'audnzd': 'AUD/NZD', 'audchf': 'AUD/CHF', 'eurgbp': 'EUR/GBP',
+    # v5 FX additions
+    'audcad': 'AUD/CAD', 'gbpcad': 'GBP/CAD', 'nzdjpy': 'NZD/JPY',
+    'usdnok': 'USD/NOK', 'gbpnzd': 'GBP/NZD', 'eursek': 'EUR/SEK',
+    # Commodities / indices
     'xauusd': 'XAU/USD', 'xagusd': 'XAG/USD', 'usoil': 'BRENT',
-    'de40':   'DAX 30',  'btcusd': 'BTC/USD', 'suiusd': 'SUI/USD',
+    'de40':   'DAX 30',  'ftse100': 'FTSE 100',
+    'dj30':   'DJ 30',   'nas100':  'NAS 100',
+    # Crypto
+    'btcusd': 'BTC/USD', 'suiusd': 'SUI/USD',
+    'ethusd': 'ETH/USD', 'solusd': 'SOL/USD',
+    'xrpusd': 'XRP/USD', 'taousd': 'TAO/USD',
     'dxy':    'DXY',
 }
 

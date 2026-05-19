@@ -691,6 +691,65 @@ var MKTS = {
     wr:65.3,g:'B',bw:12,bl:6,brr:2.0,
     entry:'77,000&#8211;83,000 SELL ZONE',stop:'Above 90,000',tgt:'50,000 Wave 4 BUY ZONE / 42,000 ext',inv:'Close&gt;90,000',rr:'1:2.0'},
 
+  // ── v5 ADDITIONS (FX / INDICES / CRYPTO) ──────────────────────────
+  // All seeds neutral until a WickatorFX baseline is set manually for
+  // these pairs. Initial px values are placeholder midpoints — they'll
+  // be overwritten on the first prices.json fetch. Win-rate stats are
+  // generic defaults; the dashboard's deep backtest engine will compute
+  // real numbers once historical-ohlc.json includes these pairs.
+  audcad:{sym:'AUD/CAD',t:'minor',px:'0.90000',p:0.9,d:5,sc:0.003,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  gbpcad:{sym:'GBP/CAD',t:'minor',px:'1.89000',p:1.89,d:5,sc:0.005,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  nzdjpy:{sym:'NZD/JPY',t:'minor',px:'90.000',p:90,d:3,sc:0.4,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  usdnok:{sym:'USD/NOK',t:'minor',px:'10.500',p:10.5,d:4,sc:0.02,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  gbpnzd:{sym:'GBP/NZD',t:'minor',px:'2.30000',p:2.3,d:5,sc:0.006,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  eursek:{sym:'EUR/SEK',t:'minor',px:'11.000',p:11.0,d:4,sc:0.02,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  ftse100:{sym:'FTSE 100',t:'index',px:'8,000',p:8000,d:1,sc:20,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  dj30:{sym:'DJ 30',t:'index',px:'40,000',p:40000,d:0,sc:120,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  nas100:{sym:'NAS 100',t:'index',px:'18,000',p:18000,d:1,sc:80,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  ethusd:{sym:'ETH/USD',t:'crypto',px:'3,500',p:3500,d:2,sc:30,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  solusd:{sym:'SOL/USD',t:'crypto',px:'150.00',p:150,d:3,sc:2.5,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  xrpusd:{sym:'XRP/USD',t:'crypto',px:'2.5000',p:2.5,d:5,sc:0.04,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  taousd:{sym:'TAO/USD',t:'crypto',px:'400.00',p:400,d:3,sc:6,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+
   // ── DXY MACRO ANCHOR ──────────────────────────────────────────────
   // The Dollar Index is the regime gate for every USD pair below.
   // Not a tradeable 3/3 signal — shown for confluence context only.
@@ -1254,16 +1313,24 @@ function setupField(k, field){
 // each pair so users can see if a price is TD-batch, OANDA, Coinbase,
 // or synthesized. Mirrors the splits in the GitHub Actions script.
 var VIKING_SRC_MAP = {
-  // TwelveData (8 majors)
-  eurusd:'TD', gbpusd:'TD', usdjpy:'TD', usdcad:'TD',
-  usdchf:'TD', xauusd:'TD', euraud:'TD', audusd:'TD',
-  // OANDA (11 visible + USD/SEK helper)
+  // OANDA (all FX, commodities, indices) — TwelveData removed in v5
+  // Majors
+  eurusd:'OND', gbpusd:'OND', usdjpy:'OND', usdcad:'OND',
+  usdchf:'OND', audusd:'OND', euraud:'OND',
+  // Crosses
   nzdusd:'OND', usdsgd:'OND', cadjpy:'OND', eurnzd:'OND',
   gbpaud:'OND', audnzd:'OND', eurgbp:'OND', audchf:'OND',
-  xagusd:'OND', usoil:'OND',  de40:'OND',
-  // Coinbase (2 crypto)
-  btcusd:'CB',  suiusd:'CB',
-  // Synthesized
+  // v5 FX additions
+  audcad:'OND', gbpcad:'OND', nzdjpy:'OND', usdnok:'OND',
+  gbpnzd:'OND', eursek:'OND',
+  // Commodities
+  xauusd:'OND', xagusd:'OND', usoil:'OND',
+  // Equity indices
+  de40:'OND', ftse100:'OND', dj30:'OND', nas100:'OND',
+  // Coinbase (crypto)
+  btcusd:'CB', suiusd:'CB', ethusd:'CB', solusd:'CB',
+  xrpusd:'CB', taousd:'CB',
+  // Synthesised
   dxy:'SY'
 };
 function srcBadge(k){
