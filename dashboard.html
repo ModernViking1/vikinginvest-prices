@@ -9105,7 +9105,21 @@ function forceRerunAllBacktests(){
   );
 }
 
+// Singleton in-flight guard — prevents the page-load auto-trigger
+// (`_lazyBacktestTriggered` path) from racing the force-rerun button or
+// any of the half-dozen render callers. Two concurrent walks each carry
+// their own `results`/`idx` closures but both update the same progress
+// UI and both write the cache, so the user sees the "Computing 20/22"
+// dialog appear to loop as their updates interleave out of order.
+// Subsequent callers while a walk is in flight receive the cached
+// result immediately (or `{}` if none yet) and return.
+var _backtestInFlight = false;
+
 function computeAllRecentBacktestsAsync(forceRefresh, onProgress, onComplete){
+  if(_backtestInFlight){
+    if(onComplete) try { onComplete(_loadRecentBtCache() || {}, /*fromCache*/true); } catch(e){}
+    return;
+  }
   if(!forceRefresh){
     var cached = _loadRecentBtCache();
     if(cached){
@@ -9113,11 +9127,13 @@ function computeAllRecentBacktestsAsync(forceRefresh, onProgress, onComplete){
       return;
     }
   }
+  _backtestInFlight = true;
   var keys = Object.keys(MKTS);
   var results = {};
   var idx = 0;
   function step(){
     if(idx >= keys.length){
+      _backtestInFlight = false;
       _saveRecentBtCache(results);
       if(onComplete) try { onComplete(results, /*fromCache*/false); } catch(e){}
       return;
