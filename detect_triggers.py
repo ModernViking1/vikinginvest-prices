@@ -227,12 +227,17 @@ def send_telegram(token, chat_id, text):
 
 
 def format_alert(pair, info, kind):
-    """kind: 'newly-aligned' or 'flipped'."""
+    """kind: 'newly-aligned' | 'flipped' | 'currently-aligned'."""
     sym = PAIR_DISPLAY.get(pair, pair.upper())
     direction = info['aligned_dir']
     arrow = '🟢▲' if direction == 'bull' else '🔴▼'
     action = 'BUY' if direction == 'bull' else 'SELL'
-    title = '3/3 ALIGNED' if kind == 'newly-aligned' else '3/3 FLIPPED'
+    if kind == 'newly-aligned':
+        title = '3/3 ALIGNED'
+    elif kind == 'flipped':
+        title = '3/3 FLIPPED'
+    else:
+        title = '3/3 STATUS (catchup)'
 
     price_str = f"{info['price']:.5f}" if info['price'] and abs(info['price']) < 100 else \
                 f"{info['price']:.3f}" if info['price'] and abs(info['price']) < 1000 else \
@@ -269,6 +274,13 @@ def main():
 
     token = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
     chat_id = os.environ.get('TELEGRAM_CHAT_ID', '').strip()
+    # Manual one-shot flag from workflow_dispatch — set to "true" to
+    # also alert on every currently-aligned pair regardless of stored
+    # state. Used to verify the Telegram path end-to-end after first
+    # setup, or to catch up on alignments the baseline silenced.
+    send_all_aligned = os.environ.get('SEND_ALL_ALIGNED', '').strip().lower() in ('1', 'true', 'yes')
+    if send_all_aligned:
+        print('SEND_ALL_ALIGNED=true — will alert on every currently-aligned pair')
 
     alerts_sent = 0
     new_state = {}
@@ -289,8 +301,14 @@ def main():
             elif prev_dir != cur_dir:
                 should_alert = True
                 kind = 'flipped'
+            elif send_all_aligned:
+                # Manual one-shot catchup — fire even though state hasn't changed.
+                should_alert = True
+                kind = 'currently-aligned'
 
-        if should_alert and not is_first_run:
+        # send_all_aligned overrides the first-run baseline silence too —
+        # if the user explicitly asked for it, they want the messages.
+        if should_alert and (not is_first_run or send_all_aligned):
             print(f'  ALERT: {pair} {prev_dir} -> {cur_dir} ({kind})')
             text = format_alert(pair, info, kind)
             if send_telegram(token, chat_id, text):
