@@ -8428,17 +8428,78 @@ function calcRSITrajectory(closes, period, n){
 // Compute hourly RSI for pair k. Reads HISTORY[k].h1 (the runtime
 // hourly buffer built from m15 aggregation) and caches the latest
 // value + trajectory on STATE[k] for downstream consumers.
+// Build the freshest possible h1 close-price series for RSI by cascading
+// through three sources, preferring the deeper-history one:
+//   1. DEEP_HIST[k].h1   — 12-month static, ~6000 bars (from
+//                          historical-ohlc.json on the CDN). Lags by
+//                          publish-historical-ohlc cycle but plenty of
+//                          bars for the 14-period RSI seed.
+//   2. INTRADAY[k]       — 15m bars from intraday-ohlc.json, aggregated
+//                          to h1 live. ~24-96 hours of recent bars.
+//   3. HISTORY[k].h1     — runtime accumulator (browser-built from m15
+//                          ticks). Often <16 bars on fresh page loads,
+//                          which is why we don't rely on it alone.
+//
+// Latest closes are appended from later sources so the RSI value reflects
+// price action up to the most recent bar available. Bug previously caused
+// silent regression: refreshHourlyRSI returned null on fresh loads
+// because HISTORY[k].h1 was empty, and the badge in getLayerDet renders
+// as an empty string when STATE[k].rsi1H is null — no visible error.
 function refreshHourlyRSI(k){
-  if(!HISTORY[k] || !HISTORY[k].h1 || HISTORY[k].h1.length < 16) return;
-  var closes = HISTORY[k].h1.map(function(b){
-    return b.c != null ? b.c : b.p;
-  }).filter(function(v){ return v != null && isFinite(v); });
-  if(closes.length < 16) return;
-  var rsiVal = calcRSI(closes, 14);
-  var rsiTraj = calcRSITrajectory(closes, 14, 3);
   if(!STATE[k]) return;
-  STATE[k].rsi1H = rsiVal;
-  STATE[k].rsi1HTraj = rsiTraj;
+  var closes = [];
+
+  // Source 1: DEEP_HIST (preferred — most bars)
+  if(typeof DEEP_HIST !== 'undefined' && DEEP_HIST[k] && DEEP_HIST[k].h1 && DEEP_HIST[k].h1.length > 0){
+    DEEP_HIST[k].h1.forEach(function(b){
+      var c = b.c != null ? b.c : b.p;
+      if(c != null && isFinite(c)) closes.push(c);
+    });
+  }
+
+  // Source 2: INTRADAY (15m) aggregated to h1, appended after the deep
+  // series. Bucket m15 bars by hour (YYYY-MM-DDTHH prefix) and take the
+  // last close of each bucket as the h1 close.
+  if(typeof INTRADAY !== 'undefined' && INTRADAY[k] && INTRADAY[k].length > 0){
+    var lastDeepTs = 0;
+    if(closes.length > 0 && DEEP_HIST && DEEP_HIST[k] && DEEP_HIST[k].h1){
+      var lastBar = DEEP_HIST[k].h1[DEEP_HIST[k].h1.length - 1];
+      if(lastBar && lastBar.t) lastDeepTs = new Date(lastBar.t).getTime();
+    }
+    var buckets = {};
+    INTRADAY[k].forEach(function(b){
+      var ts = b.t;
+      if(!ts) return;
+      var hk = ts.substring(0, 13); // "YYYY-MM-DDTHH"
+      if(!buckets[hk]) buckets[hk] = [];
+      buckets[hk].push(b);
+    });
+    Object.keys(buckets).sort().forEach(function(hk){
+      var hkMs = new Date(hk + ':00:00Z').getTime();
+      if(hkMs <= lastDeepTs) return; // already covered by DEEP_HIST
+      var bars = buckets[hk];
+      var last = bars[bars.length - 1];
+      var c = last && (last.c != null ? last.c : last.p);
+      if(c != null && isFinite(c)) closes.push(c);
+    });
+  }
+
+  // Source 3: live runtime h1 buffer (final fallback / catch-up).
+  if(HISTORY[k] && HISTORY[k].h1 && HISTORY[k].h1.length > 0 && closes.length === 0){
+    HISTORY[k].h1.forEach(function(b){
+      var c = b.c != null ? b.c : b.p;
+      if(c != null && isFinite(c)) closes.push(c);
+    });
+  }
+
+  if(closes.length < 16){
+    STATE[k].rsi1H = null;
+    STATE[k].rsi1HTraj = null;
+    return;
+  }
+
+  STATE[k].rsi1H = calcRSI(closes, 14);
+  STATE[k].rsi1HTraj = calcRSITrajectory(closes, 14, 3);
 }
 
 // ── RECENT 3/3 BACKTEST ENGINE (Option A from rule recalc decision) ─────
