@@ -3962,7 +3962,8 @@ function computeBacktestGate(k){
   var src = m._btSource || 'wickator-structure';
   var sample = m._btSample || 0;
 
-  // Tier 1: real backtest active
+  // Tier 1a: legacy real backtest (Wickator W2-zone retest from daily candles).
+  // Only fires when the per-pair daily-zone retest count >= 3 — strict gate.
   if(src === 'wickator-real'){
     return {
       state: 'real',
@@ -3971,6 +3972,27 @@ function computeBacktestGate(k){
       hint: sample >= 20 ? 'High confidence sample' : sample >= 5 ? 'Medium confidence — small sample' : 'Low confidence — n<5'
     };
   }
+
+  // Tier 1b: deep 12-month walk from calcRecentBacktest. This is the source
+  // the per-pair card body actually displays as "n=NNN bt"; the legacy
+  // tier-1a gate above only fires when the Wickator W2-zone retest count
+  // hits its threshold, which is a much narrower criterion than what
+  // calcRecentBacktest needs (h1>=24, m15>=50, plus a 3/3-aligned CHoCH
+  // historically). Without this branch, the readiness strip undercounts
+  // dramatically — user saw "3 REAL BACKTEST" while the cards below
+  // showed 15+ pairs with real n=NNN data.
+  try {
+    var cached = (typeof _loadRecentBtCache === 'function') ? _loadRecentBtCache() : null;
+    var rbDeep = cached && cached[k];
+    if(rbDeep && rbDeep.dataSource === 'deep' && rbDeep.totalSignals > 0){
+      return {
+        state: 'real',
+        label: 'Deep 12m backtest · ' + rbDeep.totalSignals + ' setups (' + (rbDeep.days || 365) + 'd)',
+        progress: 1.0,
+        hint: rbDeep.totalSignals >= 100 ? 'High confidence sample' : rbDeep.totalSignals >= 30 ? 'Medium confidence sample' : 'Low confidence — n<30'
+      };
+    }
+  } catch(e){ /* fall through */ }
 
   // Tier 2: live-m15 active
   if(src === 'live-m15'){
