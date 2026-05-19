@@ -84,14 +84,16 @@ jobs:
           print(f'File size: {os.path.getsize(\"historical-ohlc.json\")/(1024*1024):.2f} MB')
           "
 
-      - name: Commit historical-ohlc.json to repo
+      - name: Commit historical-ohlc.json with race-condition retry
         run: |
+          set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           # Bump version in package.json so jsDelivr picks up the new file
           if [ -f package.json ]; then
             python -c "
-          import json, re
+          import json
           with open('package.json') as f:
               p = json.load(f)
           v = p.get('version', '0.0.0')
@@ -105,5 +107,39 @@ jobs:
             git add package.json
           fi
           git add historical-ohlc.json
-          git commit -m "Historical OHLC backfill — ${{ inputs.days }}d" || echo "No changes to commit"
-          git push
+          if git diff --staged --quiet; then
+            echo "No changes to commit (historical-ohlc.json identical)"
+            exit 0
+          fi
+          git commit -m "Historical OHLC backfill — ${{ inputs.days }}d"
+
+          # Race-retry pattern matching the other data workflows
+          # (fetch-data.yml, alert-on-trigger.yml, publish-events.yml).
+          # The 5-10 min backfill window almost guarantees a concurrent
+          # fetch-data commit lands first; without retry the whole run is
+          # wasted and the new history file is dropped on the floor.
+          MAX_ATTEMPTS=5
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Push attempt $attempt of $MAX_ATTEMPTS"
+            if git push origin main 2>&1; then
+              echo "✅ Push succeeded on attempt $attempt"
+              exit 0
+            fi
+            if [ "$attempt" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::Push failed after $MAX_ATTEMPTS attempts"
+              exit 1
+            fi
+            echo "Push rejected — fetching latest main and rebasing..."
+            git fetch origin main
+            if ! git rebase origin/main; then
+              echo "Rebase conflict — taking our newly backfilled history"
+              for f in historical-ohlc.json package.json; do
+                if [ -f "$f" ]; then
+                  git checkout --theirs "$f" 2>/dev/null || true
+                  git add "$f" 2>/dev/null || true
+                fi
+              done
+              git rebase --continue || git rebase --abort
+            fi
+            sleep $((attempt * 3))
+          done
