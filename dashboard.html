@@ -1806,22 +1806,48 @@ function getLayerDet(k,layer,sig){
     return '<span class="ro">Neutral</span> &#8212; transitioning. Await structure formation.'+waveSuffix+tpSuffix;
   }
   if(layer==='tl'){
+    // RSI badge (Phase A — display only). Surfaces the 14-period RSI
+    // value and its last-two-bar trajectory so the user can eyeball
+    // whether the hourly direction read agrees with momentum extreme
+    // + slope. Phase B will wire this into the 3/3 alert gate.
+    var rsiTag = '';
+    try {
+      var rsi = STATE[k] && STATE[k].rsi1H;
+      var rsiTraj = STATE[k] && STATE[k].rsi1HTraj;
+      if(rsi != null && isFinite(rsi)){
+        var zoneLabel, zoneColor;
+        if(rsi >= 75){ zoneLabel = 'overbought'; zoneColor = 'var(--bear)'; }
+        else if(rsi <= 25){ zoneLabel = 'oversold'; zoneColor = 'var(--bull)'; }
+        else { zoneLabel = 'mid'; zoneColor = 'var(--inkd)'; }
+        var trajArrow = '→', trajLabel = 'flat';
+        if(rsiTraj && rsiTraj.length >= 2){
+          var lastR = rsiTraj[rsiTraj.length - 1];
+          var prevR = rsiTraj[rsiTraj.length - 2];
+          if(lastR > prevR + 0.5){ trajArrow = '↑'; trajLabel = 'rising'; }
+          else if(lastR < prevR - 0.5){ trajArrow = '↓'; trajLabel = 'falling'; }
+        }
+        var hint = '14-period RSI on 1H closes · ' + trajLabel;
+        if(rsi >= 75 && trajArrow === '↓') hint += ' · overbought + turning down (bearish setup confluence)';
+        else if(rsi <= 25 && trajArrow === '↑') hint += ' · oversold + turning up (bullish setup confluence)';
+        rsiTag = ' <span style="font-size:8px;color:'+zoneColor+';font-weight:700;letter-spacing:0.3px;background:rgba(0,0,0,0.04);padding:1px 5px;border-radius:2px;margin-left:6px;" title="'+hint+'">RSI '+rsi.toFixed(0)+trajArrow+' ['+zoneLabel+']</span>';
+      }
+    } catch(e){ /* defensive */ }
     if(sig==='bear'){
       var ewDirB = STATE[k] && STATE[k].ew;
       if(ewDirB === 'bull'){
-        return '<span class="rb">Hourly pulling back.</span> Counter-trend dip into macro support — <strong>not a sell</strong>. Watch for support at <span class="rg">'+setupField(k,'entry')+'</span> to align with macro long.';
+        return '<span class="rb">Hourly pulling back.</span> Counter-trend dip into macro support — <strong>not a sell</strong>. Watch for support at <span class="rg">'+setupField(k,'entry')+'</span> to align with macro long.' + rsiTag;
       }
-      return '<span class="rb">At resistance.</span> Hourly channel ceiling. Break below confirms. Stop ref: <span class="rb">'+setupField(k,'stop')+'</span>';
+      return '<span class="rb">At resistance.</span> Hourly channel ceiling. Break below confirms. Stop ref: <span class="rb">'+setupField(k,'stop')+'</span>' + rsiTag;
     }
     if(sig==='bull'){
       // If macro (ew) is bear, hourly bull = bounce INTO macro resistance, not a buy signal
       var ewDir = STATE[k] && STATE[k].ew;
       if(ewDir === 'bear'){
-        return '<span class="rg">Hourly bouncing.</span> Counter-trend rally into macro resistance — <strong>not a buy</strong>. Watch for rejection at <span class="rb">'+setupField(k,'entry')+'</span> to align with macro short.';
+        return '<span class="rg">Hourly bouncing.</span> Counter-trend rally into macro resistance — <strong>not a buy</strong>. Watch for rejection at <span class="rb">'+setupField(k,'entry')+'</span> to align with macro short.' + rsiTag;
       }
-      return '<span class="rg">At support.</span> Hourly channel floor. Break above confirmed. Entry: <span class="rg">'+setupField(k,'entry')+'</span>';
+      return '<span class="rg">At support.</span> Hourly channel floor. Break above confirmed. Entry: <span class="rg">'+setupField(k,'entry')+'</span>' + rsiTag;
     }
-    return '<span class="ro">Mid-channel.</span> No hourly channel signal. Await boundary touch.';
+    return '<span class="ro">Mid-channel.</span> No hourly channel signal. Await boundary touch.' + rsiTag;
   }
   if(layer==='nw'){
     // Try to enrich with auto-detected 15m structural levels (Phase 1)
@@ -8353,6 +8379,68 @@ function calcIndependentNWDir(k){
   return calcIndependentDir(bars, 8);
 }
 
+// ── HOURLY RSI (Phase A — display only) ─────────────────────────────────
+// Standard 14-period RSI with Wilder smoothing, computed from h1 close
+// prices. Phase A is purely informational — surfaces the value + the
+// last-two-bar trajectory on the hourly layer card. Phase B (TBD) will
+// wire it into the 3/3 alert gate so signals only fire when RSI agrees.
+//
+// Returns the latest RSI (0-100) or null if insufficient data.
+function calcRSI(closes, period){
+  period = period || 14;
+  if(!closes || closes.length < period + 1) return null;
+  var gain = 0, loss = 0;
+  for(var i = 1; i <= period; i++){
+    var d = closes[i] - closes[i-1];
+    if(d >= 0) gain += d; else loss -= d;
+  }
+  var avgGain = gain / period, avgLoss = loss / period;
+  // Wilder smoothing across remaining bars
+  for(var i = period + 1; i < closes.length; i++){
+    var d2 = closes[i] - closes[i-1];
+    var g = d2 > 0 ? d2 : 0;
+    var l = d2 < 0 ? -d2 : 0;
+    avgGain = (avgGain * (period - 1) + g) / period;
+    avgLoss = (avgLoss * (period - 1) + l) / period;
+  }
+  if(avgLoss === 0) return 100;
+  var rs = avgGain / avgLoss;
+  return 100 - (100 / (1 + rs));
+}
+
+// Returns the last `n` RSI values for trajectory display (default 3).
+// Computes by repeatedly running calcRSI on progressively-truncated
+// close arrays — O(n × period) but n is tiny so cost is negligible.
+function calcRSITrajectory(closes, period, n){
+  period = period || 14;
+  n = n || 3;
+  if(!closes || closes.length < period + n) return null;
+  var out = [];
+  for(var k = n - 1; k >= 0; k--){
+    var slice = k === 0 ? closes : closes.slice(0, closes.length - k);
+    var r = calcRSI(slice, period);
+    if(r == null) return null;
+    out.push(r);
+  }
+  return out;
+}
+
+// Compute hourly RSI for pair k. Reads HISTORY[k].h1 (the runtime
+// hourly buffer built from m15 aggregation) and caches the latest
+// value + trajectory on STATE[k] for downstream consumers.
+function refreshHourlyRSI(k){
+  if(!HISTORY[k] || !HISTORY[k].h1 || HISTORY[k].h1.length < 16) return;
+  var closes = HISTORY[k].h1.map(function(b){
+    return b.c != null ? b.c : b.p;
+  }).filter(function(v){ return v != null && isFinite(v); });
+  if(closes.length < 16) return;
+  var rsiVal = calcRSI(closes, 14);
+  var rsiTraj = calcRSITrajectory(closes, 14, 3);
+  if(!STATE[k]) return;
+  STATE[k].rsi1H = rsiVal;
+  STATE[k].rsi1HTraj = rsiTraj;
+}
+
 // ── RECENT 3/3 BACKTEST ENGINE (Option A from rule recalc decision) ─────
 //
 // Walks the available 1H and 15M historical buffers, computes independent
@@ -11020,6 +11108,10 @@ function applyPrice(k,pd) {
   STATE[k].nwTop = nwResult.activeTop;
   STATE[k].nwBtm = nwResult.activeBtm;
   STATE[k].nwChoCH = nwResult.choch;
+
+  // Hourly RSI — Phase A: compute + stash on STATE for display only.
+  // No effect on the 3/3 score yet; that's Phase B.
+  try { if(typeof refreshHourlyRSI === 'function') refreshHourlyRSI(k); } catch(e){}
 
   // Nowick entry setup (only computed at CHoCH moment, Pine Script literal)
   if(nwResult.choch){
