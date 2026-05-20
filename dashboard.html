@@ -3516,6 +3516,48 @@ function eventsAffecting(k, hoursAhead){
 
 // Fetches events.json from the public CDN. Best-effort: if it fails,
 // the dashboard simply behaves as if there are no upcoming events.
+// Server-computed EW/TL/NW directions, keyed by pair. Populated by
+// fetchServerDirections() from the ~3 KB directions.json. Used by
+// applyPrice as the direction baseline when the in-browser engine calc
+// can't run (e.g. newly-added pairs whose 90 MB deep history won't load
+// reliably in the browser).
+var SERVER_DIR = {};
+
+function fetchServerDirections(){
+  // directions.json is computed server-side by detect_triggers.py from
+  // the repo data files directly — so it's always populated for every
+  // pair, regardless of whether the browser managed to load the giant
+  // historical-ohlc.json. ~3 KB; the npm path is the only public one
+  // for this private repo.
+  var url = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/directions.json';
+  return fetch(url, {method:'GET', cache:'no-store'})
+    .then(function(r){
+      if(!r.ok) throw new Error('HTTP'+r.status);
+      return r.json();
+    })
+    .then(function(d){
+      if(!d || !d.pairs) throw new Error('no_pairs_field');
+      var n = 0;
+      Object.keys(d.pairs).forEach(function(k){
+        var row = d.pairs[k];
+        if(row && (row.ew || row.tl || row.nw)){
+          SERVER_DIR[k] = { ew: row.ew, tl: row.tl, nw: row.nw, aligned_dir: row.aligned_dir };
+          n++;
+        }
+      });
+      window._serverDirCount = n;
+      window._serverDirUpdated = d.updated || null;
+      // Re-render so the seeded directions show immediately for pairs
+      // whose in-browser engine calc hasn't produced a result.
+      try { Object.keys(MKTS).forEach(function(k){ if(typeof refreshAlert === 'function') refreshAlert(k); }); } catch(e){}
+      return n;
+    })
+    .catch(function(e){
+      window._serverDirErr = (e && e.message) ? String(e.message).substring(0,40) : 'fetch_fail';
+      return 0;
+    });
+}
+
 function fetchEvents(){
   // events.json is written by publish-events.yml every hour but is NOT
   // republished to npm on its own (only fetch-prices.yml does npm publish).
@@ -11111,24 +11153,34 @@ function applyPrice(k,pd) {
   priceTimeSeries[k].push(np);
   if(priceTimeSeries[k].length>EW_MAX) priceTimeSeries[k].shift();
 
+  // Server-computed direction baseline (directions.json). Used as the
+  // fallback when the in-browser engine calc can't run — typically the
+  // newly-added pairs, whose deep history (~90 MB historical-ohlc.json)
+  // is too large to load reliably in the browser. directions.json is a
+  // ~3 KB file computed by the GitHub Actions runner from the repo data
+  // directly, so it's always populated for every pair. Falls through to
+  // the static MKTS seed only if directions.json hasn't loaded yet.
+  var srvDir = (typeof SERVER_DIR !== 'undefined' && SERVER_DIR[k]) ? SERVER_DIR[k] : null;
+
   // ── LAYER 1: ELLIOTT WAVE (Daily) ─────────────────────────────
-  // Reads HISTORY[k].daily. Falls back to seeded MKTS[k].ew if not enough data.
+  // Reads HISTORY[k].daily. Falls back to the server-computed direction,
+  // then the seeded MKTS[k].ew, if not enough data in-browser.
   var ewCalc = calcEWDir(k);
   if(ewCalc && ewCalc !== STATE[k].ew) {
     STATE[k].ew = ewCalc;
-  } else if(!ewCalc && !STATE[k].ew) {
-    STATE[k].ew = m.ew || 'neutral'; // Use seed until data accumulates
+  } else if(!ewCalc && (!STATE[k].ew || STATE[k].ew === 'neutral')) {
+    STATE[k].ew = (srvDir && srvDir.ew) || m.ew || 'neutral';
   }
 
   // ── LAYER 2: HOURLY (Independent) ─────────────────────────────
   // Reads HISTORY[k].h1 directly. Computes its own direction from
   // structural breaks on 1H bars — does NOT inherit from EW.
-  // If insufficient data, falls back to EW (seed) so display still works.
+  // If insufficient data, falls back to the server-computed direction.
   var tlCalc = (typeof calcIndependentTLDir === 'function') ? calcIndependentTLDir(k) : null;
   if(tlCalc === 'bull' || tlCalc === 'bear'){
     STATE[k].tl = tlCalc;
-  } else if(!STATE[k].tl){
-    STATE[k].tl = STATE[k].ew || 'neutral';
+  } else if(!STATE[k].tl || STATE[k].tl === 'neutral'){
+    STATE[k].tl = (srvDir && srvDir.tl) || STATE[k].ew || 'neutral';
   }
   // (If tlCalc returns 'neutral' or null, keep existing STATE[k].tl unchanged)
 
@@ -11139,8 +11191,8 @@ function applyPrice(k,pd) {
   var nwCalc = (typeof calcIndependentNWDir === 'function') ? calcIndependentNWDir(k) : null;
   if(nwCalc === 'bull' || nwCalc === 'bear'){
     STATE[k].nw = nwCalc;
-  } else if(!STATE[k].nw){
-    STATE[k].nw = STATE[k].ew || 'neutral';
+  } else if(!STATE[k].nw || STATE[k].nw === 'neutral'){
+    STATE[k].nw = (srvDir && srvDir.nw) || STATE[k].ew || 'neutral';
   }
   // If the 15m structural direction just flipped, cancel any previously
   // logged 3/3 alert in the old direction. calcNWDir's CHoCH detector
@@ -11804,6 +11856,19 @@ function startLiveEngine(){
       addNote('⏳ 15m intraday: '+stats.total+' ticks accumulated, min '+stats.minTicks+'/pair (need '+INTRADAY_THRESHOLD+', ~'+daysToReady+' days to OB activation)');
     }
   });
+
+  // Load server-computed EW/TL/NW directions (directions.json, ~3 KB).
+  // This is the reliable direction baseline for every pair — especially
+  // the newly-added ones whose deep history can't load in-browser.
+  if(typeof fetchServerDirections === 'function'){
+    fetchServerDirections().then(function(n){
+      if(n > 0){
+        addNote('🧭 Server directions loaded: '+n+' pairs');
+      } else {
+        addNote('🧭 Server directions unavailable ('+(window._serverDirErr||'?')+') — using in-browser calc only');
+      }
+    });
+  }
 
   // Load economic events calendar. Best-effort: dashboard works fine
   // without it (just no event-aware deferral). Refreshed hourly thereafter.
