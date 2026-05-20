@@ -57,6 +57,19 @@ jobs:
           cp index.html _site/ 2>/dev/null || true
           # Custom domain if present
           cp CNAME _site/ 2>/dev/null || true
+
+          # Stamp the real deploy time into the header. The repo keeps the
+          # literal "BUILD_TIMESTAMP_UTC" placeholder; only the deployed
+          # copies get the real value. This gives the user a reliable way
+          # to confirm a hard-refresh actually picked up a new deploy —
+          # the previous static "Build 13 May 07:30" string never changed
+          # so a stale cache was indistinguishable from a fresh load.
+          STAMP="$(date -u '+%Y-%m-%d %H:%M UTC')"
+          echo "Build stamp: $STAMP"
+          for f in _site/dashboard.html _site/Viking_Invest_Trading_v*.html; do
+            [ -f "$f" ] && sed -i "s/BUILD_TIMESTAMP_UTC/$STAMP/g" "$f"
+          done
+
           echo "Files staged for Pages:"
           ls -la _site
 
