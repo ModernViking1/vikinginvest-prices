@@ -864,7 +864,15 @@ var WICKATOR_EW = {
 // ─────────────────────────────────────────────────────────────────────────
 function calcWickatorTPs(k){
   var w = WICKATOR_EW[k];
-  if(!w) return null;
+  if(!w){
+    // No manual baseline — fall back to the auto-derived approximate
+    // setup so v5-added pairs still get a macro TP block.
+    var a = getAutoSetup(k);
+    if(!a) return null;
+    w = { dir:a.dir, anchor:a.anchor, pivot:a.pivot, w2Zone:a.w2Zone,
+          invalid:a.invalid, tp1Override:a.tp1, tp2Override:a.tp2,
+          source:'auto', phase:'Approximate — auto-derived from daily swing structure' };
+  }
   var swing = Math.abs(w.pivot - w.anchor);
   if(!swing || !isFinite(swing)) return null;
   var tp1Calc, tp2Calc;
@@ -1296,6 +1304,87 @@ function getSetupStrings(k){
   return { entry: entry, stop: stop, tgt: tgt, inv: inv, rr: rrStr };
 }
 
+// ── AUTO SETUP for pairs without a WickatorFX baseline ─────────────
+// The v5-added pairs (audcad, gbpcad … taousd) ship with placeholder
+// "TBD &mdash; pending baseline" entry/stop/tgt fields because no manual
+// WickatorFX chart read exists for them yet. Until one does, derive an
+// APPROXIMATE trade setup from recent daily structure (swing hi/lo over
+// ~60 bars) so the macro card shows real numbers instead of "TBD".
+//
+// Levels are aligned to the *displayed* macro direction (STATE[k].ew —
+// for new pairs that comes from the server-computed directions.json) so
+// the target/stop text can never contradict the macro pill.
+function getAutoSetup(k){
+  var m = MKTS[k];
+  if(!m) return null;
+  var dir = (typeof STATE !== 'undefined' && STATE[k] && STATE[k].ew) || m.ew;
+  if(dir !== 'bull' && dir !== 'bear') return null;
+
+  // Cache per-direction: steady state is cheap, a macro flip recomputes.
+  if(m._autoSetup && m._autoSetup.dir === dir) return m._autoSetup;
+
+  var candles = (typeof HISTORICAL !== 'undefined' && HISTORICAL[k] && HISTORICAL[k].length >= 20)
+    ? HISTORICAL[k]
+    : (typeof DEEP_HIST !== 'undefined' && DEEP_HIST[k] && DEEP_HIST[k].daily && DEEP_HIST[k].daily.length >= 20)
+      ? DEEP_HIST[k].daily : null;
+  if(!candles) return null;  // no daily data yet — caller keeps the "TBD" text
+
+  // Swing hi/lo over the last ~60 daily bars (~3 months).
+  var win = candles.slice(-60), hi = -Infinity, lo = Infinity;
+  for(var i = 0; i < win.length; i++){
+    var c = win[i];
+    var h = (c.h != null) ? c.h : c.c;
+    var l = (c.l != null) ? c.l : c.c;
+    if(h > hi) hi = h;
+    if(l < lo) lo = l;
+  }
+  if(!isFinite(hi) || !isFinite(lo) || hi <= lo) return null;
+  var range = hi - lo;
+
+  var zLo, zHi, stopLvl, tp1, tp2, entryEdge, zoneType, stopWord, invSym;
+  if(dir === 'bull'){
+    // Pullback BUY ZONE = 38.2-61.8% retrace of the up-range.
+    zHi = hi - range * 0.382;
+    zLo = hi - range * 0.618;
+    stopLvl = lo - range * 0.05;
+    tp1 = hi + range * 0.5;
+    tp2 = hi + range * 1.0;
+    entryEdge = zHi;
+    zoneType = 'BUY ZONE'; stopWord = 'Below'; invSym = '&lt;';
+  } else {
+    // Bounce SELL ZONE = 38.2-61.8% retrace of the down-range.
+    zLo = lo + range * 0.382;
+    zHi = lo + range * 0.618;
+    stopLvl = hi + range * 0.05;
+    tp1 = lo - range * 0.5;
+    tp2 = lo - range * 1.0;
+    if(tp2 <= 0) tp2 = lo * 0.5;
+    if(tp1 <= 0) tp1 = lo * 0.75;
+    entryEdge = zLo;
+    zoneType = 'SELL ZONE'; stopWord = 'Above'; invSym = '&gt;';
+  }
+
+  var risk = Math.abs(entryEdge - stopLvl);
+  var reward = Math.abs(tp1 - entryEdge);
+  var rr = (risk > 0 && isFinite(risk) && isFinite(reward))
+    ? '1:' + (reward / risk).toFixed(1) : '1:1.5';
+
+  var out = {
+    dir: dir, approx: true,
+    anchor: lo, pivot: hi,            // swing magnitude only — feeds calcWickatorTPs
+    w2Zone: [zLo, zHi],
+    invalid: stopLvl,
+    tp1: tp1, tp2: tp2,
+    entry: fmtPx(k, zLo) + '&#8211;' + fmtPx(k, zHi) + ' ' + zoneType + ' (approx)',
+    stop:  stopWord + ' ' + fmtPx(k, stopLvl),
+    inv:   'Close' + invSym + fmtPx(k, stopLvl),
+    tgt:   fmtPx(k, tp1) + ' / ' + fmtPx(k, tp2) + ' (approx)',
+    rr:    rr
+  };
+  m._autoSetup = out;
+  return out;
+}
+
 // Convenience read accessor that respects USE_DERIVED_SETUP toggle.
 // Display code calls setupField(k, 'entry') instead of m.entry.
 function setupField(k, field){
@@ -1304,6 +1393,13 @@ function setupField(k, field){
     if(d && d[field] != null && d[field] !== '') return d[field];
   }
   var m = MKTS[k];
+  // v5-added pairs ship a placeholder "TBD" entry with no WickatorFX
+  // baseline. Derive an approximate setup from daily structure so the
+  // macro card shows real numbers aligned to the live macro direction.
+  if(m && /^TBD/i.test(String(m.entry || ''))){
+    var auto = getAutoSetup(k);
+    if(auto && auto[field] != null && auto[field] !== '') return auto[field];
+  }
   return (m && m[field]) || '';
 }
 
@@ -1869,6 +1965,7 @@ function getLayerDet(k,layer,sig){
         var zoneTxt = fmtPx(k, tp.w2Zone[0]) + '&#8211;' + fmtPx(k, tp.w2Zone[1]);
         var srcTag  = tp.source==='wickator' ? ' <span style="font-size:7px;color:var(--inkd);">[Macro]</span>'
                     : tp.source==='live'     ? ' <span style="font-size:7px;color:var(--bull);">[LIVE]</span>'
+                    : tp.source==='auto'     ? ' <span style="font-size:7px;color:var(--gold);">[approx]</span>'
                     : ' <span style="font-size:7px;color:var(--inkd);">[baseline]</span>';
         tpSuffix = '<br><span style="font-size:9.5px;">' +
                    '<span class="'+zoneCls+'">'+zoneLbl+':</span> '+zoneTxt+' &#183; '+
