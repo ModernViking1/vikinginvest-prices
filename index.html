@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Viking Invest — AI Consultancy &amp; Trading Technology</title>
+<meta name="description" content="Viking Invest is an AI consultancy helping organisations adopt artificial intelligence with confidence — strategy, custom solutions and automation. Builders of the Viking Invest Trading Platform.">
+<meta name="theme-color" content="#1c1a17">
+<meta property="og:title" content="Viking Invest — AI Consultancy &amp; Trading Technology">
+<meta property="og:description" content="Pragmatic AI consultancy and the builders of the Viking Invest Trading Platform.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://vikinginvest.ai">
+<link rel="canonical" href="https://vikinginvest.ai">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&amp;family=Mukta:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0ede8;--bg2:#e8e4dd;--sf:#fff;--sf2:#f7f4ef;
+  --ink:#1c1a17;--inkm:#4a4640;--inkd:#9a9088;--rule:#ddd8d0;
+  --bull:#1a7a4a;--bear:#c0281a;--gold:#c8860a;--purple:#6b3fa0;
+  --orange:#c86010;--neu:#5a6878;
+  --shad:0 2px 12px rgba(0,0,0,0.07);
+  --shad-lg:0 12px 40px rgba(0,0,0,0.14);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:'Mukta',sans-serif;font-weight:400;
+  line-height:1.6;-webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none;}
+img{max-width:100%;display:block;}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px;}
+.eyebrow{
+  font-family:'Orbitron',monospace;font-size:11px;font-weight:700;
+  letter-spacing:2.5px;text-transform:uppercase;color:var(--gold);
+}
+h1,h2,h3{font-family:'Orbitron',monospace;line-height:1.18;letter-spacing:-0.3px;}
+section{padding:84px 0;}
+
+/* ── NAV ── */
+.nav{
+  position:sticky;top:0;z-index:100;background:rgba(240,237,232,0.92);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--rule);
+}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;height:64px;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-dot{
+  width:11px;height:11px;border-radius:50%;
+  background:var(--gold);box-shadow:0 0 0 4px var(--goldt,rgba(200,134,10,0.16));
+}
+.brand-name{
+  font-family:'Orbitron',monospace;font-size:15px;font-weight:900;
+  letter-spacing:2px;text-transform:uppercase;
+}
+.nav-links{display:flex;align-items:center;gap:30px;}
+.nav-links a{
+  font-size:14px;font-weight:500;color:var(--inkm);transition:color .15s;
+}
+.nav-links a:hover{color:var(--ink);}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:'Orbitron',monospace;font-size:12px;font-weight:700;
+  letter-spacing:1px;text-transform:uppercase;
+  padding:12px 22px;border-radius:8px;cursor:pointer;
+  transition:transform .12s ease,box-shadow .15s ease,background .15s;
+  border:1.5px solid transparent;
+}
+.btn-primary{background:var(--ink);color:var(--bg);}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:var(--shad-lg);}
+.btn-ghost{background:transparent;border-color:var(--ink);color:var(--ink);}
+.btn-ghost:hover{background:var(--ink);color:var(--bg);}
+.btn-gold{background:var(--gold);color:#fff;}
+.btn-gold:hover{transform:translateY(-2px);box-shadow:var(--shad-lg);}
+.nav-toggle{display:none;background:none;border:0;cursor:pointer;padding:8px;}
+.nav-toggle span{display:block;width:22px;height:2px;background:var(--ink);margin:4px 0;}
+
+/* ── HERO ── */
+.hero{
+  padding:104px 0 96px;
+  background:
+    radial-gradient(ellipse 60% 50% at 85% 0%,rgba(200,134,10,0.10),transparent),
+    radial-gradient(ellipse 50% 40% at 10% 100%,rgba(107,63,160,0.07),transparent),
+    var(--bg);
+  border-bottom:1px solid var(--rule);
+}
+.hero h1{font-size:clamp(34px,5.2vw,58px);font-weight:900;max-width:880px;}
+.hero h1 .accent{color:var(--gold);}
+.hero p.lead{
+  font-size:clamp(17px,2vw,21px);color:var(--inkm);
+  max-width:620px;margin:24px 0 34px;font-weight:300;
+}
+.hero-cta{display:flex;gap:14px;flex-wrap:wrap;}
+.hero-meta{
+  margin-top:46px;display:flex;gap:38px;flex-wrap:wrap;
+  padding-top:30px;border-top:1px solid var(--rule);
+}
+.hero-meta div{max-width:200px;}
+.hero-meta .k{
+  font-family:'Orbitron',monospace;font-size:13px;font-weight:700;
+  color:var(--ink);margin-bottom:3px;
+}
+.hero-meta .v{font-size:13.5px;color:var(--inkd);font-weight:300;}
+
+/* ── SERVICES ── */
+.sec-head{max-width:640px;margin-bottom:48px;}
+.sec-head h2{font-size:clamp(26px,3.4vw,38px);font-weight:800;margin:14px 0 12px;}
+.sec-head p{color:var(--inkm);font-size:16.5px;font-weight:300;}
+.grid{display:grid;gap:20px;}
+.grid-3{grid-template-columns:repeat(3,1fr);}
+.card{
+  background:var(--sf);border:1px solid var(--rule);border-radius:14px;
+  padding:30px 26px;box-shadow:var(--shad);
+  transition:transform .15s ease,box-shadow .15s ease,border-color .15s;
+}
+.card:hover{transform:translateY(-4px);box-shadow:var(--shad-lg);border-color:var(--gold);}
+.card .ico{
+  width:46px;height:46px;border-radius:11px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--sf2);border:1px solid var(--rule);margin-bottom:18px;
+}
+.card .ico svg{width:24px;height:24px;stroke:var(--gold);}
+.card h3{font-size:17px;font-weight:700;margin-bottom:9px;}
+.card p{font-size:14.5px;color:var(--inkm);font-weight:300;}
+
+/* ── PLATFORM ── */
+.platform{background:var(--ink);color:var(--bg);}
+.platform .eyebrow{color:var(--gold);}
+.platform-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:54px;align-items:center;
+}
+.platform h2{font-size:clamp(26px,3.4vw,38px);font-weight:800;color:#fff;margin:14px 0 16px;}
+.platform p.intro{color:#c8c2b8;font-size:16.5px;font-weight:300;margin-bottom:24px;}
+.feat-list{list-style:none;display:flex;flex-direction:column;gap:14px;margin-bottom:30px;}
+.feat-list li{display:flex;gap:12px;font-size:15px;color:#ddd8cf;font-weight:300;}
+.feat-list .tick{
+  flex-shrink:0;width:21px;height:21px;border-radius:50%;
+  background:rgba(200,134,10,0.18);color:var(--gold);
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;margin-top:2px;
+}
+.mock{
+  background:#26231f;border:1px solid #3a352e;border-radius:14px;
+  overflow:hidden;box-shadow:var(--shad-lg);
+}
+.mock-bar{
+  display:flex;align-items:center;gap:6px;padding:11px 14px;
+  background:#2f2b26;border-bottom:1px solid #3a352e;
+}
+.mock-bar i{width:9px;height:9px;border-radius:50%;background:#4a443c;display:block;}
+.mock-bar .url{
+  margin-left:10px;font-family:'Orbitron',monospace;font-size:10px;
+  letter-spacing:1px;color:#8a8278;
+}
+.mock-body{padding:22px;}
+.mock-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:13px 0;border-bottom:1px solid #34302a;
+}
+.mock-row:last-child{border-bottom:0;}
+.mock-sym{font-family:'Orbitron',monospace;font-size:12px;font-weight:700;color:#e8e2d8;letter-spacing:1px;}
+.mock-px{font-family:'Orbitron',monospace;font-size:13px;color:#c8c2b8;}
+.tag{
+  font-family:'Orbitron',monospace;font-size:9px;font-weight:700;
+  letter-spacing:1px;padding:3px 8px;border-radius:5px;
+}
+.tag-bull{background:rgba(26,122,74,0.22);color:#4cc98a;}
+.tag-bear{background:rgba(192,40,26,0.22);color:#e8786c;}
+.tag-gold{background:rgba(200,134,10,0.22);color:var(--gold);}
+
+/* ── PROCESS ── */
+.process{background:var(--bg2);}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;}
+.step{position:relative;padding:28px 22px;background:var(--sf);border:1px solid var(--rule);border-radius:14px;}
+.step .num{
+  font-family:'Orbitron',monospace;font-size:13px;font-weight:900;
+  color:#fff;background:var(--ink);width:34px;height:34px;border-radius:9px;
+  display:flex;align-items:center;justify-content:center;margin-bottom:16px;
+}
+.step h3{font-size:16px;font-weight:700;margin-bottom:8px;}
+.step p{font-size:14px;color:var(--inkm);font-weight:300;}
+
+/* ── ABOUT ── */
+.about-grid{display:grid;grid-template-columns:1.1fr 0.9fr;gap:54px;align-items:center;}
+.about h2{font-size:clamp(26px,3.4vw,38px);font-weight:800;margin:14px 0 14px;}
+.about p{color:var(--inkm);font-size:16px;font-weight:300;margin-bottom:16px;}
+.about .panel{
+  background:var(--sf);border:1px solid var(--rule);border-radius:14px;
+  padding:30px;box-shadow:var(--shad);
+}
+.about .panel h3{font-size:14px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--inkd);margin-bottom:18px;}
+.vbox{display:flex;flex-direction:column;gap:16px;}
+.vbox div{display:flex;gap:13px;align-items:flex-start;}
+.vbox .vd{width:8px;height:8px;border-radius:50%;background:var(--gold);margin-top:8px;flex-shrink:0;}
+.vbox b{font-family:'Orbitron',monospace;font-size:13px;font-weight:700;}
+.vbox span{font-size:14px;color:var(--inkm);font-weight:300;}
+
+/* ── CONTACT ── */
+.contact{
+  background:var(--ink);color:var(--bg);text-align:center;
+}
+.contact .eyebrow{color:var(--gold);}
+.contact h2{font-size:clamp(28px,3.8vw,42px);font-weight:900;color:#fff;margin:14px 0 14px;}
+.contact p{color:#c8c2b8;font-size:17px;font-weight:300;max-width:540px;margin:0 auto 32px;}
+.contact-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+
+/* ── FOOTER ── */
+.footer{background:#16140f;color:#8a8278;padding:46px 0 38px;}
+.footer-top{
+  display:flex;justify-content:space-between;align-items:flex-start;
+  flex-wrap:wrap;gap:26px;padding-bottom:28px;border-bottom:1px solid #2a2620;
+}
+.footer .brand-name{color:#e8e2d8;}
+.footer-tag{font-size:13.5px;font-weight:300;margin-top:10px;max-width:300px;}
+.footer-domains{display:flex;flex-direction:column;gap:8px;}
+.footer-domains .lbl{
+  font-family:'Orbitron',monospace;font-size:10px;letter-spacing:1.5px;
+  text-transform:uppercase;color:#5a554c;margin-bottom:4px;
+}
+.footer-domains a{font-size:13.5px;color:#b0a99e;transition:color .15s;}
+.footer-domains a:hover{color:var(--gold);}
+.footer-bot{
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;
+  padding-top:26px;font-size:12.5px;font-weight:300;
+}
+
+/* ── RESPONSIVE ── */
+@media(max-width:880px){
+  section{padding:64px 0;}
+  .nav-links{
+    position:fixed;top:64px;left:0;right:0;
+    background:var(--bg);border-bottom:1px solid var(--rule);
+    flex-direction:column;align-items:stretch;gap:0;
+    padding:8px 24px 20px;display:none;box-shadow:var(--shad);
+  }
+  .nav-links.open{display:flex;}
+  .nav-links a{padding:13px 0;border-bottom:1px solid var(--rule);}
+  .nav-links .btn{margin-top:12px;justify-content:center;}
+  .nav-toggle{display:block;}
+  .grid-3,.steps,.platform-grid,.about-grid{grid-template-columns:1fr;}
+  .platform-grid,.about-grid{gap:38px;}
+  .hero-meta{gap:24px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ NAV ══ -->
+<nav class="nav">
+  <div class="wrap nav-inner">
+    <a href="#top" class="brand">
+      <span class="brand-dot"></span>
+      <span class="brand-name">Viking Invest</span>
+    </a>
+    <button class="nav-toggle" id="navToggle" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links" id="navLinks">
+      <a href="#services">Services</a>
+      <a href="#platform">Platform</a>
+      <a href="#process">How we work</a>
+      <a href="#about">About</a>
+      <a href="#contact" class="btn btn-primary">Get in touch</a>
+    </div>
+  </div>
+</nav>
+
+<span id="top"></span>
+
+<!-- ══ HERO ══ -->
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow">Artificial Intelligence Consultancy</span>
+    <h1>AI that earns its place in your <span class="accent">business</span>.</h1>
+    <p class="lead">
+      Viking Invest helps organisations adopt artificial intelligence with
+      clarity and confidence — from strategy and custom solutions to
+      automation that quietly does the work. No hype, just systems that ship.
+    </p>
+    <div class="hero-cta">
+      <a href="#contact" class="btn btn-gold">Book a consultation</a>
+      <a href="#platform" class="btn btn-ghost">See our platform</a>
+    </div>
+    <div class="hero-meta">
+      <div>
+        <div class="k">Strategy first</div>
+        <div class="v">We find where AI pays back before a line of code is written.</div>
+      </div>
+      <div>
+        <div class="k">Builders, not slideware</div>
+        <div class="v">We ship production systems — like our own trading platform.</div>
+      </div>
+      <div>
+        <div class="k">Hands-on delivery</div>
+        <div class="v">Senior engineering from first workshop to live deployment.</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ══ SERVICES ══ -->
+<section id="services">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">What we do</span>
+      <h2>Consultancy across the AI lifecycle</h2>
+      <p>Whether you are exploring your first use case or scaling AI across the
+        organisation, we meet you where you are.</p>
+    </div>
+    <div class="grid grid-3">
+
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
+        <h3>AI Strategy &amp; Roadmapping</h3>
+        <p>We assess your data, processes and goals, then build a pragmatic
+          roadmap that prioritises real return on investment.</p>
+      </div>
+
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 19.3 7.2 16.9l.9-5.4L4.2 7.7l5.4-.8z"/></svg></div>
+        <h3>Custom AI Solutions</h3>
+        <p>Bespoke models, agents and decision tools designed around your
+          domain — built, tested and handed over ready to run.</p>
+      </div>
+
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 9h6v6H9z"/><path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4"/></svg></div>
+        <h3>LLM Integration &amp; Automation</h3>
+        <p>Embed large language models into products and back-office
+          workflows — chat, search, drafting and document processing.</p>
+      </div>
+
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg></div>
+        <h3>Data &amp; Trading Systems</h3>
+        <p>Quantitative data pipelines, signal engineering and market
+          analytics — the discipline behind the Viking Invest platform.</p>
+      </div>
+
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3L2 8l10 5 10-5-10-5z"/><path d="M6 10.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-5.5"/></svg></div>
+        <h3>AI Enablement &amp; Training</h3>
+        <p>Workshops and hands-on training that give your team the judgement
+          to use AI tools safely and effectively.</p>
+      </div>
+
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-4 12.7V18a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-3.3A7 7 0 0 0 12 2z"/><path d="M9 22h6"/></svg></div>
+        <h3>Advisory &amp; Fractional CTO</h3>
+        <p>Ongoing technical guidance for leadership teams — architecture
+          reviews, vendor selection and a steady hand on AI direction.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══ PLATFORM ══ -->
+<section id="platform" class="platform">
+  <div class="wrap platform-grid">
+    <div>
+      <span class="eyebrow">Built by Viking Invest</span>
+      <h2>The Viking Invest Trading Platform</h2>
+      <p class="intro">
+        Our consultancy is grounded in something we built and run ourselves: a
+        live trading platform that turns raw market data into clear, rules-based
+        signals. It is proof of how we work — real systems, real data, in production.
+      </p>
+      <ul class="feat-list">
+        <li><span class="tick">&#10003;</span>Real-time price tracking across multiple markets</li>
+        <li><span class="tick">&#10003;</span>Intraday and historical OHLC data pipelines</li>
+        <li><span class="tick">&#10003;</span>A 3/3 confluence strategy for disciplined signal detection</li>
+        <li><span class="tick">&#10003;</span>Automated trigger alerts and continuous health checks</li>
+      </ul>
+      <a href="./dashboard.html" class="btn btn-gold">Open the live dashboard</a>
+    </div>
+    <div class="mock" aria-hidden="true">
+      <div class="mock-bar">
+        <i></i><i></i><i></i>
+        <span class="url">vikinginvest.ai/dashboard</span>
+      </div>
+      <div class="mock-body">
+        <div class="mock-row">
+          <span class="mock-sym">&#9670; Markets</span>
+          <span class="tag tag-gold">3/3 Confluence</span>
+        </div>
+        <div class="mock-row">
+          <span class="mock-sym">EUR / USD</span>
+          <span class="mock-px">1.0842 <span class="tag tag-bull">Long</span></span>
+        </div>
+        <div class="mock-row">
+          <span class="mock-sym">GBP / USD</span>
+          <span class="mock-px">1.2671 <span class="tag tag-bull">Long</span></span>
+        </div>
+        <div class="mock-row">
+          <span class="mock-sym">XAU / USD</span>
+          <span class="mock-px">2318.40 <span class="tag tag-bear">Short</span></span>
+        </div>
+        <div class="mock-row">
+          <span class="mock-sym">Signal engine</span>
+          <span class="tag tag-gold">Live</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ PROCESS ══ -->
+<section id="process" class="process">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">How we work</span>
+      <h2>A clear path from idea to impact</h2>
+      <p>Every engagement follows the same honest rhythm — no surprises, no
+        endless discovery.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="num">1</div>
+        <h3>Discover</h3>
+        <p>We learn your business, audit your data and pinpoint where AI is
+          genuinely worth it.</p>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <h3>Prototype</h3>
+        <p>A focused proof of concept that tests the riskiest assumption
+          first — fast and cheap to learn.</p>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <h3>Deploy</h3>
+        <p>We build the production system, integrate it with your stack and
+          document everything.</p>
+      </div>
+      <div class="step">
+        <div class="num">4</div>
+        <h3>Scale</h3>
+        <p>We measure results, refine the model and help your team take
+          ownership for the long run.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ ABOUT ══ -->
+<section id="about" class="about">
+  <div class="wrap about-grid">
+    <div>
+      <span class="eyebrow">Who we are</span>
+      <h2>Engineers who happen to consult</h2>
+      <p>
+        Viking Invest is an AI consultancy with a builder's mindset. We do not
+        just advise on artificial intelligence — we ship it. Our own Viking
+        Invest Trading Platform is the clearest example: a real, running system
+        born from the same data and engineering discipline we bring to clients.
+      </p>
+      <p>
+        That means our advice is grounded in what actually works in production,
+        not in slideware. We keep engagements small, senior and accountable.
+      </p>
+    </div>
+    <div class="panel">
+      <h3>What you can expect</h3>
+      <div class="vbox">
+        <div>
+          <span class="vd"></span>
+          <div><b>Plain language</b><br><span>Clear explanations of what AI can and cannot do for you.</span></div>
+        </div>
+        <div>
+          <span class="vd"></span>
+          <div><b>Measurable outcomes</b><br><span>Every project tied to a metric that matters to your business.</span></div>
+        </div>
+        <div>
+          <span class="vd"></span>
+          <div><b>Responsible by default</b><span><br>Privacy, security and human oversight built in from the start.</span></div>
+        </div>
+        <div>
+          <span class="vd"></span>
+          <div><b>No lock-in</b><br><span>You own the code, the models and the knowledge we leave behind.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ CONTACT ══ -->
+<section id="contact" class="contact">
+  <div class="wrap">
+    <span class="eyebrow">Start a conversation</span>
+    <h2>Let's find your first AI win</h2>
+    <p>
+      Tell us about the problem you are trying to solve. We will reply with an
+      honest view of whether — and how — AI can help.
+    </p>
+    <div class="contact-cta">
+      <a href="mailto:hello@vikinginvest.ai" class="btn btn-gold">hello@vikinginvest.ai</a>
+      <a href="./dashboard.html" class="btn btn-ghost" style="border-color:#5a554c;color:#e8e2d8;">View the trading platform</a>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FOOTER ══ -->
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer-top">
+      <div>
+        <div class="brand">
+          <span class="brand-dot"></span>
+          <span class="brand-name">Viking Invest</span>
+        </div>
+        <p class="footer-tag">AI consultancy and trading technology — pragmatic
+          artificial intelligence for organisations that want results.</p>
+      </div>
+      <div class="footer-domains">
+        <span class="lbl">Find us at</span>
+        <a href="https://vikinginvest.ai">vikinginvest.ai</a>
+        <a href="https://viking-invest.org">viking-invest.org</a>
+        <a href="https://vikinginvest.co.uk">vikinginvest.co.uk</a>
+      </div>
+      <div class="footer-domains">
+        <span class="lbl">Explore</span>
+        <a href="#services">Services</a>
+        <a href="#platform">Trading platform</a>
+        <a href="#contact">Contact</a>
+      </div>
+    </div>
+    <div class="footer-bot">
+      <span>&copy; <span id="year">2026</span> Viking Invest. All rights reserved.</span>
+      <span>Artificial Intelligence Consultancy</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Mobile nav
+  var t=document.getElementById('navToggle'),l=document.getElementById('navLinks');
+  t.addEventListener('click',function(){l.classList.toggle('open');});
+  l.addEventListener('click',function(e){
+    if(e.target.tagName==='A')l.classList.remove('open');
+  });
+  // Current year
+  document.getElementById('year').textContent=new Date().getFullYear();
+</script>
+
+</body>
+</html>
