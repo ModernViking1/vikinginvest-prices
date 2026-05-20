@@ -229,6 +229,30 @@ def aggregate_m15_to_h1(m15_bars):
     return h1
 
 
+def build_h1_series(pair, m15, historical_pairs):
+    """Build the freshest h1 OHLC series for the TL (hourly) direction
+    calc. Uses the native h1 bars from historical-ohlc.json (~6000 bars,
+    deterministic) and appends recent hours aggregated from the intraday
+    15m bars on top.
+
+    Previously the detector aggregated h1 only from intraday-ohlc.json's
+    ~50 m15 bars (~12 h1 bars) — too thin and divergent from the
+    dashboard, which (after the DEEP_HIST fallback fix in
+    calcIndependentTLDir) reads the same deep h1 data. Matching the
+    source is what keeps detector alignment in step with the dashboard.
+    """
+    hist_h1 = list(historical_pairs.get(pair, {}).get('h1', []))
+    recent_h1 = aggregate_m15_to_h1(m15)
+    if not hist_h1:
+        return recent_h1
+    last_prefix = (hist_h1[-1].get('t') or '')[:13]  # "YYYY-MM-DDTHH"
+    merged = list(hist_h1)
+    for b in recent_h1:
+        if (b.get('t') or '')[:13] > last_prefix:
+            merged.append(b)
+    return merged
+
+
 # ── Data loading ──
 
 def load_json(path):
@@ -267,7 +291,7 @@ def scan_pairs(intraday_data, historical_data):
         if not m15 or len(m15) < 24:
             continue
 
-        h1 = aggregate_m15_to_h1(m15)
+        h1 = build_h1_series(pair, m15, historical_pairs)
         daily = historical_pairs.get(pair, {}).get('daily', [])
 
         # Need at least minimal history on each timeframe

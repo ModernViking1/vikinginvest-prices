@@ -7903,8 +7903,16 @@ function detectAtDegree(level, lastPx){
 
 // ── Main auto-detection entrypoint ─────────────────────────────────
 function autoDetectEW(k){
-  // Read daily candles from HISTORICAL (CDN-loaded from history.json).
-  var candles = (typeof HISTORICAL !== 'undefined' && HISTORICAL[k]) ? HISTORICAL[k] : null;
+  // Read daily candles. Prefer HISTORICAL (CDN history.json); fall back
+  // to DEEP_HIST daily (historical-ohlc.json) so newly-added pairs get
+  // an auto-EW / LuxAlgo read even before history.json's loaded copy
+  // includes them. This is what gives new pairs their macro baseline.
+  var candles = (typeof HISTORICAL !== 'undefined' && HISTORICAL[k] && HISTORICAL[k].length >= 30)
+    ? HISTORICAL[k] : null;
+  if(!candles && typeof DEEP_HIST !== 'undefined' && DEEP_HIST[k] &&
+     DEEP_HIST[k].daily && DEEP_HIST[k].daily.length >= 30){
+    candles = DEEP_HIST[k].daily;
+  }
   if(!candles || candles.length < 30){
     return { ok: false, reason: 'insufficient_history', dailyBars: (candles||[]).length };
   }
@@ -8146,12 +8154,17 @@ function calcEWDir(k) {
   var seedAware = calcEWDirAtSeedFractal(k);
   if(seedAware !== null) return seedAware;
 
-  // No seed match — use generic 60-bar reading.
-  // Reads HISTORICAL[k] preferentially.
+  // No seed match — use generic 60-bar reading. Source cascade:
+  // HISTORICAL (history.json) → DEEP_HIST daily (historical-ohlc.json)
+  // → HISTORY runtime daily buffer. The DEEP_HIST tier ensures new
+  // pairs get a macro direction even when history.json's loaded copy
+  // doesn't include them yet.
   var prices;
   if(typeof HISTORICAL !== 'undefined' && HISTORICAL[k] && HISTORICAL[k].length >= 5){
-    var slice = HISTORICAL[k].slice(-60);
-    prices = slice.map(function(c){ return c.c; });
+    prices = HISTORICAL[k].slice(-60).map(function(c){ return c.c; });
+  } else if(typeof DEEP_HIST !== 'undefined' && DEEP_HIST[k] &&
+            DEEP_HIST[k].daily && DEEP_HIST[k].daily.length >= 5){
+    prices = DEEP_HIST[k].daily.slice(-60).map(function(c){ return c.c; });
   } else {
     if(!HISTORY[k]) loadHistory(k);
     var daily = HISTORY[k].daily;
@@ -8446,21 +8459,31 @@ function _ticksToBars(ticks){
 
 // Independent 1H direction — reads HISTORY[k].h1 only, no seed input.
 function calcIndependentTLDir(k){
-  if(!HISTORY[k]) return null;
-  var h1 = HISTORY[k].h1;
+  // Prefer the runtime h1 accumulator; fall back to the 12-month deep
+  // history h1 (historical-ohlc.json → DEEP_HIST) so newly-added pairs —
+  // whose runtime buffer is empty on a fresh session — still get an
+  // hourly direction. Without this fallback their TL stayed 'neutral'
+  // indefinitely (and existing pairs fell back to the stale MKTS seed,
+  // e.g. EUR/NZD showing tl=bear seed while real data reads bull).
+  var h1 = (HISTORY[k] && HISTORY[k].h1 && HISTORY[k].h1.length >= 12) ? HISTORY[k].h1 : null;
+  if(!h1 && typeof DEEP_HIST !== 'undefined' && DEEP_HIST[k] && DEEP_HIST[k].h1 && DEEP_HIST[k].h1.length >= 12){
+    h1 = DEEP_HIST[k].h1;
+  }
   if(!h1 || h1.length < 12) return null;
   var bars = _ticksToBars(h1);
   return calcIndependentDir(bars, 8);
 }
 
-// Independent 15m direction — reads HISTORY[k].m15 (or INTRADAY[k]
-// if richer), no seed input.
+// Independent 15m direction — reads INTRADAY[k] (or HISTORY[k].m15,
+// or DEEP_HIST[k].m15) — no seed input.
 function calcIndependentNWDir(k){
   var ticks = null;
   if(typeof INTRADAY !== 'undefined' && INTRADAY[k] && INTRADAY[k].length >= 12){
     ticks = INTRADAY[k];
   } else if(HISTORY[k] && HISTORY[k].m15 && HISTORY[k].m15.length >= 12){
     ticks = HISTORY[k].m15;
+  } else if(typeof DEEP_HIST !== 'undefined' && DEEP_HIST[k] && DEEP_HIST[k].m15 && DEEP_HIST[k].m15.length >= 12){
+    ticks = DEEP_HIST[k].m15;
   }
   if(!ticks) return null;
   var bars = _ticksToBars(ticks);
