@@ -179,9 +179,15 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry
     # Entry is the wick extreme on the entry side: high for bear, low for bull.
     entry = creator_high if aligned_dir == 'bear' else creator_low
 
-    # Trigger: walk forward from creator+1, check if any bar's range reaches entry.
+    # Trigger: walk forward from creator+1, check if any bar's range reaches
+    # entry — gated on a round-trip lift (mirrors detectIntradaySignal in
+    # dashboard.html). A retest only counts once price has first displaced
+    # PAST the creator's far edge on a strictly earlier bar; without that
+    # gate the next bar's ordinary low "retests" the entry with no real
+    # pullback, producing false triggers on consecutive trend candles.
     trigger_bar_idx = -1
     if entry is not None:
+        lift_reached = False
         for j in range(creator_idx + 1, n):
             b = bars[j]
             bh, bl = b.get('h'), b.get('l')
@@ -191,9 +197,16 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry
                 (aligned_dir == 'bear' and bh >= entry) or
                 (aligned_dir == 'bull' and bl <= entry)
             )
-            if reaches:
+            if reaches and lift_reached:
                 trigger_bar_idx = j
                 break
+            # Confirm the lift AFTER the retest check so the displacement
+            # must precede the retest bar (a real round trip).
+            if not lift_reached:
+                if aligned_dir == 'bull' and creator_high is not None and bh >= creator_high:
+                    lift_reached = True
+                elif aligned_dir == 'bear' and creator_low is not None and bl <= creator_low:
+                    lift_reached = True
 
     state = 'triggered' if trigger_bar_idx >= 0 else 'armed'
     return {

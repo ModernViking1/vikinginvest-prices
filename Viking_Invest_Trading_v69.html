@@ -10333,16 +10333,20 @@ function detectIntradaySignal(k){
   if(R <= 0) return null;
 
   // ── DETECT RETEST AND CURRENT STATE ────────────────────────
-  // Retest definition (revised): a subsequent bar's range REACHES the
-  // entry level. For bear: subsequent bar.h >= entry (price returned
-  // up to the creator high). For bull: subsequent bar.l <= entry.
-  // This is a stricter retest than the previous "midpoint touch" — price
-  // must fully retrace to the candle extreme before triggering.
-  // Scan bars AFTER the creator. If any subsequent bar's range touches
-  // the midpoint, the signal triggered. If price closed beyond stop
-  // before retest, it's invalidated.
+  // Retest = a subsequent bar's range REACHES the entry level (the
+  // creator wick extreme — bull: bar.l <= entry; bear: bar.h >= entry).
+  //
+  // ROUND-TRIP GATE: a retest only counts once price has first displaced
+  // PAST the creator's far edge on a strictly earlier bar (bull: a prior
+  // bar's high >= creator.h; bear: a prior bar's low <= creator.l).
+  // Without this gate the re-arm logic above parks the creator one bar
+  // behind price, so the very next bar's ordinary low "retests" the entry
+  // with no real pullback — a false trigger on consecutive trend candles.
+  // The gate forces a genuine away-then-back round trip: price must
+  // extend the move, THEN retrace to the entry.
   var state = 'armed';
   var triggerBarIdx = -1;
+  var liftReached = false;
   for(var i = creatorIdx + 1; i < n; i++){
     var b = bars[i];
     // Check invalidation: closed beyond stop before retest happened.
@@ -10364,14 +10368,19 @@ function detectIntradaySignal(k){
         break;
       }
     }
-    // Check retest: bar's range REACHES the entry level.
-    // For bear: bar high reaches up to creator high (entry).
-    // For bull: bar low reaches down to creator low (entry).
+    // Check retest: bar's range REACHES the entry level — but only counts
+    // once the round-trip lift has been confirmed on a strictly earlier bar.
     var reachesEntry = (dir === 'bear' && b.h >= entry) ||
                        (dir === 'bull' && b.l <= entry);
-    if(reachesEntry && triggerBarIdx === -1){
+    if(reachesEntry && liftReached && triggerBarIdx === -1){
       triggerBarIdx = i;
       state = 'triggered';
+    }
+    // Update the lift flag AFTER the retest check, so the displacement
+    // must precede the retest bar (a real round trip, not a single candle).
+    if(!liftReached){
+      if(dir === 'bull' && b.h >= creator.h) liftReached = true;
+      else if(dir === 'bear' && b.l <= creator.l) liftReached = true;
     }
   }
 
