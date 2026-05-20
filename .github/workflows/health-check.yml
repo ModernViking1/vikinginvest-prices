@@ -26,7 +26,8 @@ name: Health Check
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    # Offset off :00 / :30 to dodge cron throttling. Still every 30 min.
+    - cron: '17,47 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -118,7 +119,7 @@ jobs:
               report_lines.append("")
               report_lines.append("## What to check")
               report_lines.append("1. Go to Actions tab")
-              report_lines.append("2. Look for failed runs of: publish-intraday-ohlc, fetch-prices, publish-events")
+              report_lines.append("2. Look for failed runs of: fetch-data, publish-events")
               report_lines.append("3. If workflow is disabled (yellow banner), click 'Enable workflow'")
               report_lines.append("4. If runs are failing: check logs for OANDA 401 (token expired) or network errors")
               report_lines.append("5. To recover: trigger workflow manually from Actions tab")

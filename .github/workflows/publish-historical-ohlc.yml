@@ -18,9 +18,13 @@ on:
         required: false
         default: '365'
       pairs:
-        description: 'Optional subset of pairs (comma-separated, leave blank for all 22)'
+        description: 'Optional subset of pairs (comma-separated, leave blank for all)'
         required: false
         default: ''
+      publish_only:
+        description: 'Skip the OANDA re-fetch — just npm-publish + purge the historical-ohlc.json already on main. Use "true" to push the existing file to the CDN fast (~1 min) without a full backfill.'
+        required: false
+        default: 'false'
 
 permissions:
   contents: write
@@ -39,12 +43,19 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Set up Node (for npm publish)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests
 
       - name: Run historical OHLC backfill
+        if: ${{ inputs.publish_only != 'true' }}
         env:
           OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
         run: |
@@ -59,6 +70,7 @@ jobs:
           ls -lh historical-ohlc.json
 
       - name: Verify output sanity
+        if: ${{ inputs.publish_only != 'true' }}
         run: |
           python -c "
           import json, sys
@@ -84,14 +96,16 @@ jobs:
           print(f'File size: {os.path.getsize(\"historical-ohlc.json\")/(1024*1024):.2f} MB')
           "
 
-      - name: Commit historical-ohlc.json to repo
+      - name: Commit historical-ohlc.json with race-condition retry
         run: |
+          set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           # Bump version in package.json so jsDelivr picks up the new file
           if [ -f package.json ]; then
             python -c "
-          import json, re
+          import json
           with open('package.json') as f:
               p = json.load(f)
           v = p.get('version', '0.0.0')
@@ -105,5 +119,66 @@ jobs:
             git add package.json
           fi
           git add historical-ohlc.json
-          git commit -m "Historical OHLC backfill — ${{ inputs.days }}d" || echo "No changes to commit"
-          git push
+          if git diff --staged --quiet; then
+            echo "No changes to commit (historical-ohlc.json identical)"
+            exit 0
+          fi
+          git commit -m "Historical OHLC backfill — ${{ inputs.days }}d"
+
+          # Race-retry pattern matching the other data workflows
+          # (fetch-data.yml, alert-on-trigger.yml, publish-events.yml).
+          # The 5-10 min backfill window almost guarantees a concurrent
+          # fetch-data commit lands first; without retry the whole run is
+          # wasted and the new history file is dropped on the floor.
+          MAX_ATTEMPTS=5
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Push attempt $attempt of $MAX_ATTEMPTS"
+            if git push origin main 2>&1; then
+              echo "✅ Push succeeded on attempt $attempt"
+              exit 0
+            fi
+            if [ "$attempt" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::Push failed after $MAX_ATTEMPTS attempts"
+              exit 1
+            fi
+            echo "Push rejected — fetching latest main and rebasing..."
+            git fetch origin main
+            if ! git rebase origin/main; then
+              echo "Rebase conflict — taking our newly backfilled history"
+              for f in historical-ohlc.json package.json; do
+                if [ -f "$f" ]; then
+                  git checkout --theirs "$f" 2>/dev/null || true
+                  git add "$f" 2>/dev/null || true
+                fi
+              done
+              git rebase --continue || git rebase --abort
+            fi
+            sleep $((attempt * 3))
+          done
+
+      - name: Publish to npm + purge jsDelivr cache
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # The dashboard's DEEP_HIST loads historical-ohlc.json from the
+          # CDN. The repo is PRIVATE, so jsDelivr /gh/, statically.io and
+          # raw.githubusercontent can't read it — the only working public
+          # path is the npm package via jsDelivr /npm/@latest.
+          #
+          # fetch-data.yml's npm publish bundles whatever's in the repo,
+          # but it does NOT purge historical-ohlc.json from the jsDelivr
+          # npm cache — so after a backfill the dashboard kept loading the
+          # stale pre-backfill file (symptom: new pairs stuck on neutral
+          # EW/TL because their daily/h1 history never reached the
+          # browser). Publish + purge here so the fresh file is live
+          # immediately after the backfill, without waiting for — or
+          # depending on — a fetch-data cycle.
+          if npm publish --access=public 2>&1; then
+            echo "✅ npm publish succeeded"
+          else
+            echo "::warning::npm publish failed (non-fatal) — historical-ohlc.json will still reach npm via the next fetch-data run"
+          fi
+          # Purge the jsDelivr npm cache so the dashboard picks up the
+          # fresh file on the next load instead of the stale cached copy.
+          curl -s -m 20 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/historical-ohlc.json" || echo "purge historical-ohlc.json failed (non-fatal)"
+          echo "Purge requested for historical-ohlc.json"
