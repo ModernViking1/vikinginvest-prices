@@ -18,9 +18,13 @@ on:
         required: false
         default: '365'
       pairs:
-        description: 'Optional subset of pairs (comma-separated, leave blank for all 22)'
+        description: 'Optional subset of pairs (comma-separated, leave blank for all)'
         required: false
         default: ''
+      publish_only:
+        description: 'Skip the OANDA re-fetch — just npm-publish + purge the historical-ohlc.json already on main. Use "true" to push the existing file to the CDN fast (~1 min) without a full backfill.'
+        required: false
+        default: 'false'
 
 permissions:
   contents: write
@@ -39,12 +43,19 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Set up Node (for npm publish)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests
 
       - name: Run historical OHLC backfill
+        if: ${{ inputs.publish_only != 'true' }}
         env:
           OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
         run: |
@@ -59,6 +70,7 @@ jobs:
           ls -lh historical-ohlc.json
 
       - name: Verify output sanity
+        if: ${{ inputs.publish_only != 'true' }}
         run: |
           python -c "
           import json, sys
@@ -143,3 +155,30 @@ jobs:
             fi
             sleep $((attempt * 3))
           done
+
+      - name: Publish to npm + purge jsDelivr cache
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # The dashboard's DEEP_HIST loads historical-ohlc.json from the
+          # CDN. The repo is PRIVATE, so jsDelivr /gh/, statically.io and
+          # raw.githubusercontent can't read it — the only working public
+          # path is the npm package via jsDelivr /npm/@latest.
+          #
+          # fetch-data.yml's npm publish bundles whatever's in the repo,
+          # but it does NOT purge historical-ohlc.json from the jsDelivr
+          # npm cache — so after a backfill the dashboard kept loading the
+          # stale pre-backfill file (symptom: new pairs stuck on neutral
+          # EW/TL because their daily/h1 history never reached the
+          # browser). Publish + purge here so the fresh file is live
+          # immediately after the backfill, without waiting for — or
+          # depending on — a fetch-data cycle.
+          if npm publish --access=public 2>&1; then
+            echo "✅ npm publish succeeded"
+          else
+            echo "::warning::npm publish failed (non-fatal) — historical-ohlc.json will still reach npm via the next fetch-data run"
+          fi
+          # Purge the jsDelivr npm cache so the dashboard picks up the
+          # fresh file on the next load instead of the stale cached copy.
+          curl -s -m 20 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/historical-ohlc.json" || echo "purge historical-ohlc.json failed (non-fatal)"
+          echo "Purge requested for historical-ohlc.json"
