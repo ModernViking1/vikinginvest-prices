@@ -15,6 +15,12 @@ workflow run while a pair remains aligned. Transitions tracked:
   - prev='bull', current='bull'        -> no alert (still aligned)
   - prev='bull', current=None          -> no alert (lost alignment, not a setup)
 
+Phase 2 — intraday trigger alerts: for every 3/3-aligned pair, the 15m
+1:1-RR signal is tracked (armed -> triggered). A TRIGGERED alert fires
+exactly once per distinct setup, deduped on the creator-bar timestamp.
+This fires whether or not the intermediate 'armed' state was observed —
+the ~10-min detector cadence routinely misses it.
+
 First run (no state file): compute baseline, NO alerts. Subsequent runs
 detect transitions from that baseline.
 
@@ -484,7 +490,6 @@ def main():
         prev = prev_state.get(pair, {})
         prev_dir = prev.get('aligned_dir')
         cur_dir = info['aligned_dir']
-        prev_sig_state = prev.get('sig_state')
         cur_sig_state = info.get('sig_state')
 
         # Alignment-level alerts (existing behaviour).
@@ -507,18 +512,47 @@ def main():
             if send_telegram(token, chat_id, text):
                 alerts_sent += 1
 
-        # Phase 2: intraday-trigger alerts. Fires when a previously-armed
-        # signal newly reaches the creator's wick entry. We deliberately
-        # gate on prev_sig_state == 'armed' AND cur_sig_state == 'triggered'
-        # so we only push once per setup — if the user reloads the workflow
-        # or we re-run, we won't re-alert as long as the state file
-        # remembers it was already triggered.
-        if cur_sig_state == 'triggered' and prev_sig_state == 'armed':
-            if not is_first_run or send_all_aligned:
-                print(f'  ALERT(trigger): {pair} armed -> triggered (creator={info.get("sig_creator_ts")}, entry={info.get("sig_entry")})')
+        # Phase 2: intraday-trigger alerts. Fires once when a pair's 15m
+        # 1:1-RR signal reaches the 'triggered' state — price retested the
+        # creator CHoCH wick.
+        #
+        # Dedup is keyed on the creator-bar timestamp, NOT on observing the
+        # intermediate 'armed' state. The detector runs only every ~10 min,
+        # so a 15m creator routinely forms AND gets retested inside a single
+        # cycle (or a pair becomes 3/3-aligned only after the retest has
+        # already happened). In those cases 'armed' is never seen, and the
+        # old `prev_sig_state == 'armed'` gate silently dropped the alert.
+        # Keying on creator_ts means every distinct triggered setup alerts
+        # exactly once, regardless of whether 'armed' was observed.
+        cur_creator_ts = info.get('sig_creator_ts')
+        prev_alerted_creator = prev.get('alerted_trigger_creator_ts')
+        # Migration: state files written before alerted_trigger_creator_ts
+        # existed have no dedup key. If the pair was already 'triggered' on
+        # the same creator last run, treat that creator as already-alerted
+        # so deploying this change doesn't replay pre-existing triggers.
+        if prev_alerted_creator is None and prev.get('sig_state') == 'triggered':
+            prev_alerted_creator = prev.get('sig_creator_ts')
+        alerted_creator = prev_alerted_creator
+
+        if cur_sig_state == 'triggered' and cur_creator_ts is not None:
+            is_new_trigger = (cur_creator_ts != prev_alerted_creator)
+            if send_all_aligned:
+                print(f'  ALERT(trigger,catchup): {pair} triggered (creator={cur_creator_ts}, entry={info.get("sig_entry")})')
                 text = format_alert(pair, info, 'triggered')
                 if send_telegram(token, chat_id, text):
                     alerts_sent += 1
+                alerted_creator = cur_creator_ts
+            elif is_new_trigger and is_first_run:
+                # Baseline run — record the trigger as already-seen so we
+                # don't alert on this pre-existing setup next cycle.
+                print(f'  baseline(trigger): {pair} already triggered (creator={cur_creator_ts}) — recorded, not alerting')
+                alerted_creator = cur_creator_ts
+            elif is_new_trigger:
+                print(f'  ALERT(trigger): {pair} -> triggered (creator={cur_creator_ts}, entry={info.get("sig_entry")})')
+                text = format_alert(pair, info, 'triggered')
+                if send_telegram(token, chat_id, text):
+                    alerts_sent += 1
+                alerted_creator = cur_creator_ts
 
         new_state[pair] = {
             'aligned_dir': cur_dir,
@@ -527,9 +561,10 @@ def main():
             'nw': info['nw'],
             'price': info['price'],
             'sig_state': cur_sig_state,
-            'sig_creator_ts': info.get('sig_creator_ts'),
+            'sig_creator_ts': cur_creator_ts,
             'sig_entry': info.get('sig_entry'),
             'sig_trigger_ts': info.get('sig_trigger_ts'),
+            'alerted_trigger_creator_ts': alerted_creator,
             'last_check': now_iso,
         }
 
