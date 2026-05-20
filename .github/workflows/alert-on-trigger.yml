@@ -80,12 +80,12 @@ jobs:
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add alerts-state.json
+          git add alerts-state.json directions.json
           if git diff --staged --quiet; then
-            echo "alerts-state.json unchanged — nothing to commit"
+            echo "alerts-state.json + directions.json unchanged — nothing to commit"
             exit 0
           fi
-          git commit -m "chore: update alerts state [skip ci]"
+          git commit -m "chore: update alerts state + directions [skip ci]"
 
           # Standard race-retry pattern matching the other workflows.
           MAX_ATTEMPTS=5
@@ -100,8 +100,10 @@ jobs:
             fi
             git fetch origin main
             if ! git rebase origin/main; then
-              git checkout --theirs alerts-state.json 2>/dev/null || true
-              git add alerts-state.json 2>/dev/null || true
+              for f in alerts-state.json directions.json; do
+                git checkout --theirs "$f" 2>/dev/null || true
+                git add "$f" 2>/dev/null || true
+              done
               git rebase --continue || git rebase --abort
             fi
             sleep $((attempt * 3))

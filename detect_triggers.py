@@ -409,6 +409,41 @@ def format_alert(pair, info, kind):
 
 # ── Main ──
 
+def write_directions_json(current, path='directions.json'):
+    """Write a tiny per-pair EW/TL/NW direction file for the dashboard.
+
+    The dashboard's own direction calcs depend on loading the ~90 MB
+    historical-ohlc.json into the browser — which exceeds localStorage
+    quota, gets re-downloaded every session, and loads unreliably on
+    mobile. So newly-added pairs intermittently show no Macro/Hourly
+    direction.
+
+    This sidesteps all of that: the GitHub Actions runner computes the
+    directions from the repo files directly (where the data is always
+    available) and ships them as a ~3 KB JSON the dashboard reads with
+    zero size/quota concerns. The dashboard's live engine calcs still
+    run and take priority — directions.json is the reliable baseline,
+    especially for pairs whose deep history didn't load in-browser.
+    """
+    out = {}
+    for pair, info in current.items():
+        out[pair] = {
+            'ew': info.get('ew'),
+            'tl': info.get('tl'),
+            'nw': info.get('nw'),
+            'aligned_dir': info.get('aligned_dir'),
+        }
+    try:
+        with open(path, 'w') as f:
+            json.dump({
+                'updated': datetime.now(timezone.utc).isoformat(),
+                'pairs': out,
+            }, f, indent=1, sort_keys=True)
+        print(f'Wrote {path} — {len(out)} pairs')
+    except OSError as e:
+        print(f'WARN: could not write {path}: {e}')
+
+
 def main():
     intraday = load_json('intraday-ohlc.json')
     historical = load_json('historical-ohlc.json')
@@ -421,6 +456,10 @@ def main():
         sys.exit(1)
 
     current = scan_pairs(intraday, historical)
+
+    # Always publish the slim directions file — independent of whether
+    # any Telegram alert fires this run.
+    write_directions_json(current)
     print(f'Scanned {len(current)} pairs')
 
     prev_state, is_first_run = load_alerts_state('alerts-state.json')
