@@ -148,18 +148,28 @@ jobs:
               exit 1
             fi
 
-            echo "Push rejected — fetching latest main and rebasing..."
+            # Push rejected — a concurrent Fetch Data run updated main.
+            # Rebuild our commit directly on top of the latest main:
+            # reset onto it (--mixed moves HEAD + index only, leaving our
+            # freshly-generated data files in the working tree), then
+            # re-stage and recommit. This sidesteps rebase/merge conflicts
+            # entirely — our data is the newest, so "newest wins" is the
+            # correct resolution — and avoids the `git rebase --continue`
+            # editor prompt that hangs/fails in a headless CI runner.
+            echo "Push rejected — rebuilding our data commit onto latest main..."
             git fetch origin main
-            if ! git rebase origin/main; then
-              echo "Rebase conflict — taking our newly fetched data"
-              for f in prices.json history.json intraday-ohlc.json intraday-state.json intraday.json; do
-                if [ -f "$f" ]; then
-                  git checkout --theirs "$f" 2>/dev/null || true
-                  git add "$f" 2>/dev/null || true
-                fi
-              done
-              git rebase --continue || git rebase --abort
+            git reset --mixed origin/main
+            for f in prices.json history.json intraday-ohlc.json intraday-state.json intraday.json; do
+              if [ -f "$f" ]; then
+                git add "$f"
+              fi
+            done
+            if git diff --cached --quiet; then
+              echo "No changes vs latest main — nothing to push"
+              echo "pushed=0" >> $GITHUB_OUTPUT
+              exit 0
             fi
+            git commit -m "chore: update data (prices + intraday)"
             sleep $((attempt * 3))
           done
 
