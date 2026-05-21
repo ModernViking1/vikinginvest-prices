@@ -1,9 +1,10 @@
 name: Alert on Trigger
 
-# Runs after every successful Fetch Data workflow. Detects pairs that
-# just transitioned to 3/3 confluence alignment and sends a Telegram
-# message for each new alignment. State persisted in alerts-state.json
-# so we don't re-alert while a pair stays aligned.
+# Runs every 10 minutes (and also right after each Fetch Data run).
+# Detects pairs that just transitioned to 3/3 confluence alignment, and
+# 15m 1:1-RR setups that just triggered, and sends a Telegram message
+# for each. State persisted in alerts-state.json so we don't re-alert
+# while a pair stays aligned / on an already-alerted setup.
 #
 # Requires repo secrets:
 #   TELEGRAM_BOT_TOKEN
@@ -16,6 +17,15 @@ name: Alert on Trigger
 # Subsequent runs detect transitions from that baseline.
 
 on:
+  # Primary trigger: a fixed schedule, independent of Fetch Data. The
+  # detector only reads already-committed data files, so it does not
+  # need Fetch Data to have *just* completed. Chaining solely off
+  # workflow_run was fragile — any Fetch Data run that concluded
+  # 'failure' silently skipped the alert job (see the detect job's `if`),
+  # which is why automatic alerts never fired.
+  schedule:
+    - cron: '5,15,25,35,45,55 * * * *'
+  # Low-latency path: also fire immediately after Fetch Data succeeds.
   workflow_run:
     workflows: ["Fetch Data (prices + intraday OHLC)"]
     types: [completed]
@@ -36,10 +46,12 @@ concurrency:
 jobs:
   detect:
     runs-on: ubuntu-latest
-    # Skip if the upstream fetch-data run itself failed — alerting on
-    # stale data is misleading.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
-    timeout-minutes: 5
+    # Run on schedule / manual dispatch unconditionally. For the
+    # workflow_run path only, skip if the upstream Fetch Data run failed
+    # — alerting on stale data is misleading, and the next scheduled run
+    # picks it up anyway once data recovers.
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -87,7 +99,11 @@ jobs:
           fi
           git commit -m "chore: update alerts state + directions [skip ci]"
 
-          # Standard race-retry pattern matching the other workflows.
+          # Race-retry: on push rejection, rebuild our commit on top of
+          # the latest main. reset --mixed moves HEAD + index only,
+          # leaving our freshly-written files in the working tree; we
+          # then re-stage and recommit. Conflict-free — no rebase, no
+          # `git rebase --continue` editor prompt to hang headless CI.
           MAX_ATTEMPTS=5
           for attempt in $(seq 1 $MAX_ATTEMPTS); do
             if git push origin main 2>&1; then
@@ -99,12 +115,12 @@ jobs:
               exit 1
             fi
             git fetch origin main
-            if ! git rebase origin/main; then
-              for f in alerts-state.json directions.json; do
-                git checkout --theirs "$f" 2>/dev/null || true
-                git add "$f" 2>/dev/null || true
-              done
-              git rebase --continue || git rebase --abort
+            git reset --mixed origin/main
+            git add alerts-state.json directions.json
+            if git diff --cached --quiet; then
+              echo "No changes vs latest main — nothing to push"
+              exit 0
             fi
+            git commit -m "chore: update alerts state + directions [skip ci]"
             sleep $((attempt * 3))
           done

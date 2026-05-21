@@ -1,27 +1,28 @@
 #!/usr/bin/env python3
 """
-publish_intraday_ohlc.py — Tick-aggregating intraday publisher (v2).
+publish_intraday_ohlc.py — Intraday 15m OHLC publisher (v3).
 
-CHANGES FROM v1:
-    - Drops TwelveData dependency (lower API cost, simpler error path)
-    - All FX pairs use OANDA v20 directly (free for our usage volume)
-    - Designed for 1-minute polling cadence
-    - Self-loop mode: runs N polls within a single workflow run, so
-      cron schedule doesn't dictate cadence. Default loop = 1 poll.
-    - Crypto pairs continue to use Coinbase public ticker (free)
+CHANGES FROM v2:
+    - Fetches REAL M15 OHLC candles instead of reconstructing bars from
+      sparse price polls. v2 polled the pricing endpoint a couple of
+      times per run and accumulated those few samples into a "bar" — so
+      every bar's high/low was the min/max of ~3 numbers and frequently
+      produced artifact "no-wick" candles, which fed false 15m triggers.
+      v3 pulls proper M15 candles (OANDA /candles, Coinbase /candles) so
+      the OHLC is exchange-accurate.
+    - No tick-accumulation state machine. Each run fetches the last ~97
+      M15 candles directly and writes them. --state is accepted but
+      unused; --loop/--interval are accepted but ignored (candles are
+      authoritative — re-polling within a run returns the same data).
 
-USAGE (cron mode, 1 poll per run):
-    python publish_intraday_ohlc.py --state intraday-state.json --output intraday-ohlc.json
-
-USAGE (loop mode, multiple polls per workflow run):
-    python publish_intraday_ohlc.py --loop 4 --interval 60
+USAGE:
+    python publish_intraday_ohlc.py --output intraday-ohlc.json
 
 DEPENDENCIES:
     pip install requests
 
 ENVIRONMENT:
-    OANDA_TOKEN        — OANDA v20 practice token (required for FX pairs)
-    OANDA_ACCOUNT_ID   — Optional; auto-discovered if not provided
+    OANDA_TOKEN — OANDA v20 practice token (required for FX/index/commodity pairs)
 """
 import argparse
 import json
@@ -82,37 +83,8 @@ PAIRS = {
 
 WINDOW_MINUTES = 15
 WINDOWS_TO_KEEP = 96
-
-
-# ── OANDA batched fetch ────────────────────────────────────────────
-# Fetch all FX prices in a single API call. OANDA's pricing endpoint
-# accepts a comma-separated list of instruments, which is much more
-# efficient than one call per pair.
-
-_oanda_account_cache = None
-
-def _resolve_oanda_account(api_key: str) -> str | None:
-    global _oanda_account_cache
-    if _oanda_account_cache:
-        return _oanda_account_cache
-    explicit = os.environ.get("OANDA_ACCOUNT_ID")
-    if explicit:
-        _oanda_account_cache = explicit
-        return explicit
-    try:
-        r = requests.get(
-            "https://api-fxpractice.oanda.com/v3/accounts",
-            headers={"Authorization": f"Bearer {api_key}"},
-            timeout=10,
-        )
-        r.raise_for_status()
-        accounts = r.json().get("accounts", [])
-        if accounts:
-            _oanda_account_cache = accounts[0]["id"]
-            return _oanda_account_cache
-    except (requests.RequestException, ValueError, KeyError) as exc:
-        print(f"WARN oanda account discovery: {exc}", file=sys.stderr)
-    return None
+CANDLE_COUNT = WINDOWS_TO_KEEP + 1   # 96 closed bars + 1 in-progress
+COINBASE_GRANULARITY = 900           # 15 minutes, in seconds
 
 
 class OandaAuthError(Exception):
@@ -120,247 +92,192 @@ class OandaAuthError(Exception):
     pass
 
 
-def fetch_oanda_batch(instruments: list[str], api_key: str) -> dict:
-    """Fetch mid prices for multiple OANDA instruments in one call.
+# ── Timestamp helpers ──────────────────────────────────────────────
+# Output bar timestamps must match the format the dashboard and
+# detect_triggers.py already expect: "YYYY-MM-DDTHH:MM:SS+00:00".
 
-    Returns dict mapping instrument code → mid price. Pairs that
-    failed are simply absent from the result.
+def _iso(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat()
 
-    Raises OandaAuthError on 401/403 so the caller can decide whether
-    to write a partial output or refuse and preserve existing data.
-    Retries transient errors up to 3 times with exponential backoff.
+
+def _parse_oanda_time(t: str) -> str:
+    """OANDA candle time ('2026-05-20T15:00:00.000000000Z') -> normalised ISO.
+
+    fromisoformat can't handle 9-digit fractional seconds, so trim them.
     """
-    if not instruments:
-        return {}
-    account = _resolve_oanda_account(api_key)
-    if not account:
-        return {}
+    base = t.split(".")[0].rstrip("Z")
+    dt = datetime.fromisoformat(base).replace(tzinfo=timezone.utc)
+    return _iso(dt)
+
+
+# ── OANDA M15 candles ──────────────────────────────────────────────
+# The instrument candles endpoint is account-independent — it needs only
+# the bearer token, so no account-id discovery is required.
+
+def fetch_oanda_candles(instrument: str, api_key: str) -> list | None:
+    """Fetch the last CANDLE_COUNT M15 mid candles for one instrument.
+
+    Returns a list of {t,o,h,l,c,p} bars (oldest first), or None on a
+    non-auth failure. Raises OandaAuthError on 401/403 so the caller can
+    refuse to overwrite and preserve existing data.
+    """
+    url = f"https://api-fxpractice.oanda.com/v3/instruments/{instrument}/candles"
+    params = {"granularity": "M15", "count": CANDLE_COUNT, "price": "M"}
     for attempt in range(3):
         try:
             r = requests.get(
-                f"https://api-fxpractice.oanda.com/v3/accounts/{account}/pricing",
-                params={"instruments": ",".join(instruments)},
+                url, params=params,
                 headers={"Authorization": f"Bearer {api_key}"},
                 timeout=15,
             )
-            # Auth errors are not retryable — token needs rotation
             if r.status_code in (401, 403):
                 msg = f"OANDA auth failed: HTTP {r.status_code} — token likely expired"
                 print(f"FATAL: {msg}", file=sys.stderr)
                 raise OandaAuthError(msg)
             r.raise_for_status()
-            data = r.json()
-            prices = {}
-            for p in data.get("prices", []):
-                try:
-                    bid = float(p["bids"][0]["price"])
-                    ask = float(p["asks"][0]["price"])
-                    prices[p["instrument"]] = (bid + ask) / 2
-                except (KeyError, IndexError, ValueError):
+            bars = []
+            for c in r.json().get("candles", []):
+                m = c.get("mid")
+                if not m:
                     continue
-            return prices
+                try:
+                    o, h = float(m["o"]), float(m["h"])
+                    lo, cl = float(m["l"]), float(m["c"])
+                except (KeyError, ValueError):
+                    continue
+                bars.append({
+                    "t": _parse_oanda_time(c.get("time", "")),
+                    "o": o, "h": h, "l": lo, "c": cl, "p": cl,
+                })
+            return bars
         except OandaAuthError:
-            raise  # propagate, don't retry
+            raise
         except (requests.Timeout, requests.ConnectionError) as exc:
             wait = 2 ** attempt
-            print(f"WARN oanda batch transient error (attempt {attempt+1}/3): {exc}, sleeping {wait}s", file=sys.stderr)
+            print(f"WARN oanda {instrument} transient (attempt {attempt+1}/3): {exc}",
+                  file=sys.stderr)
             if attempt < 2:
                 time.sleep(wait)
         except (requests.RequestException, ValueError, KeyError) as exc:
-            print(f"WARN oanda batch: {exc}", file=sys.stderr)
-            return {}
-    return {}
+            print(f"WARN oanda {instrument}: {exc}", file=sys.stderr)
+            return None
+    return None
 
 
-def fetch_coinbase_price(product: str) -> float | None:
+# ── Coinbase M15 candles ───────────────────────────────────────────
+
+def fetch_coinbase_candles(product: str) -> list | None:
+    """Fetch ~CANDLE_COUNT 15m candles for one Coinbase product.
+
+    Coinbase returns [[time, low, high, open, close, volume], ...] newest
+    first. Returns {t,o,h,l,c,p} bars (oldest first), or None on failure.
+    """
+    url = f"https://api.exchange.coinbase.com/products/{product}/candles"
     for attempt in range(3):
         try:
-            r = requests.get(
-                f"https://api.exchange.coinbase.com/products/{product}/ticker",
-                timeout=10,
-            )
+            r = requests.get(url, params={"granularity": COINBASE_GRANULARITY},
+                             timeout=10)
             r.raise_for_status()
-            return float(r.json()["price"])
+            rows = r.json()
+            if not isinstance(rows, list):
+                return None
+            rows.sort(key=lambda x: x[0])   # oldest first
+            bars = []
+            for row in rows[-CANDLE_COUNT:]:
+                try:
+                    ts = int(row[0])
+                    lo, hi = float(row[1]), float(row[2])
+                    op, cl = float(row[3]), float(row[4])
+                except (IndexError, ValueError, TypeError):
+                    continue
+                dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+                bars.append({
+                    "t": _iso(dt),
+                    "o": op, "h": hi, "l": lo, "c": cl, "p": cl,
+                })
+            return bars
         except (requests.Timeout, requests.ConnectionError) as exc:
             if attempt < 2:
                 time.sleep(2 ** attempt)
                 continue
             print(f"WARN coinbase {product}: {exc}", file=sys.stderr)
             return None
-        except (requests.RequestException, ValueError, KeyError) as exc:
+        except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
             print(f"WARN coinbase {product}: {exc}", file=sys.stderr)
             return None
     return None
 
 
-def fetch_all_prices() -> dict:
-    """Return dict mapping our pair key → current price."""
+def fetch_all_candles() -> dict:
+    """Return {pair_key: [bars]} for every pair we can fetch.
+
+    Raises OandaAuthError if OANDA rejects the token (propagated so the
+    caller refuses to overwrite the existing output).
+    """
     oanda_key = os.environ.get("OANDA_TOKEN") or os.environ.get("OANDA_API_KEY")
     out = {}
-
-    # Batch OANDA fetch
-    if oanda_key:
-        oanda_pairs = {k: v["oanda"] for k, v in PAIRS.items() if "oanda" in v}
-        instruments = list(oanda_pairs.values())
-        prices = fetch_oanda_batch(instruments, oanda_key)
-        # Reverse-map back to our keys
-        rev = {v: k for k, v in oanda_pairs.items()}
-        for instr, px in prices.items():
-            if instr in rev:
-                out[rev[instr]] = px
-
-    # Coinbase one-by-one (only 2 pairs)
-    for k, v in PAIRS.items():
-        if "coinbase" in v:
-            px = fetch_coinbase_price(v["coinbase"])
-            if px is not None:
-                out[k] = px
-
-    return out
-
-
-# ── Window math + state ────────────────────────────────────────────
-
-def current_window_start(now: datetime) -> datetime:
-    minutes_into_hour = now.minute - (now.minute % WINDOW_MINUTES)
-    return now.replace(minute=minutes_into_hour, second=0, microsecond=0)
-
-
-def load_state(path: Path) -> dict:
-    if not path.exists():
-        return {"pairs": {}}
-    try:
-        return json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        return {"pairs": {}}
-
-
-def save_state(path: Path, state: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, indent=2))
-
-
-def update_pair(state: dict, key: str, price: float, now: datetime) -> None:
-    if key not in state["pairs"]:
-        state["pairs"][key] = {"current_window": None, "completed_bars": []}
-    pair_state = state["pairs"][key]
-    win_start_iso = current_window_start(now).isoformat()
-    cur = pair_state["current_window"]
-    if cur is None or cur["t"] != win_start_iso:
-        # Window roll-over: close out old, start new
-        if cur is not None and cur.get("ticks"):
-            ticks = cur["ticks"]
-            pair_state["completed_bars"].append({
-                "t": cur["t"],
-                "o": ticks[0],
-                "h": max(ticks),
-                "l": min(ticks),
-                "c": ticks[-1],
-                "p": ticks[-1],
-            })
-            if len(pair_state["completed_bars"]) > WINDOWS_TO_KEEP:
-                pair_state["completed_bars"] = pair_state["completed_bars"][-WINDOWS_TO_KEEP:]
-        pair_state["current_window"] = {"t": win_start_iso, "ticks": [price]}
-    else:
-        cur["ticks"].append(price)
-
-
-def build_output(state: dict, now: datetime) -> dict:
-    out = {"updated": now.isoformat(), "ohlc": True, "intraday": {}}
-    for key, pair_state in state["pairs"].items():
-        bars = list(pair_state.get("completed_bars", []))
-        cur = pair_state.get("current_window")
-        if cur and cur.get("ticks"):
-            ticks = cur["ticks"]
-            bars.append({
-                "t": cur["t"],
-                "o": ticks[0],
-                "h": max(ticks),
-                "l": min(ticks),
-                "c": ticks[-1],
-                "p": ticks[-1],
-            })
-        out["intraday"][key] = bars
+    for key, src in PAIRS.items():
+        bars = None
+        if "oanda" in src:
+            if oanda_key:
+                bars = fetch_oanda_candles(src["oanda"], oanda_key)
+        elif "coinbase" in src:
+            bars = fetch_coinbase_candles(src["coinbase"])
+        if bars:
+            out[key] = bars[-CANDLE_COUNT:]
     return out
 
 
 # ── Main ───────────────────────────────────────────────────────────
 
-def run_one_poll(state: dict, now: datetime) -> int:
-    """Fetch all prices and update state. Returns count of pairs updated."""
-    prices = fetch_all_prices()
-    for key, price in prices.items():
-        update_pair(state, key, price, now)
-    return len(prices)
-
-
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--state", default="intraday-state.json")
+    parser.add_argument("--state", default="intraday-state.json",
+                        help="Accepted for workflow compatibility; unused in v3.")
     parser.add_argument("--output", default="intraday-ohlc.json")
     parser.add_argument("--loop", type=int, default=1,
-                        help="Number of poll cycles within this run (default 1)")
+                        help="Accepted for compatibility; ignored "
+                             "(real candles are authoritative — no self-polling).")
     parser.add_argument("--interval", type=int, default=60,
-                        help="Seconds between polls when --loop > 1 (default 60)")
+                        help="Accepted for compatibility; ignored.")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--min-pairs", type=int, default=15,
-                        help="Minimum pairs that must be fetched at least once "
-                             "this run, otherwise we refuse to overwrite output. "
-                             "Set to 0 to disable guard. Default 15 of 21 pairs.")
+                        help="Minimum pairs that must return candles, otherwise "
+                             "refuse to overwrite the output and preserve "
+                             "existing data. Set to 0 to disable. Default 15.")
     args = parser.parse_args()
 
-    state_path = Path(args.state)
     output_path = Path(args.output)
-    state = load_state(state_path)
 
-    total_updates = 0
-    distinct_pairs_seen: set[str] = set()
-    auth_failed = False
-
-    for cycle in range(args.loop):
-        now = datetime.now(timezone.utc)
-        try:
-            count = run_one_poll(state, now)
-        except OandaAuthError as exc:
-            print(f"FATAL OANDA auth failure on cycle {cycle+1}: {exc}", file=sys.stderr)
-            print("Refusing to overwrite output to preserve existing data.", file=sys.stderr)
-            print("ACTION REQUIRED: rotate OANDA_TOKEN in repo Settings → Secrets.", file=sys.stderr)
-            auth_failed = True
-            break
-        total_updates += count
-        # Track distinct pairs across all cycles (count is per-cycle)
-        for k in state.get("pairs", {}):
-            cw = state["pairs"][k].get("current_window")
-            if cw and cw.get("t"):
-                # this pair has a current bar — was updated at some point
-                distinct_pairs_seen.add(k)
-        print(f"Cycle {cycle+1}/{args.loop}: fetched {count} pairs at {now.isoformat()}", flush=True)
-        if cycle < args.loop - 1:
-            time.sleep(args.interval)
-
-    if auth_failed:
-        # Don't write anything — preserve existing intraday-ohlc.json
-        # The health-check workflow will catch staleness within 30 min
-        # and open an issue prompting token rotation.
-        sys.exit(1)
-
-    # Refuse-to-overwrite guard: ensure we got enough pairs
-    if args.min_pairs > 0 and len(distinct_pairs_seen) < args.min_pairs:
-        print(f"WARN: only {len(distinct_pairs_seen)} pairs fetched "
-              f"(min required: {args.min_pairs}). Preserving existing output.",
+    try:
+        intraday = fetch_all_candles()
+    except OandaAuthError as exc:
+        print(f"FATAL OANDA auth failure: {exc}", file=sys.stderr)
+        print("Refusing to overwrite output to preserve existing data.", file=sys.stderr)
+        print("ACTION REQUIRED: rotate OANDA_TOKEN in repo Settings → Secrets.",
               file=sys.stderr)
-        save_state(state_path, state)
         sys.exit(1)
 
-    save_state(state_path, state)
+    print(f"Fetched {len(intraday)} pairs", flush=True)
 
-    output = build_output(state, datetime.now(timezone.utc))
+    # Refuse-to-overwrite guard: a partial fetch (e.g. OANDA outage) must
+    # not clobber a good intraday-ohlc.json with crypto-only data.
+    if args.min_pairs > 0 and len(intraday) < args.min_pairs:
+        print(f"WARN: only {len(intraday)} pairs fetched (min required: "
+              f"{args.min_pairs}). Preserving existing output.", file=sys.stderr)
+        sys.exit(1)
+
+    output = {
+        "updated": _iso(datetime.now(timezone.utc)),
+        "ohlc": True,
+        "intraday": intraday,
+    }
     if args.dry_run:
         print(json.dumps(output, indent=2))
     else:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(json.dumps(output, indent=2))
-        print(f"Wrote {len(output['intraday'])} pairs to {output_path}")
+        print(f"Wrote {len(intraday)} pairs to {output_path}")
 
 
 if __name__ == "__main__":

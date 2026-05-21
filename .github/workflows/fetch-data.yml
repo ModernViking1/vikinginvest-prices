@@ -11,8 +11,8 @@ name: Fetch Data (prices + intraday OHLC)
 # Steps:
 #   1. Setup Node + Python
 #   2. Fetch live prices (TwelveData / OANDA / Coinbase) — writes prices.json
-#   3. Publish intraday OHLC (OANDA poll, 2 ticks × 60s) — writes
-#      intraday-ohlc.json + intraday-state.json
+#   3. Publish intraday OHLC (real M15 candles from OANDA / Coinbase) —
+#      writes intraday-ohlc.json
 #   4. Single commit + retry-on-race-condition push
 #   5. Build package.json, npm publish (snapshots BOTH files together,
 #      unlike the old split workflows where intraday-ohlc.json was
@@ -100,18 +100,14 @@ jobs:
           OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
         run: node fetch-prices.js
 
-      # Step 2: intraday OHLC poll (~2 min runtime; 2 ticks × 60s interval).
-      # Runs unconditionally — if prices fetch failed, intraday may still
-      # succeed (different provider call) and a partial commit beats none.
+      # Step 2: intraday OHLC — fetches real M15 candles directly (OANDA
+      # /candles + Coinbase /candles). Runs unconditionally — if the
+      # prices fetch failed, intraday may still succeed (separate API
+      # call) and a partial commit beats none.
       - name: Publish intraday OHLC
         env:
           OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
-        run: |
-          python publish_intraday_ohlc.py \
-            --state intraday-state.json \
-            --output intraday-ohlc.json \
-            --loop 2 \
-            --interval 60
+        run: python publish_intraday_ohlc.py --output intraday-ohlc.json
 
       # Step 3: commit all changed data files in a single commit.
       # Race-condition-resistant push (rebase + retry on conflict) carries
@@ -152,18 +148,28 @@ jobs:
               exit 1
             fi
 
-            echo "Push rejected — fetching latest main and rebasing..."
+            # Push rejected — a concurrent Fetch Data run updated main.
+            # Rebuild our commit directly on top of the latest main:
+            # reset onto it (--mixed moves HEAD + index only, leaving our
+            # freshly-generated data files in the working tree), then
+            # re-stage and recommit. This sidesteps rebase/merge conflicts
+            # entirely — our data is the newest, so "newest wins" is the
+            # correct resolution — and avoids the `git rebase --continue`
+            # editor prompt that hangs/fails in a headless CI runner.
+            echo "Push rejected — rebuilding our data commit onto latest main..."
             git fetch origin main
-            if ! git rebase origin/main; then
-              echo "Rebase conflict — taking our newly fetched data"
-              for f in prices.json history.json intraday-ohlc.json intraday-state.json intraday.json; do
-                if [ -f "$f" ]; then
-                  git checkout --theirs "$f" 2>/dev/null || true
-                  git add "$f" 2>/dev/null || true
-                fi
-              done
-              git rebase --continue || git rebase --abort
+            git reset --mixed origin/main
+            for f in prices.json history.json intraday-ohlc.json intraday-state.json intraday.json; do
+              if [ -f "$f" ]; then
+                git add "$f"
+              fi
+            done
+            if git diff --cached --quiet; then
+              echo "No changes vs latest main — nothing to push"
+              echo "pushed=0" >> $GITHUB_OUTPUT
+              exit 0
             fi
+            git commit -m "chore: update data (prices + intraday)"
             sleep $((attempt * 3))
           done
 
