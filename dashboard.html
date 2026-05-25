@@ -3391,7 +3391,7 @@ function buildBacktest(){
       // Distinguish from "no data yet" so user understands why no stats.
       intraRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:6px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
         + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;">15m intraday 1:1</div>'
-        + '  <div style="font-size:7.5px;color:var(--inkd);font-style:italic;">not 3/3 aligned</div>'
+        + '  <div style="font-size:7.5px;color:var(--inkd);font-style:italic;">not 4/4 aligned</div>'
         + '</div>';
     } else {
       // Aligned but no signals yet
@@ -3420,7 +3420,7 @@ function buildBacktest(){
           : '<span style="color:'+rbColor+';font-weight:700;">'+rbRate+'%</span>'
             + '<span style="font-size:7.5px;color:var(--inkd);margin-left:6px;">'+rb.wins+'W/'+rb.losses+'L'+rbExtra+'</span>';
         recentBtRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:4px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
-          + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;" title="Recent 3/3 backtest using independent direction logic">recent 3/3 backtest</div>'
+          + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;" title="Recent 3/3 backtest using independent direction logic">recent 4/4 backtest</div>'
           + '  <div style="display:flex;gap:6px;align-items:center;">'
           +     rbBody
           + '    <span style="font-size:7px;padding:1px 5px;border-radius:2px;background:rgba(107,63,160,0.12);color:var(--purple);letter-spacing:0.5px;">'+rbWindow+' n='+rb.totalSignals+'</span>'
@@ -3428,7 +3428,7 @@ function buildBacktest(){
           + '</div>';
       } else {
         recentBtRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:4px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
-          + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;">recent 3/3 backtest</div>'
+          + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;">recent 4/4 backtest</div>'
           + '  <div style="font-size:7.5px;color:var(--inkd);font-style:italic;">insufficient buffered history</div>'
           + '</div>';
       }
@@ -3783,34 +3783,50 @@ function fetchServerDirections(){
   // directions.json is computed server-side by detect_triggers.py from
   // the repo data files directly — so it's always populated for every
   // pair, regardless of whether the browser managed to load the giant
-  // historical-ohlc.json. ~3 KB; the npm path is the only public one
-  // for this private repo.
-  var url = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/directions.json';
-  return fetch(url, {method:'GET', cache:'no-store'})
-    .then(function(r){
-      if(!r.ok) throw new Error('HTTP'+r.status);
-      return r.json();
-    })
-    .then(function(d){
-      if(!d || !d.pairs) throw new Error('no_pairs_field');
-      var n = 0;
-      Object.keys(d.pairs).forEach(function(k){
-        var row = d.pairs[k];
-        if(row && (row.ew || row.tl || row.nw || row.cl)){
-          SERVER_DIR[k] = { ew: row.ew, tl: row.tl, nw: row.nw, cl: row.cl, aligned_dir: row.aligned_dir };
-          n++;
-        }
+  // historical-ohlc.json (~3 KB).
+  //
+  // Two CDN paths tried in order:
+  //   1. /gh/@main — serves the live git HEAD. Updates within seconds
+  //      of each Alert workflow commit. Requires the repo to be public.
+  //   2. /npm/@latest — fallback path. Updates only when fetch-data.yml
+  //      successfully npm-publishes (the publish step is non-fatal, so
+  //      if the npm token expires the @latest tag silently stalls and
+  //      the file 404s here).
+  var ghUrl  = 'https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/directions.json';
+  var npmUrl = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/directions.json';
+  var apply = function(d){
+    if(!d || !d.pairs) throw new Error('no_pairs_field');
+    var n = 0;
+    Object.keys(d.pairs).forEach(function(k){
+      var row = d.pairs[k];
+      if(row && (row.ew || row.tl || row.nw || row.cl)){
+        SERVER_DIR[k] = { ew: row.ew, tl: row.tl, nw: row.nw, cl: row.cl, aligned_dir: row.aligned_dir };
+        n++;
+      }
+    });
+    window._serverDirCount = n;
+    window._serverDirUpdated = d.updated || null;
+    // Re-render so the seeded directions show immediately for pairs
+    // whose in-browser engine calc hasn't produced a result.
+    try { Object.keys(MKTS).forEach(function(k){ if(typeof refreshAlert === 'function') refreshAlert(k); }); } catch(e){}
+    return n;
+  };
+  var tryFetch = function(url){
+    return fetch(url, {method:'GET', cache:'no-store'})
+      .then(function(r){
+        if(!r.ok) throw new Error('HTTP'+r.status);
+        return r.json();
       });
-      window._serverDirCount = n;
-      window._serverDirUpdated = d.updated || null;
-      // Re-render so the seeded directions show immediately for pairs
-      // whose in-browser engine calc hasn't produced a result.
-      try { Object.keys(MKTS).forEach(function(k){ if(typeof refreshAlert === 'function') refreshAlert(k); }); } catch(e){}
-      return n;
-    })
-    .catch(function(e){
-      window._serverDirErr = (e && e.message) ? String(e.message).substring(0,40) : 'fetch_fail';
-      return 0;
+  };
+  return tryFetch(ghUrl)
+    .then(apply)
+    .catch(function(e1){
+      // GH path failed (private repo or jsDelivr miss). Try npm.
+      return tryFetch(npmUrl).then(apply).catch(function(e2){
+        var msg = String(e1 && e1.message || 'gh_fail') + ' / ' + String(e2 && e2.message || 'npm_fail');
+        window._serverDirErr = msg.substring(0, 60);
+        return 0;
+      });
     });
 }
 
@@ -5615,7 +5631,7 @@ function logCancellation(k, cancelledDir, reason){
   delete loggedSess[key];
   var t = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
   var dirWord = cancelledDir === 'bear' ? 'BEAR' : 'BULL';
-  var msg = '⊘ ' + m.sym + ' 3/3 ' + dirWord + ' CANCELLED &#183; '
+  var msg = '⊘ ' + m.sym + ' 4/4 ' + dirWord + ' CANCELLED &#183; '
           + reason + ' &#183; structure flipped, setup no longer valid';
   logItems.unshift({
     k: k, dir: cancelledDir, msg: msg, t: t,
@@ -6492,7 +6508,7 @@ function updateStatusBar(){
   if(!firing.length){
     bar.className='sbar';
     title.innerHTML=dxyPrefix + 'Monitoring ' + Object.keys(MKTS).length + ' Markets';
-    msg.textContent='Scanning 3/3 confluence across all ' + Object.keys(MKTS).length + ' pairs...';
+    msg.textContent='Monitoring ' + Object.keys(MKTS).length + ' pairs — no 4/4 alignment firing right now.';
     badges.innerHTML='';
   } else {
     var hasBear=firing.some(function(k){return sc(k).dir==='bear';}),
@@ -8951,11 +8967,12 @@ function refreshHourlyRSI(k){
 // v4 — bumped because v3 results were full per-pair `trades` arrays
 // that exceed mobile localStorage quota. v4 is the slim version with
 // `trades` stripped at save time.
-// v5 — bumped because v4 results were computed under the 3/3 gate. The
-// gate is now 4/4 (EW + TL + NW + 4H EMA21/55 cloud), so cached v4 numbers
-// would silently misrepresent the live rule. New key forces a fresh
-// backtest the first time each user hits this build.
-var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v5';
+// v6 — bumped because the v5 4/4 backtest had a silent bug where it
+// iterated _ticksToBars output (no .t field) so the cloud direction
+// array was all-null and every alignment check failed. Fixed cache must
+// be discarded so users get real 4/4 W/L counts driving the per-pair
+// stats display.
+var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v6';
 var RECENT_BT_CACHE_TTL_MS = 4 * 60 * 60 * 1000;  // 4 hours
 
 function _loadRecentBtCache(){
@@ -9194,11 +9211,15 @@ function calcRecentBacktest(k){
   // walk. Maintains EMA21 + EMA55 of UTC-aligned 4H closes. Storing the
   // per-h1 direction in an array lets the re-arm and post-trigger
   // checks read it without mutating shared outer-loop state (the same
-  // pattern as the local TL check at line ~9384, see the comment there
-  // for why mutating tlBreakDir from inside the post-trigger loop
-  // silently broke earlier backtests).
+  // pattern as the local TL check at line ~9534).
+  //
+  // IMPORTANT: iterate the original `h1` ticks (which carry .t and .p
+  // /.c) — NOT the _ticksToBars() output, which strips the timestamp.
+  // The earlier version iterated h1Bars and so saw bb.t === undefined
+  // on every bar, leaving the entire array null and silently failing
+  // every 4/4 alignment check (calcRecentBacktest returned 0 signals).
   var clDirAtH1Idx = (function(){
-    var arr = new Array(h1Bars.length);
+    var arr = new Array(h1.length);
     for(var fi = 0; fi < arr.length; fi++) arr[fi] = null;
     var lastKey = null, currentClose = null;
     var ema21 = null, ema55 = null;
@@ -9225,18 +9246,23 @@ function calcRecentBacktest(k){
         curDir = ema21 > ema55 ? 'bull' : ema21 < ema55 ? 'bear' : 'neutral';
       }
     };
-    for(var j = 0; j < h1Bars.length; j++){
-      var bb = h1Bars[j];
-      if(!bb || !bb.t){ arr[j] = curDir; continue; }
-      var hr = parseInt(bb.t.slice(11,13), 10);
+    for(var j = 0; j < h1.length; j++){
+      var bb = h1[j];
+      var bbT = bb && bb.t;
+      if(!bbT || typeof bbT !== 'string' || bbT.length < 13){
+        arr[j] = curDir; continue;
+      }
+      var hr = parseInt(bbT.slice(11, 13), 10);
       if(!isFinite(hr)){ arr[j] = curDir; continue; }
+      var bbClose = (bb.c != null) ? bb.c : bb.p;
+      if(bbClose == null){ arr[j] = curDir; continue; }
       var bh = Math.floor(hr / 4) * 4;
-      var key = bb.t.slice(0, 11) + (bh < 10 ? '0' : '') + bh;
-      if(lastKey === null){ lastKey = key; currentClose = bb.c; }
+      var key = bbT.slice(0, 11) + (bh < 10 ? '0' : '') + bh;
+      if(lastKey === null){ lastKey = key; currentClose = bbClose; }
       else if(key !== lastKey){
         finalise(currentClose);
-        lastKey = key; currentClose = bb.c;
-      } else { currentClose = bb.c; }
+        lastKey = key; currentClose = bbClose;
+      } else { currentClose = bbClose; }
       arr[j] = curDir;
     }
     return arr;
