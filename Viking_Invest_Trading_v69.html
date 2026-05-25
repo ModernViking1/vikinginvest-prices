@@ -1986,7 +1986,7 @@ function buildPanel(k){
   frag.appendChild(ab);
   // Nowick Setup
   var ns=document.createElement('div');ns.className='nsetup';
-  ns.innerHTML='<div><div class="nslbl">Watch Zone</div><div class="nsval" style="color:var(--gold);">'+setupField(k,'entry')+'</div><div class="nssub">Daily macro zone — refine on 15m</div></div><div><div class="nslbl">Stop Reference</div><div class="nsval" style="color:var(--bear);">'+setupField(k,'stop')+'</div><div class="nssub">Daily structural extreme</div></div><div><div class="nslbl">Target</div><div class="nsval" style="color:var(--bull);">'+setupField(k,'tgt')+'</div><div class="nssub">Next liquidity target</div></div><div><div class="nslbl">Inv / Reward</div><div class="nsval" style="font-size:8px;color:var(--neu);">'+setupField(k,'inv')+'</div><div class="nssub">'+formatRR(setupField(k,'rr'))+'</div></div>';
+  ns.innerHTML='<div><div class="nslbl">Watch Zone</div><div class="nsval" id="ns-entry-'+k+'" style="color:var(--gold);">'+setupField(k,'entry')+'</div><div class="nssub">Daily macro zone — refine on 15m</div></div><div><div class="nslbl">Stop Reference</div><div class="nsval" id="ns-stop-'+k+'" style="color:var(--bear);">'+setupField(k,'stop')+'</div><div class="nssub">Daily structural extreme</div></div><div><div class="nslbl">Target</div><div class="nsval" id="ns-tgt-'+k+'" style="color:var(--bull);">'+setupField(k,'tgt')+'</div><div class="nssub">Next liquidity target</div></div><div><div class="nslbl">Inv / Reward</div><div class="nsval" id="ns-inv-'+k+'" style="font-size:8px;color:var(--neu);">'+setupField(k,'inv')+'</div><div class="nssub" id="ns-rr-'+k+'">'+formatRR(setupField(k,'rr'))+'</div></div>';
   frag.appendChild(ns);
   // Workflow how-to (collapsible, tucked inside per-pair detail panel)
   var wf=document.createElement('details');
@@ -2381,15 +2381,33 @@ function refreshAlert(k){
   // the macro card body instead of by overriding the pill — that earlier
   // approach forced neutral pills to seed direction and produced 3-BULL
   // pills with a 1/3 score badge.
-  ['ew','tl','nw'].forEach(function(l){
+  ['ew','cl','tl','nw'].forEach(function(l){
     var sig=STATE[k][l];
     var card=document.getElementById('lc-'+k+'-'+l),
         pill=document.getElementById('lp-'+k+'-'+l),
         det=document.getElementById('ld-'+k+'-'+l);
     if(card)card.className='lcard '+(sig==='bear'?'ab':sig==='bull'?'ag':'an');
-    if(pill){pill.className='lpill '+(sig==='bear'?'pb':sig==='bull'?'pg':'pn');pill.textContent=sig==='bear'?'&#9660; BEAR':sig==='bull'?'&#9650; BULL':'&#9679; NEUTRAL';}
+    // innerHTML (not textContent) so the &#9660;/&#9650;/&#9679; entities decode
+    // to triangles/dots instead of rendering as literal entity codes.
+    if(pill){pill.className='lpill '+(sig==='bear'?'pb':sig==='bull'?'pg':'pn');pill.innerHTML=sig==='bear'?'&#9660; BEAR':sig==='bull'?'&#9650; BULL':'&#9679; NEUTRAL';}
     if(det)det.innerHTML = getLayerDet(k, l, sig); // Refresh detail text (picks up wave context)
   });
+  // Refresh the top "Watch Zone / Stop / Target / Inv-Reward" panel —
+  // setupField returns getAutoSetup values once STATE[k].ew is set
+  // (post-server-load), but the panel was built once during buildPanel
+  // when STATE.ew was still the 'neutral' seed and was never refreshed.
+  // That left the top showing "TBD" while the Macro card body, which
+  // re-renders via getLayerDet above, showed real auto-derived levels.
+  var nse = document.getElementById('ns-entry-'+k);
+  if(nse) nse.innerHTML = setupField(k,'entry');
+  var nss = document.getElementById('ns-stop-'+k);
+  if(nss) nss.innerHTML = setupField(k,'stop');
+  var nst = document.getElementById('ns-tgt-'+k);
+  if(nst) nst.innerHTML = setupField(k,'tgt');
+  var nsi = document.getElementById('ns-inv-'+k);
+  if(nsi) nsi.innerHTML = setupField(k,'inv');
+  var nsr = document.getElementById('ns-rr-'+k);
+  if(nsr) nsr.innerHTML = formatRR(setupField(k,'rr'));
   ab.className='abanner';sco.className='scc';sco.textContent=score.tot+'/4';
   var wb='<span style="font-family:Orbitron,monospace;font-size:7px;font-weight:700;padding:1px 5px;border-radius:2px;margin-left:4px;vertical-align:middle;background:'+(m.wr>=75?'rgba(26,122,74,.15)':'rgba(200,134,10,.12)')+';color:'+(m.wr>=75?'var(--bull)':'var(--gold)');wb+=';border:1px solid '+(m.wr>=75?'rgba(26,122,74,.3)':'rgba(200,134,10,.3)')+';"> '+wrLabel(m,'short')+'</span>';
 
