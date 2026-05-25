@@ -79,6 +79,9 @@ PAIRS = {
     "solusd":  {"coinbase": "SOL-USD"},
     "xrpusd":  {"coinbase": "XRP-USD"},
     "taousd":  {"coinbase": "TAO-USD"},
+    "nearusd": {"coinbase": "NEAR-USD"},
+    "hypeusd": {"coinbase": "HYPE-USD"},
+    "ondousd": {"coinbase": "ONDO-USD"},
 }
 
 WINDOW_MINUTES = 15

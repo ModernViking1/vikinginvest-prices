@@ -82,6 +82,10 @@ const COINBASE_PAIRS = {
   solusd: 'SOL-USD',
   xrpusd: 'XRP-USD',
   taousd: 'TAO-USD',
+  // v6 additions (user requested)
+  nearusd: 'NEAR-USD',
+  hypeusd: 'HYPE-USD',
+  ondousd: 'ONDO-USD',
 };
 
 // ── HTTP helpers ─────────────────────────────────────────────
