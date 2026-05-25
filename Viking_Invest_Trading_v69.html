@@ -901,13 +901,27 @@ function calcWickatorTPs(k){
   if(!w) w = WICKATOR_EW[k];
   if(!w){
     // No manual baseline AND no high-confidence auto-EW — fall back to
-    // the auto-derived approximate setup so v5-added pairs still get a
+    // the in-browser auto-derived setup so v5-added pairs still get a
     // macro TP block.
     var a = getAutoSetup(k);
-    if(!a) return null;
-    w = { dir:a.dir, anchor:a.anchor, pivot:a.pivot, w2Zone:a.w2Zone,
-          invalid:a.invalid, tp1Override:a.tp1, tp2Override:a.tp2,
-          source:'auto', phase:'Approximate — auto-derived from daily swing structure' };
+    if(a){
+      w = { dir:a.dir, anchor:a.anchor, pivot:a.pivot, w2Zone:a.w2Zone,
+            invalid:a.invalid, tp1Override:a.tp1, tp2Override:a.tp2,
+            source:'auto', phase:'Approximate — auto-derived from daily swing structure' };
+    } else {
+      // Last resort: server-computed macro setup from directions.json.
+      // The browser hasn't loaded the deep daily history (quota miss on
+      // mobile is the usual cause), but the Actions runner always has it
+      // and ships the same swing-based derivation in directions.json.
+      var srv = (typeof SERVER_DIR !== 'undefined' && SERVER_DIR[k] && SERVER_DIR[k].macro) || null;
+      if(srv && srv.dir && srv.w2Zone && srv.invalid != null){
+        w = { dir:srv.dir, anchor:srv.anchor, pivot:srv.pivot, w2Zone:srv.w2Zone,
+              invalid:srv.invalid, tp1Override:srv.tp1, tp2Override:srv.tp2,
+              source:'auto', phase:'Approximate — server-derived from daily swing structure' };
+      } else {
+        return null;
+      }
+    }
   }
   var swing = Math.abs(w.pivot - w.anchor);
   if(!swing || !isFinite(swing)) return null;
@@ -1509,12 +1523,16 @@ function setupField(k, field){
     if(d && d[field] != null && d[field] !== '') return d[field];
   }
   var m = MKTS[k];
-  // v5-added pairs ship a placeholder "TBD" entry with no WickatorFX
-  // baseline. Derive an approximate setup from daily structure so the
-  // macro card shows real numbers aligned to the live macro direction.
+  // v5/v6-added pairs ship a placeholder "TBD" entry with no WickatorFX
+  // baseline. Try the in-browser swing-based derivation first; fall back
+  // to the server-computed macro setup (shipped in directions.json) when
+  // the deep daily history isn't loaded — that's the common mobile case
+  // where the ~94 MB historical-ohlc.json hits the localStorage quota.
   if(m && /^TBD/i.test(String(m.entry || ''))){
     var auto = getAutoSetup(k);
     if(auto && auto[field] != null && auto[field] !== '') return auto[field];
+    var srv = (typeof SERVER_DIR !== 'undefined' && SERVER_DIR[k] && SERVER_DIR[k].macro) || null;
+    if(srv && srv[field] != null && srv[field] !== '') return srv[field];
   }
   return (m && m[field]) || '';
 }
@@ -3852,7 +3870,15 @@ function fetchServerDirections(){
     Object.keys(d.pairs).forEach(function(k){
       var row = d.pairs[k];
       if(row && (row.ew || row.tl || row.nw || row.cl)){
-        SERVER_DIR[k] = { ew: row.ew, tl: row.tl, nw: row.nw, cl: row.cl, aligned_dir: row.aligned_dir };
+        // Capture row.macro too — server-computed Watch Zone / Stop /
+        // Target / Inv / RR. setupField uses it as the last-resort
+        // fallback when the in-browser getAutoSetup can't run (no daily
+        // history loaded; common on mobile due to localStorage quota).
+        SERVER_DIR[k] = {
+          ew: row.ew, tl: row.tl, nw: row.nw, cl: row.cl,
+          aligned_dir: row.aligned_dir,
+          macro: row.macro || null
+        };
         n++;
       }
     });
