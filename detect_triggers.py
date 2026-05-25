@@ -240,6 +240,104 @@ def _trigger_age_minutes(trigger_ts):
         return None
 
 
+def _fmt_macro_px(p):
+    """Format a price for the macro setup display strings (server-side
+    counterpart of dashboard.html's fmtPx — chooses decimals by magnitude
+    so the same string would be produced for a given pair regardless of
+    whether the renderer is JS or Python)."""
+    if p is None or p != p or p in (float('inf'), float('-inf')):
+        return '—'
+    ap = abs(p)
+    if ap >= 1000:
+        return f'{p:,.0f}'
+    if ap >= 100:
+        return f'{p:.3f}'
+    if ap >= 10:
+        return f'{p:.3f}'
+    if ap >= 1:
+        return f'{p:.4f}'
+    return f'{p:.5f}'
+
+
+def calc_macro_auto_setup(daily_bars, ew_dir):
+    """Server-side port of dashboard.html's getAutoSetup. Derives an
+    approximate macro setup from recent daily structure (38.2-61.8%
+    retrace zone, structural stop, measured-move targets) aligned to
+    ew_dir. Returns dict with display strings + numeric levels, or None.
+
+    Shipped in directions.json so pairs without a manual WickatorFX seed
+    (the v5-added FX/indices/crypto) still get real numbers in the
+    dashboard's Watch Zone / Stop Reference / Target / Inv-Reward fields
+    even when the browser hasn't loaded the deep daily history (mobile
+    quota limits make that load unreliable).
+    """
+    if ew_dir not in ('bull', 'bear'):
+        return None
+    if not daily_bars or len(daily_bars) < 20:
+        return None
+    window = daily_bars[-60:]
+    hi = float('-inf')
+    lo = float('inf')
+    for b in window:
+        h = b.get('h') if b.get('h') is not None else b.get('c')
+        l = b.get('l') if b.get('l') is not None else b.get('c')
+        if h is not None and h > hi:
+            hi = h
+        if l is not None and l < lo:
+            lo = l
+    if hi == float('-inf') or lo == float('inf') or hi <= lo:
+        return None
+    rng = hi - lo
+
+    if ew_dir == 'bull':
+        z_hi = hi - rng * 0.382
+        z_lo = hi - rng * 0.618
+        stop_lvl = lo - rng * 0.05
+        tp1 = hi + rng * 0.5
+        tp2 = hi + rng * 1.0
+        entry_edge = z_hi
+        zone_type = 'BUY ZONE'
+        stop_word = 'Below'
+        inv_sym = '<'
+    else:
+        z_lo = lo + rng * 0.382
+        z_hi = lo + rng * 0.618
+        stop_lvl = hi + rng * 0.05
+        tp1 = lo - rng * 0.5
+        tp2 = lo - rng * 1.0
+        if tp2 <= 0:
+            tp2 = lo * 0.5
+        if tp1 <= 0:
+            tp1 = lo * 0.75
+        entry_edge = z_lo
+        zone_type = 'SELL ZONE'
+        stop_word = 'Above'
+        inv_sym = '>'
+
+    risk = abs(entry_edge - stop_lvl)
+    reward = abs(tp1 - entry_edge)
+    if risk > 0 and risk == risk:  # finite & non-NaN
+        rr = f'1:{reward / risk:.1f}'
+    else:
+        rr = '1:1.5'
+
+    return {
+        'dir': ew_dir,
+        'approx': True,
+        'anchor': lo if ew_dir == 'bull' else hi,
+        'pivot': hi if ew_dir == 'bull' else lo,
+        'w2Zone': [z_lo, z_hi],
+        'invalid': stop_lvl,
+        'tp1': tp1,
+        'tp2': tp2,
+        'entry': f'{_fmt_macro_px(z_lo)}–{_fmt_macro_px(z_hi)} {zone_type} (approx)',
+        'stop':  f'{stop_word} {_fmt_macro_px(stop_lvl)}',
+        'inv':   f'Close{inv_sym}{_fmt_macro_px(stop_lvl)}',
+        'tgt':   f'{_fmt_macro_px(tp1)} / {_fmt_macro_px(tp2)} (approx)',
+        'rr':    rr,
+    }
+
+
 def aggregate_h1_to_h4(h1_bars):
     """Group h1 OHLC bars into UTC-aligned 4H buckets (00, 04, 08, 12, 16, 20)."""
     groups = defaultdict(list)
@@ -405,6 +503,7 @@ def scan_pairs(intraday_data, historical_data):
         tl = calc_independent_dir(h1, lookback=8)
         ew = calc_independent_dir(daily, lookback=8)
         cl = calc_4h_cloud_dir(h1)
+        macro_setup = calc_macro_auto_setup(daily, ew)
 
         # v6 — 4/4 confluence gate: macro (EW), hourly (TL), 15m (NW)
         # and the 4H EMA21/55 cloud (CL) must all agree before a setup
@@ -435,6 +534,7 @@ def scan_pairs(intraday_data, historical_data):
             'cl': cl,
             'aligned_dir': aligned_dir,
             'price': last_price,
+            'macro': macro_setup,
             'sig_state': sig.get('state') if sig else None,
             'sig_creator_ts': sig.get('creator_ts') if sig else None,
             'sig_entry': sig.get('entry') if sig else None,
@@ -542,6 +642,7 @@ def write_directions_json(current, path='directions.json'):
             'nw': info.get('nw'),
             'cl': info.get('cl'),
             'aligned_dir': info.get('aligned_dir'),
+            'macro': info.get('macro'),
         }
     try:
         with open(path, 'w') as f:
