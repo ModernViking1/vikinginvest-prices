@@ -104,6 +104,9 @@ PAIRS: Dict[str, Dict[str, str]] = {
     "solusd":  {"coinbase": "SOL-USD"},
     "xrpusd":  {"coinbase": "XRP-USD"},
     "taousd":  {"coinbase": "TAO-USD"},
+    "nearusd": {"coinbase": "NEAR-USD"},
+    "hypeusd": {"coinbase": "HYPE-USD"},
+    "ondousd": {"coinbase": "ONDO-USD"},
 }
 
 # OANDA granularity codes

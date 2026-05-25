@@ -61,6 +61,7 @@ PAIR_DISPLAY = {
     'btcusd': 'BTC/USD', 'suiusd': 'SUI/USD',
     'ethusd': 'ETH/USD', 'solusd': 'SOL/USD',
     'xrpusd': 'XRP/USD', 'taousd': 'TAO/USD',
+    'nearusd': 'NEAR/USD', 'hypeusd': 'HYPE/USD', 'ondousd': 'ONDO/USD',
     'dxy':    'DXY',
 }
 
@@ -221,6 +222,71 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry
     }
 
 
+def aggregate_h1_to_h4(h1_bars):
+    """Group h1 OHLC bars into UTC-aligned 4H buckets (00, 04, 08, 12, 16, 20)."""
+    groups = defaultdict(list)
+    for b in h1_bars:
+        ts = b.get('t') or ''
+        try:
+            hour = int(ts[11:13])
+        except (ValueError, IndexError):
+            continue
+        bucket_hour = (hour // 4) * 4
+        bucket_key = ts[:11] + f'{bucket_hour:02d}'
+        groups[bucket_key].append(b)
+    h4 = []
+    for bk in sorted(groups.keys()):
+        bars = groups[bk]
+        if not bars:
+            continue
+        bars_sorted = sorted(bars, key=lambda b: b.get('t', ''))
+        try:
+            o = bars_sorted[0].get('o') or bars_sorted[0].get('c')
+            c = bars_sorted[-1].get('c')
+            hi = max(b['h'] for b in bars_sorted if b.get('h') is not None)
+            lo = min(b['l'] for b in bars_sorted if b.get('l') is not None)
+        except (KeyError, ValueError):
+            continue
+        h4.append({'t': bk + ':00:00Z', 'o': o, 'h': hi, 'l': lo, 'c': c})
+    return h4
+
+
+def ema(values, period):
+    """Standard EMA. Seed = SMA of the first `period` values."""
+    if not values or len(values) < period:
+        return None
+    k = 2.0 / (period + 1)
+    e = sum(values[:period]) / period
+    for v in values[period:]:
+        e = v * k + e * (1 - k)
+    return e
+
+
+def calc_4h_cloud_dir(h1_bars, fast=21, slow=55):
+    """4H EMA cloud direction (21/55 by default).
+
+    Aggregates h1 → 4H, computes EMA(fast) and EMA(slow) on closes:
+      'bull'    if EMA(fast) > EMA(slow)
+      'bear'    if EMA(fast) < EMA(slow)
+      'neutral' if equal / insufficient data
+
+    Ported byte-identically to dashboard.html's calc4HCloudDir(k).
+    """
+    h4 = aggregate_h1_to_h4(h1_bars)
+    closes = [b['c'] for b in h4 if b.get('c') is not None]
+    if len(closes) < slow:
+        return 'neutral'
+    e_fast = ema(closes, fast)
+    e_slow = ema(closes, slow)
+    if e_fast is None or e_slow is None:
+        return 'neutral'
+    if e_fast > e_slow:
+        return 'bull'
+    if e_fast < e_slow:
+        return 'bear'
+    return 'neutral'
+
+
 def aggregate_m15_to_h1(m15_bars):
     """Group consecutive m15 bars into h1 OHLC bars by hour key."""
     groups = defaultdict(list)
@@ -320,10 +386,15 @@ def scan_pairs(intraday_data, historical_data):
         nw = calc_independent_dir(m15, lookback=8)
         tl = calc_independent_dir(h1, lookback=8)
         ew = calc_independent_dir(daily, lookback=8)
+        cl = calc_4h_cloud_dir(h1)
 
+        # v6 — 4/4 confluence gate: macro (EW), hourly (TL), 15m (NW)
+        # and the 4H EMA21/55 cloud (CL) must all agree before a setup
+        # is "aligned". The cloud was added to filter against trades that
+        # are structurally aligned but counter to the 4H trend.
         aligned = (
             ew is not None and ew in ('bull', 'bear')
-            and ew == tl == nw
+            and ew == tl == nw == cl
         )
         aligned_dir = ew if aligned else None
 
@@ -332,7 +403,7 @@ def scan_pairs(intraday_data, historical_data):
         if last_bar:
             last_price = last_bar.get('c') or last_bar.get('p')
 
-        # Phase 2: if 3/3 aligned, detect intraday signal state (armed /
+        # Phase 2: if 4/4 aligned, detect intraday signal state (armed /
         # triggered / expired). Ports the essential part of
         # detectIntradaySignal so we can alert when a setup triggers.
         sig = None
@@ -343,6 +414,7 @@ def scan_pairs(intraday_data, historical_data):
             'ew': ew,
             'tl': tl,
             'nw': nw,
+            'cl': cl,
             'aligned_dir': aligned_dir,
             'price': last_price,
             'sig_state': sig.get('state') if sig else None,
@@ -450,6 +522,7 @@ def write_directions_json(current, path='directions.json'):
             'ew': info.get('ew'),
             'tl': info.get('tl'),
             'nw': info.get('nw'),
+            'cl': info.get('cl'),
             'aligned_dir': info.get('aligned_dir'),
         }
     try:
@@ -572,6 +645,7 @@ def main():
             'ew': info['ew'],
             'tl': info['tl'],
             'nw': info['nw'],
+            'cl': info.get('cl'),
             'price': info['price'],
             'sig_state': cur_sig_state,
             'sig_creator_ts': cur_creator_ts,
