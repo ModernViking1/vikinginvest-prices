@@ -877,10 +877,32 @@ var WICKATOR_EW = {
 //   the literal chart value instead of the computed one.
 // ─────────────────────────────────────────────────────────────────────────
 function calcWickatorTPs(k){
-  var w = WICKATOR_EW[k];
+  // Blended Macro: prefer the auto-EW shape when refreshAutoEW returned a
+  // high-confidence wave pattern (Wave 2 forming → W3/W5 fib targets;
+  // 5-wave/ABC/WXY complete → resumption targets). This is the same
+  // detector compared against the seed in the conflict-check, just now
+  // wired in as the authoritative source for targets when confident.
+  var autoEW = (typeof getAutoEWShape === 'function') ? getAutoEWShape(k) : null;
+  var w = null;
+  if(autoEW && (autoEW.dir === 'bull' || autoEW.dir === 'bear')
+     && isFinite(autoEW.anchor) && isFinite(autoEW.pivot)){
+    w = {
+      dir: autoEW.dir,
+      anchor: autoEW.anchor,
+      pivot: autoEW.pivot,
+      w2Zone: autoEW.w2Zone,
+      invalid: autoEW.invalid,
+      tp1Override: autoEW.tp1Override,
+      tp2Override: autoEW.tp2Override,
+      source: 'auto-EW',
+      phase: autoEW.wavePos || ('Auto-EW: ' + autoEW.pattern + ' · conf ' + Math.round(autoEW.confidence*100) + '%')
+    };
+  }
+  if(!w) w = WICKATOR_EW[k];
   if(!w){
-    // No manual baseline — fall back to the auto-derived approximate
-    // setup so v5-added pairs still get a macro TP block.
+    // No manual baseline AND no high-confidence auto-EW — fall back to
+    // the auto-derived approximate setup so v5-added pairs still get a
+    // macro TP block.
     var a = getAutoSetup(k);
     if(!a) return null;
     w = { dir:a.dir, anchor:a.anchor, pivot:a.pivot, w2Zone:a.w2Zone,
@@ -2062,13 +2084,21 @@ function getLayerDet(k,layer,sig){
         var zoneLbl = tp.dir==='bull' ? 'BUY ZONE' : 'SELL ZONE';
         var zoneCls = tp.dir==='bull' ? 'rg' : 'rb';
         var zoneTxt = fmtPx(k, tp.w2Zone[0]) + '&#8211;' + fmtPx(k, tp.w2Zone[1]);
+        // Label the wave-target source. 'auto-EW' shows W3 (TP1) and W5
+        // (TP2) Fib projections from the auto-detected wave count when
+        // a high-confidence completed/in-progress pattern is recognised.
         var srcTag  = tp.source==='wickator' ? ' <span style="font-size:7px;color:var(--inkd);">[Macro]</span>'
                     : tp.source==='live'     ? ' <span style="font-size:7px;color:var(--bull);">[LIVE]</span>'
+                    : tp.source==='auto-EW'  ? ' <span style="font-size:7px;color:var(--purple);font-weight:700;">[auto-EW]</span>'
                     : tp.source==='auto'     ? ' <span style="font-size:7px;color:var(--gold);">[approx]</span>'
                     : ' <span style="font-size:7px;color:var(--inkd);">[baseline]</span>';
+        // For auto-EW, TP1=W3 target and TP2=W5 target (in-progress
+        // impulse patterns) — relabel so the user sees the wave context.
+        var tp1Lbl = (tp.source === 'auto-EW' && /in-progress/.test(tp.phase || '')) ? 'W3' : 'TP1';
+        var tp2Lbl = (tp.source === 'auto-EW' && /in-progress/.test(tp.phase || '')) ? 'W5' : 'TP2';
         tpSuffix = '<br><span style="font-size:9.5px;">' +
                    '<span class="'+zoneCls+'">'+zoneLbl+':</span> '+zoneTxt+' &#183; '+
-                   '<strong>TP1</strong> '+tp1Txt+' &#183; <strong>TP2</strong> '+tp2Txt+' &#183; '+
+                   '<strong>'+tp1Lbl+'</strong> '+tp1Txt+' &#183; <strong>'+tp2Lbl+'</strong> '+tp2Txt+' &#183; '+
                    '<span class="rb">Inv</span> '+invTxt+srcTag+'</span>';
       }
     } catch(e){}
@@ -8331,6 +8361,61 @@ function autoDetectEW(k){
   };
 }
 
+// ── BLENDED MACRO: auto-EW gate + cache ────────────────────────────
+// autoDetectEW is the in-house Lux-Algo-inspired EW pivot detector.
+// It returns a {shape} with anchor/pivot/w2Zone/invalid/tp1Override
+// (W3 fib target for in-progress W2)/tp2Override (W5 target). When the
+// detector returns a HIGH-CONFIDENCE valid pattern, it outranks the
+// structural-break direction and drives both STATE[k].ew and the
+// displayed targets (via calcWickatorTPs override).
+//
+// Cache keyed on daily length + last close so we only re-run autoDetectEW
+// when the underlying data actually changes (the function walks 10
+// degrees × N pivots and is too heavy to run on every refresh).
+var AUTO_EW_CACHE = {};
+var AUTO_EW_MIN_CONFIDENCE = 0.70;
+var AUTO_EW_VALID_PATTERNS = {
+  '5-wave-impulse-complete': true,
+  '5-wave-diagonal-complete': true,
+  '5-wave-impulse-truncated': true,
+  'WXY-double-zigzag-complete': true,
+  'ABC-correction-complete': true,
+  'in-progress-impulse-w2': true
+};
+function refreshAutoEW(k){
+  var candles = (typeof HISTORICAL !== 'undefined' && HISTORICAL[k] && HISTORICAL[k].length >= 30)
+    ? HISTORICAL[k]
+    : (typeof DEEP_HIST !== 'undefined' && DEEP_HIST[k] && DEEP_HIST[k].daily && DEEP_HIST[k].daily.length >= 30)
+      ? DEEP_HIST[k].daily : null;
+  if(!candles) return null;
+  var last = candles[candles.length - 1];
+  var key = candles.length + ':' + (last && last.c != null ? last.c : 0);
+  var cached = AUTO_EW_CACHE[k];
+  if(cached && cached.key === key) return cached.shape;
+  try {
+    var auto = autoDetectEW(k);
+    if(!auto || !auto.ok || !auto.ew){
+      AUTO_EW_CACHE[k] = { key: key, shape: null };
+      return null;
+    }
+    var s = auto.ew;
+    if(s.confidence < AUTO_EW_MIN_CONFIDENCE || !AUTO_EW_VALID_PATTERNS[s.pattern]){
+      AUTO_EW_CACHE[k] = { key: key, shape: null };
+      return null;
+    }
+    AUTO_EW_CACHE[k] = { key: key, shape: s };
+    return s;
+  } catch(e){
+    AUTO_EW_CACHE[k] = { key: key, shape: null };
+    return null;
+  }
+}
+function getAutoEWShape(k){
+  // Cheap read after refresh — used by calcWickatorTPs and the EW priority.
+  var c = AUTO_EW_CACHE[k];
+  return (c && c.shape) || null;
+}
+
 // ── Comparison helper for Phase 1 review widget ────────────────────
 function compareAutoVsSeed(k){
   var seed = WICKATOR_EW[k];
@@ -11544,14 +11629,21 @@ function applyPrice(k,pd) {
   // the static MKTS seed only if directions.json hasn't loaded yet.
   var srvDir = (typeof SERVER_DIR !== 'undefined' && SERVER_DIR[k]) ? SERVER_DIR[k] : null;
 
-  // ── LAYER 1: ELLIOTT WAVE (Daily) ─────────────────────────────
-  // Priority: live in-browser calc → server directions.json → manual seed.
-  // directions.json is recomputed by the Actions runner from the full
-  // history every cycle, so it always outranks the hardcoded seed (which
-  // can be days/weeks stale — e.g. a WickatorFX bear baseline left in
-  // place while price has already turned bull).
+  // ── LAYER 1: ELLIOTT WAVE (Daily) — BLENDED SOURCE ────────────
+  // Priority:
+  //   1. High-confidence auto-EW pattern (Lux-inspired pivot-hierarchy
+  //      detector, conf ≥ 0.70, completed-or-in-progress structure).
+  //      When present, it also drives the W3/W5/stop targets shown in
+  //      the Macro card via calcWickatorTPs.
+  //   2. Live in-browser structural-break direction (calcEWDir).
+  //   3. Server-computed directions.json (recomputed by the Actions
+  //      runner from full history every cycle).
+  //   4. Static manual seed (last resort — can be days stale).
+  var autoShape = (typeof refreshAutoEW === 'function') ? refreshAutoEW(k) : null;
   var ewCalc = calcEWDir(k);
-  if(ewCalc === 'bull' || ewCalc === 'bear'){
+  if(autoShape && (autoShape.dir === 'bull' || autoShape.dir === 'bear')){
+    STATE[k].ew = autoShape.dir;
+  } else if(ewCalc === 'bull' || ewCalc === 'bear'){
     STATE[k].ew = ewCalc;
   } else if(srvDir && (srvDir.ew === 'bull' || srvDir.ew === 'bear')){
     STATE[k].ew = srvDir.ew;
