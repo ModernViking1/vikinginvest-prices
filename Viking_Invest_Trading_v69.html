@@ -955,6 +955,35 @@ function gC(base,count,trend,vol){
   return arr;
 }
 
+// Aggregate the live intraday m15 OHLC bars (INTRADAY[k], sourced from
+// intraday-ohlc.json) into real 1h candles, grouped by clock hour. Used
+// as the 1h chart source when deep h1 history hasn't loaded in-browser —
+// real aggregated data instead of a fabricated series.
+function aggregateM15ToH1(k){
+  var bars = (typeof INTRADAY !== 'undefined' && INTRADAY[k]) || [];
+  if(bars.length < 2) return [];
+  if(typeof bars[0].o === 'undefined' || typeof bars[0].h === 'undefined') return [];
+  var groups = {}, order = [];
+  for(var i = 0; i < bars.length; i++){
+    var b = bars[i], t = b.t;
+    if(!t) continue;
+    var hourKey = String(t).slice(0, 13);  // "YYYY-MM-DDTHH"
+    if(!groups[hourKey]){ groups[hourKey] = []; order.push(hourKey); }
+    groups[hourKey].push(b);
+  }
+  var out = [];
+  for(var j = 0; j < order.length; j++){
+    var g = groups[order[j]];
+    var o = g[0].o, c = g[g.length - 1].c, hi = g[0].h, lo = g[0].l;
+    for(var x = 1; x < g.length; x++){
+      if(g[x].h > hi) hi = g[x].h;
+      if(g[x].l < lo) lo = g[x].l;
+    }
+    out.push({ o: o, h: hi, l: lo, c: c });
+  }
+  return out;
+}
+
 // ── REAL CANDLE RESOLVER ──────────────────────────────────────────
 // Resolves chart candle data from real market data sources, falling
 // back to synthetic generation when real data is unavailable.
@@ -1020,7 +1049,9 @@ function getRealCandles(k, timeframe){
     return synth('insufficient-historical-for-weekly');
   }
 
-  // 1h: read from HISTORY[k].h1 — single price per hour buckets
+  // 1h: prefer real deep h1 history. If unavailable, aggregate the
+  // live intraday m15 OHLC into real 1h candles — fabricated synthesis
+  // is the last resort only.
   if(timeframe === '1h'){
     var h1 = (typeof HISTORY !== 'undefined' && HISTORY[k] && HISTORY[k].h1) || [];
     if(h1.length >= 8){  // need at least 8 hours of accumulation
@@ -1032,6 +1063,10 @@ function getRealCandles(k, timeframe){
         return { o: o, h: Math.max(o, c), l: Math.min(o, c), c: c };
       });
       return { candles: out, synthetic: false, source: 'HISTORY.h1' };
+    }
+    var aggH1 = aggregateM15ToH1(k);
+    if(aggH1.length >= 4){
+      return { candles: aggH1.slice(-count), synthetic: false, source: 'INTRADAY.m15-1h-agg' };
     }
     return synth('insufficient-h1-buckets');
   }
@@ -11269,36 +11304,46 @@ function applyPrice(k,pd) {
   var srvDir = (typeof SERVER_DIR !== 'undefined' && SERVER_DIR[k]) ? SERVER_DIR[k] : null;
 
   // ── LAYER 1: ELLIOTT WAVE (Daily) ─────────────────────────────
-  // Reads HISTORY[k].daily. Falls back to the server-computed direction,
-  // then the seeded MKTS[k].ew, if not enough data in-browser.
+  // Priority: live in-browser calc → server directions.json → manual seed.
+  // directions.json is recomputed by the Actions runner from the full
+  // history every cycle, so it always outranks the hardcoded seed (which
+  // can be days/weeks stale — e.g. a WickatorFX bear baseline left in
+  // place while price has already turned bull).
   var ewCalc = calcEWDir(k);
-  if(ewCalc && ewCalc !== STATE[k].ew) {
+  if(ewCalc === 'bull' || ewCalc === 'bear'){
     STATE[k].ew = ewCalc;
-  } else if(!ewCalc && (!STATE[k].ew || STATE[k].ew === 'neutral')) {
-    STATE[k].ew = (srvDir && srvDir.ew) || m.ew || 'neutral';
+  } else if(srvDir && (srvDir.ew === 'bull' || srvDir.ew === 'bear')){
+    STATE[k].ew = srvDir.ew;
+  } else if(!STATE[k].ew || STATE[k].ew === 'neutral'){
+    STATE[k].ew = m.ew || 'neutral';
   }
 
   // ── LAYER 2: HOURLY (Independent) ─────────────────────────────
-  // Reads HISTORY[k].h1 directly. Computes its own direction from
-  // structural breaks on 1H bars — does NOT inherit from EW.
-  // If insufficient data, falls back to the server-computed direction.
+  // Priority: live 1H structural calc → server directions.json → keep
+  // last known value (else neutral). NEVER fall back to STATE[k].ew —
+  // the hourly is an independent layer; copying the macro manufactures
+  // false 3/3 confluence where all three layers echo one stale source.
   var tlCalc = (typeof calcIndependentTLDir === 'function') ? calcIndependentTLDir(k) : null;
   if(tlCalc === 'bull' || tlCalc === 'bear'){
     STATE[k].tl = tlCalc;
-  } else if(!STATE[k].tl || STATE[k].tl === 'neutral'){
-    STATE[k].tl = (srvDir && srvDir.tl) || STATE[k].ew || 'neutral';
+  } else if(srvDir && (srvDir.tl === 'bull' || srvDir.tl === 'bear')){
+    STATE[k].tl = srvDir.tl;
+  } else if(!STATE[k].tl){
+    STATE[k].tl = 'neutral';
   }
-  // (If tlCalc returns 'neutral' or null, keep existing STATE[k].tl unchanged)
+  // (If neither calc nor srvDir, keep existing STATE[k].tl unchanged.)
 
   // ── LAYER 3: 15m NOWICK (Independent) ─────────────────────────
-  // Reads HISTORY[k].m15 (or INTRADAY[k] if richer). Computes its own
-  // direction from 15m structural breaks — does NOT inherit from EW.
+  // Priority: live 15m structural calc → server directions.json → keep
+  // last known value (else neutral). Independent layer — never inherits EW.
   var prevNwDir = STATE[k].nw;  // capture before update for flip detection
   var nwCalc = (typeof calcIndependentNWDir === 'function') ? calcIndependentNWDir(k) : null;
   if(nwCalc === 'bull' || nwCalc === 'bear'){
     STATE[k].nw = nwCalc;
-  } else if(!STATE[k].nw || STATE[k].nw === 'neutral'){
-    STATE[k].nw = (srvDir && srvDir.nw) || STATE[k].ew || 'neutral';
+  } else if(srvDir && (srvDir.nw === 'bull' || srvDir.nw === 'bear')){
+    STATE[k].nw = srvDir.nw;
+  } else if(!STATE[k].nw){
+    STATE[k].nw = 'neutral';
   }
   // If the 15m structural direction just flipped, cancel any previously
   // logged 3/3 alert in the old direction. calcNWDir's CHoCH detector
