@@ -1825,7 +1825,7 @@ function buildUI(){
       sm.textContent = tmpl.replace('{N}', tradeable);
     }
     var eq = document.getElementById('eqCurveTitle');
-    if(eq) eq.textContent = '▸ 3/3 Equity Curve — All ' + tradeable + ' Markets Combined · $1,000/signal base';
+    if(eq) eq.textContent = '▸ 4/4 Equity Curve — All ' + tradeable + ' Markets Combined · $1,000/signal base';
     var sh = document.getElementById('sigHistTitle');
     if(sh) sh.textContent = '▸ Full Signal History — All ' + tradeable + ' Markets';
   } catch(e){ /* defensive */ }
@@ -1836,14 +1836,15 @@ function buildOvGrid(){var g=document.getElementById('ovGrid');g.innerHTML='';Ob
 function updateOV(k){
   var el=document.getElementById('ov-'+k);if(!el)return;
   var m=MKTS[k],score=sc(k),cc,col,lbl;
-  // Label shows just icon + action verb; score (e.g. 2/3, 3/3) is appended separately below.
-  if(score.tot===3&&score.dir==='bear'){cc='bc';col='var(--bear)';lbl='&#128308; SELL';}
-  else if(score.tot===3&&score.dir==='bull'){cc='gc';col='var(--bull)';lbl='&#128994; BUY';}
-  else if(score.tot===2){cc='pc';col='var(--gold)';lbl='&#9888; PARTIAL';}
+  // v6 — 4/4 gate (EW · TL · NW · 4H Cloud). SETUP READY at tot===4;
+  // PARTIAL covers both 2/4 and 3/4; everything else WAIT.
+  if(score.tot===4&&score.dir==='bear'){cc='bc';col='var(--bear)';lbl='&#128308; SELL';}
+  else if(score.tot===4&&score.dir==='bull'){cc='gc';col='var(--bull)';lbl='&#128994; BUY';}
+  else if(score.tot===2||score.tot===3){cc='pc';col='var(--gold)';lbl='&#9888; PARTIAL';}
   else{cc='nc';col='var(--neu)';lbl='&#8987; WAIT';}
   el.style.display=shouldShow(k)?'':'none';
   el.className='ovc '+cc;
-  var fdot=score.tot>=3?'<div class="fdot" style="background:'+col+'"></div>':'';
+  var fdot=score.tot>=4?'<div class="fdot" style="background:'+col+'"></div>':'';
   // Type tag (FX/CDS/IDX) removed per user request — pair name already
   // makes the instrument type obvious. Crypto ₿ icon retained since
   // it's an icon, not a redundant label.
@@ -1960,14 +1961,15 @@ function updateOV(k){
       pxTimeTag = '<div style="font-size:7.5px;color:'+tagColor+';background:'+tagBg+';padding:1px 5px;border-radius:2px;margin-top:1px;display:inline-block;letter-spacing:0.3px;font-family:Orbitron,monospace;" title="Last tick: '+new Date(lastTick).toLocaleString()+'">'+ageText+'</div>';
     }
   } catch(e){ /* defensive */ }
-  el.innerHTML=fdot+'<div class="osym">'+m.sym+ovEvt+ovIntra+ttag+'</div><div class="opx" style="color:'+(m.up?'var(--bull)':'var(--bear)')+'">'+m.px+'</div>'+pxTimeTag+'<div class="osig" style="color:'+col+'">'+lbl+' '+score.tot+'/3</div>'+alignBadge+'<div class="owr" style="color:'+mainDashboardWrColor(k,m)+'">'+mainDashboardWrLabel(k,m,'short')+'</div>';
+  el.innerHTML=fdot+'<div class="osym">'+m.sym+ovEvt+ovIntra+ttag+'</div><div class="opx" style="color:'+(m.up?'var(--bull)':'var(--bear)')+'">'+m.px+'</div>'+pxTimeTag+'<div class="osig" style="color:'+col+'">'+lbl+' '+score.tot+'/4</div>'+alignBadge+'<div class="owr" style="color:'+mainDashboardWrColor(k,m)+'">'+mainDashboardWrLabel(k,m,'short')+'</div>';
 }
 
 // ── Scroller ──────────────────────────────────────────────────
 function buildScroller(){var sc2=document.getElementById('mScroll');sc2.innerHTML='';var all=document.createElement('div');all.className='mtab active';all.id='tab-overview';var _nTr=Object.keys(MKTS).length-(MKTS.dxy?1:0);var _allLbl=_nTr+(MKTS.dxy?' + DXY':'');all.innerHTML='<div class="tsym">ALL</div><div class="tpx">'+_allLbl+'</div><div class="tsig cn">&#9675;</div>';all.onclick=function(){switchMkt('overview');};sc2.appendChild(all);Object.keys(MKTS).forEach(function(k){var tab=document.createElement('div');tab.className='mtab';tab.id='tab-'+k;tab.onclick=(function(key){return function(){switchMkt(key);};})(k);sc2.appendChild(tab);updateTab(k);});}
 function updateTab(k){var tab=document.getElementById('tab-'+k);if(!tab)return;var m=MKTS[k],score=sc(k),cls,sig;
-  if(score.tot===3&&score.dir==='bear'){cls='cb';sig='&#128308;';}else if(score.tot===3&&score.dir==='bull'){cls='cg';sig='&#128994;';}else if(score.tot===2){cls='cp';sig='&#9888;';}else{cls='cn';sig='&#8987;';}
-  var fdot=score.tot>=3?'<div class="fdot" style="background:'+(score.dir==='bear'?'var(--bear)':'var(--bull)')+'"></div>':'';
+  // v6 — 4/4 gate: full fire at tot===4; partial covers 2/4 and 3/4.
+  if(score.tot===4&&score.dir==='bear'){cls='cb';sig='&#128308;';}else if(score.tot===4&&score.dir==='bull'){cls='cg';sig='&#128994;';}else if(score.tot===2||score.tot===3){cls='cp';sig='&#9888;';}else{cls='cn';sig='&#8987;';}
+  var fdot=score.tot>=4?'<div class="fdot" style="background:'+(score.dir==='bear'?'var(--bear)':'var(--bull)')+'"></div>':'';
   tab.innerHTML=fdot+'<div class="tsym">'+m.sym+'</div><div class="tpx" style="color:'+(m.up?'var(--bull)':'var(--bear)')+'">'+m.px+'</div><div class="tsig '+cls+'">'+sig+' '+m.wr+'%</div>';}
 
 // ── Panels ────────────────────────────────────────────────────
@@ -1980,7 +1982,7 @@ function buildPanel(k){
   frag.appendChild(pr);
   // Alert banner
   var ab=document.createElement('div');ab.className='abanner ns';ab.id='alert-'+k;
-  ab.innerHTML='<div class="aico" id="ico-'+k+'">&#8987;</div><div class="atxt"><h2 id="atit-'+k+'">Scanning...</h2><p id="adsc-'+k+'">Checking 3/3 confluence...</p></div><div class="scwrap"><div class="scc s0" id="sco-'+k+'">0/3</div><div class="sclbl">CONFLUENCE</div></div>';
+  ab.innerHTML='<div class="aico" id="ico-'+k+'">&#8987;</div><div class="atxt"><h2 id="atit-'+k+'">Scanning...</h2><p id="adsc-'+k+'">Checking 4/4 confluence...</p></div><div class="scwrap"><div class="scc s0" id="sco-'+k+'">0/4</div><div class="sclbl">CONFLUENCE</div></div>';
   frag.appendChild(ab);
   // Nowick Setup
   var ns=document.createElement('div');ns.className='nsetup';
@@ -1991,15 +1993,17 @@ function buildPanel(k){
   wf.style.cssText='background:linear-gradient(90deg,#fdf6e3,#f4ecd8);border:1px solid var(--rule);border-radius:3px;padding:7px 11px;margin:0 0 10px 0;font-size:10px;color:var(--inkd);';
   wf.innerHTML='<summary style="cursor:pointer;font-weight:700;color:var(--ink);font-size:10px;letter-spacing:0.3px;">▸ Workflow &mdash; how to take this trade</summary>'+
     '<div style="margin-top:6px;line-height:1.5;">'+
-      '<span style="color:var(--gold);">①</span> Dashboard flags 3/3 confluence + macro direction →<br>'+
+      '<span style="color:var(--gold);">①</span> Dashboard flags 4/4 confluence + macro direction →<br>'+
       '<span style="color:var(--gold);">②</span> Open '+m.sym+' 15m chart on TradingView →<br>'+
       '<span style="color:var(--gold);">③</span> Wait for OB/FVG retest + 15m CHoCH inside the daily watch zone →<br>'+
       '<span style="color:var(--gold);">④</span> Enter at 15m OB, stop just past last 15m swing, target the listed macro level.'+
     '</div>';
   frag.appendChild(wf);
-  // Four layers (v6: added 4H EMA 21/55 cloud as the 4th confluence gate)
+  // Four layers (v6) — ordered Macro → 4H → 1H → 15m (timeframe descending
+  // so the eye reads from longest to shortest, matching how a trader
+  // confirms top-down).
   var lg=document.createElement('div');lg.className='lgrid';
-  [{key:'ew',ttl:'Macro (Daily)',tf:'D/W'},{key:'tl',ttl:'Hourly',tf:'1H'},{key:'nw',ttl:'15m',tf:'15m'},{key:'cl',ttl:'4H EMA Cloud',tf:'4H'}].forEach(function(ld,i){
+  [{key:'ew',ttl:'Macro (Daily)',tf:'D/W'},{key:'cl',ttl:'4H EMA Cloud',tf:'4H'},{key:'tl',ttl:'Hourly',tf:'1H'},{key:'nw',ttl:'15m',tf:'15m'}].forEach(function(ld,i){
     var sig=STATE[k][ld.key];
     // (No seed-override here — pills must reflect engine direction so
     // they match the score badge from sc(k). Conflict between seed and
@@ -5618,7 +5622,7 @@ function onSel(k){['ew','tl','nw'].forEach(function(l){var el=document.getElemen
 function setView(k,tf,btn){STATE[k].view=tf;var parent=btn.closest('.cbtns');if(parent)parent.querySelectorAll('.cbt').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');drawChart(k);}
 
 // ── Log ───────────────────────────────────────────────────────
-function logSignal(k,dir){var key=k+'-'+dir;if(loggedSess[key])return;loggedSess[key]=true;var m=MKTS[k],t=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),col=dir==='bear'?'var(--bear)':'var(--bull)',bg=dir==='bear'?'var(--beart)':'var(--bullt)';var snapId=null;try{snapId=captureTradingSnapshot(k,dir);}catch(e){}var msg=(dir==='bear'?'&#128308;':'&#128994;')+' '+m.sym+' 3/3 '+(dir==='bear'?'BEAR':'BULL')+' &#183; Watch zone:'+setupField(k,'entry')+' &#183; Stop ref:'+setupField(k,'stop')+' &#183; Target:'+setupField(k,'tgt')+' &#183; '+setupField(k,'rr')+' &#183; Confirm on 15m';logItems.unshift({k:k,dir:dir,msg:msg,t:t,col:col,bg:bg,sym:m.sym,snapId:snapId});if(logItems.length>80)logItems.pop();renderLog();}
+function logSignal(k,dir){var key=k+'-'+dir;if(loggedSess[key])return;loggedSess[key]=true;var m=MKTS[k],t=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),col=dir==='bear'?'var(--bear)':'var(--bull)',bg=dir==='bear'?'var(--beart)':'var(--bullt)';var snapId=null;try{snapId=captureTradingSnapshot(k,dir);}catch(e){}var msg=(dir==='bear'?'&#128308;':'&#128994;')+' '+m.sym+' 4/4 '+(dir==='bear'?'BEAR':'BULL')+' &#183; Watch zone:'+setupField(k,'entry')+' &#183; Stop ref:'+setupField(k,'stop')+' &#183; Target:'+setupField(k,'tgt')+' &#183; '+setupField(k,'rr')+' &#183; Confirm on 15m';logItems.unshift({k:k,dir:dir,msg:msg,t:t,col:col,bg:bg,sym:m.sym,snapId:snapId});if(logItems.length>80)logItems.pop();renderLog();}
 
 // Emit a "cancelled" entry to the signal log when a previously-logged 3/3
 // alert is invalidated by an opposing 15m Nowick CHoCH. Clears loggedSess
@@ -6472,22 +6476,22 @@ function toggleSnapshotDetail(entryId){
   panel.style.display = 'block';
 }
 function seedLog(){logItems=[
-  {k:'eurusd',dir:'bull',msg:'&#128994; EUR/USD BUY 3/3 &#183; Macro: bullish reversal confirmed at 1.1413 &#183; New uptrend forming &#183; Entry:1.1500-1.1550 pullback &#183; Stop:1.1413 &#183; Target:1.21-1.24 macro &#183; 1:2.5 &#183; Win:76.5%',t:'10:56',col:'var(--bull)',bg:'var(--bullt)',sym:'EUR/USD'},
-  {k:'audusd',dir:'bull',msg:'&#128994; AUD/USD BUY 3/3 &#183; Macro: bullish reversal confirmed at 0.5900 &#183; Buy zone 0.686-0.690 &#183; Target 0.7600/0.7900 &#183; 1:2.3 &#183; Win:74.1%',t:'10:57',col:'var(--bear)',bg:'var(--beart)',sym:'AUD/USD'},
-  {k:'nzdusd',dir:'bear',msg:'&#128308; NZD/USD SELL 3/3 &#183; LH/LL/BOS bearish cloud &#183; CHoCH confirmed &#183; Entry:0.5870&#8211;0.5900 &#183; Stop:0.6093 &#183; Target:0.5680 &#183; 1:2.1 &#183; Win:68.2%',t:'10:56',col:'var(--bear)',bg:'var(--beart)',sym:'NZD/USD'},
-  {k:'usdchf',dir:'bull',msg:'&#128994; USD/CHF BUY 3/3 &#183; HL/BOS/CHoCH bullish recovery &#183; Cloud turning bull &#183; Entry:0.7820&#8211;0.7840 &#183; Stop:0.7597 &#183; Target:0.8043 &#183; 1:2.2 &#183; Win:72.3%',t:'10:55',col:'var(--bull)',bg:'var(--bullt)',sym:'USD/CHF'},
-  {k:'usdsgd',dir:'bull',msg:'&#128994; USD/SGD BUY 3/3 &#183; HH/BOS/CHoCH bull recovery &#183; RSI Bull label &#183; Entry:1.2650&#8211;1.2680 &#183; Stop:1.2586 &#183; Target:1.2930 &#183; 1:2.1 &#183; Win:68%',t:'10:54',col:'var(--bull)',bg:'var(--bullt)',sym:'USD/SGD'},
-  {k:'xauusd',dir:'bull',msg:'&#128994; XAU/USD BUY 3/3 &#183; Macro: pullback complete at 4,099 &#183; BUY ZONE 4,400-4,600 &#183; Target 4,900-5,000 &#183; Extension 6,000-6,400 &#183; 1:2.4 &#183; Win:77.3%',t:'10:53',col:'var(--bear)',bg:'var(--beart)',sym:'XAU/USD'},
-  {k:'xagusd',dir:'bull',msg:'&#128994; XAG/USD BUY 3/3 &#183; Macro: complex correction complete at 61 &#183; BUY ZONE 63-68 &#183; Target 110 &#183; Extension 128 &#183; 1:2.1 &#183; Win:70%',t:'10:53',col:'var(--bear)',bg:'var(--beart)',sym:'XAG/USD'},
-  {k:'usoil', dir:'bull',msg:'&#128994; BRENT BUY 3/3 &#183; Macro extension off Jan 2026 $58 low &#183; Entry:95&#8211;100 OB &#183; Stop:Below 58.00 &#183; Target:115 / 125-130 extension &#183; 1:0.6 &#183; Win:~73.5% est',t:'10:55',col:'var(--bull)',bg:'var(--bullt)',sym:'BRENT'},
-  {k:'de40',  dir:'bear',msg:'&#128308; DAX 30 SELL 3/3 &#183; LH/LL/BOS bearish &#183; Cloud descending from 25,512 &#183; Entry:24,000&#8211;24,200 &#183; Stop:25,512 &#183; Target:21,863 &#183; 1:2.0 &#183; Win:~68% est',t:'10:56',col:'var(--bear)',bg:'var(--beart)',sym:'DAX 30'},
-  {k:'eurnzd',dir:'bear',msg:'&#128308; EUR/NZD SELL 3/3 &#183; Macro: top complete at 2.035 &#183; correction in progress &#183; Sell Zone 2.01-2.04 &#183; Stop:2.04 &#183; Target:1.92-1.88 &#183; 1:2.2 &#183; Win:66.7%',t:'10:57',col:'var(--bear)',bg:'var(--beart)',sym:'EUR/NZD'},
-  {k:'gbpaud',dir:'bear',msg:'&#128308; GBP/AUD SELL 3/3 &#183; Heavy bear cloud &#183; LH/LL/CHoCH &#183; Entry:1.9300&#8211;1.9350 &#183; Stop:2.0145 &#183; Target:1.8695 &#183; 1:2.0 &#183; Win:63.6%',t:'10:53',col:'var(--bear)',bg:'var(--beart)',sym:'GBP/AUD'},
-  {k:'euraud',dir:'bear',msg:'&#128308; EUR/AUD SELL 3/3 &#183; Bear cloud throughout &#183; LH/LL/BOS &#183; Entry:1.6700&#8211;1.6750 &#183; Stop:1.7468 &#183; Target:1.6128 &#183; 1:2.1 &#183; Win:72.7%',t:'10:52',col:'var(--bear)',bg:'var(--beart)',sym:'EUR/AUD'},
-  {k:'usdjpy',dir:'note',msg:'&#9888; USD/JPY PARTIAL 2/3 &#183; Macro bull + Hourly bull &#10003; &#183; 15m CHoCH pending &#8722; RSI Bear div caution. Watch 157.00&#8211;157.50 OB.',t:'10:54',col:'var(--gold)',bg:'var(--goldt)',sym:'USD/JPY'},
-  {k:'gbpusd',dir:'note',msg:'&#9888; GBP/USD PARTIAL 2/3 &#183; Macro bear &#10003; &#183; Hourly mid-channel &#8722; RSI Bull label complicates. Await 15m CHoCH below 1.3400.',t:'10:56',col:'var(--gold)',bg:'var(--goldt)',sym:'GBP/USD'},
-  {k:'btcusd',dir:'bear',msg:'&#128308; BTC/USD SELL 3/3 &#183; Macro chart 25 Apr: SELL ZONE 77-83k &#183; Entry:77-83k OB &#183; Stop:Above 90k &#183; Target:50k BUY ZONE / 42k extension &#183; 1:2.0',t:'10:49',col:'var(--bear)',bg:'var(--beart)',sym:'BTC/USD'},
-  {k:'audnzd',dir:'note',msg:'&#9888; AUD/NZD PARTIAL 2/3 &#183; Macro bull cloud rising &#10003; &#183; RSI bear divergence at HH &#8722; Await Hourly rejection and 15m CHoCH.',t:'10:52',col:'var(--gold)',bg:'var(--goldt)',sym:'AUD/NZD'}];loggedSess={'eurusd-bull':true,'audusd-bull':true,'nzdusd-bull':true,'usdchf-bear':true,'usdsgd-bear':true,'xauusd-bull':true,'xagusd-bull':true,'usoil-bull':true,'de40-bear':true,'eurnzd-bear':true,'gbpaud-bear':true,'euraud-bear':true};renderLog();}
+  {k:'eurusd',dir:'bull',msg:'&#128994; EUR/USD BUY 4/4 &#183; Macro: bullish reversal confirmed at 1.1413 &#183; New uptrend forming &#183; Entry:1.1500-1.1550 pullback &#183; Stop:1.1413 &#183; Target:1.21-1.24 macro &#183; 1:2.5 &#183; Win:76.5%',t:'10:56',col:'var(--bull)',bg:'var(--bullt)',sym:'EUR/USD'},
+  {k:'audusd',dir:'bull',msg:'&#128994; AUD/USD BUY 4/4 &#183; Macro: bullish reversal confirmed at 0.5900 &#183; Buy zone 0.686-0.690 &#183; Target 0.7600/0.7900 &#183; 1:2.3 &#183; Win:74.1%',t:'10:57',col:'var(--bear)',bg:'var(--beart)',sym:'AUD/USD'},
+  {k:'nzdusd',dir:'bear',msg:'&#128308; NZD/USD SELL 4/4 &#183; LH/LL/BOS bearish cloud &#183; CHoCH confirmed &#183; Entry:0.5870&#8211;0.5900 &#183; Stop:0.6093 &#183; Target:0.5680 &#183; 1:2.1 &#183; Win:68.2%',t:'10:56',col:'var(--bear)',bg:'var(--beart)',sym:'NZD/USD'},
+  {k:'usdchf',dir:'bull',msg:'&#128994; USD/CHF BUY 4/4 &#183; HL/BOS/CHoCH bullish recovery &#183; Cloud turning bull &#183; Entry:0.7820&#8211;0.7840 &#183; Stop:0.7597 &#183; Target:0.8043 &#183; 1:2.2 &#183; Win:72.3%',t:'10:55',col:'var(--bull)',bg:'var(--bullt)',sym:'USD/CHF'},
+  {k:'usdsgd',dir:'bull',msg:'&#128994; USD/SGD BUY 4/4 &#183; HH/BOS/CHoCH bull recovery &#183; RSI Bull label &#183; Entry:1.2650&#8211;1.2680 &#183; Stop:1.2586 &#183; Target:1.2930 &#183; 1:2.1 &#183; Win:68%',t:'10:54',col:'var(--bull)',bg:'var(--bullt)',sym:'USD/SGD'},
+  {k:'xauusd',dir:'bull',msg:'&#128994; XAU/USD BUY 4/4 &#183; Macro: pullback complete at 4,099 &#183; BUY ZONE 4,400-4,600 &#183; Target 4,900-5,000 &#183; Extension 6,000-6,400 &#183; 1:2.4 &#183; Win:77.3%',t:'10:53',col:'var(--bear)',bg:'var(--beart)',sym:'XAU/USD'},
+  {k:'xagusd',dir:'bull',msg:'&#128994; XAG/USD BUY 4/4 &#183; Macro: complex correction complete at 61 &#183; BUY ZONE 63-68 &#183; Target 110 &#183; Extension 128 &#183; 1:2.1 &#183; Win:70%',t:'10:53',col:'var(--bear)',bg:'var(--beart)',sym:'XAG/USD'},
+  {k:'usoil', dir:'bull',msg:'&#128994; BRENT BUY 4/4 &#183; Macro extension off Jan 2026 $58 low &#183; Entry:95&#8211;100 OB &#183; Stop:Below 58.00 &#183; Target:115 / 125-130 extension &#183; 1:0.6 &#183; Win:~73.5% est',t:'10:55',col:'var(--bull)',bg:'var(--bullt)',sym:'BRENT'},
+  {k:'de40',  dir:'bear',msg:'&#128308; DAX 30 SELL 4/4 &#183; LH/LL/BOS bearish &#183; Cloud descending from 25,512 &#183; Entry:24,000&#8211;24,200 &#183; Stop:25,512 &#183; Target:21,863 &#183; 1:2.0 &#183; Win:~68% est',t:'10:56',col:'var(--bear)',bg:'var(--beart)',sym:'DAX 30'},
+  {k:'eurnzd',dir:'bear',msg:'&#128308; EUR/NZD SELL 4/4 &#183; Macro: top complete at 2.035 &#183; correction in progress &#183; Sell Zone 2.01-2.04 &#183; Stop:2.04 &#183; Target:1.92-1.88 &#183; 1:2.2 &#183; Win:66.7%',t:'10:57',col:'var(--bear)',bg:'var(--beart)',sym:'EUR/NZD'},
+  {k:'gbpaud',dir:'bear',msg:'&#128308; GBP/AUD SELL 4/4 &#183; Heavy bear cloud &#183; LH/LL/CHoCH &#183; Entry:1.9300&#8211;1.9350 &#183; Stop:2.0145 &#183; Target:1.8695 &#183; 1:2.0 &#183; Win:63.6%',t:'10:53',col:'var(--bear)',bg:'var(--beart)',sym:'GBP/AUD'},
+  {k:'euraud',dir:'bear',msg:'&#128308; EUR/AUD SELL 4/4 &#183; Bear cloud throughout &#183; LH/LL/BOS &#183; Entry:1.6700&#8211;1.6750 &#183; Stop:1.7468 &#183; Target:1.6128 &#183; 1:2.1 &#183; Win:72.7%',t:'10:52',col:'var(--bear)',bg:'var(--beart)',sym:'EUR/AUD'},
+  {k:'usdjpy',dir:'note',msg:'&#9888; USD/JPY PARTIAL 2/4 &#183; Macro bull + Hourly bull &#10003; &#183; 15m CHoCH pending &#8722; RSI Bear div caution. Watch 157.00&#8211;157.50 OB.',t:'10:54',col:'var(--gold)',bg:'var(--goldt)',sym:'USD/JPY'},
+  {k:'gbpusd',dir:'note',msg:'&#9888; GBP/USD PARTIAL 2/4 &#183; Macro bear &#10003; &#183; Hourly mid-channel &#8722; RSI Bull label complicates. Await 15m CHoCH below 1.3400.',t:'10:56',col:'var(--gold)',bg:'var(--goldt)',sym:'GBP/USD'},
+  {k:'btcusd',dir:'bear',msg:'&#128308; BTC/USD SELL 4/4 &#183; Macro chart 25 Apr: SELL ZONE 77-83k &#183; Entry:77-83k OB &#183; Stop:Above 90k &#183; Target:50k BUY ZONE / 42k extension &#183; 1:2.0',t:'10:49',col:'var(--bear)',bg:'var(--beart)',sym:'BTC/USD'},
+  {k:'audnzd',dir:'note',msg:'&#9888; AUD/NZD PARTIAL 2/4 &#183; Macro bull cloud rising &#10003; &#183; RSI bear divergence at HH &#8722; Await Hourly rejection and 15m CHoCH.',t:'10:52',col:'var(--gold)',bg:'var(--goldt)',sym:'AUD/NZD'}];loggedSess={'eurusd-bull':true,'audusd-bull':true,'nzdusd-bull':true,'usdchf-bear':true,'usdsgd-bear':true,'xauusd-bull':true,'xagusd-bull':true,'usoil-bull':true,'de40-bear':true,'eurnzd-bear':true,'gbpaud-bear':true,'euraud-bear':true};renderLog();}
 
 // ── Status Bar ────────────────────────────────────────────────
 function updateStatusBar(){
@@ -6514,7 +6518,7 @@ function updateStatusBar(){
     var hasBear=firing.some(function(k){return sc(k).dir==='bear';}),
         hasBull=firing.some(function(k){return sc(k).dir==='bull';});
     bar.className='sbar '+(hasBear&&!hasBull?'fb':hasBull&&!hasBear?'fg':'fb');
-    title.innerHTML = dxyPrefix + '&#9889; '+firing.length+' 3/3 SIGNALS ACTIVE';
+    title.innerHTML = dxyPrefix + '&#9889; '+firing.length+' 4/4 SIGNALS ACTIVE';
     // Count alignment for active signals only
     var aligned = 0, contrary = 0;
     firing.forEach(function(k){
