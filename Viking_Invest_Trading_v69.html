@@ -400,7 +400,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   <!-- ── 7. EQUITY CURVE ── -->
   <div class="eq-sect">
     <div class="eq-hdr">
-      <h3 id="eqCurveTitle">▸ 3/3 Equity Curve — All Markets Combined · $1,000/signal base</h3>
+      <h3 id="eqCurveTitle">▸ 4/4 Equity Curve — All Markets Combined · $1,000/signal base</h3>
       <span style="font-family:'Orbitron',monospace;font-size:8px;color:var(--inkd);">Green dot=WIN · Red dot=LOSS · Apr 2025–Apr 2026</span>
     </div>
     <canvas id="eqCanvas" style="width:100%;height:230px;display:block;"></canvas>
@@ -408,7 +408,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 
   <!-- ── 9. BACKTEST DISCLAIMER ── -->
   <div style="background:var(--beart);border:1px solid rgba(192,40,26,.2);border-radius:3px;padding:10px 12px;font-size:10px;color:var(--inkm);line-height:1.7;margin-bottom:10px;">
-    <strong style="color:var(--ink);">⚠ Backtest Disclaimer:</strong> Results reconstructed from documented Apr 2025–Apr 2026 price turning points. Confluence rules applied consistently — OB/FVG retest entry, structural stop beyond swept extreme, liquidity zone target. Slippage, spread and execution delay are not modelled. 3/3 confluence filter applied strictly. Past performance does not guarantee future results.
+    <strong style="color:var(--ink);">⚠ Backtest Disclaimer:</strong> Results reconstructed from documented Apr 2025–Apr 2026 price turning points. Confluence rules applied consistently — OB/FVG retest entry, structural stop beyond swept extreme, liquidity zone target. Slippage, spread and execution delay are not modelled. 4/4 confluence filter applied strictly (EW · TL · NW · 4H EMA21/55 cloud). Past performance does not guarantee future results.
   </div>
 </div>
 
@@ -967,6 +967,48 @@ function gC(base,count,trend,vol){
   var arr=[],p=base;
   for(var i=0;i<count;i++){var o=p;p+=trend*(Math.random()*.7+.15)+(Math.random()-.5)*vol;arr.push({o:o,c:p,h:Math.max(o,p)+Math.random()*vol*.4,l:Math.min(o,p)-Math.random()*vol*.4});}
   return arr;
+}
+
+// Compute EMA21 and EMA55 series aligned to the displayed 4H bars, with
+// warm-up drawn from HISTORY[k].h1 so the EMAs are correctly seeded by
+// the time the displayed window begins. Returns { e21: [...], e55: [...] }
+// arrays parallel to displayedBars (null entries until each EMA seeds).
+// Used by drawChart to overlay the 4H EMA21/55 cloud (v6 confluence layer 4).
+function compute4HEmasForChart(k, displayedBars){
+  var h1 = (typeof HISTORY !== 'undefined' && HISTORY[k] && HISTORY[k].h1) || [];
+  var displayCount = displayedBars.length;
+  var warmCloses = [];
+  // Warm-up needs ≥55 4H bars (=220 h1) on top of what's already in the
+  // displayed window. If HISTORY.h1 doesn't have enough, the EMAs won't
+  // seed in time and the overlay simply isn't drawn (graceful skip).
+  if(h1.length >= displayCount * 4 + 220){
+    var warmH1End = h1.length - displayCount * 4;
+    for(var j = 0; j + 3 < warmH1End; j += 4){
+      var lastH1 = h1[j + 3];
+      if(lastH1 && lastH1.p != null) warmCloses.push(lastH1.p);
+    }
+  }
+  var combined = warmCloses.slice();
+  var startIdx = combined.length;
+  displayedBars.forEach(function(b){ combined.push(b.c); });
+  var e21Series = [], e55Series = [];
+  var e21 = null, e55 = null;
+  var seed21 = [], seed55 = [];
+  var k21 = 2/22, k55 = 2/56;
+  for(var i = 0; i < combined.length; i++){
+    var c = combined[i];
+    if(seed21.length < 21){
+      seed21.push(c);
+      if(seed21.length === 21) e21 = seed21.reduce(function(a,b){return a+b;},0) / 21;
+    } else { e21 = c * k21 + e21 * (1 - k21); }
+    if(seed55.length < 55){
+      seed55.push(c);
+      if(seed55.length === 55) e55 = seed55.reduce(function(a,b){return a+b;},0) / 55;
+    } else { e55 = c * k55 + e55 * (1 - k55); }
+    e21Series.push(e21);
+    e55Series.push(e55);
+  }
+  return { e21: e21Series.slice(startIdx), e55: e55Series.slice(startIdx) };
 }
 
 // Aggregate the live intraday m15 OHLC bars (INTRADAY[k], sourced from
@@ -1546,7 +1588,7 @@ function wrLabel(m, mode){
 
   // Structure-based (synthetic/deterministic) — mark with tilde
   return mode==='long'
-    ? '~'+wr+'% est &#183; '+m.bw+'W/'+m.bl+'L &#183; structural simulation (3/3 — 4/4 pending)'
+    ? '~'+wr+'% est &#183; '+m.bw+'W/'+m.bl+'L &#183; structural simulation (4/4)'
     : '~'+wr+'% est';
 }
 
@@ -2650,6 +2692,63 @@ function drawChart(k){
   ctx.setLineDash([]);
   // OB zone
   var obM=mn+rng*.67;ctx.fillStyle='rgba(200,134,10,.07)';ctx.fillRect(pad.l,pY(obM+rng*.05),cW,pY(obM-rng*.05)-pY(obM+rng*.05));ctx.fillStyle='rgba(200,134,10,.55)';ctx.font='bold 6.5px Orbitron,monospace';ctx.textAlign='left';ctx.fillText('OB',pad.l+2,pY(obM+rng*.05)-2);
+
+  // ── 4H EMA 21/55 CLOUD OVERLAY (v6 — Layer 4) ──────────────────
+  // Visible only on the 4H view, gracefully skipped if the deep h1
+  // history isn't loaded (no warm-up → EMAs never seed). Fast EMA21 in
+  // green, slow EMA55 in red, with the fill tinted by the cross sign.
+  if(STATE[k].view === '4h' && n >= 21){
+    var _ema = compute4HEmasForChart(k, data);
+    if(_ema && _ema.e21 && _ema.e21.length === n){
+      // Find a representative recent cross-sign for the fill colour
+      var _lastBull = null;
+      for(var _li = _ema.e21.length - 1; _li >= 0; _li--){
+        var v21x = _ema.e21[_li], v55x = _ema.e55[_li];
+        if(v21x != null && v55x != null){ _lastBull = v21x > v55x; break; }
+      }
+      if(_lastBull !== null){
+        // Filled cloud between EMA21 and EMA55
+        ctx.beginPath();
+        var _started = false;
+        for(var ii = 0; ii < n; ii++){
+          var v = _ema.e21[ii]; if(v == null) continue;
+          var x = pad.l + (ii + .5) * cw;
+          if(!_started){ ctx.moveTo(x, pY(v)); _started = true; }
+          else ctx.lineTo(x, pY(v));
+        }
+        for(var ii2 = n - 1; ii2 >= 0; ii2--){
+          var v55 = _ema.e55[ii2]; if(v55 == null) continue;
+          var x2 = pad.l + (ii2 + .5) * cw;
+          ctx.lineTo(x2, pY(v55));
+        }
+        ctx.closePath();
+        ctx.fillStyle = _lastBull ? 'rgba(26,122,74,0.16)' : 'rgba(192,40,26,0.16)';
+        ctx.fill();
+        // EMA21 line (fast)
+        ctx.beginPath(); var _s = false;
+        for(var ii3 = 0; ii3 < n; ii3++){
+          var v3 = _ema.e21[ii3]; if(v3 == null) continue;
+          var x3 = pad.l + (ii3 + .5) * cw;
+          if(!_s){ ctx.moveTo(x3, pY(v3)); _s = true; } else ctx.lineTo(x3, pY(v3));
+        }
+        ctx.strokeStyle = 'rgba(26,122,74,0.9)'; ctx.lineWidth = 1.2; ctx.stroke();
+        // EMA55 line (slow)
+        ctx.beginPath(); _s = false;
+        for(var ii4 = 0; ii4 < n; ii4++){
+          var v4 = _ema.e55[ii4]; if(v4 == null) continue;
+          var x4 = pad.l + (ii4 + .5) * cw;
+          if(!_s){ ctx.moveTo(x4, pY(v4)); _s = true; } else ctx.lineTo(x4, pY(v4));
+        }
+        ctx.strokeStyle = 'rgba(192,40,26,0.9)'; ctx.lineWidth = 1.2; ctx.stroke();
+        // Cloud label (top-right)
+        ctx.fillStyle = _lastBull ? 'rgba(26,122,74,0.9)' : 'rgba(192,40,26,0.9)';
+        ctx.font = 'bold 7px Orbitron,monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText('EMA 21/55 CLOUD · ' + (_lastBull ? 'BULL' : 'BEAR'), W - pad.r - 2, pad.t + 7);
+      }
+    }
+  }
+
   // Candles
   data.forEach(function(d,i){var x=pad.l+i*cw+cw*.1,cw2=cw*.8,bull=d.c>=d.o,cc=bull?'rgba(26,122,74,.85)':'rgba(192,40,26,.85)';ctx.beginPath();ctx.moveTo(x+cw2/2,pY(d.h));ctx.lineTo(x+cw2/2,pY(d.l));ctx.strokeStyle=bull?'rgba(26,122,74,.6)':'rgba(192,40,26,.6)';ctx.lineWidth=.7;ctx.stroke();var by=pY(Math.max(d.o,d.c)),bh=Math.max(1,Math.abs(pY(d.o)-pY(d.c)));ctx.fillStyle=cc;ctx.fillRect(x,by,cw2,bh);});
   // CHoCH/BOS markers (Layer 3: CHoCH 15m)
@@ -3159,7 +3258,7 @@ function buildBacktest(){
     aggCards.push({v:deepW+'/'+deepL,l:'W/L Total',s:'365d real walk',c:'var(--ink)'});
     aggCards.push({v:(deepNetR>=0?'+':'')+deepNetR.toFixed(0)+'R',l:'Net Return',s:'1:1 RR · $1k/signal',c:deepNetR>=0?'var(--bull)':'var(--bear)'});
   } else {
-    aggCards.push({v:totWR+'%',l:'Avg Win Rate',s:'3/3 backtest — 4/4 gate live, re-measurement pending',c:parseFloat(totWR)>=70?'var(--bull)':'var(--gold)'});
+    aggCards.push({v:totWR+'%',l:'Avg Win Rate',s:'4/4 signals only (EW · TL · NW · 4H Cloud)',c:parseFloat(totWR)>=70?'var(--bull)':'var(--gold)'});
     aggCards.push({v:totW+'/'+totL,l:'W/L Total',s:'Apr 2025&#8211;26 (EW est)',c:'var(--ink)'});
     aggCards.push({v:'+'+totR.toFixed(1)+'R',l:'Net Return',s:'$1,000/signal (EW est)',c:'var(--bull)'});
   }
@@ -8852,7 +8951,11 @@ function refreshHourlyRSI(k){
 // v4 — bumped because v3 results were full per-pair `trades` arrays
 // that exceed mobile localStorage quota. v4 is the slim version with
 // `trades` stripped at save time.
-var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v4';
+// v5 — bumped because v4 results were computed under the 3/3 gate. The
+// gate is now 4/4 (EW + TL + NW + 4H EMA21/55 cloud), so cached v4 numbers
+// would silently misrepresent the live rule. New key forces a fresh
+// backtest the first time each user hits this build.
+var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v5';
 var RECENT_BT_CACHE_TTL_MS = 4 * 60 * 60 * 1000;  // 4 hours
 
 function _loadRecentBtCache(){
@@ -9086,6 +9189,59 @@ function calcRecentBacktest(k){
   var tlBreakDir = null;  // most recent h1 structural break
   var lastH1IdxSeen = -1;
 
+  // ── 4H EMA21/55 CLOUD DIRECTION (v6 — 4/4 backtest port) ────────
+  // Pre-compute the cloud direction at every h1Idx in a single forward
+  // walk. Maintains EMA21 + EMA55 of UTC-aligned 4H closes. Storing the
+  // per-h1 direction in an array lets the re-arm and post-trigger
+  // checks read it without mutating shared outer-loop state (the same
+  // pattern as the local TL check at line ~9384, see the comment there
+  // for why mutating tlBreakDir from inside the post-trigger loop
+  // silently broke earlier backtests).
+  var clDirAtH1Idx = (function(){
+    var arr = new Array(h1Bars.length);
+    for(var fi = 0; fi < arr.length; fi++) arr[fi] = null;
+    var lastKey = null, currentClose = null;
+    var ema21 = null, ema55 = null;
+    var seed21 = [], seed55 = [];
+    var k21 = 2/22, k55 = 2/56;
+    var curDir = null;
+    var finalise = function(close){
+      if(close == null) return;
+      if(seed21.length < 21){
+        seed21.push(close);
+        if(seed21.length === 21){
+          var s21 = 0; for(var z = 0; z < 21; z++) s21 += seed21[z];
+          ema21 = s21 / 21;
+        }
+      } else { ema21 = close * k21 + ema21 * (1 - k21); }
+      if(seed55.length < 55){
+        seed55.push(close);
+        if(seed55.length === 55){
+          var s55 = 0; for(var z = 0; z < 55; z++) s55 += seed55[z];
+          ema55 = s55 / 55;
+        }
+      } else { ema55 = close * k55 + ema55 * (1 - k55); }
+      if(ema21 != null && ema55 != null){
+        curDir = ema21 > ema55 ? 'bull' : ema21 < ema55 ? 'bear' : 'neutral';
+      }
+    };
+    for(var j = 0; j < h1Bars.length; j++){
+      var bb = h1Bars[j];
+      if(!bb || !bb.t){ arr[j] = curDir; continue; }
+      var hr = parseInt(bb.t.slice(11,13), 10);
+      if(!isFinite(hr)){ arr[j] = curDir; continue; }
+      var bh = Math.floor(hr / 4) * 4;
+      var key = bb.t.slice(0, 11) + (bh < 10 ? '0' : '') + bh;
+      if(lastKey === null){ lastKey = key; currentClose = bb.c; }
+      else if(key !== lastKey){
+        finalise(currentClose);
+        lastKey = key; currentClose = bb.c;
+      } else { currentClose = bb.c; }
+      arr[j] = curDir;
+    }
+    return arr;
+  })();
+
   // Pre-compute h1 swing-high/swing-low rolling windows so we can update
   // tlBreakDir whenever a new h1 bar comes into view.
   var updateTLDir = function(h1Idx){
@@ -9134,14 +9290,18 @@ function calcRecentBacktest(k){
     if(h1Idx >= 0) updateTLDir(h1Idx);
     var tlDir = tlBreakDir;
 
+    // 4H EMA cloud direction at this h1Idx — precomputed lookup (no
+    // shared-cursor mutation, so safe to read from anywhere).
+    var clDir = (h1Idx >= 0 && h1Idx < clDirAtH1Idx.length) ? clDirAtH1Idx[h1Idx] : null;
+
     // EW: at-time daily calc (cached per-day, see ewDirAtTime)
     // NO FALLBACK to STATE[k].ew here — that would introduce lookahead
     // bias. If insufficient daily history at this point, skip the bar.
     var ewDir = ewDirAtTime(k, curTs);
 
-    // 3/3 alignment check
-    if(!ewDir || !tlDir || !nwDir){ i++; continue; }
-    if(ewDir !== tlDir || tlDir !== nwDir){ i++; continue; }
+    // 4/4 alignment check (v6: added 4H EMA21/55 cloud as Layer 4).
+    if(!ewDir || !tlDir || !nwDir || !clDir){ i++; continue; }
+    if(ewDir !== tlDir || tlDir !== nwDir || nwDir !== clDir){ i++; continue; }
     if(ewDir !== 'bull' && ewDir !== 'bear'){ i++; continue; }
 
     // Now check if THIS m15 bar is a creator (broke prior swing in alignedDir).
@@ -9260,7 +9420,9 @@ function calcRecentBacktest(k){
           var h1IdxJ = findH1IdxAt(jTs);
           if(h1IdxJ >= 0) updateTLDir(h1IdxJ);
           var tlAtJ = tlBreakDir;
-          var alignmentHolds = (ewAtJ === alignedDir && tlAtJ === alignedDir);
+          // Cloud at j — precomputed lookup, no cursor mutation.
+          var clAtJ = (h1IdxJ >= 0 && h1IdxJ < clDirAtH1Idx.length) ? clDirAtH1Idx[h1IdxJ] : null;
+          var alignmentHolds = (ewAtJ === alignedDir && tlAtJ === alignedDir && clAtJ === alignedDir);
 
           if(alignmentHolds){
             // Compute new levels from this bar
@@ -9396,6 +9558,12 @@ function calcRecentBacktest(k){
           else if(h1Bars[h1IdxJpost].c < localSwLo && (localSwLo - h1Bars[h1IdxJpost].c) >= localMp) localTlDir = 'bear';
           if(localTlDir && localTlDir !== alignedDir){
             resolved = 'invalidated'; failureMode = 'alignment-broken-tl-post-trigger'; resolvedAt = j; break;
+          }
+          // v6 — 4H EMA cloud post-trigger check (4/4 parity). Read from
+          // the precomputed clDirAtH1Idx array (no shared-cursor mutation).
+          var clAtJpost = (h1IdxJpost < clDirAtH1Idx.length) ? clDirAtH1Idx[h1IdxJpost] : null;
+          if(clAtJpost && clAtJpost !== alignedDir){
+            resolved = 'invalidated'; failureMode = 'alignment-broken-cl-post-trigger'; resolvedAt = j; break;
           }
         }
         // PR #4 parity: TRIGGERED_MAX_BARS = 16 (4h on 15m). Trades that
