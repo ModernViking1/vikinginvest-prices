@@ -24,7 +24,10 @@ on:
   # 'failure' silently skipped the alert job (see the detect job's `if`),
   # which is why automatic alerts never fired.
   schedule:
-    - cron: '5,15,25,35,45,55 * * * *'
+    # Every 5 minutes — halves trigger-alert latency vs the old 10-min
+    # cadence. With trigger alerts being the only auto-fired path now
+    # (alignment alerts are catch-up-only), low latency matters more.
+    - cron: '*/5 * * * *'
   # Low-latency path: also fire immediately after Fetch Data succeeds.
   workflow_run:
     workflows: ["Fetch Data (prices + intraday OHLC)"]

@@ -222,6 +222,24 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry
     }
 
 
+# Trigger alerts older than this are suppressed (the trigger likely fired
+# in an earlier cycle that the detector missed; alerting now would
+# misrepresent a stale price level the user can no longer act on).
+MAX_TRIGGER_AGE_MIN = 30
+
+
+def _trigger_age_minutes(trigger_ts):
+    """Return minutes since `trigger_ts` (an ISO 8601 string), or None."""
+    if not trigger_ts:
+        return None
+    try:
+        ts = str(trigger_ts).replace('Z', '+00:00')
+        dt = datetime.fromisoformat(ts)
+        return (datetime.now(timezone.utc) - dt).total_seconds() / 60.0
+    except (ValueError, AttributeError, TypeError):
+        return None
+
+
 def aggregate_h1_to_h4(h1_bars):
     """Group h1 OHLC bars into UTC-aligned 4H buckets (00, 04, 08, 12, 16, 20)."""
     groups = defaultdict(list)
@@ -578,22 +596,28 @@ def main():
         cur_dir = info['aligned_dir']
         cur_sig_state = info.get('sig_state')
 
-        # Alignment-level alerts (existing behaviour).
+        # Alignment-level alerts — suppressed in normal scheduled runs.
+        # Per user feedback: alignment alerts arrived premature (≥10 min
+        # after the actual 4/4 click-over, with the setup often already
+        # triggered or expired by the time the user clicked through). The
+        # trigger alert below is the actionable signal and fires on the
+        # genuine entry. Alignment alerts now only fire when SEND_ALL_ALIGNED
+        # is explicitly set (manual one-shot catch-up via workflow_dispatch).
         should_alert_alignment = False
         align_kind = None
-        if cur_dir is not None:
+        if cur_dir is not None and send_all_aligned:
             if prev_dir is None:
                 should_alert_alignment = True
                 align_kind = 'newly-aligned'
             elif prev_dir != cur_dir:
                 should_alert_alignment = True
                 align_kind = 'flipped'
-            elif send_all_aligned:
+            else:
                 should_alert_alignment = True
                 align_kind = 'currently-aligned'
 
-        if should_alert_alignment and (not is_first_run or send_all_aligned):
-            print(f'  ALERT(align): {pair} {prev_dir} -> {cur_dir} ({align_kind})')
+        if should_alert_alignment:
+            print(f'  ALERT(align,catchup): {pair} {prev_dir} -> {cur_dir} ({align_kind})')
             text = format_alert(pair, info, align_kind)
             if send_telegram(token, chat_id, text):
                 alerts_sent += 1
@@ -603,9 +627,9 @@ def main():
         # creator CHoCH wick.
         #
         # Dedup is keyed on the creator-bar timestamp, NOT on observing the
-        # intermediate 'armed' state. The detector runs only every ~10 min,
+        # intermediate 'armed' state. The detector runs only every ~5 min,
         # so a 15m creator routinely forms AND gets retested inside a single
-        # cycle (or a pair becomes 3/3-aligned only after the retest has
+        # cycle (or a pair becomes 4/4-aligned only after the retest has
         # already happened). In those cases 'armed' is never seen, and the
         # old `prev_sig_state == 'armed'` gate silently dropped the alert.
         # Keying on creator_ts means every distinct triggered setup alerts
@@ -622,6 +646,13 @@ def main():
 
         if cur_sig_state == 'triggered' and cur_creator_ts is not None:
             is_new_trigger = (cur_creator_ts != prev_alerted_creator)
+            # Freshness gate: don't alert on triggers older than
+            # MAX_TRIGGER_AGE_MIN. The 5-min schedule means a fresh trigger
+            # is normally ≤5 min old; >30 min means something delayed the
+            # detection (data hiccup, workflow failure) and price has likely
+            # already moved past entry — alerting would be misleading.
+            trigger_age = _trigger_age_minutes(info.get('sig_trigger_ts'))
+            is_stale = trigger_age is not None and trigger_age > MAX_TRIGGER_AGE_MIN
             if send_all_aligned:
                 print(f'  ALERT(trigger,catchup): {pair} triggered (creator={cur_creator_ts}, entry={info.get("sig_entry")})')
                 text = format_alert(pair, info, 'triggered')
@@ -633,8 +664,14 @@ def main():
                 # don't alert on this pre-existing setup next cycle.
                 print(f'  baseline(trigger): {pair} already triggered (creator={cur_creator_ts}) — recorded, not alerting')
                 alerted_creator = cur_creator_ts
+            elif is_new_trigger and is_stale:
+                # Stale trigger — record as alerted (dedup) so we don't keep
+                # checking, but skip the Telegram send.
+                print(f'  skip(trigger,stale): {pair} creator={cur_creator_ts} trigger_ts={info.get("sig_trigger_ts")} age={trigger_age:.1f}min > {MAX_TRIGGER_AGE_MIN} — not alerting')
+                alerted_creator = cur_creator_ts
             elif is_new_trigger:
-                print(f'  ALERT(trigger): {pair} -> triggered (creator={cur_creator_ts}, entry={info.get("sig_entry")})')
+                age_tag = f' (fresh, age={trigger_age:.1f}min)' if trigger_age is not None else ''
+                print(f'  ALERT(trigger): {pair} -> triggered (creator={cur_creator_ts}, entry={info.get("sig_entry")}){age_tag}')
                 text = format_alert(pair, info, 'triggered')
                 if send_telegram(token, chat_id, text):
                     alerts_sent += 1
