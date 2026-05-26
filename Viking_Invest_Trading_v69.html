@@ -4899,7 +4899,7 @@ function renderFailureModeAnalysis(){
   if(!report || report.totals.all === 0){
     var pc = (report && report.pairCounts) || {totalPairs:0, alignedPairs:0};
     var msg = pc.alignedPairs === 0
-      ? 'No pairs currently 3/3 aligned — waiting for setups to form'
+      ? 'No pairs currently 4/4 aligned — waiting for setups to form'
       : 'No simulated trades on the ' + pc.alignedPairs + ' aligned pair' + (pc.alignedPairs===1?'':'s') + ' yet — waiting for intraday data buffer to fill';
     host.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;">'
       + '<div style="font-family:Orbitron,monospace;font-size:11px;font-weight:900;letter-spacing:1.2px;color:var(--bear);text-transform:uppercase;">▸ Failure mode analysis</div>'
@@ -4959,7 +4959,6 @@ function renderFailureModeAnalysis(){
     recommendation = '<span style="color:var(--inkd);">Sample too small for rule recommendations (need ≥' + meaningfulSample + ' non-wins, have ' + totalLossesAndExpired + ').</span>';
   } else {
     var recs = [];
-    var dominantPattern = classEntries.find(function(e){return e.label !== 'win';});
     // Variant A: stop +25% — only meaningful if it rescues stopped-after-progress losses
     if(stopPlus25Success !== null && stopPlus25Success > 50 && (c['stopped-after-progress']||0) >= 3){
       recs.push('<strong>+25% wider stop</strong> rescued ' + Math.round(stopPlus25Success) + '% of losses (n=' + (v.stopPlus25.wins+v.stopPlus25.losses) + ')');
@@ -4968,11 +4967,43 @@ function renderFailureModeAnalysis(){
     if(midpointSuccess !== null && midpointSuccess > 50 && (c['never-retested']||0) >= 3){
       recs.push('<strong>Midpoint entry</strong> rescued ' + Math.round(midpointSuccess) + '% of expired-no-retest signals (n=' + (v.midpointEntry.wins+v.midpointEntry.losses) + ')');
     }
-    if(recs.length === 0){
-      // Honest "no rule change recommended" — keeps user from over-fitting
+
+    // Diagnostic-driven hints (separate from variant rescues). Surface the
+    // dominant failure mode so the user can reason about it even when no
+    // variant cleanly rescues. These are HYPOTHESES — flagged as such.
+    var hints = [];
+    var totalAll = t.all || 0;
+    var pct = function(n){ return totalAll > 0 ? Math.round(n / totalAll * 100) : 0; };
+    var neverPct = pct(c['never-retested'] || 0);
+    var invalPct = pct(c['invalidated-before-retest'] || 0);
+    var cleanPct = pct(c['stop-clean-broke'] || 0);
+    var progressPct = pct(c['stopped-after-progress'] || 0);
+    if(neverPct >= 35){
+      hints.push('<strong>' + neverPct + '% never retested</strong> — price walked away from the creator wick without coming back. Worth backtesting: a wider 38–62% fib entry zone, midpoint entry as a half-size fallback, or extending expiry from 8 → 12 bars.');
+    }
+    if(invalPct >= 25){
+      hints.push('<strong>' + invalPct + '% invalidated pre-trigger</strong> — 4/4 alignment broke before retest. The 4/4 gate is doing its job protecting you here; widening the entry won\'t help. Consider tightening the alignment freshness window (only trade if 4/4 has held ≥ N bars).');
+    }
+    if(cleanPct + progressPct >= 30){
+      hints.push('<strong>' + (cleanPct + progressPct) + '% stop-driven losses</strong> — the 1:1 stop is being hit too easily. Try a 1.5R / 2R target with the same stop, or place the stop one ATR beyond the swept BoS instead of right at it.');
+    }
+    var dominant = classEntries.find(function(e){return e.label !== 'win';});
+    if(hints.length === 0 && dominant){
+      hints.push('Dominant failure mode is <strong>' + classLabel(dominant.label) + '</strong> (' + dominant.count + ' trades) but no single mode is >30%. Look at per-pair breakdown — pair-specific filtering may help more than a global rule change.');
+    }
+
+    if(recs.length === 0 && hints.length === 0){
       recommendation = '<span style="color:var(--inkd);">No variant tested produced meaningfully better outcomes. Current rule is reasonable for the data; accept the win rate as inherent.</span>';
     } else {
-      recommendation = '<span style="color:var(--bull);">▸ Variants worth testing:</span> ' + recs.join('; ') + '. <span style="color:var(--inkd);font-style:italic;">(Don\'t change the rule until you have ≥20 LIVE trades validating the simulated improvement.)</span>';
+      var parts = [];
+      if(recs.length){
+        parts.push('<span style="color:var(--bull);">▸ Variants worth testing:</span> ' + recs.join('; ') + '.');
+      }
+      if(hints.length){
+        parts.push('<span style="color:var(--gold);">▸ Where the trades are failing:</span><br>&nbsp;&nbsp;• ' + hints.join('<br>&nbsp;&nbsp;• '));
+      }
+      parts.push('<span style="color:var(--inkd);font-style:italic;">(Hypotheses only — validate any rule change with ≥20 LIVE trades before adopting.)</span>');
+      recommendation = parts.join('<br>');
     }
   }
 
@@ -4984,11 +5015,14 @@ function renderFailureModeAnalysis(){
   var headerLabel = report.dataSource === 'deep' ? 'Failure mode analysis' : 'Failure mode analysis (simulated)';
   var tradesLabel = report.dataSource === 'deep' ? 'backtested trades' : 'simulated trades';
   var filterTag = '<span style="font-size:7.5px;color:var(--gold);font-style:italic;">'
-                + 'filtered to ' + pc.alignedPairs + ' currently 3/3-aligned pair' + (pc.alignedPairs===1?'':'s')
+                + 'filtered to ' + pc.alignedPairs + ' currently 4/4-aligned pair' + (pc.alignedPairs===1?'':'s')
                 + ' (of ' + pc.totalPairs + ')</span>';
   var aggHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:6px;">'
     + '<div style="display:flex;align-items:center;gap:8px;"><div style="font-family:Orbitron,monospace;font-size:11px;font-weight:900;letter-spacing:1.2px;color:var(--bear);text-transform:uppercase;">▸ ' + headerLabel + '</div>' + srcTag + '</div>'
-    + '<div style="font-size:8.5px;color:var(--inkd);">'+t.all+' ' + tradesLabel + ' · ' + Math.round(stdRate) + '% wins · current rule</div>'
+    + '<div style="font-size:8.5px;color:var(--inkd);">'+t.all+' ' + tradesLabel + ' &middot; '
+    +   '<span title="Win rate of trades that resolved as W/L (excludes the ' + (t.expired||0) + ' that expired before retest and the ' + (t.invalidated||0) + ' invalidated pre-trigger). Of all ' + t.all + ' simulated trades, ' + t.wins + ' were wins (' + (t.all > 0 ? Math.round(t.wins/t.all*100) : 0) + '% raw).">'
+    +     t.wins + 'W/' + t.losses + 'L resolved · ' + Math.round(stdRate) + '% win rate'
+    +   '</span> · current rule</div>'
     + '</div>'
     + '<div style="margin-bottom:8px;">' + filterTag + '</div>';
 
@@ -11240,14 +11274,12 @@ function simulateIntradayWinRate(k){
 //   never-retested, invalidated-before-retest}
 // and variants = { stopPlus25:'win'|'loss'|'unresolved', midpointEntry:... }
 function classifySimulatedTrades(k){
-  // Filter: only run analysis on pairs currently 3/3 aligned. This matches
-  // the live signal logic, which only fires when EW/TL/NW all match. Pairs
-  // that aren't aligned wouldn't have produced live signals — including
-  // their historical "would-have-been" trades just adds noise to the
-  // failure-mode analysis.
+  // Filter: only run analysis on pairs currently 4/4 aligned (EW + TL +
+  // NW + 4H EMA cloud). Matches the live signal logic so the failure-
+  // mode counts reflect trades that would actually have fired.
   if(!STATE[k]) return [];
-  var ewDir = STATE[k].ew, tlDir = STATE[k].tl, nwDir = STATE[k].nw;
-  if(ewDir !== tlDir || tlDir !== nwDir) return [];
+  var ewDir = STATE[k].ew, tlDir = STATE[k].tl, nwDir = STATE[k].nw, clDir = STATE[k].cl;
+  if(ewDir !== tlDir || tlDir !== nwDir || nwDir !== clDir) return [];
   if(ewDir !== 'bull' && ewDir !== 'bear') return [];
   var alignedDir = ewDir;  // the direction the live signal would test
 
@@ -11521,8 +11553,11 @@ function analyseIntradayFailures(){
 
   Object.keys(MKTS).forEach(function(k){
     pairCounts.totalPairs++;
-    // Check 3/3 alignment up-front to count gating
+    // Check 4/4 alignment up-front (EW + TL + NW + 4H EMA cloud) so the
+    // counts match the live gate. The buffered sim path applies the
+    // same gate inside classifySimulatedTrades.
     if(STATE[k] && STATE[k].ew === STATE[k].tl && STATE[k].tl === STATE[k].nw &&
+       STATE[k].nw === STATE[k].cl &&
        (STATE[k].ew === 'bull' || STATE[k].ew === 'bear')){
       pairCounts.alignedPairs++;
       alignedPairKeys.push(k);
