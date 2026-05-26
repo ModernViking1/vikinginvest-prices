@@ -10778,6 +10778,26 @@ function detectIntradaySignal(k){
   // (data quirk), the signal isn't valid.
   if(R <= 0) return null;
 
+  // ── FIB-ZONE VARIANT (38-62% retrace of the creator candle) ────
+  // Half-size backup entry intended to capture the "expired-no-retest"
+  // cohort identified in the failure-mode analysis (~56% of signals).
+  // Fires when price enters the 38-62% retrace zone of the creator
+  // candle before reaching the full wick. Same stop (swept BoS), 1:1
+  // R:R from the fib entry. Position size is half — taken on lower-
+  // quality entries to capture trades that would otherwise expire.
+  var creatorRange = creator.h - creator.l;
+  var fibEntry, fibZoneFar;
+  if(dir === 'bear'){
+    fibEntry   = creator.l + creatorRange * 0.382;  // near edge: shallowest accepted retrace
+    fibZoneFar = creator.l + creatorRange * 0.618;
+  } else {
+    fibEntry   = creator.h - creatorRange * 0.382;
+    fibZoneFar = creator.h - creatorRange * 0.618;
+  }
+  var fibR = dir === 'bear' ? (stop - fibEntry) : (fibEntry - stop);
+  var fibTarget = dir === 'bear' ? (fibEntry - fibR) : (fibEntry + fibR);
+  var fibValid = fibR > 0;
+
   // ── DETECT RETEST AND CURRENT STATE ────────────────────────
   // Retest = a subsequent bar's range REACHES the entry level (the
   // creator wick extreme — bull: bar.l <= entry; bear: bar.h >= entry).
@@ -10790,39 +10810,49 @@ function detectIntradaySignal(k){
   // with no real pullback — a false trigger on consecutive trend candles.
   // The gate forces a genuine away-then-back round trip: price must
   // extend the move, THEN retrace to the entry.
-  var state = 'armed';
-  var triggerBarIdx = -1;
+  var state = 'armed';        // wick state (existing)
+  var fibState = 'armed';     // Fib-zone state (new variant)
+  var triggerBarIdx = -1;     // wick trigger bar
+  var fibTriggerBarIdx = -1;  // Fib-zone trigger bar (typically fires earlier)
   var liftReached = false;
   for(var i = creatorIdx + 1; i < n; i++){
     var b = bars[i];
-    // Check invalidation: closed beyond stop before retest happened.
-    // For bear: closing ABOVE stop (which is above the creator high) means
-    // price broke through the supply level — invalidates the bear thesis.
-    // For bull: closing BELOW stop invalidates the bull thesis.
-    if(triggerBarIdx === -1){
-      if(dir === 'bear' && b.c > stop){ state = 'invalidated'; break; }
-      if(dir === 'bull' && b.c < stop){ state = 'invalidated'; break; }
+    // Check invalidation: closed beyond stop before EITHER variant triggered.
+    // Once any entry has fired, the post-trigger loop handles the trade.
+    if(triggerBarIdx === -1 && fibTriggerBarIdx === -1){
+      if(dir === 'bear' && b.c > stop){ state = 'invalidated'; fibState = 'invalidated'; break; }
+      if(dir === 'bull' && b.c < stop){ state = 'invalidated'; fibState = 'invalidated'; break; }
     }
     // ── OPPOSING CHoCH INVALIDATION (pre-trigger) ────────────
-    // If the structure flipped against us BEFORE the retest, the original
-    // thesis is dead. A bullish CHoCH (close above significant swing high
-    // formed since creator) invalidates bear setups; mirror for bull.
-    if(triggerBarIdx === -1){
+    if(triggerBarIdx === -1 && fibTriggerBarIdx === -1){
       var opposingIdx = detectOpposingCHoCH(bars, creatorIdx, i, dir, minProminence);
       if(opposingIdx >= 0){
         state = 'invalidated';
+        fibState = 'invalidated';
         break;
       }
     }
-    // Check retest: bar's range REACHES the entry level — but only counts
-    // once the round-trip lift has been confirmed on a strictly earlier bar.
+    // Fib-zone retest — fires at the SHALLOWER 38% retrace edge. Always
+    // checked first because price reaches it before the full wick.
+    if(fibValid && liftReached && fibTriggerBarIdx === -1){
+      var fibReached = (dir === 'bear' && b.h >= fibEntry) ||
+                       (dir === 'bull' && b.l <= fibEntry);
+      if(fibReached){
+        fibTriggerBarIdx = i;
+        fibState = 'triggered';
+      }
+    }
+    // Wick retest — DEEPER retrace (current behaviour preserved). Both
+    // entries can fire on the same setup (fib first, then wick if price
+    // keeps retracing); they are tracked as separate half-/full-size
+    // trades.
     var reachesEntry = (dir === 'bear' && b.h >= entry) ||
                        (dir === 'bull' && b.l <= entry);
     if(reachesEntry && liftReached && triggerBarIdx === -1){
       triggerBarIdx = i;
       state = 'triggered';
     }
-    // Update the lift flag AFTER the retest check, so the displacement
+    // Update the lift flag AFTER the retest checks, so the displacement
     // must precede the retest bar (a real round trip, not a single candle).
     if(!liftReached){
       if(dir === 'bull' && b.h >= creator.h) liftReached = true;
@@ -10834,8 +10864,33 @@ function detectIntradaySignal(k){
   if(state === 'armed' && barsAgo >= EXPIRY_BARS){
     state = 'expired';
   }
+  if(fibState === 'armed' && barsAgo >= EXPIRY_BARS){
+    fibState = 'expired';
+  }
 
-  // After trigger: check target / stop / OPPOSING CHoCH (any of which exits)
+  // Resolve post-trigger outcome for the FIB-ZONE entry (independent of wick).
+  // Same stop, same opposing-CHoCH invalidation; target is 1:1 from fibEntry.
+  var fibOutcome = null;
+  if(fibState === 'triggered'){
+    for(var i = fibTriggerBarIdx + 1; i < n; i++){
+      var b = bars[i];
+      if(dir === 'bull'){
+        if(b.h >= fibTarget){ fibOutcome = 'target-hit'; break; }
+        if(b.l <= stop){      fibOutcome = 'stop-hit'; break; }
+      } else {
+        if(b.l <= fibTarget){ fibOutcome = 'target-hit'; break; }
+        if(b.h >= stop){      fibOutcome = 'stop-hit'; break; }
+      }
+      var oppFib = detectOpposingCHoCH(bars, creatorIdx, i, dir, minProminence);
+      if(oppFib > fibTriggerBarIdx){ fibOutcome = 'choch-invalidated'; break; }
+    }
+    if(!fibOutcome && fibTriggerBarIdx >= 0){
+      var barsSinceFib = n - 1 - fibTriggerBarIdx;
+      if(barsSinceFib > 16) fibOutcome = 'stale-expired';
+    }
+  }
+
+  // After WICK trigger: check target / stop / OPPOSING CHoCH (any of which exits)
   var outcome = null;
   if(state === 'triggered'){
     for(var i = triggerBarIdx + 1; i < n; i++){
@@ -10960,7 +11015,22 @@ function detectIntradaySignal(k){
     outcome: outcome,
     chochDiag: chochDiag,
     ohlcSource: hasNative ? 'native' : 'approximated',
-    alignmentBroken: alignmentBroken
+    alignmentBroken: alignmentBroken,
+    // Fib-zone variant — 38% retrace entry, half size, same stop as wick.
+    // Independent of the wick state above; both can fire from one setup
+    // (fib first, wick later if price keeps retracing).
+    fib: {
+      state: fibState,
+      entry: fibEntry,
+      zoneNearEdge: fibEntry,
+      zoneFarEdge: fibZoneFar,
+      target: fibTarget,
+      R: fibR,
+      triggerBarIdx: fibTriggerBarIdx,
+      triggerTs: fibTriggerBarIdx >= 0 && bars[fibTriggerBarIdx] ? bars[fibTriggerBarIdx].t : null,
+      outcome: fibOutcome,
+      sizeMult: 0.5  // half-size relative to wick
+    }
   };
 }
 

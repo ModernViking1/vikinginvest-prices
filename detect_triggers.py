@@ -180,13 +180,23 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry
     # Entry is the wick extreme on the entry side: high for bear, low for bull.
     entry = creator_high if aligned_dir == 'bear' else creator_low
 
-    # Trigger: walk forward from creator+1, check if any bar's range reaches
-    # entry — gated on a round-trip lift (mirrors detectIntradaySignal in
-    # dashboard.html). A retest only counts once price has first displaced
-    # PAST the creator's far edge on a strictly earlier bar; without that
-    # gate the next bar's ordinary low "retests" the entry with no real
-    # pullback, producing false triggers on consecutive trend candles.
+    # Fib-zone variant: 38% retrace of the creator candle, taken at HALF size.
+    # Captures the "expired-no-retest" failure-mode cohort. Mirrors the
+    # dashboard's detectIntradaySignal — see the comment block there.
+    fib_entry = None
+    if creator_high is not None and creator_low is not None and creator_high > creator_low:
+        creator_range = creator_high - creator_low
+        if aligned_dir == 'bear':
+            fib_entry = creator_low + creator_range * 0.382  # 38% retrace from creator low
+        else:
+            fib_entry = creator_high - creator_range * 0.382
+
+    # Trigger walk: track BOTH wick and fib trigger bars independently. Both
+    # variants share the same round-trip lift gate — neither fires until
+    # price has displaced past the creator's far edge on a strictly earlier
+    # bar (prevents false triggers on consecutive trend candles).
     trigger_bar_idx = -1
+    fib_trigger_bar_idx = -1
     if entry is not None:
         lift_reached = False
         for j in range(creator_idx + 1, n):
@@ -194,15 +204,26 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry
             bh, bl = b.get('h'), b.get('l')
             if bh is None or bl is None:
                 continue
-            reaches = (
-                (aligned_dir == 'bear' and bh >= entry) or
-                (aligned_dir == 'bull' and bl <= entry)
-            )
-            if reaches and lift_reached:
-                trigger_bar_idx = j
-                break
-            # Confirm the lift AFTER the retest check so the displacement
-            # must precede the retest bar (a real round trip).
+            # Fib-zone trigger — shallower retrace, fires earlier than wick.
+            if lift_reached and fib_trigger_bar_idx < 0 and fib_entry is not None:
+                fib_reached = (
+                    (aligned_dir == 'bear' and bh >= fib_entry) or
+                    (aligned_dir == 'bull' and bl <= fib_entry)
+                )
+                if fib_reached:
+                    fib_trigger_bar_idx = j
+            # Wick trigger — deeper retrace, full size.
+            if lift_reached and trigger_bar_idx < 0:
+                reaches = (
+                    (aligned_dir == 'bear' and bh >= entry) or
+                    (aligned_dir == 'bull' and bl <= entry)
+                )
+                if reaches:
+                    trigger_bar_idx = j
+                    # Don't break — fib path may still be 'armed' on the
+                    # same bar; we record it too. Most setups won't reach
+                    # this branch because fib usually fires first.
+            # Update lift flag AFTER the retest checks (lift must precede).
             if not lift_reached:
                 if aligned_dir == 'bull' and creator_high is not None and bh >= creator_high:
                     lift_reached = True
@@ -210,6 +231,7 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry
                     lift_reached = True
 
     state = 'triggered' if trigger_bar_idx >= 0 else 'armed'
+    fib_state = 'triggered' if fib_trigger_bar_idx >= 0 else 'armed'
     return {
         'state': state,
         'creator_idx': creator_idx,
@@ -219,6 +241,11 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry
         'entry': entry,
         'trigger_bar_idx': trigger_bar_idx,
         'trigger_ts': bars[trigger_bar_idx].get('t') if trigger_bar_idx >= 0 else None,
+        # Fib-zone half-size variant
+        'fib_state': fib_state,
+        'fib_entry': fib_entry,
+        'fib_trigger_bar_idx': fib_trigger_bar_idx,
+        'fib_trigger_ts': bars[fib_trigger_bar_idx].get('t') if fib_trigger_bar_idx >= 0 else None,
     }
 
 
@@ -336,6 +363,441 @@ def calc_macro_auto_setup(daily_bars, ew_dir):
         'tgt':   f'{_fmt_macro_px(tp1)} / {_fmt_macro_px(tp2)} (approx)',
         'rr':    rr,
     }
+
+
+# ── AUTO-EW: pivot-hierarchy Elliott Wave detector ─────────────
+# Faithful port of dashboard.html's autoDetectEW stack. Same multi-degree
+# ZigZag pivot detection + 5-wave / ABC / WXY / in-progress-W2 validators
+# + macro-priority resolver. Used by scan_pairs to set the EW direction
+# when a high-confidence pattern is detected (≥ AUTO_EW_MIN_CONFIDENCE),
+# matching the dashboard's blend so the Telegram alert and the dashboard
+# Macro pill agree on direction.
+
+AUTO_EW_MIN_CONFIDENCE = 0.70
+AUTO_EW_VALID_PATTERNS = {
+    '5-wave-impulse-complete',
+    '5-wave-diagonal-complete',
+    '5-wave-impulse-truncated',
+    'WXY-double-zigzag-complete',
+    'ABC-correction-complete',
+    'in-progress-impulse-w2',
+}
+AUTO_EW_THRESHOLDS = [0.5, 0.8, 1.0, 1.5, 2.5, 4.0, 6.0, 8.0, 10.0, 12.0]
+
+
+def _detect_pivots_refined(prices, pct_threshold):
+    """ZigZag pivot detector. Walks the close series, emits a pivot
+    whenever price reverses by `pct_threshold`% from the last extreme."""
+    if not prices or len(prices) < 5:
+        return []
+    thresh = pct_threshold / 100.0
+    pivots = []
+    direction = 1 if prices[1] > prices[0] else -1
+    last_extreme = prices[0]
+    last_idx = 0
+    pivots.append({'type': 'L' if direction == 1 else 'H',
+                   'price': prices[0], 'idx': 0, 'isOrigin': True})
+    for i in range(1, len(prices)):
+        if last_extreme == 0:
+            dist = 0
+        else:
+            dist = abs(prices[i] - last_extreme) / abs(last_extreme)
+        if direction == 1:
+            if prices[i] > last_extreme:
+                last_extreme = prices[i]
+                last_idx = i
+            elif dist >= thresh:
+                pivots.append({'type': 'H', 'price': last_extreme, 'idx': last_idx})
+                direction = -1
+                last_extreme = prices[i]
+                last_idx = i
+        else:
+            if prices[i] < last_extreme:
+                last_extreme = prices[i]
+                last_idx = i
+            elif dist >= thresh:
+                pivots.append({'type': 'L', 'price': last_extreme, 'idx': last_idx})
+                direction = 1
+                last_extreme = prices[i]
+                last_idx = i
+    pivots.append({'type': 'H' if direction == 1 else 'L',
+                   'price': last_extreme, 'idx': last_idx})
+    # Deduplicate the origin if same-type as next.
+    if len(pivots) >= 2 and pivots[0].get('isOrigin') and pivots[0]['type'] == pivots[1]['type']:
+        pivots = pivots[1:]
+    return pivots
+
+
+def _build_pivot_hierarchy(prices):
+    """Run the ZigZag at 10 increasing thresholds; each level captures a
+    different fractal degree. Used by the macro-priority resolver."""
+    levels = []
+    for i, t in enumerate(AUTO_EW_THRESHOLDS):
+        pivs = _detect_pivots_refined(prices, t)
+        if pivs and len(pivs) >= 2:
+            levels.append({
+                'degree': i,
+                'thresholdPct': t,
+                'pivots': pivs,
+                'pivotCount': len(pivs),
+            })
+    return levels
+
+
+def _check_w41_overlap(p, direction):
+    if len(p) < 5:
+        return {'isImpulse': True, 'isDiagonal': False, 'overlapPct': 0}
+    w1_end = p[1]['price']
+    w4_end = p[4]['price']
+    w1_start = p[0]['price']
+    w1_range = abs(w1_end - w1_start)
+    if w1_range == 0:
+        return {'isImpulse': True, 'isDiagonal': False, 'overlapPct': 0}
+    if direction == 'bull':
+        overlap = w1_end - w4_end
+    else:
+        overlap = w4_end - w1_end
+    overlap_pct = overlap / w1_range
+    if overlap_pct <= 0:
+        return {'isImpulse': True, 'isDiagonal': False, 'overlapPct': 0}
+    if overlap_pct < 0.30:
+        return {'isImpulse': False, 'isDiagonal': True, 'overlapPct': overlap_pct}
+    return {'isImpulse': False, 'isDiagonal': False, 'overlapPct': overlap_pct}
+
+
+def _check_wedge_shape(p, direction):
+    if len(p) < 5:
+        return {'isWedge': False, 'convergenceRatio': 1.0}
+    x1, y1 = p[1]['idx'], p[1]['price']
+    x3, y3 = p[3]['idx'], p[3]['price']
+    x2, y2 = p[2]['idx'], p[2]['price']
+    x4, y4 = p[4]['idx'], p[4]['price']
+    if x3 == x1 or x4 == x2:
+        return {'isWedge': False, 'convergenceRatio': 1.0}
+    slope_13 = (y3 - y1) / (x3 - x1)
+    slope_24 = (y4 - y2) / (x4 - x2)
+    dist1 = abs(y1 - (y2 + slope_24 * (x1 - x2)))
+    dist4 = abs((y1 + slope_13 * (x4 - x1)) - y4)
+    if dist1 == 0:
+        return {'isWedge': False, 'convergenceRatio': 1.0}
+    ratio = dist4 / dist1
+    return {'isWedge': ratio < 0.70, 'convergenceRatio': ratio}
+
+
+def _check_truncation(p, direction):
+    if len(p) < 6:
+        return {'isTruncated': False, 'truncationPct': 0}
+    w3_end = p[3]['price']
+    w5_end = p[5]['price']
+    w4_end = p[4]['price']
+    w4_length = abs(w4_end - w3_end)
+    if w4_length == 0:
+        return {'isTruncated': False, 'truncationPct': 0}
+    if direction == 'bull':
+        truncated = w5_end < w3_end
+        shortfall = (w3_end - w5_end) / w4_length if truncated else 0
+    else:
+        truncated = w5_end > w3_end
+        shortfall = (w5_end - w3_end) / w4_length if truncated else 0
+    return {'isTruncated': truncated, 'truncationPct': shortfall}
+
+
+def _check_channel_projection(p, direction):
+    if len(p) < 5:
+        return {'withinChannel': True, 'deviation': 0}
+    x1, y1 = p[1]['idx'], p[1]['price']
+    x3, y3 = p[3]['idx'], p[3]['price']
+    x4, y4 = p[4]['idx'], p[4]['price']
+    x2, y2 = p[2]['idx'], p[2]['price']
+    if x3 == x1:
+        return {'withinChannel': True, 'deviation': 0}
+    slope = (y3 - y1) / (x3 - x1)
+    lower_at_x4 = y2 + slope * (x4 - x2)
+    w1 = abs(p[1]['price'] - p[0]['price'])
+    if w1 == 0:
+        return {'withinChannel': True, 'deviation': 0}
+    if direction == 'bull':
+        deviation = (lower_at_x4 - y4) / w1 if y4 < lower_at_x4 else 0
+    else:
+        deviation = (y4 - lower_at_x4) / w1 if y4 > lower_at_x4 else 0
+    return {'withinChannel': deviation < 0.20, 'deviation': deviation}
+
+
+def _check_wave_five_fib(p, direction):
+    if len(p) < 6:
+        return None
+    w1 = abs(p[1]['price'] - p[0]['price'])
+    if w1 == 0:
+        return None
+    w5 = abs(p[5]['price'] - p[4]['price'])
+    ratio = w5 / w1
+    fibs = [0.618, 1.0, 1.618]
+    nearest = fibs[0]
+    min_dist = abs(ratio - fibs[0])
+    for f in fibs[1:]:
+        d = abs(ratio - f)
+        if d < min_dist:
+            min_dist = d
+            nearest = f
+    return {'ratio': ratio, 'nearestFib': nearest, 'distancePct': min_dist / nearest}
+
+
+def _validate_five_wave_impulse(pivots):
+    if len(pivots) < 6:
+        return None
+    p = pivots[-6:]
+    bull = (p[0]['type'] == 'L' and p[1]['type'] == 'H' and p[2]['type'] == 'L'
+            and p[3]['type'] == 'H' and p[4]['type'] == 'L' and p[5]['type'] == 'H')
+    bear = (p[0]['type'] == 'H' and p[1]['type'] == 'L' and p[2]['type'] == 'H'
+            and p[3]['type'] == 'L' and p[4]['type'] == 'H' and p[5]['type'] == 'L')
+    if not bull and not bear:
+        return None
+    direction = 'bull' if bull else 'bear'
+    w1 = abs(p[1]['price'] - p[0]['price'])
+    w3 = abs(p[3]['price'] - p[2]['price'])
+    w5 = abs(p[5]['price'] - p[4]['price'])
+    w2 = abs(p[2]['price'] - p[1]['price'])
+    w4 = abs(p[4]['price'] - p[3]['price'])
+    # Rule: W2 does not retrace past W1 start
+    if bull and p[2]['price'] <= p[0]['price']:
+        return None
+    if bear and p[2]['price'] >= p[0]['price']:
+        return None
+    # Rule: W4 does not overlap W1 territory (with diagonal carve-out)
+    overlap = _check_w41_overlap(p, direction)
+    wedge = _check_wedge_shape(p, direction)
+    is_diagonal = False
+    if not overlap['isImpulse']:
+        if overlap['isDiagonal'] and wedge['isWedge']:
+            is_diagonal = True
+        elif overlap['isDiagonal']:
+            is_diagonal = True
+        else:
+            return None
+    # Rule: W3 not shortest
+    if w3 < w1 and w3 < w5:
+        return None
+    truncation = _check_truncation(p, direction)
+    if truncation['isTruncated'] and truncation['truncationPct'] > 0.30:
+        return None
+    w2_ratio = w2 / w1 if w1 else 0
+    w4_ratio = w4 / w3 if w3 else 0
+    channel = _check_channel_projection(p, direction)
+    w5_fib = _check_wave_five_fib(p, direction)
+    conf = 0.5
+    if 0.382 <= w2_ratio <= 0.786:
+        conf += 0.10
+    if 0.236 <= w4_ratio <= 0.500:
+        conf += 0.10
+    if w3 >= w1 and w3 >= w5:
+        conf += 0.15
+    if channel.get('withinChannel'):
+        conf += 0.10
+    if w5_fib and w5_fib['distancePct'] < 0.20:
+        conf += 0.10
+    elif w5_fib and w5_fib['distancePct'] < 0.40:
+        conf += 0.05
+    if is_diagonal:
+        conf -= 0.15
+    if truncation['isTruncated']:
+        conf -= 0.10
+        if truncation['truncationPct'] < 0.10:
+            conf += 0.03
+    conf = max(0.1, min(1.0, conf))
+    if is_diagonal:
+        pattern_label = '5-wave-diagonal-complete'
+    elif truncation['isTruncated']:
+        pattern_label = '5-wave-impulse-truncated'
+    else:
+        pattern_label = '5-wave-impulse-complete'
+    return {'dir': direction, 'confidence': conf, 'pattern': pattern_label}
+
+
+def _validate_abc_correction(pivots):
+    if len(pivots) < 4:
+        return None
+    p = pivots[-4:]
+    bear_abc = (p[0]['type'] == 'H' and p[1]['type'] == 'L'
+                and p[2]['type'] == 'H' and p[3]['type'] == 'L')
+    bull_abc = (p[0]['type'] == 'L' and p[1]['type'] == 'H'
+                and p[2]['type'] == 'L' and p[3]['type'] == 'H')
+    if not bear_abc and not bull_abc:
+        return None
+    direction = 'bear' if bear_abc else 'bull'
+    wa = abs(p[1]['price'] - p[0]['price'])
+    wb = abs(p[2]['price'] - p[1]['price'])
+    wc = abs(p[3]['price'] - p[2]['price'])
+    if wa == 0:
+        return None
+    b_ratio = wb / wa
+    if b_ratio < 0.382 or b_ratio > 0.786:
+        return None
+    c_ratio = wc / wa
+    if c_ratio < 0.618:
+        return None
+    conf = 0.5
+    if 0.50 <= b_ratio <= 0.618:
+        conf += 0.20
+    if 1.0 <= c_ratio <= 1.618:
+        conf += 0.20
+    conf = min(1.0, conf)
+    return {'dir': direction, 'confidence': conf, 'pattern': 'ABC-correction-complete'}
+
+
+def _validate_wxy_double(pivots):
+    if len(pivots) < 8:
+        return None
+    p = pivots[-8:]
+    bear_wxy = all(p[i]['type'] == ('H' if i % 2 == 0 else 'L') for i in range(8))
+    bull_wxy = all(p[i]['type'] == ('L' if i % 2 == 0 else 'H') for i in range(8))
+    if not bear_wxy and not bull_wxy:
+        return None
+    direction = 'bear' if bear_wxy else 'bull'
+    wa = abs(p[1]['price'] - p[0]['price'])
+    wb = abs(p[2]['price'] - p[1]['price'])
+    xw = abs(p[4]['price'] - p[3]['price'])
+    ya = abs(p[5]['price'] - p[4]['price'])
+    yb = abs(p[6]['price'] - p[5]['price'])
+    w_span = abs(p[3]['price'] - p[0]['price'])
+    y_span = abs(p[7]['price'] - p[4]['price'])
+    wb_ratio = (wb / wa) if wa else 0
+    yb_ratio = (yb / ya) if ya else 0
+    x_ratio = (xw / w_span) if w_span else 0
+    if wb_ratio < 0.382 or wb_ratio > 0.786:
+        return None
+    if yb_ratio < 0.382 or yb_ratio > 0.786:
+        return None
+    if x_ratio < 0.236 or x_ratio > 1.0:
+        return None
+    conf = 0.45
+    if 0.50 <= yb_ratio <= 0.618:
+        conf += 0.15
+    if w_span > 0 and w_span * 0.8 <= y_span <= w_span * 1.5:
+        conf += 0.20
+    if 0.382 <= x_ratio <= 0.618:
+        conf += 0.10
+    conf = min(1.0, conf)
+    return {'dir': direction, 'confidence': conf, 'pattern': 'WXY-double-zigzag-complete'}
+
+
+def _validate_in_progress_impulse(pivots, current_px):
+    if len(pivots) < 2 or current_px is None:
+        return None
+    p = pivots[-2:]
+    bull = p[0]['type'] == 'L' and p[1]['type'] == 'H'
+    bear = p[0]['type'] == 'H' and p[1]['type'] == 'L'
+    if not bull and not bear:
+        return None
+    direction = 'bull' if bull else 'bear'
+    w1_start = p[0]['price']
+    w1_end = p[1]['price']
+    w1_length = abs(w1_end - w1_start)
+    if w1_length == 0:
+        return None
+    if w1_start == 0:
+        return None
+    w1_pct = w1_length / abs(w1_start)
+    if w1_pct < 0.015:
+        return None
+    if bull and current_px > w1_end * 1.001:
+        return None
+    if bear and current_px < w1_end * 0.999:
+        return None
+    if bull:
+        w2_retrace = (w1_end - current_px) / w1_length
+    else:
+        w2_retrace = (current_px - w1_end) / w1_length
+    if w2_retrace < 0.236:
+        return None
+    conf = 0.30
+    if w1_pct >= 0.025:
+        conf += 0.10
+    if 0.382 <= w2_retrace <= 0.618:
+        conf += 0.15
+    if 0.5 <= w2_retrace <= 0.618:
+        conf += 0.10
+    conf = min(0.70, conf)
+    return {'dir': direction, 'confidence': conf, 'pattern': 'in-progress-impulse-w2'}
+
+
+def _detect_at_degree(level, last_px):
+    pivs = level['pivots']
+    if len(pivs) < 2:
+        return None
+    candidates = []
+    if len(pivs) >= 6:
+        c = _validate_five_wave_impulse(pivs)
+        if c:
+            candidates.append(c)
+    if len(pivs) >= 8:
+        c = _validate_wxy_double(pivs)
+        if c:
+            candidates.append(c)
+    if len(pivs) >= 4:
+        c = _validate_abc_correction(pivs)
+        if c:
+            candidates.append(c)
+    c = _validate_in_progress_impulse(pivs, last_px)
+    if c:
+        candidates.append(c)
+    if not candidates:
+        return None
+    type_score_map = {
+        '5-wave-impulse-complete': 4,
+        '5-wave-diagonal-complete': 3.7,
+        '5-wave-impulse-truncated': 3.5,
+        'WXY-double-zigzag-complete': 3,
+        'ABC-correction-complete': 2,
+        'in-progress-impulse-w2': 1,
+    }
+    candidates.sort(key=lambda c: type_score_map.get(c['pattern'], 0) + c['confidence'],
+                    reverse=True)
+    best = candidates[0]
+    best['degree'] = level['degree']
+    best['pivotCount'] = len(pivs)
+    return best
+
+
+def auto_detect_ew(daily_bars):
+    """Multi-degree pivot-hierarchy EW detector — Python port of
+    autoDetectEW from dashboard.html. Returns dict matching the JS shape:
+        {'ok': bool, 'ew': {dir, pattern, confidence, degree, ...}}
+    Returns {'ok': False} on insufficient data or no valid pattern.
+    """
+    if not daily_bars or len(daily_bars) < 30:
+        return {'ok': False, 'reason': 'insufficient_history'}
+    prices = [b.get('c') for b in daily_bars if b.get('c') is not None]
+    if len(prices) < 30:
+        return {'ok': False, 'reason': 'insufficient_history'}
+    last_px = prices[-1]
+    hierarchy = _build_pivot_hierarchy(prices)
+    if not hierarchy:
+        return {'ok': False, 'reason': 'no_valid_pattern'}
+    all_results = []
+    for level in hierarchy:
+        r = _detect_at_degree(level, last_px)
+        if r:
+            all_results.append(r)
+    if not all_results:
+        return {'ok': False, 'reason': 'no_valid_pattern'}
+    type_score_map = {
+        '5-wave-impulse-complete': 4,
+        '5-wave-diagonal-complete': 3.7,
+        '5-wave-impulse-truncated': 3.5,
+        'WXY-double-zigzag-complete': 3,
+        'ABC-correction-complete': 2,
+        'in-progress-impulse-w2': 1,
+    }
+
+    def rank(r):
+        ts = type_score_map.get(r['pattern'], 0)
+        freshness_ok = True
+        if r['pattern'] == 'in-progress-impulse-w2' and r.get('pivotCount', 0) < 3:
+            freshness_ok = False
+        return ts * 100 + r['degree'] * 10 + r['confidence'] + (0 if freshness_ok else -50)
+
+    all_results.sort(key=rank, reverse=True)
+    return {'ok': True, 'ew': all_results[0], 'allLevels': all_results}
 
 
 def aggregate_h1_to_h4(h1_bars):
@@ -501,8 +963,28 @@ def scan_pairs(intraday_data, historical_data):
 
         nw = calc_independent_dir(m15, lookback=8)
         tl = calc_independent_dir(h1, lookback=8)
-        ew = calc_independent_dir(daily, lookback=8)
+        ew_structural = calc_independent_dir(daily, lookback=8)
         cl = calc_4h_cloud_dir(h1)
+
+        # Blended EW — auto-EW (Lux-Algo-inspired pivot-hierarchy detector)
+        # outranks the structural-break direction when it returns a high-
+        # confidence completed/in-progress pattern. Same priority as the
+        # dashboard's refreshAutoEW gate, so directions.json matches what
+        # the dashboard shows and the Telegram alert won't fire on a 4/4
+        # the user can't see on the dashboard.
+        ew = ew_structural
+        auto_ew_used = False
+        try:
+            auto = auto_detect_ew(daily)
+            ewp = auto.get('ew') if auto.get('ok') else None
+            if ewp and ewp.get('dir') in ('bull', 'bear') \
+                    and ewp.get('confidence', 0) >= AUTO_EW_MIN_CONFIDENCE \
+                    and ewp.get('pattern') in AUTO_EW_VALID_PATTERNS:
+                ew = ewp['dir']
+                auto_ew_used = True
+        except Exception:
+            pass  # defensive — never let auto-EW break the scan
+
         macro_setup = calc_macro_auto_setup(daily, ew)
 
         # v6 — 4/4 confluence gate: macro (EW), hourly (TL), 15m (NW)
@@ -539,6 +1021,9 @@ def scan_pairs(intraday_data, historical_data):
             'sig_creator_ts': sig.get('creator_ts') if sig else None,
             'sig_entry': sig.get('entry') if sig else None,
             'sig_trigger_ts': sig.get('trigger_ts') if sig else None,
+            'sig_fib_state': sig.get('fib_state') if sig else None,
+            'sig_fib_entry': sig.get('fib_entry') if sig else None,
+            'sig_fib_trigger_ts': sig.get('fib_trigger_ts') if sig else None,
         }
     return out
 
@@ -581,36 +1066,49 @@ def _fmt_price(p):
 
 
 def format_alert(pair, info, kind):
-    """kind: 'newly-aligned' | 'flipped' | 'currently-aligned' | 'triggered'."""
+    """kind: 'newly-aligned' | 'flipped' | 'currently-aligned' | 'triggered' | 'triggered-fib'."""
     sym = PAIR_DISPLAY.get(pair, pair.upper())
     direction = info['aligned_dir']
     action = 'BUY' if direction == 'bull' else 'SELL'
+    layers = f"EW {info['ew']} · TL {info['tl']} · NW {info['nw']} · CL {info.get('cl') or '?'}"
 
     if kind == 'triggered':
-        # Phase 2 — intraday 1:1 retest fired. Higher-priority alert
-        # with the entry price and a louder header.
+        # Wick retest — full size, deeper retrace (current behaviour).
         entry_str = _fmt_price(info.get('sig_entry'))
         text = (
-            f"🎯 <b>TRIGGERED — {action} {sym}</b>\n"
+            f"🎯 <b>TRIGGERED — {action} {sym}</b> (full size)\n"
             f"Entry hit: <code>{entry_str}</code> (creator wick)\n"
             f"Current px: <code>{_fmt_price(info['price'])}</code>\n"
-            f"EW {info['ew']} · TL {info['tl']} · NW {info['nw']}\n"
+            f"{layers}\n"
+            f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
+        )
+        return text
+
+    if kind == 'triggered-fib':
+        # Fib-zone entry — 38% retrace of the creator candle, HALF size.
+        # Captures setups that would have expired without reaching the wick.
+        entry_str = _fmt_price(info.get('sig_fib_entry'))
+        text = (
+            f"🎯 <b>FIB-ZONE — {action} {sym}</b> (half size)\n"
+            f"Entry hit: <code>{entry_str}</code> (38% Fib of creator candle)\n"
+            f"Current px: <code>{_fmt_price(info['price'])}</code>\n"
+            f"{layers}\n"
             f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
         )
         return text
 
     arrow = '🟢▲' if direction == 'bull' else '🔴▼'
     if kind == 'newly-aligned':
-        title = '3/3 ALIGNED'
+        title = '4/4 ALIGNED'
     elif kind == 'flipped':
-        title = '3/3 FLIPPED'
+        title = '4/4 FLIPPED'
     else:
-        title = '3/3 STATUS (catchup)'
+        title = '4/4 STATUS (catchup)'
 
     text = (
         f"{arrow} <b>{title} — {action} {sym}</b>\n"
         f"Price: <code>{_fmt_price(info['price'])}</code>\n"
-        f"EW {info['ew']} · TL {info['tl']} · NW {info['nw']}\n"
+        f"{layers}\n"
         f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
     )
     return text
@@ -778,6 +1276,50 @@ def main():
                     alerts_sent += 1
                 alerted_creator = cur_creator_ts
 
+        # ── FIB-ZONE TRIGGER ALERTS (half size) ─────────────────────
+        # Mirror of the wick path above, with an independent dedup key.
+        # Captures setups that triggered at the 38% Fib retrace without
+        # reaching the deeper wick — the "expired-no-retest" cohort the
+        # failure-mode analysis flagged at ~56%. Half size by convention.
+        cur_fib_state = info.get('sig_fib_state')
+        prev_alerted_fib = prev.get('alerted_fib_creator_ts')
+        if prev_alerted_fib is None and prev.get('sig_fib_state') == 'triggered':
+            prev_alerted_fib = prev.get('sig_creator_ts')
+        alerted_fib = prev_alerted_fib
+
+        if cur_fib_state == 'triggered' and cur_creator_ts is not None:
+            is_new_fib = (cur_creator_ts != prev_alerted_fib)
+            # If the wick trade also triggered on the same setup, the wick
+            # alert above already covered the entry — suppress the fib
+            # alert to avoid double-notifying the user. The fib state stays
+            # recorded so we still know it fired in the state file.
+            wick_also_fired = (cur_sig_state == 'triggered' and cur_creator_ts == alerted_creator)
+            fib_age = _trigger_age_minutes(info.get('sig_fib_trigger_ts'))
+            fib_stale = fib_age is not None and fib_age > MAX_TRIGGER_AGE_MIN
+            if send_all_aligned and is_new_fib and not wick_also_fired:
+                print(f'  ALERT(fib,catchup): {pair} fib-triggered (creator={cur_creator_ts}, entry={info.get("sig_fib_entry")})')
+                text = format_alert(pair, info, 'triggered-fib')
+                if send_telegram(token, chat_id, text):
+                    alerts_sent += 1
+                alerted_fib = cur_creator_ts
+            elif is_new_fib and is_first_run:
+                print(f'  baseline(fib): {pair} already fib-triggered (creator={cur_creator_ts}) — recorded, not alerting')
+                alerted_fib = cur_creator_ts
+            elif is_new_fib and fib_stale:
+                print(f'  skip(fib,stale): {pair} creator={cur_creator_ts} age={fib_age:.1f}min — not alerting')
+                alerted_fib = cur_creator_ts
+            elif is_new_fib and wick_also_fired:
+                # Quietly mark as alerted (wick alert already covered it).
+                print(f'  skip(fib,wick-also): {pair} creator={cur_creator_ts} wick alert sent — fib suppressed')
+                alerted_fib = cur_creator_ts
+            elif is_new_fib:
+                fib_age_tag = f' (fresh, age={fib_age:.1f}min)' if fib_age is not None else ''
+                print(f'  ALERT(fib): {pair} -> fib-triggered (creator={cur_creator_ts}, entry={info.get("sig_fib_entry")}){fib_age_tag}')
+                text = format_alert(pair, info, 'triggered-fib')
+                if send_telegram(token, chat_id, text):
+                    alerts_sent += 1
+                alerted_fib = cur_creator_ts
+
         new_state[pair] = {
             'aligned_dir': cur_dir,
             'ew': info['ew'],
@@ -789,7 +1331,11 @@ def main():
             'sig_creator_ts': cur_creator_ts,
             'sig_entry': info.get('sig_entry'),
             'sig_trigger_ts': info.get('sig_trigger_ts'),
+            'sig_fib_state': cur_fib_state,
+            'sig_fib_entry': info.get('sig_fib_entry'),
+            'sig_fib_trigger_ts': info.get('sig_fib_trigger_ts'),
             'alerted_trigger_creator_ts': alerted_creator,
+            'alerted_fib_creator_ts': alerted_fib,
             'last_check': now_iso,
         }
 
