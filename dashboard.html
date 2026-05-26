@@ -4963,9 +4963,10 @@ function renderFailureModeAnalysis(){
     if(stopPlus25Success !== null && stopPlus25Success > 50 && (c['stopped-after-progress']||0) >= 3){
       recs.push('<strong>+25% wider stop</strong> rescued ' + Math.round(stopPlus25Success) + '% of losses (n=' + (v.stopPlus25.wins+v.stopPlus25.losses) + ')');
     }
-    // Variant B: midpoint entry — only meaningful for never-retested
+    // Variant B: Fib 38% entry (half size, live since v7) — meaningful
+    // for never-retested cohort. Labels track the live rule name.
     if(midpointSuccess !== null && midpointSuccess > 50 && (c['never-retested']||0) >= 3){
-      recs.push('<strong>Midpoint entry</strong> rescued ' + Math.round(midpointSuccess) + '% of expired-no-retest signals (n=' + (v.midpointEntry.wins+v.midpointEntry.losses) + ')');
+      recs.push('<strong>Fib 38% entry</strong> (half size) rescued ' + Math.round(midpointSuccess) + '% of expired-no-retest signals (n=' + (v.midpointEntry.wins+v.midpointEntry.losses) + ')');
     }
 
     // Diagnostic-driven hints (separate from variant rescues). Surface the
@@ -5051,7 +5052,7 @@ function renderFailureModeAnalysis(){
     + '    <div style="font-size:7.5px;color:var(--inkd);">'+v.stopPlus25.wins+'W / '+v.stopPlus25.losses+'L</div>'
     + '  </div>'
     + '  <div style="background:rgba(0,0,0,0.02);padding:6px 8px;border-radius:2px;">'
-    + '    <div style="font-size:8px;color:var(--inkm);font-weight:700;">Midpoint entry</div>'
+    + '    <div style="font-size:8px;color:var(--inkm);font-weight:700;">Fib 38% entry (half size)</div>'
     + '    <div style="font-size:9px;color:'+(midpointSuccess > 50 ? 'var(--bull)' : 'var(--inkd)')+';font-weight:700;">'
     +       (midpointSuccess === null ? 'no data' : Math.round(midpointSuccess) + '% rescue rate')
     + '    </div>'
@@ -9159,12 +9160,12 @@ function refreshHourlyRSI(k){
 // v4 — bumped because v3 results were full per-pair `trades` arrays
 // that exceed mobile localStorage quota. v4 is the slim version with
 // `trades` stripped at save time.
-// v6 — bumped because the v5 4/4 backtest had a silent bug where it
-// iterated _ticksToBars output (no .t field) so the cloud direction
-// array was all-null and every alignment check failed. Fixed cache must
-// be discarded so users get real 4/4 W/L counts driving the per-pair
-// stats display.
-var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v6';
+// v7 — bumped because the hybrid path was rebuilt to simulate the Fib
+// 38% trade INDEPENDENTLY of the wick (parallel, not "only when wick
+// didn't fire") to match the live rule. v6 results used 50% midpoint
+// fallback which both undercounted fib triggers and entered at a
+// different price level, so the W/L counts are not comparable.
+var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v7';
 var RECENT_BT_CACHE_TTL_MS = 4 * 60 * 60 * 1000;  // 4 hours
 
 function _loadRecentBtCache(){
@@ -9555,18 +9556,23 @@ function calcRecentBacktest(k){
     }
     if(R <= 0){ i++; continue; }
 
-    // ── HYBRID RULE: compute midpoint entry as fallback ──
-    // Midpoint = 50% of creator bar's range. Lower-quality entry but
-    // triggers far more often. Stop stays same as wick-extreme rule
-    // (we always stop at structural extreme — that's what defines the
-    // setup's invalidation). Target stays at 1:1 from midpoint entry.
+    // ── HYBRID RULE: 38% Fib retrace entry (HALF SIZE) ──
+    // Matches the live rule: a parallel half-size trade triggered when
+    // price retraces only 38% of the creator candle's range, vs the
+    // full-size wick-extreme trade. Captures the "expired-no-retest"
+    // failure-mode cohort (≈ 56% of triggers). Stop stays at the
+    // structural BoS reference; 1:1 R:R is computed from the fib entry.
+    // Per the v7 backtest port, the fib trade is simulated INDEPENDENTLY
+    // — it can fire alongside the wick trade on the same setup (fib
+    // usually first, since 38% retrace is shallower than 100%).
     var midEntry, midR, midTarget;
-    var creatorMid = (m15Bars[i].h + m15Bars[i].l) / 2;
-    midEntry = creatorMid;
+    var creatorRange = m15Bars[i].h - m15Bars[i].l;
     if(alignedDir === 'bear'){
+      midEntry = m15Bars[i].l + creatorRange * 0.382;   // 38% retrace from creator low
       midR = stop - midEntry;
       midTarget = midEntry - midR;
     } else {
+      midEntry = m15Bars[i].h - creatorRange * 0.382;   // 38% retrace from creator high
       midR = midEntry - stop;
       midTarget = midEntry + midR;
     }
@@ -9818,75 +9824,78 @@ function calcRecentBacktest(k){
       });
     }
 
-    // ── HYBRID RULE FORWARD SIMULATION ──
-    // For each signal, compute what the hybrid rule would have done:
-    // (a) if wick-extreme triggered: full-size wick trade (same outcome as standard rule)
-    // (b) if wick-extreme didn't trigger BUT midpoint did: half-size midpoint trade
-    // (c) if neither triggered: signal expires
-    //
-    // We re-walk the same forward window with independent tracking for the
-    // midpoint trade. The midpoint trade only "activates" if the wick wasn't
-    // hit first (sequence matters — order of which level price touches first).
+    // ── FIB-ZONE PARALLEL SIMULATION (v7 — matches live rule) ──
+    // Walk the forward window simulating the 38% Fib entry independently
+    // of the wick trade. The fib trade can fire ALONGSIDE the wick trade
+    // on the same setup (fib usually first because 38% retrace is
+    // shallower than 100%). Half-size: each fib W/L counts as 0.5R when
+    // aggregated. Pre-fixed: was midpoint-only-when-wick-didn't-fire,
+    // which both undercounted fib triggers and used a deeper (50%)
+    // retrace than the live rule.
     var wickTriggered = triggered;        // from standard sim above
-    var wickOutcome = resolved;            // from standard sim above
+    var wickOutcome = resolved;           // from standard sim above
     var midTriggered = false;
     var midOutcome = null;
     var midMaxFav = 0;
 
-    if(!wickTriggered){
-      // Wick was never hit. Walk forward looking for midpoint trigger.
-      for(var hj = i + 1; hj < Math.min(n, i + 1 + 8 + 32) && !midOutcome; hj++){
-        var hb = m15Bars[hj];
-        if(!midTriggered){
-          // Pre-trigger invalidation rules — same as wick-extreme path
-          if(alignedDir === 'bear' && hb.c > stop){ midOutcome = 'invalidated'; break; }
-          if(alignedDir === 'bull' && hb.c < stop){ midOutcome = 'invalidated'; break; }
-          if(hj - i > 8){ midOutcome = 'expired'; break; }
-          if(typeof detectOpposingCHoCH === 'function'){
-            var hOppPre = detectOpposingCHoCH(m15Bars, i, hj, alignedDir, minProm);
-            if(hOppPre >= 0){ midOutcome = 'invalidated'; break; }
-          }
-          // Check midpoint trigger
-          var midReaches = (alignedDir === 'bear' && hb.h >= midEntry) ||
-                           (alignedDir === 'bull' && hb.l <= midEntry);
-          if(midReaches) midTriggered = true;
+    for(var hj = i + 1; hj < Math.min(n, i + 1 + 8 + 32) && !midOutcome; hj++){
+      var hb = m15Bars[hj];
+      if(!midTriggered){
+        // Pre-trigger invalidation rules — same as wick-extreme path
+        if(alignedDir === 'bear' && hb.c > stop){ midOutcome = 'invalidated'; break; }
+        if(alignedDir === 'bull' && hb.c < stop){ midOutcome = 'invalidated'; break; }
+        if(hj - i > 8){ midOutcome = 'expired'; break; }
+        if(typeof detectOpposingCHoCH === 'function'){
+          var hOppPre = detectOpposingCHoCH(m15Bars, i, hj, alignedDir, minProm);
+          if(hOppPre >= 0){ midOutcome = 'invalidated'; break; }
+        }
+        // Check 38% Fib trigger
+        var midReaches = (alignedDir === 'bear' && hb.h >= midEntry) ||
+                         (alignedDir === 'bull' && hb.l <= midEntry);
+        if(midReaches) midTriggered = true;
+      } else {
+        if(alignedDir === 'bear'){
+          var hFav = (midEntry - hb.l) / midR;
+          if(hFav > midMaxFav) midMaxFav = hFav;
+          if(hb.l <= midTarget){ midOutcome = 'win'; break; }
+          if(hb.h >= stop){ midOutcome = 'loss'; break; }
         } else {
-          if(alignedDir === 'bear'){
-            var hFav = (midEntry - hb.l) / midR;
-            if(hFav > midMaxFav) midMaxFav = hFav;
-            if(hb.l <= midTarget){ midOutcome = 'win'; break; }
-            if(hb.h >= stop){ midOutcome = 'loss'; break; }
-          } else {
-            var hFav = (hb.h - midEntry) / midR;
-            if(hFav > midMaxFav) midMaxFav = hFav;
-            if(hb.h >= midTarget){ midOutcome = 'win'; break; }
-            if(hb.l <= stop){ midOutcome = 'loss'; break; }
-          }
-          if(typeof detectOpposingCHoCH === 'function'){
-            var hOppPost = detectOpposingCHoCH(m15Bars, i, hj, alignedDir, minProm);
-            if(hOppPost > i){ midOutcome = 'invalidated'; break; }
-          }
+          var hFav = (hb.h - midEntry) / midR;
+          if(hFav > midMaxFav) midMaxFav = hFav;
+          if(hb.h >= midTarget){ midOutcome = 'win'; break; }
+          if(hb.l <= stop){ midOutcome = 'loss'; break; }
+        }
+        if(typeof detectOpposingCHoCH === 'function'){
+          var hOppPost = detectOpposingCHoCH(m15Bars, i, hj, alignedDir, minProm);
+          if(hOppPost > i){ midOutcome = 'invalidated'; break; }
         }
       }
     }
 
-    // Tally hybrid outcomes. The hybrid uses the wick-extreme trade when
-    // available (full 1.0R) and falls back to midpoint (0.5R) when wick
-    // wasn't reached. Both wick and midpoint don't fire simultaneously —
-    // either wick triggered (wick wins) OR midpoint considered.
+    // Tally outcomes. Wick (full size) and Fib (half size, 0.5R) are
+    // tracked independently — each is a real, separate trade per the
+    // live rule. The "hyb*" counter names are kept for backward
+    // compatibility but they now mean:
+    //   hybWins / hybLosses             = wick-extreme trade outcomes (1.0R)
+    //   hybMidWins / hybMidLosses       = Fib 38% trade outcomes (0.5R each)
+    //   hybInvalidated / hybExpired     = setups where neither side resolved
     if(wickTriggered && (wickOutcome === 'win' || wickOutcome === 'loss')){
-      // Wick-extreme trade resolved — same as standard counters
       if(wickOutcome === 'win') hybWins++;
       else hybLosses++;
-    } else if(midTriggered && (midOutcome === 'win' || midOutcome === 'loss')){
-      // Wick didn't trigger but midpoint did — record half-size trade
+    }
+    if(midTriggered && (midOutcome === 'win' || midOutcome === 'loss')){
       if(midOutcome === 'win') hybMidWins++;
       else hybMidLosses++;
-    } else if(wickOutcome === 'invalidated' || midOutcome === 'invalidated'){
-      hybInvalidated++;
-    } else {
-      // Neither wick nor midpoint took
-      hybExpired++;
+    }
+    // Setup-level resolution flags (for the "expired/invalidated" cohorts
+    // in failure-mode analysis): only count if NEITHER side resolved as a
+    // W/L. Otherwise both sides showed real outcomes and we don't want to
+    // also count the setup as expired.
+    var anyResolved = (wickTriggered && (wickOutcome === 'win' || wickOutcome === 'loss'))
+                   || (midTriggered  && (midOutcome  === 'win' || midOutcome  === 'loss'));
+    if(!anyResolved){
+      if(wickOutcome === 'invalidated' || midOutcome === 'invalidated') hybInvalidated++;
+      else hybExpired++;
     }
 
     lastResolvedIdx = resolvedAt;
