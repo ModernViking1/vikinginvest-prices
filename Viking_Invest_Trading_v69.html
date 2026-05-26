@@ -898,7 +898,22 @@ function calcWickatorTPs(k){
       phase: autoEW.wavePos || ('Auto-EW: ' + autoEW.pattern + ' · conf ' + Math.round(autoEW.confidence*100) + '%')
     };
   }
-  if(!w) w = WICKATOR_EW[k];
+  if(!w){
+    // Skip the manual WickatorFX seed when its direction disagrees with
+    // the live engine — bull-seed targets contradicting a bear engine
+    // pill is exactly what creates the "directional conflict" the user
+    // complained about. Carve-out: if auto-EW backs the seed (LOW
+    // conflict / engine reading sub-fractal noise), keep the seed.
+    var seed = WICKATOR_EW[k];
+    var engineDir = (typeof STATE !== 'undefined' && STATE[k] && STATE[k].ew) || null;
+    var seedStale = false;
+    if(seed && seed.dir && (engineDir === 'bull' || engineDir === 'bear') && seed.dir !== engineDir){
+      var autoShape = (typeof getAutoEWShape === 'function') ? getAutoEWShape(k) : null;
+      var autoAgreesWithSeed = autoShape && autoShape.dir === seed.dir;
+      seedStale = !autoAgreesWithSeed;
+    }
+    if(seed && !seedStale) w = seed;
+  }
   if(!w){
     // No manual baseline AND no high-confidence auto-EW — fall back to
     // the in-browser auto-derived setup so v5-added pairs still get a
@@ -1523,12 +1538,24 @@ function setupField(k, field){
     if(d && d[field] != null && d[field] !== '') return d[field];
   }
   var m = MKTS[k];
-  // v5/v6-added pairs ship a placeholder "TBD" entry with no WickatorFX
-  // baseline. Try the in-browser swing-based derivation first; fall back
-  // to the server-computed macro setup (shipped in directions.json) when
-  // the deep daily history isn't loaded — that's the common mobile case
-  // where the ~94 MB historical-ohlc.json hits the localStorage quota.
-  if(m && /^TBD/i.test(String(m.entry || ''))){
+  // Two cases where we deliberately bypass the static MKTS/WickatorFX
+  // seed and compute targets from live data instead:
+  //   1. m.entry is a TBD placeholder (v5/v6 pairs without manual seed).
+  //   2. The seed direction disagrees with the live engine — i.e. the
+  //      manual analysis is stale, and seed-direction targets would
+  //      contradict the bull/bear pills shown on the cards. Exception:
+  //      if auto-EW *does* back the seed (LOW conflict / sub-fractal
+  //      noise), keep the seed — that's the documented carve-out.
+  var seed = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k]) || null;
+  var engineDir = (typeof STATE !== 'undefined' && STATE[k] && STATE[k].ew) || null;
+  var seedStale = false;
+  if(seed && seed.dir && (engineDir === 'bull' || engineDir === 'bear') && seed.dir !== engineDir){
+    var autoShape = (typeof getAutoEWShape === 'function') ? getAutoEWShape(k) : null;
+    var autoAgreesWithSeed = autoShape && autoShape.dir === seed.dir;
+    seedStale = !autoAgreesWithSeed;
+  }
+  var isTBD = m && /^TBD/i.test(String(m.entry || ''));
+  if(isTBD || seedStale){
     var auto = getAutoSetup(k);
     if(auto && auto[field] != null && auto[field] !== '') return auto[field];
     var srv = (typeof SERVER_DIR !== 'undefined' && SERVER_DIR[k] && SERVER_DIR[k].macro) || null;
@@ -2130,7 +2157,7 @@ function getLayerDet(k,layer,sig){
     try {
       var _seedEW = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k]) ? WICKATOR_EW[k] : null;
       if(_seedEW && _seedEW.dir && (sig === 'bull' || sig === 'bear') && _seedEW.dir !== sig){
-        conflictTag = ' <span style="color:var(--gold);font-size:8.5px;font-weight:700;" title="Engine ('+sig.toUpperCase()+') and WickatorFX seed ('+_seedEW.dir.toUpperCase()+') disagree on macro direction. Targets shown are seed-direction; engine has not yet confirmed.">&#9888; engine '+sig.toUpperCase()+' / seed '+_seedEW.dir.toUpperCase()+'</span>';
+        conflictTag = ' <span style="color:var(--gold);font-size:8.5px;font-weight:700;" title="Engine ('+sig.toUpperCase()+') and WickatorFX seed ('+_seedEW.dir.toUpperCase()+') disagree on macro direction. Targets below have been overridden to the engine direction so they don\'t contradict the bull/bear pills.">&#9888; engine '+sig.toUpperCase()+' / seed '+_seedEW.dir.toUpperCase()+'</span>';
       }
     } catch(e){}
     if(sig==='bear')return '<span class="rb">Bearish</span> macro. LH/LL daily structure. Target: <span class="rb">'+setupField(k,'tgt')+'</span>'+conflictTag+waveSuffix+tpSuffix;
@@ -2535,20 +2562,18 @@ function refreshAlert(k){
       adsc.innerHTML =
         '<strong>Engine reads '+engineDirLabel+', seed is '+seedDirLabel+', auto-EW also reads '+conflictDetail.autoDir.toUpperCase()+autoConfLabel+'.</strong>'+patternLabel
         + '<br><span style="color:var(--inkd);font-size:9px;">'
-        + 'Seed thesis ('+seedDirLabel+') likely stale. Trade setup targets shown below are still seed-direction. '
-        + 'Do NOT enter on this signal. Review the auto-EW diagnostic on the Backtest tab, '
-        + 'check your Wickator chart, and either update the seed or wait for engine and seed to realign.</span>';
+        + 'Seed thesis ('+seedDirLabel+') is stale. Trade setup targets below have been overridden to the engine direction ('+engineDirLabel+') so they don\'t contradict the bull/bear pills. '
+        + 'Do NOT enter on this signal until you\'ve reviewed the auto-EW diagnostic on the Backtest tab, checked your Wickator chart, and updated the seed if appropriate.</span>';
     } else if(conflictLevel === 'med'){
       ico.innerHTML='&#9888;&#65039;';
       atit.innerHTML='&#9888; DIRECTION CONFLICT &#8212; awaiting auto-EW'+wb;
       atit.style.color='var(--gold)';
       adsc.innerHTML =
         '<strong>Engine reads '+engineDirLabel+', seed is '+seedDirLabel+'.</strong> '
-        + 'Auto-EW algorithm has no pattern result for this pair yet (HISTORICAL data may still be loading).'
+        + 'Auto-EW has no pattern result for this pair yet (HISTORICAL data may still be loading).'
         + '<br><span style="color:var(--inkd);font-size:9px;">'
-        + 'Setup targets below are seed-direction. Do not enter on this signal until auto-EW resolves '
-        + 'and confirms which direction is correct. If history loads and auto-EW agrees with seed, '
-        + 'the alert will return to normal automatically.</span>';
+        + 'Setup targets below have been overridden to the engine direction ('+engineDirLabel+') so they don\'t contradict the bull/bear pills. '
+        + 'Do not enter on this signal until auto-EW resolves and confirms which direction is correct — if auto-EW lands on '+seedDirLabel+' the alert will reset and the seed targets return.</span>';
     } else {  // low
       ico.innerHTML='&#9432;';
       atit.innerHTML='SUB-FRACTAL CONFLICT &#8212; engine reading noise'+wb;
