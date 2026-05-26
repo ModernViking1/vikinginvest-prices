@@ -6738,7 +6738,15 @@ window.addEventListener('resize',function(){if(activeMkt!=='overview')drawChart(
 //   Total: ~8 calls vs 26. No rate limits hit.
 // ================================================================
 
-var REFRESH_MS = 5 * 60 * 1000;
+// Dashboard refresh cadence. Drops to 2 min (was 5) so the dashboard
+// catches up to Telegram alerts inside one cycle. Server commits data
+// every ~5 min; jsDelivr purges within ~30s of commit; the alert
+// workflow reads git directly and pings Telegram within ~30s. With a
+// 5-min dashboard interval the visible state could lag the alert by up
+// to 5 min, which surfaced as "alert says triggered but dashboard
+// doesn't show it yet". 2 min keeps the worst-case lag under one alert
+// cycle without burning excessive bandwidth (~21 MB/hour per session).
+var REFRESH_MS = 2 * 60 * 1000;
 var liveTimer  = null, cdTimer = null;
 var isLoading  = false, refreshCount = 0;
 var lastFetch  = null, nextFetchAt = null;
