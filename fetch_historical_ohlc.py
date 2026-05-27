@@ -6,7 +6,7 @@ PURPOSE
     Fetches deep historical 1H and 15M OHLC data for all 22 pairs from OANDA
     and Coinbase. Designed to run once via GitHub Actions manual-dispatch,
     producing a CDN-distributable JSON that the Viking Invest Trading
-    dashboard reads to backtest 3/3 confluence over 12 months.
+    dashboard reads to backtest 4/4 confluence over 12 months.
 
 OUTPUT STRUCTURE
     historical-ohlc.json  (or per-pair files if --per-pair)

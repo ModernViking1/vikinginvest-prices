@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Detect 3/3-confluence transitions and send Telegram alerts.
+Detect 4/4-confluence transitions and send Telegram alerts.
 
 Runs after every fetch-data workflow run. Computes EW (daily) / TL
 (hourly) / NW (15m) direction for each pair using the same
 calcIndependentDir structural-break logic the live dashboard uses,
-detects pairs that just transitioned to 3/3 alignment, and sends a
+detects pairs that just transitioned to 4/4 alignment, and sends a
 Telegram message for each new alignment.
 
 State is persisted in alerts-state.json so we don't re-alert on every
@@ -15,7 +15,7 @@ workflow run while a pair remains aligned. Transitions tracked:
   - prev='bull', current='bull'        -> no alert (still aligned)
   - prev='bull', current=None          -> no alert (lost alignment, not a setup)
 
-Phase 2 — intraday trigger alerts: for every 3/3-aligned pair, the 15m
+Phase 2 — intraday trigger alerts: for every 4/4-aligned pair, the 15m
 1:1-RR signal is tracked (armed -> triggered). A TRIGGERED alert fires
 exactly once per distinct setup, deduped on the creator-bar timestamp.
 This fires whether or not the intermediate 'armed' state was observed —
@@ -176,7 +176,7 @@ def _find_structural_low(bars_slice, min_prom):
 def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry_bars=8):
     """Port of the essential parts of detectIntradaySignal from
     dashboard.html (~L9290). Detects the state of the 1:1-RR intraday
-    signal for a 3/3-aligned pair on the 15m timeframe.
+    signal for a 4/4-aligned pair on the 15m timeframe.
 
     Returns dict with:
       state: 'armed' | 'triggered' | 'expired' | None
@@ -1025,7 +1025,7 @@ def load_alerts_state(path='alerts-state.json'):
 
 def scan_pairs(intraday_data, historical_data):
     """For each pair available in intraday-ohlc.json, compute current
-    EW / TL / NW direction and whether 3/3 aligned. Returns dict:
+    EW / TL / NW direction and whether 4/4 aligned. Returns dict:
         { pair: { ew, tl, nw, aligned_dir, price } }
     where aligned_dir is 'bull'/'bear' if all three agree, else None.
     """

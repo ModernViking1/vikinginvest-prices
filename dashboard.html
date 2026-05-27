@@ -308,12 +308,12 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   <div class="mscroll" id="mScroll"></div>
   <div id="mPanels">
     <div class="mpanel" id="mp-overview">
-      <!-- Live 3/3 Signal Log moved to dedicated Signal Log tab — hidden here
+      <!-- Live 4/4 Signal Log moved to dedicated Signal Log tab — hidden here
            to declutter main dashboard. The same data is available via the
            SIGNAL LOG tab at the top of the page. -->
       <div class="logsect" style="display:none;">
         <div class="loghdr">
-          <h3>▸ Live 3/3 Signal Log</h3>
+          <h3>▸ Live 4/4 Signal Log</h3>
           <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;align-items:center;">
             <button class="logbtn" onclick="refreshBacktestWR()" style="background:var(--purplet);color:var(--purple);border-color:var(--purple);font-weight:700;">📊 Backtest</button>
             <button class="logbtn" onclick="clearLog()">Clear</button>
@@ -332,7 +332,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 <!-- ════ BACKTEST ════ -->
 <div class="page" id="page-bt">
 
-  <!-- ── 1. 3/3 CONFLUENCE ENTRY RULES (educational, top) ── -->
+  <!-- ── 1. 4/4 CONFLUENCE ENTRY RULES (educational, top) ── -->
   <div class="rules-box">
     <h2>▸ 4/4 Confluence Entry Rules</h2>
     <div class="rules-grid">
@@ -574,7 +574,7 @@ var MKTS = {
     ew:'bear',tl:'bear',nw:'bear',
     // SPECIALIST EW (WickatorFX): Completed 5-wave impulse to Wave C/5 at 2.035 top.
     // Now in ABC correction. Wave A down done. Wave B bounce at ~2.007. Wave C target 1.920-1.880.
-    // Invalidation level: 2.04. Sell Zone: 2.02-2.04. 3/3 BEAR.
+    // Invalidation level: 2.04. Sell Zone: 2.02-2.04. 4/4 BEAR.
     wr:74.5,g:'A',bw:13,bl:5,brr:2.3,
     entry:'2.0100&#8211;2.0200 OB (Sell Zone)',stop:'Above 2.0400',tgt:'1.9200&#8211;1.8800 Wave C',inv:'Close&gt;2.0400',rr:'1:2.2'},
   gbpaud:{sym:'GBP/AUD',t:'minor',px:'1.89276',p:1.89276,d:5,sc:0.005,up:true,chg:'+0.23%',
@@ -582,7 +582,7 @@ var MKTS = {
     // WICKATOR METHOD: 5-wave corrective complete at 2.014 (Wave C/5 top).
     // Now in ABC correction DOWN. Wave A down forming. LH/LL structure begun.
     // Wave A target: 1.870. Wave C/B target: 1.800-1.820 (0.618 fib of prior rise).
-    // Bearish cloud descending confirms. 3/3 BEAR.
+    // Bearish cloud descending confirms. 4/4 BEAR.
     wr:58.0,g:'C',bw:10,bl:8,brr:1.0,
     entry:'1.9200&#8211;1.9500 OB (Wave B)',stop:'Above 1.9700',tgt:'1.85 Wave A / 1.82 Wave C',inv:'Close&gt;1.9700',rr:'1:5.0'},
   euraud:{sym:'EUR/AUD',t:'minor',px:'1.63893',p:1.63893,d:5,sc:0.005,up:true,chg:'+0.28%',
@@ -590,7 +590,7 @@ var MKTS = {
     // WICKATOR METHOD: Grand bull impulse complete at 1.746 (Wave 5/C top Feb 2025).
     // LH/LL structure confirms major correction. Wave A=5 down to 1.612.
     // Wave B bounce (current) = max 0.618 fib at ~1.675. Wave C target: 1.550-1.570.
-    // Bearish cloud throughout confirms EW bear macro. 3/3 BEAR.
+    // Bearish cloud throughout confirms EW bear macro. 4/4 BEAR.
     wr:59.2,g:'C',bw:11,bl:7,brr:1.3,
     entry:'1.6600&#8211;1.6900 OB (Wave B)',stop:'Above 1.7150',tgt:'1.60 Wave A / 1.56 Wave C',inv:'Close&gt;1.7150',rr:'1:3.6'},
   usdsgd:{sym:'USD/SGD',t:'minor',px:'1.27645',p:1.27645,d:5,sc:0.004,up:false,chg:'-0.08%',
@@ -635,7 +635,7 @@ var MKTS = {
     // Wave A=5 down done to 21,863 LL. Wave B bounce = 3 waves up to 23,900 (0.618 fib).
     // Wave B complete. Now in Wave C=5 waves DOWN. Wave (3) targets 21,500-21,800.
     // Wave (5)/C targets 20,500-21,000 (1.618 ext). RSI green = Wave B bounce (sell).
-    // 3/3 BEAR confirmed.
+    // 4/4 BEAR confirmed.
     wr:65.2,g:'B',bw:12,bl:6,brr:3.0,
     entry:'24,000&#8211;24,600 OB (Wave B)',stop:'Above 25,512',tgt:'21,863 Wave C3 / 20,500 Wave C5',inv:'Close&gt;25,512',rr:'1:3.0'},
   suiusd:{sym:'SUI/USD',t:'crypto',px:'0.93600',p:0.936,d:4,sc:0.015,up:true,chg:'+2.54%',
@@ -766,7 +766,7 @@ var MKTS = {
 
   // ── DXY MACRO ANCHOR ──────────────────────────────────────────────
   // The Dollar Index is the regime gate for every USD pair below.
-  // Not a tradeable 3/3 signal — shown for confluence context only.
+  // Not a tradeable 4/4 signal — shown for confluence context only.
   // Bearish DXY → bullish xxxUSD + XAU/XAG; bearish USDxxx.
   // Bullish DXY → inverse.
   dxy:{sym:'DXY',t:'index',px:'98.493',p:98.493,d:3,sc:0.3,up:true,chg:'+0.04%',
@@ -2185,7 +2185,7 @@ function getLayerDet(k,layer,sig){
     // RSI badge (Phase A — display only). Surfaces the 14-period RSI
     // value and its last-two-bar trajectory so the user can eyeball
     // whether the hourly direction read agrees with momentum extreme
-    // + slope. Phase B will wire this into the 3/3 alert gate.
+    // + slope. Phase B will wire this into the 4/4 alert gate.
     var rsiTag = '';
     try {
       var rsi = STATE[k] && STATE[k].rsi1H;
@@ -2264,7 +2264,7 @@ function getLayerDet(k,layer,sig){
     }
 
     // ── INTRADAY SIGNAL BLOCK (1:1 R:R quick-trade tier) ──
-    // When 3/3 is aligned and a recent CHoCH creator candle exists,
+    // When 4/4 is aligned and a recent CHoCH creator candle exists,
     // surface the wick-extreme retest entry levels alongside the macro
     // setup. Shown only when the signal is in a useful state.
     //
@@ -2504,9 +2504,9 @@ function refreshAlert(k){
   var wb='<span style="font-family:Orbitron,monospace;font-size:7px;font-weight:700;padding:1px 5px;border-radius:2px;margin-left:4px;vertical-align:middle;background:'+(m.wr>=75?'rgba(26,122,74,.15)':'rgba(200,134,10,.12)')+';color:'+(m.wr>=75?'var(--bull)':'var(--gold)');wb+=';border:1px solid '+(m.wr>=75?'rgba(26,122,74,.3)':'rgba(200,134,10,.3)')+';"> '+wrLabel(m,'short')+'</span>';
 
   // ── DIRECTION CONFLICT GUARD (Fix A) ──────────────────────────
-  // Block the 3/3 SETUP READY alert when the indicator engine's macro
+  // Block the 4/4 SETUP READY alert when the indicator engine's macro
   // direction (STATE[k].ew) disagrees with the seed (WICKATOR_EW[k].dir).
-  // Without this guard, the dashboard can show "3/3 BULL — SETUP READY"
+  // Without this guard, the dashboard can show "4/4 BULL — SETUP READY"
   // with bear-direction targets pulled from the seed (or vice versa),
   // which is dangerous for a real trader.
   //
@@ -2559,7 +2559,7 @@ function refreshAlert(k){
   } catch(e){ /* defensive: never block alert flow on conflict-check error */ }
 
   // Event deferral: if a high-impact event is imminent for this pair,
-  // override the 3/3 alert with a DEFERRED state to prevent trading
+  // override the 4/4 alert with a DEFERRED state to prevent trading
   // through volatility. Window: 2 hours before to 30 min after.
   var imminentEvents = (typeof eventsAffecting === 'function') ? eventsAffecting(k, 2) : [];
   var inDeferralWindow = imminentEvents.length > 0;
@@ -3461,7 +3461,7 @@ function buildBacktest(){
 
     // 15m intraday WR — separate from the macro EW backtest above.
     // Different strategy → tracked separately, not summed.
-    // Filtered to currently 3/3-aligned pairs only (matches live signal logic).
+    // Filtered to currently 4/4-aligned pairs only (matches live signal logic).
     var intra = (typeof intradayWinRate === 'function') ? intradayWinRate(k) : null;
     var intraRow;
     var pairAligned = STATE[k] && STATE[k].ew === STATE[k].tl && STATE[k].tl === STATE[k].nw &&
@@ -3499,7 +3499,7 @@ function buildBacktest(){
         + '  </div>'
         + '</div>';
     } else if(!pairAligned){
-      // Pair not currently 3/3 aligned — intraday rule wouldn't apply.
+      // Pair not currently 4/4 aligned — intraday rule wouldn't apply.
       // Distinguish from "no data yet" so user understands why no stats.
       intraRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:6px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
         + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;">15m intraday 1:1</div>'
@@ -3532,7 +3532,7 @@ function buildBacktest(){
           : '<span style="color:'+rbColor+';font-weight:700;">'+rbRate+'%</span>'
             + '<span style="font-size:7.5px;color:var(--inkd);margin-left:6px;">'+rb.wins+'W/'+rb.losses+'L'+rbExtra+'</span>';
         recentBtRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:4px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
-          + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;" title="Recent 3/3 backtest using independent direction logic">recent 4/4 backtest</div>'
+          + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;" title="Recent 4/4 backtest using independent direction logic">recent 4/4 backtest</div>'
           + '  <div style="display:flex;gap:6px;align-items:center;">'
           +     rbBody
           + '    <span style="font-size:7px;padding:1px 5px;border-radius:2px;background:rgba(107,63,160,0.12);color:var(--purple);letter-spacing:0.5px;">'+rbWindow+' n='+rb.totalSignals+'</span>'
@@ -3774,7 +3774,7 @@ function simNowickBacktest(k){
     else if(ew === 'bull' && np < activeBtm){ dir = 'bear'; choch = true; }
     if(!choch) continue;
     
-    // 3/3 alignment check
+    // 4/4 alignment check
     if(dir !== tl) continue;
     
     // Build trade: entry=np, stop=opposing pivot, target=2R
@@ -3932,7 +3932,7 @@ var HISTORICAL = {};
 //
 // Used for:
 //   1. Per-pair dot indicator (eventsAffecting)
-//   2. Alert deferral when 3/3 fires within 2h of a high-impact event
+//   2. Alert deferral when 4/4 fires within 2h of a high-impact event
 //   3. Summary widget on the Backtest tab
 var EVENTS = [];
 var EVENTS_UPDATED = null;
@@ -4281,7 +4281,7 @@ function detectFifteenMinOB(k, dailyZoneLo, dailyZoneHi, direction){
 
 // Returns an inline HTML string suggesting a refined 15m entry zone if OB
 // detection is active. Empty string if not yet ready or no OB found.
-// Called from the 3/3 alert renderer to enhance the watch-zone display.
+// Called from the 4/4 alert renderer to enhance the watch-zone display.
 function renderOBSuggestion(k, direction){
   if(!INTRADAY_READY) return '';
   var wew = WICKATOR_EW[k];
@@ -4623,7 +4623,7 @@ function computeBacktestGate(k){
   // the per-pair card body actually displays as "n=NNN bt"; the legacy
   // tier-1a gate above only fires when the Wickator W2-zone retest count
   // hits its threshold, which is a much narrower criterion than what
-  // calcRecentBacktest needs (h1>=24, m15>=50, plus a 3/3-aligned CHoCH
+  // calcRecentBacktest needs (h1>=24, m15>=50, plus a 4/4-aligned CHoCH
   // historically). Without this branch, the readiness strip undercounts
   // dramatically — user saw "3 REAL BACKTEST" while the cards below
   // showed 15+ pairs with real n=NNN data.
@@ -5443,7 +5443,7 @@ function simWickatorRealBacktest(k){
   //      stop distance >= 0.5% of price.
   //
   // For setups failing either threshold (tight zones with tight stops, common
-  // for advanced Wickator setups), the live strategy uses 3/3 confluence
+  // for advanced Wickator setups), the live strategy uses 4/4 confluence
   // filtering (EW cloud + 1H trendline + 15m CHoCH) which we cannot reproduce
   // historically. Returning null falls the dashboard back to the structural
   // estimate ("~XX% est"), which is more honest than a noise-driven WR.
@@ -5873,7 +5873,7 @@ function setView(k,tf,btn){STATE[k].view=tf;var parent=btn.closest('.cbtns');if(
 // ── Log ───────────────────────────────────────────────────────
 function logSignal(k,dir){var key=k+'-'+dir;if(loggedSess[key])return;loggedSess[key]=true;var m=MKTS[k],t=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),col=dir==='bear'?'var(--bear)':'var(--bull)',bg=dir==='bear'?'var(--beart)':'var(--bullt)';var snapId=null;try{snapId=captureTradingSnapshot(k,dir);}catch(e){}var msg=(dir==='bear'?'&#128308;':'&#128994;')+' '+m.sym+' 4/4 '+(dir==='bear'?'BEAR':'BULL')+' &#183; Watch zone:'+setupField(k,'entry')+' &#183; Stop ref:'+setupField(k,'stop')+' &#183; Target:'+setupField(k,'tgt')+' &#183; '+setupField(k,'rr')+' &#183; Confirm on 15m';logItems.unshift({k:k,dir:dir,msg:msg,t:t,col:col,bg:bg,sym:m.sym,snapId:snapId});if(logItems.length>80)logItems.pop();renderLog();}
 
-// Emit a "cancelled" entry to the signal log when a previously-logged 3/3
+// Emit a "cancelled" entry to the signal log when a previously-logged 4/4
 // alert is invalidated by an opposing 15m Nowick CHoCH. Clears loggedSess
 // for that direction so a future re-flip can re-arm the alert normally.
 function logCancellation(k, cancelledDir, reason){
@@ -5998,7 +5998,7 @@ var JOURNAL_KEY = 'vit_journal_v1';
 var journalEntries = [];
 
 // ── PRE-TRADE SNAPSHOT CAPTURE ─────────────────────────────────
-// When 3/3 confluence first fires for a pair, captureTradingSnapshot()
+// When 4/4 confluence first fires for a pair, captureTradingSnapshot()
 // records the dashboard state at that exact moment. The snapshot becomes
 // part of the audit trail when the user later logs an actual trade for
 // the same pair+direction. This prevents reconstructing journal entries
@@ -6013,7 +6013,7 @@ var SNAPSHOT_KEY = 'vit_snapshots_v1';
 var snapshotEntries = [];
 
 // Lightweight hash: not crypto-grade, but reveals casual tampering when
-// the recomputed hash doesn't match what was stored. For 3/3-trade
+// the recomputed hash doesn't match what was stored. For 4/4-trade
 // volumes this is sufficient discipline. (Browser SubtleCrypto would
 // be stronger but is async and complicates the flow.)
 function computeSnapshotHash(snap){
@@ -6058,7 +6058,7 @@ function saveSnapshots(){
 }
 
 // Captures a tamper-evident snapshot of the dashboard state at the moment
-// 3/3 confluence fires for pair k. Idempotent within the same minute —
+// 4/4 confluence fires for pair k. Idempotent within the same minute —
 // won't double-capture if called repeatedly for the same firing.
 // Returns the snapshot ID for journal-linkage, or null if capture fails.
 function captureTradingSnapshot(k, dir){
@@ -6132,7 +6132,7 @@ function verifySnapshot(snap){
 
 // Find the most recent snapshot for a (pair, direction) combo within
 // the last N hours. Used when logging a journal entry to link the
-// trade to its original 3/3 firing.
+// trade to its original 4/4 firing.
 function findSnapshotForTrade(k, dir, hoursAgo){
   hoursAgo = hoursAgo == null ? 24 : hoursAgo;
   var cutoff = Date.now() - hoursAgo * 3600 * 1000;
@@ -6271,7 +6271,7 @@ function addJournalEntry(){
 
   // Look up the most recent snapshot for this pair+direction within the
   // last 24 hours. If found, link it to the journal entry — the entry is
-  // backed by a captured 3/3 firing snapshot. If not found, the entry is
+  // backed by a captured 4/4 firing snapshot. If not found, the entry is
   // still saved but flagged as "manual entry, no captured snapshot".
   var snap = (typeof findSnapshotForTrade === 'function') ? findSnapshotForTrade(k, dir, 24) : null;
 
@@ -6622,7 +6622,7 @@ function renderJournal(){
       : '';
     actions += '<button onclick="deleteJournalEntry(\''+e.id+'\')" style="background:transparent;color:var(--inkd);border:1px solid var(--rule);padding:4px 8px;font-size:9px;border-radius:2px;cursor:pointer;">Delete</button>';
 
-    // Snapshot link badge — if a 3/3 firing snapshot was captured at trade time
+    // Snapshot link badge — if a 4/4 firing snapshot was captured at trade time
     var snapBadge = '';
     if(e.snapId){
       // Find the snapshot to verify integrity
@@ -6639,11 +6639,11 @@ function renderJournal(){
         var minsBeforeEntry = Math.round((e.ts - snapShot.ts) / 60000);
         snapBadge = '<span onclick="toggleSnapshotDetail(\''+e.id+'\')" '
           + 'style="cursor:pointer;font-family:Orbitron,monospace;font-size:7.5px;font-weight:700;padding:2px 6px;border-radius:2px;background:'+bgc+';color:'+bcol+';margin-left:8px;letter-spacing:0.4px;border:1px solid '+bcol+';" '
-          + 'title="3/3 fired at '+snapTimeStr+' ('+minsBeforeEntry+'min before journal entry). Click for full state.">'
+          + 'title="4/4 fired at '+snapTimeStr+' ('+minsBeforeEntry+'min before journal entry). Click for full state.">'
           + btxt + '</span>';
       }
     } else {
-      snapBadge = '<span style="font-family:Orbitron,monospace;font-size:7.5px;font-weight:700;padding:2px 6px;border-radius:2px;background:rgba(0,0,0,0.04);color:var(--inkd);margin-left:8px;letter-spacing:0.4px;" title="No 3/3 firing snapshot found within 24h of this entry. Manually-logged trade.">MANUAL</span>';
+      snapBadge = '<span style="font-family:Orbitron,monospace;font-size:7.5px;font-weight:700;padding:2px 6px;border-radius:2px;background:rgba(0,0,0,0.04);color:var(--inkd);margin-left:8px;letter-spacing:0.4px;" title="No 4/4 firing snapshot found within 24h of this entry. Manually-logged trade.">MANUAL</span>';
     }
 
     return '<div style="background:var(--sf);border:1px solid var(--rule);border-radius:3px;padding:10px 12px;margin-bottom:8px;">'
@@ -6673,7 +6673,7 @@ function renderJournal(){
 }
 
 // Toggle the snapshot detail panel for a journal entry. Renders a
-// formatted view of the captured dashboard state at 3/3 firing time.
+// formatted view of the captured dashboard state at 4/4 firing time.
 function toggleSnapshotDetail(entryId){
   var panel = document.getElementById('snapDetail-' + entryId);
   if(!panel) return;
@@ -6713,7 +6713,7 @@ function toggleSnapshotDetail(entryId){
     '<div style="font-weight:700;color:'+(intact?'var(--bull)':'var(--bear)')+';margin-bottom:4px;">'
     +   (intact ? '&#10003; SNAPSHOT INTACT' : '&#9888; HASH MISMATCH — SNAPSHOT TAMPERED') + ' &middot; hash: ' + snap.hash
     + '</div>'
-    + '<div>3/3 fired: '+snapTime+'</div>'
+    + '<div>4/4 fired: '+snapTime+'</div>'
     + '<div>Journal logged: '+entryTime+'</div>'
     + '<div>Build at fire: '+(snap.buildVersion||'—')+'</div>'
     + '<div>Price at fire: '+snap.price+'</div>'
@@ -6796,7 +6796,7 @@ function updateStatusBar(){
 
 function setFilter(mode){filterMode=mode;var map={all:'fa',major:'fm',minor:'fx',comm:'fc',crypto:'fc',fire:'ff'};['all','major','minor','comm','crypto','fire'].forEach(function(f){var el=document.getElementById('fp-'+f);if(!el)return;el.className='fpill';if(f===mode)el.classList.add(map[f]);if(f==='fire'){el.style.borderColor='var(--bear)';el.style.color=mode==='fire'?'#fff':'var(--bear)';}if(f==='comm'||f==='crypto'){el.style.borderColor='var(--orange)';el.style.color=(mode===f)?'#fff':'var(--orange)';}});Object.keys(MKTS).forEach(function(k){updateOV(k);var tab=document.getElementById('tab-'+k);if(tab)tab.style.display=shouldShow(k)?'':'none';});}
 
-function runScan(){loggedSess={};Object.keys(MKTS).forEach(function(k){refreshAlert(k);});var cnt=Object.keys(MKTS).filter(isFire).length;var n=Object.keys(MKTS).length;addNote('&#9889; Scan complete &#8212; '+cnt+' active 3/3 signal'+(cnt!==1?'s':'')+' across '+n+' markets.');}
+function runScan(){loggedSess={};Object.keys(MKTS).forEach(function(k){refreshAlert(k);});var cnt=Object.keys(MKTS).filter(isFire).length;var n=Object.keys(MKTS).length;addNote('&#9889; Scan complete &#8212; '+cnt+' active 4/4 signal'+(cnt!==1?'s':'')+' across '+n+' markets.');}
 
 function switchMkt(k){activeMkt=k;document.querySelectorAll('.mtab').forEach(function(t){t.classList.remove('active');});document.querySelectorAll('.mpanel').forEach(function(p){p.classList.remove('active');});var tab=document.getElementById('tab-'+k),panel=document.getElementById('mp-'+k);if(tab)tab.classList.add('active');if(panel)panel.classList.add('active');if(k!=='overview')setTimeout(function(){drawChart(k);},50);}
 function switchPage(p){document.querySelectorAll('.page').forEach(function(el){el.classList.remove('active');});document.querySelectorAll('.ntab').forEach(function(t){t.classList.remove('active');});var pg=document.getElementById('page-'+p);if(pg)pg.classList.add('active');var idx=['dash','bt','log'].indexOf(p),tabs=document.querySelectorAll('.ntab');if(idx>=0&&tabs[idx])tabs[idx].classList.add('active');if(p==='bt')setTimeout(drawEquity,80);if(p==='dash'&&activeMkt!=='overview')setTimeout(function(){drawChart(activeMkt);},60);}
@@ -9013,7 +9013,7 @@ Object.keys(MKTS).forEach(function(k){ pivotH[k]=null; pivotL[k]=null; });
 // behaviour, not echoes of the macro seed.
 //
 // When the three timeframes truly agree (all bull or all bear via
-// independent calculation), THAT'S a real 3/3 confluence. When they
+// independent calculation), THAT'S a real 4/4 confluence. When they
 // disagree, the dashboard shows the disagreement honestly.
 
 function calcIndependentDir(bars, lookback){
@@ -9124,7 +9124,7 @@ function calcIndependentNWDir(k){
 // Standard 14-period RSI with Wilder smoothing, computed from h1 close
 // prices. Phase A is purely informational — surfaces the value + the
 // last-two-bar trajectory on the hourly layer card. Phase B (TBD) will
-// wire it into the 3/3 alert gate so signals only fire when RSI agrees.
+// wire it into the 4/4 alert gate so signals only fire when RSI agrees.
 //
 // Returns the latest RSI (0-100) or null if insufficient data.
 function calcRSI(closes, period){
@@ -9243,18 +9243,18 @@ function refreshHourlyRSI(k){
   STATE[k].rsi1HTraj = calcRSITrajectory(closes, 14, 3);
 }
 
-// ── RECENT 3/3 BACKTEST ENGINE (Option A from rule recalc decision) ─────
+// ── RECENT 4/4 BACKTEST ENGINE (Option A from rule recalc decision) ─────
 //
 // Walks the available 1H and 15M historical buffers, computes independent
 // EW/TL/NW direction at each historical 15m bar, and counts trades that
-// would have fired given genuine 3/3 alignment using the v45 logic.
+// would have fired given genuine 4/4 alignment using the v45 logic.
 //
 // IMPORTANT HONESTY NOTES:
 //
 // 1. The "EW direction" is computed once from current daily data — daily
 //    direction barely changes within a 2-week window, so we treat it as
 //    constant. Strictly this is 2/3 alignment (TL+NW agree, EW assumed
-//    constant), not full 3/3 alignment recalculated dynamically.
+//    constant), not full 4/4 alignment recalculated dynamically.
 //
 // 2. The window is whatever's actually buffered: typically 2-3 weeks for
 //    1H (HISTORY[k].h1) and 10-15 days for 15M (HISTORY[k].m15). Sample
@@ -9781,7 +9781,7 @@ function calcRecentBacktest(k){
         // alignedDir at this bar's timestamp, update creator levels and
         // reset the expiry counter.
         if(j > creatorIdxLive && isFreshCHoCH(j)){
-          // CRITICAL: verify 3/3 alignment is still maintained at bar j.
+          // CRITICAL: verify 4/4 alignment is still maintained at bar j.
           // The macro (EW) and hourly (TL) directions must still match
           // alignedDir. If TL flipped (which often happens during extended
           // moves), we DON'T re-arm — we let the original signal play out
@@ -10595,7 +10595,7 @@ function detect15mLevels(k){
 }
 
 // ── 15M INTRADAY ENTRY SIGNAL (CHoCH creator candle midpoint retest) ──
-// When 3/3 confluence is aligned (EW/TL/NW all same direction) AND a
+// When 4/4 confluence is aligned (EW/TL/NW all same direction) AND a
 // recent NW CHoCH has fired, this detects an intraday-grade entry
 // opportunity at the creator candle's body midpoint with 1:1 R:R.
 //
@@ -10613,7 +10613,7 @@ function detect15mLevels(k){
 //
 // Returns: { state, midpoint, stop, target, R, creatorBar, barsAgo, barsRemaining, dir } | null
 //   state: 'armed' (awaiting retest) | 'triggered' (retest happened) | 'expired' | 'invalidated'
-//   null when 3/3 not aligned or no recent CHoCH found
+//   null when 4/4 not aligned or no recent CHoCH found
 // ── OPPOSING CHoCH DETECTOR ──────────────────────────────────────
 // Detects a structure flip against an active setup using the proper
 // SMC definition: price makes a new structural low (after a bear setup)
@@ -10740,7 +10740,7 @@ function detectIntradaySignal(k){
   var tlDir = STATE[k].tl;
   var nwDir = STATE[k].nw;
 
-  // 3/3 alignment requirement — the safety filter
+  // 4/4 alignment requirement — the safety filter
   if(!ewDir || !tlDir || !nwDir) return null;
   if(ewDir !== 'bull' && ewDir !== 'bear') return null;
   var dir = ewDir;
@@ -10751,8 +10751,8 @@ function detectIntradaySignal(k){
   var alignmentBroken = (ewDir !== tlDir || tlDir !== nwDir);
 
   // ── SEED/ENGINE CONFLICT GUARD ───────────────────────────────
-  // The intraday signal is a sub-strategy of the 3/3 macro setup.
-  // If the macro 3/3 banner is being blocked by a direction conflict
+  // The intraday signal is a sub-strategy of the 4/4 macro setup.
+  // If the macro 4/4 banner is being blocked by a direction conflict
   // (seed disagrees with engine), the intraday signal must also be
   // blocked — it would be telling the user to BUY when their seed
   // thesis says SELL.
@@ -10947,9 +10947,9 @@ function detectIntradaySignal(k){
   //
   // Critical constraint: re-arm only valid if EW + TL still aligned with
   // direction. We already verified that at the top of detectIntradaySignal
-  // (the 3/3 alignment gate). If macro/hourly have flipped, we never reach
+  // (the 4/4 alignment gate). If macro/hourly have flipped, we never reach
   // this code. So every creator we find here is by definition aligned with
-  // 3/3 confluence as of NOW.
+  // 4/4 confluence as of NOW.
   for(var i = searchStart; i < n; i++){
     var lookback = bars.slice(Math.max(0, i - 8), i);
     if(lookback.length < 5) continue;
@@ -11217,7 +11217,7 @@ function detectIntradaySignal(k){
     }
   } catch(e){ chochDiag = null; }
 
-  // If 3/3 alignment was broken between arm and now (NW or TL flipped vs
+  // If 4/4 alignment was broken between arm and now (NW or TL flipped vs
   // macro), force the signal into a cancelled state regardless of what
   // the in-bar walk concluded. The misalignment IS the invalidation —
   // there's no point in continuing to track an "armed" or "in trade" setup
@@ -11408,7 +11408,7 @@ function liveIntradayWinRate(k){
 // signal that would have fired in the past. Count target-hits vs stop-hits.
 // Honest sample over what we currently have buffered.
 function simulateIntradayWinRate(k){
-  // Filter: only run simulation on pairs currently 3/3 aligned. This matches
+  // Filter: only run simulation on pairs currently 4/4 aligned. This matches
   // what the live signal would do — if EW/TL/NW don't all match, no signal
   // would fire, so simulating "what would have happened" on misaligned pairs
   // counts trades that wouldn't actually exist. The per-pair backtest card
@@ -11494,7 +11494,7 @@ function simulateIntradayWinRate(k){
     var swingHi = Math.max.apply(null, lookback.map(function(b){return b.h;}));
     var swingLo = Math.min.apply(null, lookback.map(function(b){return b.l;}));
     var setup = null;
-    // Only test direction matching current 3/3 alignment, and use the
+    // Only test direction matching current 4/4 alignment, and use the
     // wider prominence-aware BoS scan (matches live detector).
     var bosSlice = bars.slice(Math.max(0, i - SIM_BOS_LOOKBACK), i);
     if(alignedDir === 'bear' && bars[i].c < swingLo){
@@ -11712,7 +11712,7 @@ function classifySimulatedTrades(k){
     var setup = null;
     // Use wider BoS slice for stop placement — same approach as live detector
     var bosSlice = bars.slice(Math.max(0, i - CLS_BOS_LOOKBACK), i);
-    // Only test the direction matching current 3/3 alignment.
+    // Only test the direction matching current 4/4 alignment.
     if(alignedDir === 'bear' && bars[i].c < swingLo){
       var entry = bars[i].h, stop = findRecentHigh(bosSlice);
       if(stop > entry){
@@ -12043,7 +12043,7 @@ function applyPrice(k,pd) {
   // Priority: live 1H structural calc → server directions.json → keep
   // last known value (else neutral). NEVER fall back to STATE[k].ew —
   // the hourly is an independent layer; copying the macro manufactures
-  // false 3/3 confluence where all three layers echo one stale source.
+  // false 4/4 confluence where all three layers echo one stale source.
   var tlCalc = (typeof calcIndependentTLDir === 'function') ? calcIndependentTLDir(k) : null;
   if(tlCalc === 'bull' || tlCalc === 'bear'){
     STATE[k].tl = tlCalc;
@@ -12218,7 +12218,7 @@ function applyPrice(k,pd) {
   STATE[k].nwChoCH = nwResult.choch;
 
   // Hourly RSI — Phase A: compute + stash on STATE for display only.
-  // No effect on the 3/3 score yet; that's Phase B.
+  // No effect on the 4/4 score yet; that's Phase B.
   try { if(typeof refreshHourlyRSI === 'function') refreshHourlyRSI(k); } catch(e){}
 
   // Nowick entry setup (only computed at CHoCH moment, Pine Script literal)
@@ -12229,7 +12229,7 @@ function applyPrice(k,pd) {
       // Log this trade signal
       logLiveSignal(k, setup);
     }
-    // Opposing-CHoCH cancellation: if a 3/3 alert was previously logged in
+    // Opposing-CHoCH cancellation: if a 4/4 alert was previously logged in
     // the opposite direction, emit an explicit cancellation entry so the
     // user has a visible signal that the prior setup is dead.
     try {
@@ -12249,9 +12249,9 @@ function applyPrice(k,pd) {
 
 function logLiveSignal(k, setup){
   // Add a LIVE entry to the signal log when a fresh Nowick CHoCH fires
-  // with 3/3 confluence
+  // with 4/4 confluence
   var score = sc(k);
-  if(score.tot < 3) return; // Only log fully-confirmed 3/3 setups
+  if(score.tot < 3) return; // Only log fully-confirmed 4/4 setups
   if(score.dir !== setup.dir) return;
   
   var m = MKTS[k];
@@ -12264,7 +12264,7 @@ function logLiveSignal(k, setup){
     if(p>=10) return p.toFixed(3);
     return p.toFixed(5);
   };
-  var msg = dirIcon + ' ' + m.sym + ' ' + dirWord + ' 3/3 (LIVE) \u00B7 ' +
+  var msg = dirIcon + ' ' + m.sym + ' ' + dirWord + ' 4/4 (LIVE) \u00B7 ' +
     'Entry: ' + fmt(setup.entry) + ' \u00B7 ' +
     'SL: ' + fmt(setup.stop) + ' \u00B7 ' +
     'TP: ' + fmt(setup.target) + ' \u00B7 ' +
