@@ -925,11 +925,13 @@ function calcWickatorTPs(k){
             source:'auto', phase:'Approximate — auto-derived from daily swing structure' };
     } else {
       // Last resort: server-computed macro setup from directions.json.
-      // The browser hasn't loaded the deep daily history (quota miss on
-      // mobile is the usual cause), but the Actions runner always has it
-      // and ships the same swing-based derivation in directions.json.
+      // Only consume when its direction matches the live engine — otherwise
+      // we'd render bull-aligned BUY ZONE / TP1 / TP2 on a card whose pill
+      // says bear (the XAU/USD-style contradiction the user reported).
       var srv = (typeof SERVER_DIR !== 'undefined' && SERVER_DIR[k] && SERVER_DIR[k].macro) || null;
-      if(srv && srv.dir && srv.w2Zone && srv.invalid != null){
+      var liveDir = (typeof STATE !== 'undefined' && STATE[k] && STATE[k].ew) || null;
+      var srvDirOK = srv && srv.dir && (!liveDir || liveDir === 'neutral' || srv.dir === liveDir);
+      if(srvDirOK && srv.w2Zone && srv.invalid != null){
         w = { dir:srv.dir, anchor:srv.anchor, pivot:srv.pivot, w2Zone:srv.w2Zone,
               invalid:srv.invalid, tp1Override:srv.tp1, tp2Override:srv.tp2,
               source:'auto', phase:'Approximate — server-derived from daily swing structure' };
@@ -1558,8 +1560,15 @@ function setupField(k, field){
   if(isTBD || seedStale){
     var auto = getAutoSetup(k);
     if(auto && auto[field] != null && auto[field] !== '') return auto[field];
+    // Server-computed macro setup — only consume it when its direction
+    // matches the live engine. Otherwise the displayed pill (engineDir)
+    // and the displayed targets (srv.dir) contradict each other — e.g.
+    // BEAR pill with BUY ZONE numbers from a server that read bull.
     var srv = (typeof SERVER_DIR !== 'undefined' && SERVER_DIR[k] && SERVER_DIR[k].macro) || null;
-    if(srv && srv[field] != null && srv[field] !== '') return srv[field];
+    if(srv && srv[field] != null && srv[field] !== '' &&
+       (!engineDir || engineDir === 'neutral' || srv.dir === engineDir)){
+      return srv[field];
+    }
   }
   return (m && m[field]) || '';
 }
@@ -2158,6 +2167,14 @@ function getLayerDet(k,layer,sig){
       var _seedEW = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k]) ? WICKATOR_EW[k] : null;
       if(_seedEW && _seedEW.dir && (sig === 'bull' || sig === 'bear') && _seedEW.dir !== sig){
         conflictTag = ' <span style="color:var(--gold);font-size:8.5px;font-weight:700;" title="Engine ('+sig.toUpperCase()+') and WickatorFX seed ('+_seedEW.dir.toUpperCase()+') disagree on macro direction. Targets below have been overridden to the engine direction so they don\'t contradict the bull/bear pills.">&#9888; engine '+sig.toUpperCase()+' / seed '+_seedEW.dir.toUpperCase()+'</span>';
+      }
+      // Server/engine disagreement — the server-side detector (driving
+      // Telegram alerts) read a different macro direction than the
+      // dashboard's in-browser engine. Surface it inline so the user can
+      // see WHY the alert and dashboard score might differ.
+      var _srv = (typeof SERVER_DIR !== 'undefined' && SERVER_DIR[k]) ? SERVER_DIR[k] : null;
+      if(_srv && _srv.ew && (sig === 'bull' || sig === 'bear') && _srv.ew !== sig){
+        conflictTag += ' <span style="color:var(--purple);font-size:8.5px;font-weight:700;" title="The in-browser engine read '+sig.toUpperCase()+' but the server-side detector (Telegram alert source) read '+_srv.ew.toUpperCase()+'. The dashboard pill shows the engine direction; targets below use the engine direction whenever the server\'s setup disagrees, so the card stays internally consistent.">&#9888; engine '+sig.toUpperCase()+' / server '+_srv.ew.toUpperCase()+'</span>';
       }
     } catch(e){}
     if(sig==='bear')return '<span class="rb">Bearish</span> macro. LH/LL daily structure. Target: <span class="rb">'+setupField(k,'tgt')+'</span>'+conflictTag+waveSuffix+tpSuffix;
