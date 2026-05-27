@@ -119,6 +119,60 @@ def calc_independent_dir(bars, lookback=8):
     return last_break_dir
 
 
+def _bos_min_prominence(px):
+    """Prominence threshold for structural pivot detection. Mirrors the JS
+    findStructuralHigh/Low prominence math used by the dashboard so the
+    Telegram alert's stop matches the displayed 15m intraday stop."""
+    ap = abs(px) if px is not None else 0
+    if ap > 1000:
+        return ap * 0.001
+    if ap > 50:
+        return ap * 0.0008
+    if ap > 5:
+        return ap * 0.0008
+    return 0.0005
+
+
+def _find_structural_high(bars_slice, min_prom):
+    """Return the most-recent prominent swing high in bars_slice (BoS
+    reference for a bear stop). Falls back to the slice max."""
+    n = len(bars_slice)
+    for j in range(n - 2, 1, -1):
+        if j < 1 or j >= n - 1:
+            continue
+        this_h = bars_slice[j].get('h')
+        if this_h is None:
+            continue
+        prev1 = bars_slice[j - 1].get('h', this_h)
+        prev2 = bars_slice[j - 2].get('h', prev1) if j >= 2 else prev1
+        left_h = max(prev1, prev2)
+        right_h = bars_slice[j + 1].get('h', this_h)
+        if this_h > left_h and this_h > right_h and (this_h - max(left_h, right_h)) >= min_prom:
+            return this_h
+    highs = [b.get('h') for b in bars_slice if b.get('h') is not None]
+    return max(highs) if highs else None
+
+
+def _find_structural_low(bars_slice, min_prom):
+    """Return the most-recent prominent swing low (BoS reference for a bull
+    stop). Falls back to the slice min."""
+    n = len(bars_slice)
+    for j in range(n - 2, 1, -1):
+        if j < 1 or j >= n - 1:
+            continue
+        this_l = bars_slice[j].get('l')
+        if this_l is None:
+            continue
+        prev1 = bars_slice[j - 1].get('l', this_l)
+        prev2 = bars_slice[j - 2].get('l', prev1) if j >= 2 else prev1
+        left_l = min(prev1, prev2)
+        right_l = bars_slice[j + 1].get('l', this_l)
+        if this_l < left_l and this_l < right_l and (min(left_l, right_l) - this_l) >= min_prom:
+            return this_l
+    lows = [b.get('l') for b in bars_slice if b.get('l') is not None]
+    return min(lows) if lows else None
+
+
 def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry_bars=8):
     """Port of the essential parts of detectIntradaySignal from
     dashboard.html (~L9290). Detects the state of the 1:1-RR intraday
@@ -191,6 +245,32 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry
         else:
             fib_entry = creator_high - creator_range * 0.382
 
+    # Structural stop + 1:1 target (mirrors detectIntradaySignal in
+    # dashboard.html — BoS lookback 24 with prominence-aware swing
+    # finder, target at 1:1 R:R from entry). Bundled into the result so
+    # the Telegram alert and the dashboard reference the same levels.
+    BOS_LOOKBACK = 24
+    bos_slice = bars[max(0, creator_idx - BOS_LOOKBACK):creator_idx]
+    creator_close = creator.get('c')
+    px_for_prom = creator_close if creator_close is not None else creator_high
+    min_prom = _bos_min_prominence(px_for_prom)
+    stop = None
+    target = None
+    fib_target = None
+    if bos_slice and entry is not None:
+        if aligned_dir == 'bear':
+            stop = _find_structural_high(bos_slice, min_prom)
+            if stop is not None and stop > entry:
+                target = entry - (stop - entry)
+                if fib_entry is not None and stop > fib_entry:
+                    fib_target = fib_entry - (stop - fib_entry)
+        else:
+            stop = _find_structural_low(bos_slice, min_prom)
+            if stop is not None and stop < entry:
+                target = entry + (entry - stop)
+                if fib_entry is not None and stop < fib_entry:
+                    fib_target = fib_entry + (fib_entry - stop)
+
     # Trigger walk: track BOTH wick and fib trigger bars independently. Both
     # variants share the same round-trip lift gate — neither fires until
     # price has displaced past the creator's far edge on a strictly earlier
@@ -239,11 +319,14 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry
         'creator_high': creator_high,
         'creator_low': creator_low,
         'entry': entry,
+        'stop': stop,
+        'target': target,
         'trigger_bar_idx': trigger_bar_idx,
         'trigger_ts': bars[trigger_bar_idx].get('t') if trigger_bar_idx >= 0 else None,
         # Fib-zone half-size variant
         'fib_state': fib_state,
         'fib_entry': fib_entry,
+        'fib_target': fib_target,
         'fib_trigger_bar_idx': fib_trigger_bar_idx,
         'fib_trigger_ts': bars[fib_trigger_bar_idx].get('t') if fib_trigger_bar_idx >= 0 else None,
     }
@@ -1020,9 +1103,12 @@ def scan_pairs(intraday_data, historical_data):
             'sig_state': sig.get('state') if sig else None,
             'sig_creator_ts': sig.get('creator_ts') if sig else None,
             'sig_entry': sig.get('entry') if sig else None,
+            'sig_stop': sig.get('stop') if sig else None,
+            'sig_target': sig.get('target') if sig else None,
             'sig_trigger_ts': sig.get('trigger_ts') if sig else None,
             'sig_fib_state': sig.get('fib_state') if sig else None,
             'sig_fib_entry': sig.get('fib_entry') if sig else None,
+            'sig_fib_target': sig.get('fib_target') if sig else None,
             'sig_fib_trigger_ts': sig.get('fib_trigger_ts') if sig else None,
         }
     return out
@@ -1074,10 +1160,14 @@ def format_alert(pair, info, kind):
 
     if kind == 'triggered':
         # Wick retest — full size, deeper retrace (current behaviour).
-        entry_str = _fmt_price(info.get('sig_entry'))
+        entry_str  = _fmt_price(info.get('sig_entry'))
+        stop_str   = _fmt_price(info.get('sig_stop'))
+        target_str = _fmt_price(info.get('sig_target'))
         text = (
             f"🎯 <b>TRIGGERED — {action} {sym}</b> (full size)\n"
-            f"Entry hit: <code>{entry_str}</code> (creator wick)\n"
+            f"Entry:  <code>{entry_str}</code> (creator wick)\n"
+            f"Stop:   <code>{stop_str}</code>\n"
+            f"Target: <code>{target_str}</code> (1:1 R:R)\n"
             f"Current px: <code>{_fmt_price(info['price'])}</code>\n"
             f"{layers}\n"
             f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
@@ -1086,11 +1176,15 @@ def format_alert(pair, info, kind):
 
     if kind == 'triggered-fib':
         # Fib-zone entry — 38% retrace of the creator candle, HALF size.
-        # Captures setups that would have expired without reaching the wick.
-        entry_str = _fmt_price(info.get('sig_fib_entry'))
+        # Stop matches wick (structural BoS); target is 1:1 from fib entry.
+        entry_str  = _fmt_price(info.get('sig_fib_entry'))
+        stop_str   = _fmt_price(info.get('sig_stop'))   # same stop as wick
+        target_str = _fmt_price(info.get('sig_fib_target'))
         text = (
             f"🎯 <b>FIB-ZONE — {action} {sym}</b> (half size)\n"
-            f"Entry hit: <code>{entry_str}</code> (38% Fib of creator candle)\n"
+            f"Entry:  <code>{entry_str}</code> (38% Fib of creator candle)\n"
+            f"Stop:   <code>{stop_str}</code>\n"
+            f"Target: <code>{target_str}</code> (1:1 R:R from fib entry)\n"
             f"Current px: <code>{_fmt_price(info['price'])}</code>\n"
             f"{layers}\n"
             f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
