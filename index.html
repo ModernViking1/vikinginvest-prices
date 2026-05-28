@@ -195,6 +195,43 @@ section{padding:84px 0;}
 .vbox b{font-family:'Orbitron',monospace;font-size:13px;font-weight:700;}
 .vbox span{font-size:14px;color:var(--inkm);font-weight:300;}
 
+/* ── EXPERIENCE ── */
+.experience{background:var(--bg2);}
+.exp-banks{
+  display:flex;flex-wrap:wrap;gap:10px;justify-content:center;
+  margin-bottom:54px;
+}
+.exp-banks .bank{
+  font-family:'Orbitron',monospace;font-size:11px;font-weight:700;
+  letter-spacing:1.5px;text-transform:uppercase;
+  padding:11px 18px;background:var(--sf);border:1px solid var(--rule);
+  border-radius:8px;color:var(--ink);
+  transition:border-color .15s ease, transform .12s ease, box-shadow .15s ease;
+}
+.exp-banks .bank:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:var(--shad);}
+.exp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:42px;}
+.exp-card{
+  background:var(--sf);border:1px solid var(--rule);border-radius:14px;
+  padding:28px 24px;box-shadow:var(--shad);
+}
+.exp-card .exp-eyebrow{
+  font-family:'Orbitron',monospace;font-size:9.5px;font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;color:var(--gold);
+  margin-bottom:12px;
+}
+.exp-card h3{font-size:14px;font-weight:700;line-height:1.4;margin-bottom:10px;letter-spacing:0.2px;}
+.exp-card p{font-size:14px;color:var(--inkm);font-weight:300;line-height:1.6;}
+.exp-quals{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:18px;
+  padding-top:32px;border-top:1px solid var(--rule);
+  font-size:13.5px;color:var(--inkm);font-weight:300;
+}
+.exp-quals .exp-qual-label{
+  display:block;font-family:'Orbitron',monospace;font-size:9.5px;
+  font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--ink);margin-bottom:5px;
+}
+
 /* ── CONTACT ── */
 .contact{
   background:var(--ink);color:var(--bg);text-align:center;
@@ -237,8 +274,9 @@ section{padding:84px 0;}
   .nav-links a{padding:13px 0;border-bottom:1px solid var(--rule);}
   .nav-links .btn{margin-top:12px;justify-content:center;}
   .nav-toggle{display:block;}
-  .grid-3,.steps,.platform-grid,.about-grid{grid-template-columns:1fr;}
+  .grid-3,.steps,.platform-grid,.about-grid,.exp-grid,.exp-quals{grid-template-columns:1fr;}
   .platform-grid,.about-grid{gap:38px;}
+  .exp-quals{gap:22px;}
   .hero-meta{gap:24px;}
 }
 </style>
@@ -260,6 +298,7 @@ section{padding:84px 0;}
       <a href="#platform">Platform</a>
       <a href="#process">How we work</a>
       <a href="#about">About</a>
+      <a href="#experience">Experience</a>
       <a href="#contact" class="btn btn-primary">Get in touch</a>
     </div>
   </div>
@@ -333,9 +372,9 @@ section{padding:84px 0;}
       <div class="card">
         <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L4 5v7c0 5 3.5 9 8 10 4.5-1 8-5 8-10V5l-8-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
         <h3>Regulatory &amp; Change Management</h3>
-        <p>Deep experience leading regulatory initiatives and large-scale
-          transformation programmes for the financial and banking sector
-          since 2011.</p>
+        <p>Two decades delivering BCBS&nbsp;248, SR&nbsp;11&#8209;7, MIFID,
+          Dodd&#8209;Frank and EMIR programmes for Tier-1 investment banks —
+          with the operating models, controls and reporting that go with them.</p>
       </div>
 
       <div class="card">
@@ -453,9 +492,9 @@ section{padding:84px 0;}
       <p>
         Viking Invest Ltd was founded in 2011 as a business management
         consultancy specialising in regulatory initiatives and change
-        management for the financial and banking sector. Our team brings
-        deep regulatory and financial markets expertise from large
-        transformation programmes at renowned financial institutions and
+        management for the financial and banking sector. We bring more
+        than twenty years of senior business analysis and delivery from
+        large transformation programmes at Tier-1 investment banks and
         blue-chip companies.
       </p>
       <p>
@@ -491,6 +530,59 @@ section{padding:84px 0;}
           <div><b>No lock-in</b><br><span>You own the code, the models and the knowledge we leave behind.</span></div>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ EXPERIENCE ══ -->
+<section id="experience" class="experience">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Track record</span>
+      <h2>Two decades inside the world's largest banks</h2>
+      <p>Twenty years of senior business analysis and regulatory delivery
+        across leading global investment banks — the foundation for the
+        work we do today.</p>
+    </div>
+
+    <div class="exp-banks">
+      <span class="bank">Mitsubishi UFJ</span>
+      <span class="bank">Royal Bank of Canada</span>
+      <span class="bank">Deutsche Bank</span>
+      <span class="bank">Credit Suisse</span>
+      <span class="bank">UBS</span>
+      <span class="bank">Barclays</span>
+    </div>
+
+    <div class="exp-grid">
+      <div class="exp-card">
+        <div class="exp-eyebrow">Regulatory delivery</div>
+        <h3>BCBS&nbsp;248 &middot; SR&nbsp;11&#8209;7 &middot; MIFID &middot; Dodd&#8209;Frank &middot; EMIR</h3>
+        <p>Built and delivered intraday liquidity, model risk and recovery
+          &amp; resolution programmes — with practical, hands-on knowledge
+          of the regulations that shape them.</p>
+      </div>
+      <div class="exp-card">
+        <div class="exp-eyebrow">Operating models &amp; systems</div>
+        <h3>TOM design, BRDs and front-to-back delivery</h3>
+        <p>Target Operating Model design and full project lifecycle delivery
+          on Smartstream TLM &middot; CMS &middot; IDLM, Murex, Gloss and
+          LSEG Refinitiv.</p>
+      </div>
+      <div class="exp-card">
+        <div class="exp-eyebrow">Front office &amp; risk</div>
+        <h3>Counterparty risk, PFE and intraday liquidity</h3>
+        <p>Centralised counterparty risk models, PFE work, intraday liquidity
+          controls and regulatory reporting — migrating from spreadsheets
+          to strategic platforms.</p>
+      </div>
+    </div>
+
+    <div class="exp-quals">
+      <div><span class="exp-qual-label">Trader accreditation</span>AI Trader CPD &middot; FX, Commodities, Indices</div>
+      <div><span class="exp-qual-label">Process</span>Six Sigma Green Belt</div>
+      <div><span class="exp-qual-label">Education</span>BSc International Business &middot; Copenhagen Business School</div>
+      <div><span class="exp-qual-label">Technical</span>Python &middot; Tableau &middot; Bloomberg &middot; Murex</div>
     </div>
   </div>
 </section>
