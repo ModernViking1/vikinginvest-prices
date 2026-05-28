@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>Viking Invest — Visitor Stats</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&amp;family=Mukta:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0ede8;--sf:#fff;--ink:#1c1a17;--inkm:#4a4640;--inkd:#9a9088;
+  --rule:#ddd8d0;--gold:#c8860a;
+  --shad:0 2px 12px rgba(0,0,0,0.07);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+}
+.wrap{max-width:640px;width:100%;}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:30px;justify-content:center;}
+.brand-dot{width:11px;height:11px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 4px rgba(200,134,10,0.16);}
+.brand-name{font-family:'Orbitron',monospace;font-size:14px;font-weight:900;letter-spacing:2px;text-transform:uppercase;}
+.eyebrow{
+  font-family:'Orbitron',monospace;font-size:11px;font-weight:700;
+  letter-spacing:2.5px;text-transform:uppercase;color:var(--gold);
+  text-align:center;display:block;margin-bottom:8px;
+}
+h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:center;margin-bottom:26px;}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px;}
+.card{
+  background:var(--sf);border:1px solid var(--rule);border-radius:14px;
+  padding:30px 22px;text-align:center;box-shadow:var(--shad);
+}
+.card .label{
+  font-family:'Orbitron',monospace;font-size:10px;font-weight:700;
+  letter-spacing:1.5px;text-transform:uppercase;color:var(--inkd);
+  margin-bottom:12px;
+}
+.card .num{
+  font-family:'Orbitron',monospace;font-size:44px;font-weight:900;
+  color:var(--ink);line-height:1;
+}
+.card .sub{font-size:12px;color:var(--inkd);margin-top:10px;font-family:'Orbitron',monospace;letter-spacing:0.5px;}
+.note{
+  font-size:12.5px;color:var(--inkm);line-height:1.7;text-align:center;
+  background:var(--sf);border:1px solid var(--rule);border-radius:8px;
+  padding:16px 18px;
+}
+.note a{color:var(--gold);}
+.actions{display:flex;gap:8px;justify-content:center;margin-top:18px;flex-wrap:wrap;}
+.actions button{
+  font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:1px;
+  text-transform:uppercase;padding:9px 16px;border-radius:6px;cursor:pointer;
+  background:transparent;border:1.5px solid var(--ink);color:var(--ink);
+  transition:background .15s, color .15s;
+}
+.actions button:hover{background:var(--ink);color:var(--bg);}
+.foot{font-size:11px;color:var(--inkd);text-align:center;margin-top:22px;}
+.foot a{color:var(--inkm);}
+@media(max-width:540px){
+  .cards{grid-template-columns:1fr;}
+  .card .num{font-size:36px;}
+}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <span class="brand-name">Viking Invest</span>
+    </div>
+    <span class="eyebrow">Visitor stats</span>
+    <h1>Unique visitors</h1>
+    <div class="cards">
+      <div class="card">
+        <div class="label">Consultancy site</div>
+        <div class="num" id="cntSite">&middot;&middot;&middot;</div>
+        <div class="sub">vikinginvest.ai</div>
+      </div>
+      <div class="card">
+        <div class="label">Trading platform</div>
+        <div class="num" id="cntDash">&middot;&middot;&middot;</div>
+        <div class="sub">/dashboard.html</div>
+      </div>
+    </div>
+    <div class="note">
+      Each number is unique browsers (one per device, ever). This page is
+      unlinked from the site and marked <code>noindex</code> so search engines
+      skip it &mdash; but anyone with the URL can view it.
+    </div>
+    <div class="actions">
+      <button onclick="loadAll()">Refresh</button>
+    </div>
+    <div class="foot">
+      Counter powered by <a href="https://github.com/JasonCameron/abacus" target="_blank" rel="noopener">abacus</a>.
+      Raw: <a id="rawSite" target="_blank" rel="noopener">site</a> &middot; <a id="rawDash" target="_blank" rel="noopener">dashboard</a>.
+    </div>
+  </div>
+
+<script>
+(function(){
+  var NS='vikinginvest-prod-2026';
+  var BASE='https://abacus.jasoncameron.dev/get/'+NS+'/';
+  document.getElementById('rawSite').href = BASE+'site';
+  document.getElementById('rawDash').href = BASE+'dashboard';
+
+  function load(key, el){
+    el.textContent='…';
+    fetch(BASE+key, {cache:'no-store'})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(typeof d.value === 'number'){
+          el.textContent = d.value.toLocaleString();
+        } else {
+          el.textContent = '—';
+        }
+      })
+      .catch(function(){ el.textContent = '—'; });
+  }
+  window.loadAll = function(){
+    load('site', document.getElementById('cntSite'));
+    load('dashboard', document.getElementById('cntDash'));
+  };
+  loadAll();
+})();
+</script>
+</body>
+</html>

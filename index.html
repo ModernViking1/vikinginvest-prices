@@ -280,6 +280,20 @@ section{padding:84px 0;}
   .hero-meta{gap:24px;}
 }
 </style>
+<script>
+// Unique-visitor beacon — fires once per browser via localStorage flag.
+// No cookies, no PII; only IP + UA reach the counter host as with any web
+// request. Counts are visible at /stats.html.
+(function(){
+  try {
+    var K='vi_uniq_site_v1';
+    if(localStorage.getItem(K)) return;
+    fetch('https://abacus.jasoncameron.dev/hit/vikinginvest-prod-2026/site',
+      {mode:'no-cors',cache:'no-store',credentials:'omit',keepalive:true}).catch(function(){});
+    localStorage.setItem(K,new Date().toISOString());
+  } catch(e){}
+})();
+</script>
 </head>
 <body>
 

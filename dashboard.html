@@ -246,6 +246,18 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   .vi-name{font-size:12px;}
 }
 </style>
+<script>
+// Unique-visitor beacon — fires once per browser via localStorage flag.
+(function(){
+  try {
+    var K='vi_uniq_dash_v1';
+    if(localStorage.getItem(K)) return;
+    fetch('https://abacus.jasoncameron.dev/hit/vikinginvest-prod-2026/dashboard',
+      {mode:'no-cors',cache:'no-store',credentials:'omit',keepalive:true}).catch(function(){});
+    localStorage.setItem(K,new Date().toISOString());
+  } catch(e){}
+})();
+</script>
 </head>
 <body>
 

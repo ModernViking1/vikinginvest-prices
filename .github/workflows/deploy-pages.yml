@@ -22,6 +22,7 @@ on:
     paths:
       - 'dashboard.html'
       - 'index.html'
+      - 'stats.html'
       - 'Viking_Invest_Trading_v*.html'
       - 'CNAME'
       - '.github/workflows/deploy-pages.yml'
@@ -55,6 +56,8 @@ jobs:
           cp Viking_Invest_Trading_v*.html _site/ 2>/dev/null || true
           # Optional landing page if present
           cp index.html _site/ 2>/dev/null || true
+          # Private visitor-stats page (unlinked, noindex)
+          cp stats.html _site/ 2>/dev/null || true
           # Custom domain if present
           cp CNAME _site/ 2>/dev/null || true
 
