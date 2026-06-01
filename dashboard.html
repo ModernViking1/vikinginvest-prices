@@ -452,6 +452,22 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     </div>
   </div>
 
+  <!-- ── METHODOLOGY NOTE — explains the per-instrument-class entry split ── -->
+  <div style="background:rgba(200,134,10,0.06);border:1px solid rgba(200,134,10,0.25);border-radius:4px;padding:10px 13px;margin:10px 0 8px 0;font-size:10.5px;line-height:1.55;color:var(--inkm);">
+    <div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:5px;">Methodology &middot; production entry rules</div>
+    Each pair's backtest now uses ONE entry methodology, chosen per
+    instrument class based on the May 2026 backtest comparison
+    (struct / auto-EW / +50/200):
+    <ul style="margin:5px 0 4px 18px;padding:0;">
+      <li><strong style="color:var(--purple);">FX (majors &amp; minors) + crypto</strong> &mdash; auto-EW macro + <strong>wick (extreme-candle) entry</strong>, full 1R risk. Wick win rate was the stronger edge across this class.</li>
+      <li><strong style="color:var(--gold);">Commodities (XAU, XAG, Brent) + indices (DAX, NAS, etc.)</strong> &mdash; auto-EW macro + <strong>Fib 38% half-size entry</strong>, 0.5R risk. The half-size Fib variant produced higher net R after the +50/200 regime test on these instruments.</li>
+    </ul>
+    Live signals and Telegram alerts now fire on the entry that matches
+    each pair's class (no more wick alerts on Brent, no more Fib alerts
+    on EUR/USD). The struct / +50/200 comparison caches are preserved
+    for future re-evaluation if the strategy is revisited.
+  </div>
+
   <!-- ── 1b. FORCE RE-RUN — clears the localStorage backtest cache and
        recomputes every pair against the latest detection logic. Useful
        after a logic change (e.g. PR #3 alignment-broken, PR #4
@@ -888,7 +904,26 @@ var MKTS = {
 
 };
 
-// ================================================================
+// ── ENTRY-METHODOLOGY CLASSIFIER ─────────────────────────────────
+// Per the May 2026 backtest comparison (struct vs auto-EW vs auto-EW
+// + 50/200 EMA filter), two entry methodologies are now active —
+// chosen per instrument class based on which produced the better
+// risk-adjusted net R in the 12-month backtest:
+//
+//   FX (majors + minors) + crypto    -> WICK extreme-candle entry,
+//                                       full 1R risk
+//   Commodities (xau, xag, brent)
+//   + indices (DAX, NAS, etc.)       -> FIB 38% retrace entry,
+//                                       half 0.5R risk
+//
+// Driven by the existing m.t classification ('major', 'minor',
+// 'crypto', 'comm', 'index'). New pairs added later automatically
+// pick up the correct methodology if they're given the right t:.
+function _btMethodFor(k){
+  var m = (typeof MKTS !== 'undefined') ? MKTS[k] : null;
+  if(!m) return 'wick';
+  return (m.t === 'comm' || m.t === 'index') ? 'fib' : 'wick';
+}
 // WICKATOR_EW BASELINE — macro Elliott Wave structure per pair
 // ================================================================
 // Sourced directly from WickatorFX TradingView charts (XAU/XAG/EURUSD/EURNZD
@@ -3503,92 +3538,87 @@ function buildBacktest(){
         + '</div>';
     }
 
-    // Recent backtest rows — up to three variants for side-by-side comparison:
-    //   - STRUCTURAL (structural-break-only macro, the long-standing default)
-    //   - AUTO-EW (auto-EW pattern detection first, structural fallback —
-    //     matches the live engine after the seed was removed)
-    //   - +50/200 (auto-EW PLUS a 4H 50/200 EMA regime filter)
-    // Each variant row is immediately followed by its own FIB 38% (½ size)
-    // sub-row computed from that variant's hybrid data, so the Fib half-size
-    // numbers reflect THIS variant's macro direction (not legacy structural).
+    // Primary backtest row — ONE row per pair, using the entry methodology
+    // chosen for this pair's instrument class:
+    //   FX / crypto    -> AUTO-EW wick (extreme-candle) entry, full 1R risk
+    //   Commodity/idx  -> AUTO-EW + Fib 38% half-size entry, 0.5R risk
+    //
+    // The auto-EW backtest cache is the source for both methodologies; the
+    // Fib pairs surface the hybrid.midWins/Losses half-size stats, the
+    // wick pairs surface the wick-only stats. Comparison work to validate
+    // this split is preserved in cache (struct + auto-ew-regime caches
+    // still exist) — they're just not rendered by default anymore.
     var recentBtRow = '';
     try {
-      var allRecent = (typeof computeAllRecentBacktests === 'function')
-        ? computeAllRecentBacktests(false, 'structural') : null;
+      var btMethod = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
       var allRecentAuto = (typeof _loadRecentBtCache === 'function')
         ? _loadRecentBtCache('auto-ew') : null;
-      var allRecentRegime = (typeof _loadRecentBtCache === 'function')
-        ? _loadRecentBtCache('auto-ew-regime') : null;
+      // Boot fallback: until Force Re-Run populates the auto-ew cache, fall
+      // back to the structural cache (same shape) so the card never looks
+      // empty. The methodology note explains the temporary state.
+      var allRecent = allRecentAuto;
+      var sourceLabel = 'AUTO-EW';
+      if(!allRecent){
+        allRecent = (typeof computeAllRecentBacktests === 'function')
+          ? computeAllRecentBacktests(false, 'structural') : null;
+        sourceLabel = 'STRUCT (auto-EW pending)';
+      }
+      var rb = allRecent && allRecent[k];
 
-      var _btRowFor = function(rb, label, labelColor){
-        if(!rb || !rb.totalSignals){
-          return '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:4px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
-            + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:'+labelColor+';letter-spacing:0.5px;text-transform:uppercase;">'+label+'</div>'
-            + '  <div style="font-size:7.5px;color:var(--inkd);font-style:italic;">not yet computed</div>'
+      if(rb && rb.totalSignals > 0){
+        var rbWindow = rb.days != null ? rb.days + 'd' : 'recent';
+
+        if(btMethod === 'fib' && rb.hybrid){
+          // Fib 38% half-size — read hybrid.midWins/midLosses
+          var hyb = rb.hybrid;
+          var fibW = hyb.midWins || 0;
+          var fibL = hyb.midLosses || 0;
+          var fibTotal = fibW + fibL;
+          if(fibTotal > 0){
+            var fibRate = (fibW / fibTotal * 100).toFixed(1);
+            var fibColor = wrCol(fibW / fibTotal * 100);
+            var fibNetR = 0.5 * (fibW - fibL);
+            var netSign = fibNetR >= 0 ? '+' : '';
+            var netColor = fibNetR > 0 ? 'var(--bull)' : (fibNetR < 0 ? 'var(--bear)' : 'var(--inkd)');
+            recentBtRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:4px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
+              + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--gold);letter-spacing:0.5px;text-transform:uppercase;" title="Auto-EW macro + Fib 38% half-size entry (production methodology for commodities/indices)">4/4 BT &middot; AUTO-EW + FIB ½</div>'
+              + '  <div style="display:flex;gap:6px;align-items:center;">'
+              + '    <span style="color:'+fibColor+';font-weight:700;">'+fibRate+'%</span>'
+              + '    <span style="font-size:7.5px;color:var(--inkd);margin-left:6px;">'+fibW+'W/'+fibL+'L</span>'
+              + '    <span style="font-size:7.5px;color:'+netColor+';font-weight:700;" title="Half-size net R (each W/L = 0.5R)">'+netSign+fibNetR.toFixed(1)+'R</span>'
+              + '    <span style="font-size:7px;padding:1px 5px;border-radius:2px;background:rgba(0,0,0,0.04);color:var(--inkd);letter-spacing:0.5px;">'+rbWindow+'</span>'
+              + '  </div>'
+              + '</div>';
+          } else {
+            recentBtRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:4px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
+              + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--gold);letter-spacing:0.5px;text-transform:uppercase;">4/4 BT &middot; AUTO-EW + FIB ½</div>'
+              + '  <div style="font-size:7.5px;color:var(--inkd);font-style:italic;">no fib trades in window</div>'
+              + '</div>';
+          }
+        } else {
+          // Wick entry — show wick-only stats
+          var rbColor = wrCol(rb.rate * 100);
+          var rbRate = (Math.round(rb.rate * 1000) / 10).toFixed(1);
+          var rbExtra = '';
+          if(rb.expired > 0) rbExtra += ' &middot; ' + rb.expired + ' exp';
+          if(rb.invalidated > 0) rbExtra += ' &middot; ' + rb.invalidated + ' inv';
+          var rbBody = (rb.total === 0)
+            ? '<span style="font-size:7.5px;color:var(--inkd);font-style:italic;">no completed' + rbExtra + '</span>'
+            : '<span style="color:'+rbColor+';font-weight:700;">'+rbRate+'%</span>'
+              + '<span style="font-size:7.5px;color:var(--inkd);margin-left:6px;">'+rb.wins+'W/'+rb.losses+'L'+rbExtra+'</span>';
+          recentBtRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:4px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
+            + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--purple);letter-spacing:0.5px;text-transform:uppercase;" title="Auto-EW macro + wick (extreme candle) entry (production methodology for FX/crypto)">4/4 BT &middot; AUTO-EW WICK</div>'
+            + '  <div style="display:flex;gap:6px;align-items:center;">'
+            +     rbBody
+            + '    <span style="font-size:7px;padding:1px 5px;border-radius:2px;background:rgba(0,0,0,0.04);color:var(--inkd);letter-spacing:0.5px;">'+rbWindow+' n='+rb.totalSignals+'</span>'
+            + '  </div>'
             + '</div>';
         }
-        var rbColor = wrCol(rb.rate * 100);
-        var rbRate = (Math.round(rb.rate * 1000) / 10).toFixed(1);
-        var rbExtra = '';
-        if(rb.expired > 0) rbExtra += ' &middot; ' + rb.expired + ' exp';
-        if(rb.invalidated > 0) rbExtra += ' &middot; ' + rb.invalidated + ' inv';
-        var rbWindow = rb.days != null ? rb.days + 'd' : 'recent';
-        var rbBody = (rb.total === 0)
-          ? '<span style="font-size:7.5px;color:var(--inkd);font-style:italic;">no completed' + rbExtra + '</span>'
-          : '<span style="color:'+rbColor+';font-weight:700;">'+rbRate+'%</span>'
-            + '<span style="font-size:7.5px;color:var(--inkd);margin-left:6px;">'+rb.wins+'W/'+rb.losses+'L'+rbExtra+'</span>';
-        return '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:4px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
-          + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:'+labelColor+';letter-spacing:0.5px;text-transform:uppercase;">'+label+'</div>'
-          + '  <div style="display:flex;gap:6px;align-items:center;">'
-          +     rbBody
-          + '    <span style="font-size:7px;padding:1px 5px;border-radius:2px;background:rgba(0,0,0,0.04);color:var(--inkd);letter-spacing:0.5px;">'+rbWindow+' n='+rb.totalSignals+'</span>'
-          + '  </div>'
+      } else {
+        recentBtRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:4px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
+          + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;">4/4 BT</div>'
+          + '  <div style="font-size:7.5px;color:var(--inkd);font-style:italic;">no data &mdash; force re-run backtests</div>'
           + '</div>';
-      };
-
-      // Render one FIB 38% half-size sub-row for a given variant's hybrid
-      // data. Returns '' (no row) if the variant has no Fib trades — common
-      // for the +50/200 filter, which can shrink the trade set enough to
-      // leave the Fib bucket empty.
-      var _fibRowFor = function(rb){
-        if(!rb || !rb.hybrid) return '';
-        var hyb = rb.hybrid;
-        var fibW = hyb.midWins || 0;
-        var fibL = hyb.midLosses || 0;
-        var fibTotal = fibW + fibL;
-        if(fibTotal <= 0) return '';
-        var fibRate = (fibW / fibTotal * 100).toFixed(1);
-        var fibColor = wrCol(fibW / fibTotal * 100);
-        var fibNetR = 0.5 * (fibW - fibL);
-        var netSign = fibNetR >= 0 ? '+' : '';
-        var netColor = fibNetR > 0 ? 'var(--bull)' : (fibNetR < 0 ? 'var(--bear)' : 'var(--inkd)');
-        var wickNetR = (hyb.wickWins || 0) - (hyb.wickLosses || 0);
-        var combinedNetR = wickNetR + fibNetR;
-        var combinedSign = combinedNetR >= 0 ? '+' : '';
-        return '<div style="border-top:1px dashed rgba(0,0,0,0.06);margin-top:3px;padding-top:4px;padding-left:14px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
-          + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;" title="Fib 38% half-size entry — captures setups that triggered at the shallower 38% retrace without reaching the wick. Each W/L = 0.5R.">+ fib 38% (½ size)</div>'
-          + '  <div style="display:flex;gap:6px;align-items:center;">'
-          + '    <span style="color:'+fibColor+';font-weight:700;">'+fibRate+'%</span>'
-          + '    <span style="font-size:7.5px;color:var(--inkd);">'+fibW+'W/'+fibL+'L</span>'
-          + '    <span style="font-size:7.5px;color:'+netColor+';font-weight:700;" title="Net R from Fib variant alone (half-size, each unit = 0.5R)">'+netSign+fibNetR.toFixed(1)+'R</span>'
-          + '    <span style="font-size:7px;padding:1px 5px;border-radius:2px;background:rgba(0,0,0,0.04);color:var(--inkm);letter-spacing:0.5px;" title="Combined wick + fib net R for this variant">total '+combinedSign+combinedNetR.toFixed(1)+'R</span>'
-          + '  </div>'
-          + '</div>';
-      };
-
-      var rbStruct = allRecent && allRecent[k];
-      var rbAuto   = allRecentAuto && allRecentAuto[k];
-      var rbReg    = allRecentRegime && allRecentRegime[k];
-
-      recentBtRow  = _btRowFor(rbStruct, '4/4 BT &middot; STRUCT', 'var(--inkd)');
-      recentBtRow += _fibRowFor(rbStruct);
-      if(allRecentAuto){
-        recentBtRow += _btRowFor(rbAuto, '4/4 BT &middot; AUTO-EW', 'var(--purple)');
-        recentBtRow += _fibRowFor(rbAuto);
-      }
-      if(allRecentRegime){
-        recentBtRow += _btRowFor(rbReg, '4/4 BT &middot; AUTO-EW + 50/200', 'var(--gold)');
-        recentBtRow += _fibRowFor(rbReg);
       }
     } catch(e){ recentBtRow = ''; }
 
@@ -5756,39 +5786,81 @@ function _fetchDeepHistFromCDN(){
 
 function refreshBacktestWR(){
   // Priority cascade for win-rate computation:
+  //   0. AUTO-EW backtest cache (production methodology, with per-pair
+  //      entry method applied — wick for FX/crypto, Fib half-size for
+  //      commodities/indices). This is now the preferred source when
+  //      the auto-EW cache exists.
   //   1. REAL historical backtest (≥3 actual trades from daily candle history)
-  //      Source: history.json from GitHub Actions + Twelve Data daily candles
   //   2. Live m15 backtest (≥10 simulated trades from session HISTORY buffer)
-  //      Below 10 trades, samples are statistical noise (3 trades → all pairs
-  //      land at ~66.7% which means nothing).
-  //   3. Wickator-structure backtest (deterministic formula based on R:R + edges)
-  //      Used as the baseline when no historical data is available.
+  //   3. Wickator-structure backtest (deterministic formula baseline)
   var MIN_LIVE_TRADES = 10;
   var MIN_REAL_TRADES = 3;
   var realCount = 0, liveCount = 0, structCount = 0, failCount = 0;
+  var autoEwCount = 0;
+  var allRecentAuto = (typeof _loadRecentBtCache === 'function')
+    ? _loadRecentBtCache('auto-ew') : null;
 
   Object.keys(MKTS).forEach(function(k){
     var bt = null;
     var source = 'wickator-structure';
 
-    // Tier 1: real historical backtest
-    var realBT = simWickatorRealBacktest(k);
-    if(realBT && realBT.total >= MIN_REAL_TRADES){
-      bt = realBT;
-      source = 'wickator-real';
-      realCount++;
-    } else {
-      // Tier 2: live m15 simulated
-      var liveBT = simNowickBacktest(k);
-      if(liveBT && liveBT.total >= MIN_LIVE_TRADES){
-        bt = liveBT;
-        source = 'live-m15';
-        liveCount++;
+    // Tier 0: auto-EW backtest cache (production methodology).
+    // For FX/crypto, use wick-only stats. For commodities/indices, use
+    // the hybrid.midWins/midLosses (Fib 38% half-size) stats. The Fib
+    // bucket can be empty for some pairs in the window — fall through
+    // to lower tiers in that case.
+    if(allRecentAuto && allRecentAuto[k]){
+      var rb = allRecentAuto[k];
+      var method = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
+      if(method === 'fib' && rb.hybrid){
+        var fW = rb.hybrid.midWins || 0;
+        var fL = rb.hybrid.midLosses || 0;
+        var fT = fW + fL;
+        if(fT >= MIN_REAL_TRADES){
+          bt = {
+            wins: fW, losses: fL, total: fT,
+            winrate: (fW / fT) * 100,
+            avgRR: 1.0  // Fib half-size is 0.5R per W/L but the *ratio* is still 1:1
+          };
+          source = 'auto-ew-fib';
+          autoEwCount++;
+        }
+      } else if(rb.totalSignals >= MIN_REAL_TRADES) {
+        var wW = rb.wins || 0;
+        var wL = rb.losses || 0;
+        var wT = wW + wL;
+        if(wT >= MIN_REAL_TRADES){
+          bt = {
+            wins: wW, losses: wL, total: wT,
+            winrate: (wW / wT) * 100,
+            avgRR: 1.0
+          };
+          source = 'auto-ew-wick';
+          autoEwCount++;
+        }
+      }
+    }
+
+    if(!bt){
+      // Tier 1: real historical backtest
+      var realBT = simWickatorRealBacktest(k);
+      if(realBT && realBT.total >= MIN_REAL_TRADES){
+        bt = realBT;
+        source = 'wickator-real';
+        realCount++;
       } else {
-        // Tier 3: structure-based (deterministic baseline)
-        bt = simWickatorStructureBacktest(k);
-        source = 'wickator-structure';
-        if(bt) structCount++;
+        // Tier 2: live m15 simulated
+        var liveBT = simNowickBacktest(k);
+        if(liveBT && liveBT.total >= MIN_LIVE_TRADES){
+          bt = liveBT;
+          source = 'live-m15';
+          liveCount++;
+        } else {
+          // Tier 3: structure-based (deterministic baseline)
+          bt = simWickatorStructureBacktest(k);
+          source = 'wickator-structure';
+          if(bt) structCount++;
+        }
       }
     }
 
@@ -5816,7 +5888,7 @@ function refreshBacktestWR(){
   if(mc) mc.innerHTML = '';
   if(agg) agg.innerHTML = '';
   buildBacktest();
-  addNote('Backtest refreshed: '+realCount+' real-historical, '+liveCount+' live-m15, '+structCount+' macro-structure, '+failCount+' unavailable');
+  addNote('Backtest refreshed: '+autoEwCount+' auto-EW, '+realCount+' real-historical, '+liveCount+' live-m15, '+structCount+' macro-structure, '+failCount+' unavailable');
 }
 
 function simAll(){if(simAllRunning){simAllRunning=false;Object.keys(MKTS).forEach(function(k){if(STATE[k].simRun)toggleSim(k);});document.querySelector('.tbtn-sim').innerHTML='&#9654; Sim All';return;}simAllRunning=true;document.querySelector('.tbtn-sim').innerHTML='&#9646; Stop Sims';Object.keys(MKTS).forEach(function(k){toggleSim(k);});}

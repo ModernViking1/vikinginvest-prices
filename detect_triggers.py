@@ -468,6 +468,30 @@ AUTO_EW_VALID_PATTERNS = {
 AUTO_EW_THRESHOLDS = [0.5, 0.8, 1.0, 1.5, 2.5, 4.0, 6.0, 8.0, 10.0, 12.0]
 
 
+# ── PER-INSTRUMENT-CLASS ENTRY METHODOLOGY ─────────────────────
+# Mirrors dashboard.html's _btMethodFor(k). Per the May 2026 backtest
+# comparison (struct vs auto-EW vs auto-EW + 50/200), two entry
+# methodologies are active — chosen per instrument class:
+#
+#   FX (majors + minors) + crypto   -> WICK extreme-candle entry,
+#                                      full 1R risk
+#   Commodities (xau, xag, brent)
+#   + indices (DAX, NAS, etc.)      -> FIB 38% retrace entry,
+#                                      half 0.5R risk
+#
+# Telegram triggers fire only on the entry that matches the pair's
+# class (no wick alerts on Brent; no Fib alerts on EUR/USD).
+FIB_ENTRY_PAIRS = {
+    # Commodities
+    'xauusd', 'xagusd', 'usoil',
+    # Indices (existing + future)
+    'de40', 'nas100', 'us30', 'uk100', 'spx500',
+}
+
+def uses_fib_entry(pair):
+    return pair in FIB_ENTRY_PAIRS
+
+
 def _detect_pivots_refined(prices, pct_threshold):
     """ZigZag pivot detector. Walks the close series, emits a pivot
     whenever price reverses by `pct_threshold`% from the last extreme."""
@@ -1337,7 +1361,13 @@ def main():
             prev_alerted_creator = prev.get('sig_creator_ts')
         alerted_creator = prev_alerted_creator
 
-        if cur_sig_state == 'triggered' and cur_creator_ts is not None:
+        # Per-class entry methodology gate: wick alerts only on
+        # FX/crypto pairs. For commodities/indices (FIB_ENTRY_PAIRS)
+        # the wick path is silenced — those pairs send only the Fib
+        # alert below.
+        pair_uses_fib = uses_fib_entry(pair)
+
+        if cur_sig_state == 'triggered' and cur_creator_ts is not None and not pair_uses_fib:
             is_new_trigger = (cur_creator_ts != prev_alerted_creator)
             # Freshness gate: don't alert on triggers older than
             # MAX_TRIGGER_AGE_MIN. The 5-min schedule means a fresh trigger
@@ -1381,7 +1411,10 @@ def main():
             prev_alerted_fib = prev.get('sig_creator_ts')
         alerted_fib = prev_alerted_fib
 
-        if cur_fib_state == 'triggered' and cur_creator_ts is not None:
+        # Per-class entry methodology gate: Fib alerts only on
+        # commodities/indices. For FX/crypto pairs the Fib path is
+        # silenced — those pairs send only the wick alert above.
+        if cur_fib_state == 'triggered' and cur_creator_ts is not None and pair_uses_fib:
             is_new_fib = (cur_creator_ts != prev_alerted_fib)
             # If the wick trade also triggered on the same setup, the wick
             # alert above already covered the entry — suppress the fib
