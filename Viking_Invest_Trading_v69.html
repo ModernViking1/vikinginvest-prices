@@ -3503,36 +3503,55 @@ function buildBacktest(){
         + '</div>';
     }
 
-    // Recent backtest row — uses v45 independent direction logic over the
-    // 2-3 weeks of buffered history. Honest about sample size + window.
+    // Recent backtest rows — up to three variants for side-by-side comparison:
+    //   - STRUCTURAL (structural-break-only macro, the long-standing default)
+    //   - AUTO-EW (auto-EW pattern detection first, structural fallback —
+    //     matches the live engine after the seed was removed)
+    //   - +50/200 (auto-EW PLUS a 4H 50/200 EMA regime filter)
+    // Auto-EW and regime lines render only when their caches have results,
+    // so the regular cards stay clean until "Force Re-Run Backtests"
+    // populates them.
     var recentBtRow = '';
     try {
       var allRecent = (typeof computeAllRecentBacktests === 'function')
-        ? computeAllRecentBacktests(false) : null;
-      var rb = allRecent && allRecent[k];
-      if(rb && rb.totalSignals > 0){
+        ? computeAllRecentBacktests(false, 'structural') : null;
+      var allRecentAuto = (typeof _loadRecentBtCache === 'function')
+        ? _loadRecentBtCache('auto-ew') : null;
+      var allRecentRegime = (typeof _loadRecentBtCache === 'function')
+        ? _loadRecentBtCache('auto-ew-regime') : null;
+
+      var _btRowFor = function(rb, label, labelColor){
+        if(!rb || !rb.totalSignals){
+          return '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:4px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
+            + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:'+labelColor+';letter-spacing:0.5px;text-transform:uppercase;">'+label+'</div>'
+            + '  <div style="font-size:7.5px;color:var(--inkd);font-style:italic;">not yet computed</div>'
+            + '</div>';
+        }
         var rbColor = wrCol(rb.rate * 100);
         var rbRate = (Math.round(rb.rate * 1000) / 10).toFixed(1);
         var rbExtra = '';
         if(rb.expired > 0) rbExtra += ' &middot; ' + rb.expired + ' exp';
         if(rb.invalidated > 0) rbExtra += ' &middot; ' + rb.invalidated + ' inv';
-        var rbWindow = rb.days != null ? rb.days + 'd window' : 'recent';
+        var rbWindow = rb.days != null ? rb.days + 'd' : 'recent';
         var rbBody = (rb.total === 0)
-          ? '<span style="font-size:7.5px;color:var(--inkd);font-style:italic;">no completed trades' + rbExtra + '</span>'
+          ? '<span style="font-size:7.5px;color:var(--inkd);font-style:italic;">no completed' + rbExtra + '</span>'
           : '<span style="color:'+rbColor+';font-weight:700;">'+rbRate+'%</span>'
             + '<span style="font-size:7.5px;color:var(--inkd);margin-left:6px;">'+rb.wins+'W/'+rb.losses+'L'+rbExtra+'</span>';
-        recentBtRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:4px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
-          + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;" title="Recent 4/4 backtest using independent direction logic">recent 4/4 backtest</div>'
+        return '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:4px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
+          + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:'+labelColor+';letter-spacing:0.5px;text-transform:uppercase;">'+label+'</div>'
           + '  <div style="display:flex;gap:6px;align-items:center;">'
           +     rbBody
-          + '    <span style="font-size:7px;padding:1px 5px;border-radius:2px;background:rgba(107,63,160,0.12);color:var(--purple);letter-spacing:0.5px;">'+rbWindow+' n='+rb.totalSignals+'</span>'
+          + '    <span style="font-size:7px;padding:1px 5px;border-radius:2px;background:rgba(0,0,0,0.04);color:var(--inkd);letter-spacing:0.5px;">'+rbWindow+' n='+rb.totalSignals+'</span>'
           + '  </div>'
           + '</div>';
-      } else {
-        recentBtRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:4px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
-          + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;">recent 4/4 backtest</div>'
-          + '  <div style="font-size:7.5px;color:var(--inkd);font-style:italic;">insufficient buffered history</div>'
-          + '</div>';
+      };
+
+      recentBtRow = _btRowFor(allRecent && allRecent[k], '4/4 BT &middot; STRUCT', 'var(--inkd)');
+      if(allRecentAuto){
+        recentBtRow += _btRowFor(allRecentAuto[k], '4/4 BT &middot; AUTO-EW', 'var(--purple)');
+      }
+      if(allRecentRegime){
+        recentBtRow += _btRowFor(allRecentRegime[k], '4/4 BT &middot; AUTO-EW + 50/200', 'var(--gold)');
       }
     } catch(e){ recentBtRow = ''; }
 
@@ -8406,13 +8425,17 @@ function detectAtDegree(level, lastPx){
 }
 
 // ── Main auto-detection entrypoint ─────────────────────────────────
-function autoDetectEW(k){
+function autoDetectEW(k, candlesOverride){
   // Read daily candles. Prefer HISTORICAL (CDN history.json); fall back
   // to DEEP_HIST daily (historical-ohlc.json) so newly-added pairs get
   // an auto-EW / LuxAlgo read even before history.json's loaded copy
   // includes them. This is what gives new pairs their macro baseline.
-  var candles = (typeof HISTORICAL !== 'undefined' && HISTORICAL[k] && HISTORICAL[k].length >= 30)
-    ? HISTORICAL[k] : null;
+  // candlesOverride lets the backtest call this on truncated historical
+  // data for the auto-EW backtest variant.
+  var candles = (candlesOverride && candlesOverride.length >= 30) ? candlesOverride : null;
+  if(!candles && typeof HISTORICAL !== 'undefined' && HISTORICAL[k] && HISTORICAL[k].length >= 30){
+    candles = HISTORICAL[k];
+  }
   if(!candles && typeof DEEP_HIST !== 'undefined' && DEEP_HIST[k] &&
      DEEP_HIST[k].daily && DEEP_HIST[k].daily.length >= 30){
     candles = DEEP_HIST[k].daily;
@@ -9147,11 +9170,18 @@ function refreshHourlyRSI(k){
 // uplift). Stale v8 results would still render with the dropped
 // rb.hybrid.fresh / rb.hybrid.extended fields; fresh re-run clears them.
 var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v9';
+var RECENT_BT_CACHE_KEY_AUTO = 'vit_recent_backtest_v9_auto';
+var RECENT_BT_CACHE_KEY_AUTO_REGIME = 'vit_recent_backtest_v9_auto_regime';
 var RECENT_BT_CACHE_TTL_MS = 4 * 60 * 60 * 1000;  // 4 hours
+function _cacheKeyForMode(mode){
+  if(mode === 'auto-ew') return RECENT_BT_CACHE_KEY_AUTO;
+  if(mode === 'auto-ew-regime') return RECENT_BT_CACHE_KEY_AUTO_REGIME;
+  return RECENT_BT_CACHE_KEY;
+}
 
-function _loadRecentBtCache(){
+function _loadRecentBtCache(mode){
   try {
-    var raw = localStorage.getItem(RECENT_BT_CACHE_KEY);
+    var raw = localStorage.getItem(_cacheKeyForMode(mode));
     if(!raw) return null;
     var parsed = JSON.parse(raw);
     if(!parsed || !parsed.timestamp) return null;
@@ -9175,7 +9205,7 @@ function _loadRecentBtCache(){
 // Strip `trades` before stringifying. Surface save failures via
 // console.warn instead of swallowing so the next quota problem is
 // visible.
-function _saveRecentBtCache(data){
+function _saveRecentBtCache(data, mode){
   var slim = {};
   Object.keys(data || {}).forEach(function(k){
     var rb = data[k];
@@ -9188,7 +9218,7 @@ function _saveRecentBtCache(data){
     slim[k] = copy;
   });
   try {
-    localStorage.setItem(RECENT_BT_CACHE_KEY, JSON.stringify({
+    localStorage.setItem(_cacheKeyForMode(mode), JSON.stringify({
       timestamp: Date.now(),
       data: slim
     }));
@@ -9266,7 +9296,167 @@ function ewDirAtTime(k, targetTs){
   return result;
 }
 
-function calcRecentBacktest(k){
+// ── ewDirAtTimeAuto ───────────────────────────────────────────────
+// Same as ewDirAtTime but tries auto-EW pattern detection first on the
+// truncated daily subset, falling back to the structural-break direction
+// if no high-confidence pattern qualifies. This is what the live engine
+// does — porting it into the historical backtest produces a per-day EW
+// direction that exactly mirrors the live algorithm.
+var _ewDirAtTimeAutoCache = {};
+function ewDirAtTimeAuto(k, targetTs){
+  var dt = new Date(targetTs);
+  var dayKey = dt.getUTCFullYear() + '-' +
+               String(dt.getUTCMonth() + 1).padStart(2, '0') + '-' +
+               String(dt.getUTCDate()).padStart(2, '0');
+  var cacheKey = k + ':' + dayKey;
+  if(_ewDirAtTimeAutoCache[cacheKey] !== undefined){
+    return _ewDirAtTimeAutoCache[cacheKey];
+  }
+
+  var source = null;
+  if(typeof DEEP_HIST !== 'undefined' && DEEP_HIST[k] && DEEP_HIST[k].daily && DEEP_HIST[k].daily.length >= 30){
+    source = DEEP_HIST[k].daily;
+  } else if(typeof HISTORICAL !== 'undefined' && HISTORICAL[k] && HISTORICAL[k].length >= 30){
+    source = HISTORICAL[k];
+  } else {
+    if(!HISTORY[k]) loadHistory(k);
+    source = HISTORY[k] && HISTORY[k].daily;
+  }
+  if(!source || source.length < 30){
+    _ewDirAtTimeAutoCache[cacheKey] = null;
+    return null;
+  }
+
+  var subset = [];
+  for(var i = 0; i < source.length; i++){
+    var bt = source[i].t;
+    if(typeof bt === 'string') bt = new Date(bt).getTime();
+    if(bt && bt <= targetTs) subset.push(source[i]);
+  }
+  if(subset.length < 30){
+    _ewDirAtTimeAutoCache[cacheKey] = null;
+    return null;
+  }
+
+  // Step 1: try high-confidence auto-EW on the truncated subset
+  try {
+    if(typeof autoDetectEW === 'function'){
+      var auto = autoDetectEW(k, subset);
+      if(auto && auto.ok && auto.ew &&
+         (auto.ew.confidence || 0) >= AUTO_EW_MIN_CONFIDENCE &&
+         AUTO_EW_VALID_PATTERNS[auto.ew.pattern] &&
+         (auto.ew.dir === 'bull' || auto.ew.dir === 'bear')){
+        _ewDirAtTimeAutoCache[cacheKey] = auto.ew.dir;
+        return auto.ew.dir;
+      }
+    }
+  } catch(e){ /* defensive */ }
+
+  // Step 2: structural-break fallback (same as ewDirAtTime)
+  var bars = _ticksToBars(subset);
+  var result = calcIndependentDir(bars, 8);
+  _ewDirAtTimeAutoCache[cacheKey] = result;
+  return result;
+}
+
+// ── regimeDirAtTime ───────────────────────────────────────────────
+// 4H 50/200 EMA "regime" direction at a historical timestamp. Aggregates
+// h1 bars (≤ targetTs) into UTC-aligned 4H buckets, computes EMA50 and
+// EMA200 on bucket closes, returns 'bull' if EMA50 > EMA200 at the last
+// finalised bucket, 'bear' if below, null if insufficient data.
+//
+// Cross detection is *implicit*: the regime FLIPS the bar after the
+// crossing bucket's close finalises into both EMAs. That matches the
+// shift(1)-style "only confirmed bars" pattern — partial in-progress
+// buckets are never used because finalise() only runs when the bucket
+// key changes.
+var _regimeDirAtTimeCache = {};
+function _compute4HEMASign(h1Series, fast, slow){
+  var lastKey = null, currentClose = null;
+  var eFast = null, eSlow = null;
+  var seedFast = [], seedSlow = [];
+  var kFast = 2 / (fast + 1), kSlow = 2 / (slow + 1);
+  var finalise = function(close){
+    if(close == null) return;
+    if(seedFast.length < fast){
+      seedFast.push(close);
+      if(seedFast.length === fast){
+        var s = 0; for(var z = 0; z < fast; z++) s += seedFast[z];
+        eFast = s / fast;
+      }
+    } else { eFast = close * kFast + eFast * (1 - kFast); }
+    if(seedSlow.length < slow){
+      seedSlow.push(close);
+      if(seedSlow.length === slow){
+        var s = 0; for(var z = 0; z < slow; z++) s += seedSlow[z];
+        eSlow = s / slow;
+      }
+    } else { eSlow = close * kSlow + eSlow * (1 - kSlow); }
+  };
+  for(var j = 0; j < h1Series.length; j++){
+    var bb = h1Series[j];
+    var bbT = bb && bb.t;
+    if(!bbT || typeof bbT !== 'string' || bbT.length < 13) continue;
+    var hr = parseInt(bbT.slice(11, 13), 10);
+    if(!isFinite(hr)) continue;
+    var bbClose = (bb.c != null) ? bb.c : bb.p;
+    if(bbClose == null) continue;
+    var bh = Math.floor(hr / 4) * 4;
+    var key = bbT.slice(0, 11) + (bh < 10 ? '0' : '') + bh;
+    if(lastKey === null){ lastKey = key; currentClose = bbClose; }
+    else if(key !== lastKey){
+      finalise(currentClose);
+      lastKey = key; currentClose = bbClose;
+    } else { currentClose = bbClose; }
+  }
+  if(eFast == null || eSlow == null) return null;
+  return eFast > eSlow ? 'bull' : (eFast < eSlow ? 'bear' : null);
+}
+function regimeDirAtTime(k, targetTs){
+  var dt = new Date(targetTs);
+  var dayKey = dt.getUTCFullYear() + '-' +
+               String(dt.getUTCMonth() + 1).padStart(2, '0') + '-' +
+               String(dt.getUTCDate()).padStart(2, '0');
+  var cacheKey = k + ':' + dayKey;
+  if(_regimeDirAtTimeCache[cacheKey] !== undefined){
+    return _regimeDirAtTimeCache[cacheKey];
+  }
+  // Need ~200 4H buckets = ~800 h1 bars for the EMA200 to seed
+  var h1 = null;
+  if(typeof DEEP_HIST !== 'undefined' && DEEP_HIST[k] && DEEP_HIST[k].h1 && DEEP_HIST[k].h1.length >= 800){
+    h1 = DEEP_HIST[k].h1;
+  } else if(HISTORY[k] && HISTORY[k].h1 && HISTORY[k].h1.length >= 800){
+    h1 = HISTORY[k].h1;
+  }
+  if(!h1){
+    _regimeDirAtTimeCache[cacheKey] = null;
+    return null;
+  }
+  var sliced = [];
+  for(var i = 0; i < h1.length; i++){
+    var bt = h1[i].t;
+    if(typeof bt === 'string') bt = new Date(bt).getTime();
+    if(bt && bt <= targetTs) sliced.push(h1[i]);
+  }
+  if(sliced.length < 800){
+    _regimeDirAtTimeCache[cacheKey] = null;
+    return null;
+  }
+  var result = _compute4HEMASign(sliced, 50, 200);
+  _regimeDirAtTimeCache[cacheKey] = result;
+  return result;
+}
+
+function calcRecentBacktest(k, mode){
+  // mode: 'structural' (default — matches the historic engine and what
+  // the cards have shown since launch), 'auto-ew' (auto-EW pattern
+  // detection first, structural fallback — matches the live algorithm
+  // after the seed was removed), or 'auto-ew-regime' (auto-EW + an
+  // extra filter requiring the 4H 50/200 EMA cloud direction to agree
+  // with the macro direction at the same historical timestamp).
+  mode = mode || 'structural';
+  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime');
+  var _btUseRegime = (mode === 'auto-ew-regime');
   // Need both timeframes
   if(!HISTORY[k]) loadHistory(k);
   // Prefer deep historical (12 months) when available — Option D
@@ -9497,12 +9687,21 @@ function calcRecentBacktest(k){
     // EW: at-time daily calc (cached per-day, see ewDirAtTime)
     // NO FALLBACK to STATE[k].ew here — that would introduce lookahead
     // bias. If insufficient daily history at this point, skip the bar.
-    var ewDir = ewDirAtTime(k, curTs);
+    var ewDir = _btUseAuto ? ewDirAtTimeAuto(k, curTs) : ewDirAtTime(k, curTs);
 
     // 4/4 alignment check (v6: added 4H EMA21/55 cloud as Layer 4).
     if(!ewDir || !tlDir || !nwDir || !clDir){ i++; continue; }
     if(ewDir !== tlDir || tlDir !== nwDir || nwDir !== clDir){ i++; continue; }
     if(ewDir !== 'bull' && ewDir !== 'bear'){ i++; continue; }
+
+    // Optional 4H 50/200 EMA regime filter (auto-ew-regime mode only).
+    // Only count signals where the slow trend filter agrees with the
+    // macro direction at this point in history. Insufficient h1 history
+    // (e.g. newly-added pairs) returns null → skip the bar conservatively.
+    if(_btUseRegime){
+      var regDir = regimeDirAtTime(k, curTs);
+      if(regDir !== ewDir){ i++; continue; }
+    }
 
     // Now check if THIS m15 bar is a creator (broke prior swing in alignedDir).
     // swingHigh/swingLow already computed above (incremental direction tracking).
@@ -9947,17 +10146,18 @@ function calcRecentBacktest(k){
 //
 // Synchronous version — used by legacy callers. New async version
 // (computeAllRecentBacktestsAsync) reports progress via callback.
-function computeAllRecentBacktests(forceRefresh){
+function computeAllRecentBacktests(forceRefresh, mode){
+  mode = mode || 'structural';
   if(!forceRefresh){
-    var cached = _loadRecentBtCache();
+    var cached = _loadRecentBtCache(mode);
     if(cached) return cached;
   }
   var results = {};
   Object.keys(MKTS).forEach(function(k){
-    try { results[k] = calcRecentBacktest(k); }
+    try { results[k] = calcRecentBacktest(k, mode); }
     catch(e){ results[k] = null; }
   });
-  _saveRecentBtCache(results);
+  _saveRecentBtCache(results, mode);
   return results;
 }
 
@@ -9977,32 +10177,53 @@ function forceRerunAllBacktests(){
   var btn = document.getElementById('btForceRerunBtn');
   var statusEl = document.getElementById('btForceRerunStatus');
   if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '↻ RUNNING...'; }
-  if(statusEl) statusEl.textContent = 'Clearing cache and recomputing all pairs...';
+  // Clear all three caches so every variant is recomputed.
   try { localStorage.removeItem(RECENT_BT_CACHE_KEY); } catch(e){}
-  // computeAllRecentBacktestsAsync with forceRefresh=true skips the
-  // cache load step. Progress callback updates the status line so the
-  // user has feedback during the (~5-15 sec) compute.
+  try { localStorage.removeItem(RECENT_BT_CACHE_KEY_AUTO); } catch(e){}
+  try { localStorage.removeItem(RECENT_BT_CACHE_KEY_AUTO_REGIME); } catch(e){}
+
   if(typeof computeAllRecentBacktestsAsync !== 'function'){
     if(statusEl) statusEl.textContent = 'Backtest engine not loaded';
     if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '↻ FORCE RE-RUN BACKTESTS'; }
     return;
   }
-  computeAllRecentBacktestsAsync(true,
-    function(done, total, pairKey){
-      if(statusEl) statusEl.textContent = 'Computing... ' + done + '/' + total + ' (' + (pairKey || '...') + ')';
-    },
-    function(results, fromCache){
+
+  // Run the three variants in sequence: structural -> auto-EW -> auto-EW + regime.
+  // Each variant gets a fresh forceRefresh=true pass so cached results from
+  // earlier modes don't short-circuit the next variant's compute.
+  var variants = [
+    {mode: 'structural',      label: 'STRUCTURAL'},
+    {mode: 'auto-ew',         label: 'AUTO-EW'},
+    {mode: 'auto-ew-regime',  label: 'AUTO-EW + 50/200'}
+  ];
+  var vIdx = 0;
+  function runNext(){
+    if(vIdx >= variants.length){
       if(statusEl){
         var ts = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
-        statusEl.textContent = '✓ Completed ' + Object.keys(results).length + ' pairs at ' + ts;
+        statusEl.textContent = '✓ All three variants completed at ' + ts;
       }
       if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '↻ FORCE RE-RUN BACKTESTS'; }
-      // Re-render any UI that depends on backtest results
+      // Re-render every dependent surface
       try { if(typeof refreshBacktestWR === 'function') refreshBacktestWR(); } catch(e){}
       try { if(typeof renderFailureModeAnalysis === 'function') renderFailureModeAnalysis(); } catch(e){}
       try { Object.keys(MKTS).forEach(function(k){ if(typeof refreshAlert === 'function') refreshAlert(k); }); } catch(e){}
+      return;
     }
-  );
+    var v = variants[vIdx++];
+    if(statusEl) statusEl.textContent = '['+v.label+'] starting...';
+    computeAllRecentBacktestsAsync(true,
+      function(done, total, pairKey){
+        if(statusEl) statusEl.textContent = '['+v.label+'] '+done+'/'+total+' ('+(pairKey || '...')+')';
+      },
+      function(){
+        // Tiny pause before kicking off the next variant so the UI can paint.
+        setTimeout(runNext, 50);
+      },
+      v.mode
+    );
+  }
+  runNext();
 }
 
 // Singleton in-flight guard — prevents the page-load auto-trigger
@@ -10015,13 +10236,14 @@ function forceRerunAllBacktests(){
 // result immediately (or `{}` if none yet) and return.
 var _backtestInFlight = false;
 
-function computeAllRecentBacktestsAsync(forceRefresh, onProgress, onComplete){
+function computeAllRecentBacktestsAsync(forceRefresh, onProgress, onComplete, mode){
+  mode = mode || 'structural';
   if(_backtestInFlight){
-    if(onComplete) try { onComplete(_loadRecentBtCache() || {}, /*fromCache*/true); } catch(e){}
+    if(onComplete) try { onComplete(_loadRecentBtCache(mode) || {}, /*fromCache*/true); } catch(e){}
     return;
   }
   if(!forceRefresh){
-    var cached = _loadRecentBtCache();
+    var cached = _loadRecentBtCache(mode);
     if(cached){
       if(onComplete) try { onComplete(cached, /*fromCache*/true); } catch(e){}
       return;
@@ -10034,12 +10256,12 @@ function computeAllRecentBacktestsAsync(forceRefresh, onProgress, onComplete){
   function step(){
     if(idx >= keys.length){
       _backtestInFlight = false;
-      _saveRecentBtCache(results);
+      _saveRecentBtCache(results, mode);
       if(onComplete) try { onComplete(results, /*fromCache*/false); } catch(e){}
       return;
     }
     var k = keys[idx];
-    try { results[k] = calcRecentBacktest(k); }
+    try { results[k] = calcRecentBacktest(k, mode); }
     catch(e){ results[k] = null; }
     idx++;
     if(onProgress) try { onProgress(idx, keys.length, k); } catch(e){}
