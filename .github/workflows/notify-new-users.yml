@@ -6,10 +6,13 @@ name: Notify New Users
 # silently (no spam) so only genuinely new signups after install fire.
 #
 # Requires repo secrets:
-#   SUPABASE_URL
 #   SUPABASE_SERVICE_ROLE_KEY   (Supabase: Project Settings -> API)
 #   TELEGRAM_BOT_TOKEN          (same as detect_triggers.py)
 #   TELEGRAM_CHAT_ID            (same as detect_triggers.py)
+#
+# SUPABASE_URL is hardcoded below — it's already public (embedded in
+# dashboard.html, stats.html, index.html), so there's no value in
+# routing it through repo secrets.
 
 on:
   schedule:
@@ -36,7 +39,7 @@ jobs:
 
       - name: Run notifier
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: https://opwdsuusdmsaicoyqxti.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

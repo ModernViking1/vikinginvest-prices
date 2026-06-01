@@ -1058,15 +1058,19 @@ var WICKATOR_EW = {
 //   the literal chart value instead of the computed one.
 // ─────────────────────────────────────────────────────────────────────────
 function calcWickatorTPs(k){
-  // Blended Macro: prefer the auto-EW shape when refreshAutoEW returned a
-  // high-confidence wave pattern (Wave 2 forming → W3/W5 fib targets;
-  // 5-wave/ABC/WXY complete → resumption targets). This is the same
-  // detector compared against the seed in the conflict-check, just now
-  // wired in as the authoritative source for targets when confident.
+  // Blended Macro: prefer the auto-EW shape when refreshAutoEW returned
+  // a high-confidence wave pattern AND its direction matches the live
+  // engine. If the auto-EW pattern points the other way (e.g. detector
+  // sees a bear setup forming on a pair the engine reads as bull), we
+  // skip it — otherwise the macro card pill would say BULL while the
+  // SELL ZONE / TP1 / TP2 numbers below would all be bear-direction.
+  // That contradicting view was the GBP/AUD bug reported 2026-05-29.
+  var engineDir = (typeof STATE !== 'undefined' && STATE[k] && STATE[k].ew) || null;
   var autoEW = (typeof getAutoEWShape === 'function') ? getAutoEWShape(k) : null;
   var w = null;
   if(autoEW && (autoEW.dir === 'bull' || autoEW.dir === 'bear')
-     && isFinite(autoEW.anchor) && isFinite(autoEW.pivot)){
+     && isFinite(autoEW.anchor) && isFinite(autoEW.pivot)
+     && (engineDir !== 'bull' && engineDir !== 'bear' || autoEW.dir === engineDir)){
     w = {
       dir: autoEW.dir,
       anchor: autoEW.anchor,
@@ -1081,18 +1085,12 @@ function calcWickatorTPs(k){
   }
   if(!w){
     // Skip the manual WickatorFX seed when its direction disagrees with
-    // the live engine — bull-seed targets contradicting a bear engine
-    // pill is exactly what creates the "directional conflict" the user
-    // complained about. Carve-out: if auto-EW backs the seed (LOW
-    // conflict / engine reading sub-fractal noise), keep the seed.
+    // the live engine. Engine is authoritative now (decision 2026-05-29
+    // moving away from seed dependence) — no more auto-EW-backs-seed
+    // carve-out, since a stale seed shouldn't override the engine even
+    // when the pattern detector happens to agree with the seed.
     var seed = WICKATOR_EW[k];
-    var engineDir = (typeof STATE !== 'undefined' && STATE[k] && STATE[k].ew) || null;
-    var seedStale = false;
-    if(seed && seed.dir && (engineDir === 'bull' || engineDir === 'bear') && seed.dir !== engineDir){
-      var autoShape = (typeof getAutoEWShape === 'function') ? getAutoEWShape(k) : null;
-      var autoAgreesWithSeed = autoShape && autoShape.dir === seed.dir;
-      seedStale = !autoAgreesWithSeed;
-    }
+    var seedStale = (seed && seed.dir && (engineDir === 'bull' || engineDir === 'bear') && seed.dir !== engineDir);
     if(seed && !seedStale) w = seed;
   }
   if(!w){
@@ -1721,22 +1719,19 @@ function setupField(k, field){
     if(d && d[field] != null && d[field] !== '') return d[field];
   }
   var m = MKTS[k];
-  // Two cases where we deliberately bypass the static MKTS/WickatorFX
-  // seed and compute targets from live data instead:
+  // Bypass the static MKTS/WickatorFX seed and compute targets from
+  // live data when:
   //   1. m.entry is a TBD placeholder (v5/v6 pairs without manual seed).
   //   2. The seed direction disagrees with the live engine — i.e. the
   //      manual analysis is stale, and seed-direction targets would
-  //      contradict the bull/bear pills shown on the cards. Exception:
-  //      if auto-EW *does* back the seed (LOW conflict / sub-fractal
-  //      noise), keep the seed — that's the documented carve-out.
+  //      contradict the bull/bear pills shown on the cards.
+  // The previous auto-EW-backs-seed carve-out is gone (decision
+  // 2026-05-29 — engine takes priority over seed; a stale seed
+  // shouldn't override the engine even when auto-EW happens to agree
+  // with the seed).
   var seed = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k]) || null;
   var engineDir = (typeof STATE !== 'undefined' && STATE[k] && STATE[k].ew) || null;
-  var seedStale = false;
-  if(seed && seed.dir && (engineDir === 'bull' || engineDir === 'bear') && seed.dir !== engineDir){
-    var autoShape = (typeof getAutoEWShape === 'function') ? getAutoEWShape(k) : null;
-    var autoAgreesWithSeed = autoShape && autoShape.dir === seed.dir;
-    seedStale = !autoAgreesWithSeed;
-  }
+  var seedStale = (seed && seed.dir && (engineDir === 'bull' || engineDir === 'bear') && seed.dir !== engineDir);
   var isTBD = m && /^TBD/i.test(String(m.entry || ''));
   if(isTBD || seedStale){
     var auto = getAutoSetup(k);
@@ -3720,18 +3715,28 @@ function buildBacktest(){
     var fibRow = '';
 
     // Stats row — prefer deep backtest counts when available, fall back
-    // to legacy static MKTS counts (Apr 2025-Apr 2026 Wickator reconstruction)
-    // when no deep data exists for this pair.
+    // to legacy static MKTS counts when no deep data exists. For pairs
+    // on the Fib half-size methodology (commodities, indices) we read
+    // hybrid.midWins/midLosses so the W/L stat tile ties to the same
+    // 67% headline as the AUTO-EW + FIB ½ row underneath. Using the
+    // wick-only wins here while the headline used Fib was the FTSE
+    // 35W/33L vs 67% inconsistency reported 2026-05-29.
     var statsWins, statsLosses, statsTrades, statsTag;
+    var statsIsFib = false;
     try {
       var rbForStats = allRecent && allRecent[k];
       if(rbForStats && rbForStats.dataSource === 'deep' && rbForStats.totalSignals > 0){
-        statsWins = rbForStats.wins;
-        statsLosses = rbForStats.losses;
-        // "Trades" = all resolved + non-resolved signals (the universe of
-        // setups that occurred). Total includes expired and invalidated
-        // so the user sees the full signal volume, not just W/L.
-        statsTrades = rbForStats.totalSignals;
+        if(btMethod === 'fib' && rbForStats.hybrid &&
+           (rbForStats.hybrid.midWins || 0) + (rbForStats.hybrid.midLosses || 0) > 0){
+          statsWins = rbForStats.hybrid.midWins || 0;
+          statsLosses = rbForStats.hybrid.midLosses || 0;
+          statsTrades = statsWins + statsLosses;
+          statsIsFib = true;
+        } else {
+          statsWins = rbForStats.wins;
+          statsLosses = rbForStats.losses;
+          statsTrades = rbForStats.totalSignals;
+        }
         statsTag = (rbForStats.days||365) + 'd bt';
       } else {
         statsWins = m.bw;
@@ -3743,13 +3748,20 @@ function buildBacktest(){
       statsWins = m.bw; statsLosses = m.bl; statsTrades = m.bw + m.bl; statsTag = 'EW est';
     }
 
-    // Reward/risk display — also prefer deep backtest stats (1:1 RR rule
-    // means net R = wins - losses). Legacy fallback shows Wickator R figures.
+    // Reward/risk display — also prefer deep backtest stats. Fib pairs
+    // are 0.5R per W/L so net = 0.5 * (W - L); wick is 1.0R per W/L so
+    // net = W - L. Legacy fallback shows Wickator R figures.
     var rrText;
     if(statsTag !== 'EW est'){
-      // Deep mode: 1:1 RR rule, so net = wins - losses
-      var deepNetR = statsWins - statsLosses;
-      rrText = '1.0R reward / 1R risk &#183; ' + (deepNetR >= 0 ? '+' : '') + deepNetR + 'R net (365d bt)';
+      var deepNetR;
+      if(statsIsFib){
+        deepNetR = 0.5 * (statsWins - statsLosses);
+        var fibSign = deepNetR >= 0 ? '+' : '';
+        rrText = '0.5R risk &middot; ' + fibSign + deepNetR.toFixed(1) + 'R net (365d bt &middot; Fib ½)';
+      } else {
+        deepNetR = statsWins - statsLosses;
+        rrText = '1.0R reward / 1R risk &#183; ' + (deepNetR >= 0 ? '+' : '') + deepNetR + 'R net (365d bt)';
+      }
     } else {
       rrText = m.brr.toFixed(1) + 'R reward / 1R risk &#183; +' + netR + 'R net (EW est)';
     }
