@@ -452,20 +452,28 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     </div>
   </div>
 
-  <!-- ── METHODOLOGY NOTE — explains the per-instrument-class entry split ── -->
+  <!-- ── METHODOLOGY NOTE — explains the per-instrument-class production split ── -->
   <div style="background:rgba(200,134,10,0.06);border:1px solid rgba(200,134,10,0.25);border-radius:4px;padding:10px 13px;margin:10px 0 8px 0;font-size:10.5px;line-height:1.55;color:var(--inkm);">
-    <div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:5px;">Methodology &middot; production entry rules</div>
-    Each pair's backtest now uses ONE entry methodology, chosen per
-    instrument class based on the May 2026 backtest comparison
-    (struct / auto-EW / +50/200):
+    <div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:5px;">Methodology &middot; production rules per pair class</div>
+    Each pair's headline win-rate &amp; backtest card pull from the
+    cache + entry methodology that performed best in the May 2026
+    review (struct / auto-EW / +50/200):
     <ul style="margin:5px 0 4px 18px;padding:0;">
-      <li><strong style="color:var(--purple);">FX (majors &amp; minors) + crypto</strong> &mdash; auto-EW macro + <strong>wick (extreme-candle) entry</strong>, full 1R risk. Wick win rate was the stronger edge across this class.</li>
-      <li><strong style="color:var(--gold);">Commodities (XAU, XAG, Brent) + indices (DAX, NAS, etc.)</strong> &mdash; auto-EW macro + <strong>Fib 38% half-size entry</strong>, 0.5R risk. The half-size Fib variant produced higher net R after the +50/200 regime test on these instruments.</li>
+      <li><strong style="color:var(--inkd);">FX majors except AUD/USD</strong>
+        (EUR/USD, GBP/USD, USD/JPY, USD/CAD, USD/CHF, NZD/USD) &mdash;
+        <strong>STRUCT macro + wick entry</strong>, full 1R risk.
+        Structural-break direction outperformed auto-EW by 1.5&ndash;6 pts on these pairs.</li>
+      <li><strong style="color:var(--purple);">AUD/USD, FX minors, crypto</strong> &mdash;
+        <strong>AUTO-EW macro + wick entry</strong>, full 1R risk.
+        Auto-EW edged structural on AUD/USD; the auto-EW pattern detector is
+        the production macro for minors &amp; crypto.</li>
+      <li><strong style="color:var(--gold);">Commodities (XAU, XAG, Brent) + indices (DAX, NAS, etc.)</strong> &mdash;
+        <strong>AUTO-EW macro + Fib 38% half-size entry</strong>, 0.5R risk.
+        Half-size Fib produced higher net R on these instruments.</li>
     </ul>
-    Live signals and Telegram alerts now fire on the entry that matches
-    each pair's class (no more wick alerts on Brent, no more Fib alerts
-    on EUR/USD). The struct / +50/200 comparison caches are preserved
-    for future re-evaluation if the strategy is revisited.
+    Live signals and Telegram alerts follow the same per-class rule
+    (no wick alerts on Brent, no Fib alerts on EUR/USD). The
+    comparison caches are preserved for future re-evaluation.
   </div>
 
   <!-- ── 1b. FORCE RE-RUN — clears the localStorage backtest cache and
@@ -923,6 +931,38 @@ function _btMethodFor(k){
   var m = (typeof MKTS !== 'undefined') ? MKTS[k] : null;
   if(!m) return 'wick';
   return (m.t === 'comm' || m.t === 'index') ? 'fib' : 'wick';
+}
+
+// Per the backtest review on 2026-05-29, the *macro source* also
+// varies per pair class:
+//   t:'major' except AUD/USD  -> STRUCTURAL backtest (struct-break
+//                                direction outperformed auto-EW on
+//                                EUR/USD, GBP/USD, USD/JPY, USD/CAD,
+//                                USD/CHF, NZD/USD by 1.5-6 pts).
+//   AUD/USD, t:'minor', crypto,
+//   commodities, indices       -> AUTO-EW backtest (production macro).
+//
+// _btProfileFor returns both axes at once: { source, method }.
+//   source ∈ {'structural', 'auto-ew'}    — which cache to read
+//   method ∈ {'wick', 'fib'}              — which stats from that cache
+function _btProfileFor(k){
+  var m = (typeof MKTS !== 'undefined') ? MKTS[k] : null;
+  if(!m) return {source: 'auto-ew', method: 'wick'};
+  if(m.t === 'comm' || m.t === 'index') return {source: 'auto-ew', method: 'fib'};
+  if(m.t === 'major' && k !== 'audusd') return {source: 'structural', method: 'wick'};
+  return {source: 'auto-ew', method: 'wick'};
+}
+function _btProfileLabel(k){
+  var p = _btProfileFor(k);
+  if(p.source === 'structural') return 'STRUCT WICK';
+  if(p.method === 'fib') return 'AUTO-EW + FIB ½';
+  return 'AUTO-EW WICK';
+}
+function _btProfileColor(k){
+  var p = _btProfileFor(k);
+  if(p.source === 'structural') return 'var(--inkd)';
+  if(p.method === 'fib') return 'var(--gold)';
+  return 'var(--purple)';
 }
 // WICKATOR_EW BASELINE — macro Elliott Wave structure per pair
 // ================================================================
@@ -1874,17 +1914,45 @@ function mainDashboardWrLabel(k, m, mode){
       ? rate+'% &#183; '+live.wins+'W/'+live.losses+'L &#183; n='+live.total+' (15m live)'
       : rate+'% win rate';
   }
-  // Layer 2: 12-month deep backtest (Option D) — strongest data-driven source.
+  // Layer 2: 12-month deep backtest — strongest data-driven source.
+  // The cache + stats axes are chosen per pair class by _btProfileFor:
+  //   majors except AUD/USD -> structural cache, wick stats
+  //   AUD/USD, minors, crypto -> auto-EW cache, wick stats
+  //   commodities, indices    -> auto-EW cache, Fib half-size stats
   // ⚠️ Read cache only. NEVER trigger sync compute from a render path.
   try {
-    var cached = (typeof _loadRecentBtCache === 'function') ? _loadRecentBtCache() : null;
+    var profile = (typeof _btProfileFor === 'function')
+      ? _btProfileFor(k) : {source: 'auto-ew', method: 'wick'};
+    var cached = (typeof _loadRecentBtCache === 'function')
+      ? _loadRecentBtCache(profile.source) : null;
     var rb = cached && cached[k];
-    if(rb && rb.dataSource === 'deep' && rb.total >= 10){
-      var dRate = Math.round(rb.rate * 1000) / 10;
-      var dDays = rb.days || 365;
-      return mode === 'long'
-        ? dRate+'% &#183; '+rb.wins+'W/'+rb.losses+'L &#183; n='+rb.total+' ('+dDays+'d backtest)'
-        : dRate+'% win rate';
+    // If the preferred cache hasn't been populated yet, fall back to the
+    // other one so the headline always has a number to show.
+    if(!rb){
+      var otherSource = profile.source === 'structural' ? 'auto-ew' : 'structural';
+      cached = (typeof _loadRecentBtCache === 'function') ? _loadRecentBtCache(otherSource) : null;
+      rb = cached && cached[k];
+    }
+    if(rb && rb.dataSource === 'deep'){
+      var pmWins, pmLosses, pmTotal, pmRate;
+      if(profile.method === 'fib' && rb.hybrid){
+        pmWins = rb.hybrid.midWins || 0;
+        pmLosses = rb.hybrid.midLosses || 0;
+        pmTotal = pmWins + pmLosses;
+        pmRate = pmTotal > 0 ? (pmWins / pmTotal) * 100 : null;
+      } else {
+        pmWins = rb.wins || 0;
+        pmLosses = rb.losses || 0;
+        pmTotal = pmWins + pmLosses;
+        pmRate = pmTotal > 0 ? (pmWins / pmTotal) * 100 : null;
+      }
+      if(pmRate != null && pmTotal >= 10){
+        var dRate = Math.round(pmRate * 10) / 10;
+        var dDays = rb.days || 365;
+        return mode === 'long'
+          ? dRate+'% &#183; '+pmWins+'W/'+pmLosses+'L &#183; n='+pmTotal+' ('+dDays+'d backtest)'
+          : dRate+'% win rate';
+      }
     }
     // SAFETY NET (mobile fix): if DEEP_HIST is loaded in memory but no
     // cached backtest exists, kick async compute. Boot-path normally does
@@ -1916,30 +1984,47 @@ function mainDashboardWrLabel(k, m, mode){
           }
         }
       } catch(e){ /* defensive */ }
-      if(typeof addNote === 'function') try { addNote('⚙️ Computing auto-EW backtest (lazy-triggered)... DEEP_HIST='+Object.keys(DEEP_HIST).length+' pairs'+(needsForceRefresh?' [force]':'')); } catch(e){}
-      // setTimeout to defer until after current render completes
+      if(typeof addNote === 'function') try { addNote('⚙️ Computing backtests (lazy: auto-EW then struct)... DEEP_HIST='+Object.keys(DEEP_HIST).length+' pairs'+(needsForceRefresh?' [force]':'')); } catch(e){}
+      // setTimeout to defer until after current render completes.
+      // Boot now computes BOTH auto-EW and structural caches in sequence:
+      //   - auto-EW first (covers minors, crypto, commodities, indices,
+      //     AUD/USD)
+      //   - then structural (covers majors except AUD/USD — the user
+      //     decision from 2026-05-29 backtest review)
+      // After each variant finishes, refreshBacktestWR re-applies the
+      // per-pair profile so MKTS[k].wr always reflects the latest data.
       setTimeout(function(){
         try {
           computeAllRecentBacktestsAsync(needsForceRefresh, null, function(){
-            if(typeof addNote === 'function') try { addNote('✅ Auto-EW backtest ready · re-rendering'); } catch(e){}
-            // Critical: refresh the headline win-rate badge on each card
-            // now that the auto-EW cache is populated. Without this,
-            // MKTS[k].wr stays at whatever the legacy tier computed
-            // earlier in boot.
+            if(typeof addNote === 'function') try { addNote('✅ Auto-EW backtest ready'); } catch(e){}
             try { if(typeof refreshBacktestWR === 'function') refreshBacktestWR(); } catch(e){}
             try {
               Object.keys(MKTS).forEach(function(kk){
                 if(typeof updateOV === 'function') updateOV(kk);
               });
             } catch(e){}
-            // ALWAYS rebuild Backtest tab when async finishes — not just when
-            // currently active. If user is on Backtest now: re-render with deep
-            // data. If user is on Dashboard: when they later navigate to Backtest,
-            // buildBacktest will see fresh cache and render correctly.
-            // (Without this, Backtest tab stayed stuck on EW labels after race.)
             if(typeof buildBacktest === 'function'){
               setTimeout(buildBacktest, 50);
             }
+            // Chain the structural compute now that auto-EW has finished.
+            setTimeout(function(){
+              try {
+                computeAllRecentBacktestsAsync(needsForceRefresh, null, function(){
+                  if(typeof addNote === 'function') try { addNote('✅ Structural backtest ready · re-rendering'); } catch(e){}
+                  try { if(typeof refreshBacktestWR === 'function') refreshBacktestWR(); } catch(e){}
+                  try {
+                    Object.keys(MKTS).forEach(function(kk){
+                      if(typeof updateOV === 'function') updateOV(kk);
+                    });
+                  } catch(e){}
+                  if(typeof buildBacktest === 'function'){
+                    setTimeout(buildBacktest, 50);
+                  }
+                }, 'structural');
+              } catch(e){
+                if(typeof addNote === 'function') try { addNote('❌ Lazy struct compute crashed: '+(e.message||e)); } catch(e2){}
+              }
+            }, 200);
           }, 'auto-ew');
         } catch(e){
           if(typeof addNote === 'function') try { addNote('❌ Lazy backtest compute crashed: '+(e.message||e)); } catch(e2){}
@@ -3496,36 +3581,76 @@ function buildBacktest(){
       hintLine = '<div style="font-size:7.5px;color:'+hintCol+';font-style:italic;margin-top:4px;line-height:1.35;border-top:1px dashed rgba(0,0,0,0.06);padding-top:4px;">' + gate.hint + '</div>';
     }
 
-    // 15m intraday WR row removed (user request 2026-05-29) — was the
-    // "15M INTRADAY 1:1 . not 4/4 aligned" row that cluttered each card
-    // without adding production value. The intraday signal itself still
-    // lives on the dashboard alert flash / Telegram alert.
+    // 15m intraday tracker row (reintroduced 2026-05-29). Tracks live
+    // 15m trigger alerts per pair using the entry type that matches the
+    // pair's class — wick for FX/crypto, Fib 38% half-size for
+    // commodities/indices. The intradayWinRate tracker already follows
+    // whichever entry actually fires (driven by detect_triggers.py's
+    // per-class gating), so we simply re-surface its result here.
+    var intra = (typeof intradayWinRate === 'function') ? intradayWinRate(k) : null;
     var intraRow = '';
+    var pairAligned = STATE[k] && STATE[k].ew === STATE[k].tl && STATE[k].tl === STATE[k].nw &&
+                      (STATE[k].ew === 'bull' || STATE[k].ew === 'bear');
+    var btMethodHere = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
+    var intraLabel = btMethodHere === 'fib' ? '15m intraday · fib ½' : '15m intraday · wick';
+    if(intra){
+      var intraColor = wrCol(intra.rate * 100);
+      var intraRate = (Math.round(intra.rate * 1000) / 10).toFixed(1);
+      var srcLabel = intra.source === 'live' ? 'live' : 'sim';
+      var srcCol = intra.source === 'live' ? 'var(--bull)' : 'var(--inkd)';
+      var wlPart = intra.wins + 'W/' + intra.losses + 'L';
+      var failurePart = '';
+      var hasFailures = (intra.expired > 0 || intra.invalidated > 0);
+      if(hasFailures){
+        var failureBits = [];
+        if(intra.expired > 0)     failureBits.push(intra.expired + ' exp');
+        if(intra.invalidated > 0) failureBits.push(intra.invalidated + ' inv');
+        failurePart = ' · ' + failureBits.join(' · ');
+      }
+      var rateDisplay = (intra.total === 0 && hasFailures)
+        ? '<span style="font-size:7.5px;color:var(--inkd);font-style:italic;">no completed trades</span>'
+        : '<span style="color:'+intraColor+';font-weight:700;">'+intraRate+'%</span>'
+          + '<span style="font-size:7.5px;color:var(--inkd);margin-left:6px;">'+wlPart+failurePart+'</span>';
+      intraRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:6px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
+        + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;">'+intraLabel+'</div>'
+        + '  <div style="display:flex;gap:6px;align-items:center;">'
+        +     rateDisplay
+        + '    <span style="font-size:7px;padding:1px 5px;border-radius:2px;background:rgba(0,0,0,0.04);color:'+srcCol+';letter-spacing:0.5px;">'+srcLabel.toUpperCase()+' n='+intra.totalSignals+'</span>'
+        + '  </div>'
+        + '</div>';
+    } else if(!pairAligned){
+      intraRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:6px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
+        + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;">'+intraLabel+'</div>'
+        + '  <div style="font-size:7.5px;color:var(--inkd);font-style:italic;">not 4/4 aligned</div>'
+        + '</div>';
+    } else {
+      intraRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:6px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
+        + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;">'+intraLabel+'</div>'
+        + '  <div style="font-size:7.5px;color:var(--inkd);font-style:italic;">no signals in buffer yet</div>'
+        + '</div>';
+    }
 
-    // Primary backtest row — ONE row per pair, using the entry methodology
-    // chosen for this pair's instrument class:
-    //   FX / crypto    -> AUTO-EW wick (extreme-candle) entry, full 1R risk
-    //   Commodity/idx  -> AUTO-EW + Fib 38% half-size entry, 0.5R risk
+    // Primary backtest row — ONE row per pair, using the cache + entry
+    // methodology chosen for this pair's instrument class by
+    // _btProfileFor:
+    //   majors except AUD/USD -> structural cache, wick stats
+    //   AUD/USD, minors, crypto -> auto-EW cache, wick stats
+    //   commodities, indices    -> auto-EW cache, Fib 38% half-size stats
     //
-    // The auto-EW backtest cache is the source for both methodologies; the
-    // Fib pairs surface the hybrid.midWins/Losses half-size stats, the
-    // wick pairs surface the wick-only stats. Comparison work to validate
-    // this split is preserved in cache (struct + auto-ew-regime caches
-    // still exist) — they're just not rendered by default anymore.
+    // Each axis falls back to the other cache when its preferred one
+    // isn't yet populated, so the card always has a number.
     var recentBtRow = '';
     try {
-      var btMethod = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
+      var profileC = (typeof _btProfileFor === 'function')
+        ? _btProfileFor(k) : {source: 'auto-ew', method: 'wick'};
+      var btMethod = profileC.method;
       var allRecentAuto = (typeof _loadRecentBtCache === 'function')
         ? _loadRecentBtCache('auto-ew') : null;
-      // Boot fallback: until Force Re-Run populates the auto-ew cache, fall
-      // back to the structural cache (same shape) so the card never looks
-      // empty. The methodology note explains the temporary state.
-      var allRecent = allRecentAuto;
-      var sourceLabel = 'AUTO-EW';
+      var allRecentStruct = (typeof _loadRecentBtCache === 'function')
+        ? _loadRecentBtCache('structural') : null;
+      var allRecent = profileC.source === 'structural' ? allRecentStruct : allRecentAuto;
       if(!allRecent){
-        allRecent = (typeof computeAllRecentBacktests === 'function')
-          ? computeAllRecentBacktests(false, 'structural') : null;
-        sourceLabel = 'STRUCT (auto-EW pending)';
+        allRecent = profileC.source === 'structural' ? allRecentAuto : allRecentStruct;
       }
       var rb = allRecent && allRecent[k];
 
@@ -3560,7 +3685,8 @@ function buildBacktest(){
               + '</div>';
           }
         } else {
-          // Wick entry — show wick-only stats
+          // Wick entry — show wick-only stats. Label varies by SOURCE:
+          // STRUCT WICK for majors (except AUD/USD), AUTO-EW WICK otherwise.
           var rbColor = wrCol(rb.rate * 100);
           var rbRate = (Math.round(rb.rate * 1000) / 10).toFixed(1);
           var rbExtra = '';
@@ -3570,8 +3696,10 @@ function buildBacktest(){
             ? '<span style="font-size:7.5px;color:var(--inkd);font-style:italic;">no completed' + rbExtra + '</span>'
             : '<span style="color:'+rbColor+';font-weight:700;">'+rbRate+'%</span>'
               + '<span style="font-size:7.5px;color:var(--inkd);margin-left:6px;">'+rb.wins+'W/'+rb.losses+'L'+rbExtra+'</span>';
+          var profileLabel = (typeof _btProfileLabel === 'function') ? _btProfileLabel(k) : 'AUTO-EW WICK';
+          var profileColor = (typeof _btProfileColor === 'function') ? _btProfileColor(k) : 'var(--purple)';
           recentBtRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:4px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
-            + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--purple);letter-spacing:0.5px;text-transform:uppercase;" title="Auto-EW macro + wick (extreme candle) entry (production methodology for FX/crypto)">4/4 BT &middot; AUTO-EW WICK</div>'
+            + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:'+profileColor+';letter-spacing:0.5px;text-transform:uppercase;" title="Production methodology for this pair">4/4 BT &middot; '+profileLabel+'</div>'
             + '  <div style="display:flex;gap:6px;align-items:center;">'
             +     rbBody
             + '    <span style="font-size:7px;padding:1px 5px;border-radius:2px;background:rgba(0,0,0,0.04);color:var(--inkd);letter-spacing:0.5px;">'+rbWindow+' n='+rb.totalSignals+'</span>'
@@ -5760,23 +5888,27 @@ function refreshBacktestWR(){
   var MIN_LIVE_TRADES = 10;
   var MIN_REAL_TRADES = 3;
   var realCount = 0, liveCount = 0, structCount = 0, failCount = 0;
-  var autoEwCount = 0;
+  var autoEwCount = 0, structCount0 = 0;
   var allRecentAuto = (typeof _loadRecentBtCache === 'function')
     ? _loadRecentBtCache('auto-ew') : null;
+  var allRecentStruct = (typeof _loadRecentBtCache === 'function')
+    ? _loadRecentBtCache('structural') : null;
 
   Object.keys(MKTS).forEach(function(k){
     var bt = null;
     var source = 'wickator-structure';
 
-    // Tier 0: auto-EW backtest cache (production methodology).
-    // For FX/crypto, use wick-only stats. For commodities/indices, use
-    // the hybrid.midWins/midLosses (Fib 38% half-size) stats. The Fib
-    // bucket can be empty for some pairs in the window — fall through
-    // to lower tiers in that case.
-    if(allRecentAuto && allRecentAuto[k]){
-      var rb = allRecentAuto[k];
-      var method = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
-      if(method === 'fib' && rb.hybrid){
+    // Tier 0: per-pair profile cache (production methodology).
+    // _btProfileFor decides which cache + which stats to read:
+    //   majors except AUD/USD -> structural cache, wick stats
+    //   AUD/USD, minors, crypto -> auto-EW cache, wick stats
+    //   commodities, indices    -> auto-EW cache, Fib half-size stats
+    var profile = (typeof _btProfileFor === 'function')
+      ? _btProfileFor(k) : {source: 'auto-ew', method: 'wick'};
+    var srcCache = profile.source === 'structural' ? allRecentStruct : allRecentAuto;
+    if(srcCache && srcCache[k]){
+      var rb = srcCache[k];
+      if(profile.method === 'fib' && rb.hybrid){
         var fW = rb.hybrid.midWins || 0;
         var fL = rb.hybrid.midLosses || 0;
         var fT = fW + fL;
@@ -5784,9 +5916,9 @@ function refreshBacktestWR(){
           bt = {
             wins: fW, losses: fL, total: fT,
             winrate: (fW / fT) * 100,
-            avgRR: 1.0  // Fib half-size is 0.5R per W/L but the *ratio* is still 1:1
+            avgRR: 1.0
           };
-          source = 'auto-ew-fib';
+          source = 'profile-auto-ew-fib';
           autoEwCount++;
         }
       } else if(rb.totalSignals >= MIN_REAL_TRADES) {
@@ -5799,8 +5931,8 @@ function refreshBacktestWR(){
             winrate: (wW / wT) * 100,
             avgRR: 1.0
           };
-          source = 'auto-ew-wick';
-          autoEwCount++;
+          source = profile.source === 'structural' ? 'profile-struct-wick' : 'profile-auto-ew-wick';
+          if(profile.source === 'structural') structCount0++; else autoEwCount++;
         }
       }
     }
@@ -5852,7 +5984,7 @@ function refreshBacktestWR(){
   if(mc) mc.innerHTML = '';
   if(agg) agg.innerHTML = '';
   buildBacktest();
-  addNote('Backtest refreshed: '+autoEwCount+' auto-EW, '+realCount+' real-historical, '+liveCount+' live-m15, '+structCount+' macro-structure, '+failCount+' unavailable');
+  addNote('Backtest refreshed: '+structCount0+' struct-major, '+autoEwCount+' auto-EW, '+realCount+' real-historical, '+liveCount+' live-m15, '+structCount+' macro-structure, '+failCount+' unavailable');
 }
 
 function simAll(){if(simAllRunning){simAllRunning=false;Object.keys(MKTS).forEach(function(k){if(STATE[k].simRun)toggleSim(k);});document.querySelector('.tbtn-sim').innerHTML='&#9654; Sim All';return;}simAllRunning=true;document.querySelector('.tbtn-sim').innerHTML='&#9646; Stop Sims';Object.keys(MKTS).forEach(function(k){toggleSim(k);});}
