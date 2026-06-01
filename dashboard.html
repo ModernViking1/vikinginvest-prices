@@ -258,8 +258,87 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   } catch(e){}
 })();
 </script>
+<!-- Supabase Auth SDK (magic-link gate for Signal Log & Backtest tabs) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ── AUTH MODAL ── */
+.viauth-overlay{
+  position:fixed;inset:0;background:rgba(28,26,23,0.78);
+  display:flex;align-items:center;justify-content:center;
+  z-index:9999;padding:20px;backdrop-filter:blur(4px);
+  font-family:'Inter','Mukta',sans-serif;
+}
+.viauth-card{
+  background:#fff;border:1px solid #ddd8d0;border-radius:14px;
+  padding:34px 30px 26px;max-width:430px;width:100%;
+  box-shadow:0 24px 80px rgba(0,0,0,0.32);position:relative;
+}
+.viauth-eyebrow{
+  font-size:9.5px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:#c8860a;margin-bottom:8px;
+}
+.viauth-card h2{
+  font-family:'Inter','Mukta',sans-serif;font-size:21px;font-weight:800;
+  color:#1c1a17;margin:0 0 10px;line-height:1.25;letter-spacing:-0.3px;
+}
+.viauth-card p{font-size:13.5px;color:#4a4640;font-weight:400;line-height:1.55;margin:0 0 18px;}
+.viauth-card form{display:flex;flex-direction:column;gap:9px;}
+.viauth-card input{
+  font-family:'Inter','Mukta',sans-serif;font-size:14px;
+  padding:11px 13px;border:1.5px solid #ddd8d0;border-radius:7px;
+  background:#fff;color:#1c1a17;width:100%;box-sizing:border-box;
+}
+.viauth-card input:focus{outline:none;border-color:#c8860a;}
+.viauth-card button[type=submit]{
+  font-family:'Inter','Mukta',sans-serif;font-size:11px;font-weight:700;
+  letter-spacing:1px;text-transform:uppercase;
+  padding:12px 16px;border:0;border-radius:7px;cursor:pointer;
+  background:#1c1a17;color:#f0ede8;
+}
+.viauth-card button[type=submit]:disabled{opacity:0.55;cursor:wait;}
+.viauth-msg{font-size:12.5px;text-align:center;margin-top:13px;min-height:18px;font-weight:500;}
+.viauth-msg.viauth-ok{color:#1a7a4a;}
+.viauth-msg.viauth-err{color:#c0281a;}
+.viauth-close{
+  position:absolute;top:10px;right:12px;background:none;border:0;
+  font-size:24px;color:#9a9088;cursor:pointer;width:30px;height:30px;
+  line-height:1;border-radius:5px;padding:0;
+}
+.viauth-close:hover{background:rgba(0,0,0,0.05);color:#1c1a17;}
+#viauth-status{display:inline-flex;align-items:center;gap:6px;margin-right:6px;}
+.viauth-chip{
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:'Inter','Mukta',sans-serif;font-size:9px;font-weight:500;
+  color:#1a7a4a;padding:4px 8px;background:rgba(26,122,74,0.1);
+  border:1px solid rgba(26,122,74,0.25);border-radius:4px;
+}
+.viauth-dot{width:6px;height:6px;border-radius:50%;background:#1a7a4a;flex-shrink:0;}
+.viauth-name{font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.viauth-link{
+  font-family:'Inter','Mukta',sans-serif;font-size:9px;font-weight:700;
+  letter-spacing:0.5px;text-transform:uppercase;
+  padding:5px 9px;border:1px solid #1c1a17;background:transparent;
+  color:#1c1a17;border-radius:4px;cursor:pointer;
+}
+.viauth-link:hover{background:#1c1a17;color:#f0ede8;}
+</style>
 </head>
 <body>
+
+<!-- ── AUTH MODAL (magic-link sign-in) ── -->
+<div id="viauth-modal" class="viauth-overlay" style="display:none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="viauth-title">
+  <div class="viauth-card">
+    <button type="button" class="viauth-close" onclick="window.__viAuthClose&&window.__viAuthClose()" aria-label="Close">&times;</button>
+    <div class="viauth-eyebrow">Restricted access</div>
+    <h2 id="viauth-title">Sign in to view Signals &amp; Backtest</h2>
+    <p>The Signal Log and Backtest tabs are for registered users. Enter your email and we&rsquo;ll send a one-tap magic link &mdash; no passwords.</p>
+    <form id="viauth-form">
+      <input type="email" id="viauth-email" placeholder="you@example.com" autocomplete="email" required>
+      <button type="submit" id="viauth-btn">Send magic link</button>
+    </form>
+    <div id="viauth-msg" class="viauth-msg"></div>
+  </div>
+</div>
 
 <!-- TOPBAR -->
 <div class="topbar">
@@ -272,6 +351,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     </div>
   </div>
   <div class="top-btns">
+    <span id="viauth-status"></span>
     <button class="tbtn tbtn-prices" onclick="openPriceOverride()" style="background:var(--gold);color:#fff;border:1px solid var(--gold);font-weight:700;">📝 Prices</button>
     <button class="tbtn tbtn-scan" onclick="runScan()">⚡ Scan</button>
   </div>
@@ -12645,7 +12725,145 @@ startLiveEngine();
 
 </script>
 
+<script>
+/* ── Supabase Auth: gate Signal Log (log) and Backtest (bt) tabs ─────────
+   Wraps window.switchPage so clicking those tabs while signed out opens a
+   magic-link modal; after sign-in the user lands on the tab they wanted.
+   Anon key is safe to embed (designed for client use; RLS protects data). */
+(function(){
+  var SUPABASE_URL = 'https://opwdsuusdmsaicoyqxti.supabase.co';
+  var SUPABASE_ANON_KEY = 'PASTE_SUPABASE_ANON_KEY_HERE';
+  var GATED = {bt:1, log:1};
 
+  if(!window.supabase || !window.supabase.createClient){
+    console.warn('[VI Auth] Supabase SDK not loaded — gating disabled.');
+    return;
+  }
+  if(SUPABASE_ANON_KEY === 'PASTE_SUPABASE_ANON_KEY_HERE'){
+    console.warn('[VI Auth] Anon key placeholder still present — gating disabled until key is set.');
+    return;
+  }
+
+  var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}
+  });
+  var session = null;
+  var wantedPage = null;
+
+  function updateStatus(){
+    var el = document.getElementById('viauth-status');
+    if(!el) return;
+    if(session && session.user){
+      var email = session.user.email || 'signed in';
+      el.innerHTML =
+        '<span class="viauth-chip"><span class="viauth-dot"></span>' +
+        '<span class="viauth-name" title="'+email.replace(/"/g,'')+'">' + email + '</span></span>' +
+        '<button type="button" class="viauth-link" onclick="window.__viAuthSignOut()">Sign out</button>';
+    } else {
+      el.innerHTML = '<button type="button" class="viauth-link" onclick="window.__viAuthOpen()">Sign in</button>';
+    }
+  }
+
+  window.__viAuthOpen = function(){
+    var m = document.getElementById('viauth-modal');
+    if(!m) return;
+    m.style.display='flex'; m.setAttribute('aria-hidden','false');
+    setTimeout(function(){
+      var i = document.getElementById('viauth-email');
+      if(i) i.focus();
+    }, 60);
+  };
+  window.__viAuthClose = function(){
+    var m = document.getElementById('viauth-modal');
+    if(!m) return;
+    m.style.display='none'; m.setAttribute('aria-hidden','true');
+  };
+  window.__viAuthSignOut = function(){
+    sb.auth.signOut().catch(function(){});
+  };
+
+  (function wrap(){
+    if(typeof window.switchPage !== 'function'){
+      setTimeout(wrap, 60); return;
+    }
+    if(window.switchPage.__viWrapped) return;
+    var orig = window.switchPage;
+    window.switchPage = function(p){
+      if(GATED[p] && !session){
+        wantedPage = p;
+        window.__viAuthOpen();
+        return;
+      }
+      return orig.apply(this, arguments);
+    };
+    window.switchPage.__viWrapped = true;
+  })();
+
+  sb.auth.getSession().then(function(r){
+    session = (r && r.data) ? r.data.session : null;
+    updateStatus();
+  }).catch(function(){});
+
+  sb.auth.onAuthStateChange(function(event, newSession){
+    session = newSession || null;
+    updateStatus();
+    if(session){
+      window.__viAuthClose();
+      if(wantedPage && GATED[wantedPage] && typeof window.switchPage === 'function'){
+        var p = wantedPage; wantedPage = null;
+        setTimeout(function(){ window.switchPage(p); }, 100);
+      }
+    }
+  });
+
+  function onReady(){
+    var form = document.getElementById('viauth-form');
+    if(form){
+      form.addEventListener('submit', function(e){
+        e.preventDefault();
+        var email = (document.getElementById('viauth-email').value || '').trim();
+        var msg = document.getElementById('viauth-msg');
+        var btn = document.getElementById('viauth-btn');
+        if(!email) return;
+        msg.className='viauth-msg'; msg.textContent='Sending magic link…';
+        btn.disabled = true;
+        sb.auth.signInWithOtp({
+          email: email,
+          options: {emailRedirectTo: window.location.origin + window.location.pathname}
+        }).then(function(r){
+          btn.disabled = false;
+          if(r && r.error){
+            msg.className='viauth-msg viauth-err';
+            msg.textContent = r.error.message || 'Could not send link.';
+          } else {
+            msg.className='viauth-msg viauth-ok';
+            msg.textContent = '✓ Magic link sent to ' + email + ' — check your inbox.';
+          }
+        }).catch(function(err){
+          btn.disabled = false;
+          msg.className='viauth-msg viauth-err';
+          msg.textContent = (err && err.message) || 'Network error — try again.';
+        });
+      });
+    }
+    var overlay = document.getElementById('viauth-modal');
+    if(overlay){
+      overlay.addEventListener('click', function(e){
+        if(e.target === overlay) window.__viAuthClose();
+      });
+    }
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape') window.__viAuthClose();
+    });
+    updateStatus();
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', onReady);
+  } else {
+    onReady();
+  }
+})();
+</script>
 
 </body>
 </html>
