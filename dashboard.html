@@ -3583,67 +3583,6 @@ function buildBacktest(){
       }
     } catch(e){ /* defensive */ }
 
-    // ── VARIANT ROWS (v8): fresh-alignment gate + extended expiry ──
-    // Both are backtest-only "what if" measurements, not changes to the
-    // live rule. The card surfaces them so you can judge whether either
-    // is worth promoting before any live wiring.
-    var freshRow = '', extRow = '';
-    try {
-      var rbHybV = allRecent && allRecent[k] && allRecent[k].hybrid;
-      if(rbHybV && rbHybV.fresh){
-        var f = rbHybV.fresh;
-        var fResolved = f.wins + f.losses;
-        if(fResolved > 0){
-          var fRate = (f.wins / fResolved * 100).toFixed(1);
-          var fCol = wrCol(f.wins / fResolved * 100);
-          // Compare to baseline (wick-only) rate for delta.
-          var baseResolved = (rbHybV.wickWins||0) + (rbHybV.wickLosses||0);
-          var baseRate = baseResolved > 0 ? (rbHybV.wickWins / baseResolved * 100) : null;
-          var deltaTag = '';
-          if(baseRate != null){
-            var d = (f.wins/fResolved*100) - baseRate;
-            var dSign = d >= 0 ? '+' : '';
-            var dCol = d > 0 ? 'var(--bull)' : (d < 0 ? 'var(--bear)' : 'var(--inkd)');
-            deltaTag = '<span style="font-size:7.5px;color:'+dCol+';font-weight:700;" title="Win-rate delta vs the wick-only baseline">'+dSign+d.toFixed(1)+'pp</span>';
-          }
-          var fNetR = f.wins - f.losses;
-          var fSign = fNetR >= 0 ? '+' : '';
-          freshRow = '<div style="border-top:1px dashed rgba(0,0,0,0.06);margin-top:3px;padding-top:4px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
-            + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;" title="Variant: only count setups where 4/4 alignment held for ≥ '+f.minBars+' prior bars. Filters out one-bar alignment flickers.">+ fresh '+f.minBars+'-bar gate</div>'
-            + '  <div style="display:flex;gap:6px;align-items:center;">'
-            + '    <span style="color:'+fCol+';font-weight:700;">'+fRate+'%</span>'
-            + '    <span style="font-size:7.5px;color:var(--inkd);">'+f.wins+'W/'+f.losses+'L</span>'
-            + '    '+deltaTag
-            + '    <span style="font-size:7px;padding:1px 5px;border-radius:2px;background:rgba(0,0,0,0.04);color:var(--inkm);letter-spacing:0.5px;">'+fSign+fNetR+'R · n='+f.considered+'</span>'
-            + '  </div>'
-            + '</div>';
-        }
-      }
-      if(rbHybV && rbHybV.extended){
-        var x = rbHybV.extended;
-        var xResolved = x.rescueWins + x.rescueLosses;
-        var xCohort = xResolved + x.stillExpired;  // total previously-expired
-        if(xCohort > 0){
-          var xRate = xResolved > 0 ? (x.rescueWins / xResolved * 100).toFixed(1) : null;
-          var xCol = xResolved > 0 ? wrCol(x.rescueWins / xResolved * 100) : 'var(--inkd)';
-          var xNetR = x.rescueWins - x.rescueLosses;
-          var xSign = xNetR >= 0 ? '+' : '';
-          var xNetCol = xNetR > 0 ? 'var(--bull)' : (xNetR < 0 ? 'var(--bear)' : 'var(--inkd)');
-          var rateBlock = xRate != null
-            ? '<span style="color:'+xCol+';font-weight:700;">'+xRate+'%</span> <span style="font-size:7.5px;color:var(--inkd);">'+x.rescueWins+'W/'+x.rescueLosses+'L</span>'
-            : '<span style="font-size:7.5px;color:var(--inkd);font-style:italic;">no rescues</span>';
-          extRow = '<div style="border-top:1px dashed rgba(0,0,0,0.06);margin-top:3px;padding-top:4px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
-            + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;" title="Variant: extend expiry from 8 → '+x.expiryBars+' bars. Shows W/L of previously-expired setups that retested in bars 9-'+x.expiryBars+'.">+ expiry 8 → '+x.expiryBars+' bars</div>'
-            + '  <div style="display:flex;gap:6px;align-items:center;">'
-            +     rateBlock
-            + '    <span style="font-size:7.5px;color:'+xNetCol+';font-weight:700;" title="Net R rescued from the previously-expired cohort">'+xSign+xNetR+'R</span>'
-            + '    <span style="font-size:7px;padding:1px 5px;border-radius:2px;background:rgba(0,0,0,0.04);color:var(--inkm);letter-spacing:0.5px;">'+xResolved+'/'+xCohort+' rescued</span>'
-            + '  </div>'
-            + '</div>';
-        }
-      }
-    } catch(e){ /* defensive */ }
-
     // Stats row — prefer deep backtest counts when available, fall back
     // to legacy static MKTS counts (Apr 2025-Apr 2026 Wickator reconstruction)
     // when no deep data exists for this pair.
@@ -3680,7 +3619,7 @@ function buildBacktest(){
     }
 
     var card=document.createElement('div');card.className='mktcard';card.onclick=(function(key){return function(){switchPage('dash');switchMkt(key);};})(k);
-    card.innerHTML='<div class="ctop"><div class="csym">'+m.sym+srcTag+confDotHtml+evtDotHtml+'</div><div class="cwr-row"><div class="cwr" style="color:'+col+';font-size:11px;">'+wrTxt+'</div><span class="grade '+gc+'">'+m.g+'</span></div></div><div class="cbar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:'+(m.wr||0)+'%;background:linear-gradient(90deg,'+col+','+col+'88)"></div></div><div style="font-size:8px;color:var(--inkd);margin-top:2px;font-family:Orbitron,monospace;" title="Average reward per 1R risked">'+rrText+'</div></div><div class="cstats"><div class="cstat"><div class="csv" style="color:var(--bull)">'+statsWins+'</div><div class="csl">Wins</div></div><div class="cstat"><div class="csv" style="color:var(--bear)">'+statsLosses+'</div><div class="csl">Losses</div></div><div class="cstat"><div class="csv" style="color:var(--gold)">'+statsTrades+'</div><div class="csl">Trades</div></div></div><div style="font-size:7px;text-align:center;color:var(--inkd);margin-top:-4px;letter-spacing:0.5px;text-transform:uppercase;font-family:Orbitron,monospace;">stats: '+statsTag+'</div>'+intraRow+recentBtRow+fibRow+freshRow+extRow+hintLine;
+    card.innerHTML='<div class="ctop"><div class="csym">'+m.sym+srcTag+confDotHtml+evtDotHtml+'</div><div class="cwr-row"><div class="cwr" style="color:'+col+';font-size:11px;">'+wrTxt+'</div><span class="grade '+gc+'">'+m.g+'</span></div></div><div class="cbar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:'+(m.wr||0)+'%;background:linear-gradient(90deg,'+col+','+col+'88)"></div></div><div style="font-size:8px;color:var(--inkd);margin-top:2px;font-family:Orbitron,monospace;" title="Average reward per 1R risked">'+rrText+'</div></div><div class="cstats"><div class="cstat"><div class="csv" style="color:var(--bull)">'+statsWins+'</div><div class="csl">Wins</div></div><div class="cstat"><div class="csv" style="color:var(--bear)">'+statsLosses+'</div><div class="csl">Losses</div></div><div class="cstat"><div class="csv" style="color:var(--gold)">'+statsTrades+'</div><div class="csl">Trades</div></div></div><div style="font-size:7px;text-align:center;color:var(--inkd);margin-top:-4px;letter-spacing:0.5px;text-transform:uppercase;font-family:Orbitron,monospace;">stats: '+statsTag+'</div>'+intraRow+recentBtRow+fibRow+hintLine;
     mc.appendChild(card);
   });
   drawEquity();
@@ -9283,11 +9222,11 @@ function refreshHourlyRSI(k){
 // v4 — bumped because v3 results were full per-pair `trades` arrays
 // that exceed mobile localStorage quota. v4 is the slim version with
 // `trades` stripped at save time.
-// v8 — bumped because the hybrid block now also exposes `fresh` (≥3-bar
-// alignment freshness gate) and `extended` (8 → 12 bar expiry rescue)
-// variant counters. v7 cached results don't have those fields, and the
-// new card rows need them. New key forces a re-run on first load.
-var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v8';
+// v9 — bumped because the fresh / extended variant counters added in v8
+// were removed (user evaluated them and found no material win-rate
+// uplift). Stale v8 results would still render with the dropped
+// rb.hybrid.fresh / rb.hybrid.extended fields; fresh re-run clears them.
+var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v9';
 var RECENT_BT_CACHE_TTL_MS = 4 * 60 * 60 * 1000;  // 4 hours
 
 function _loadRecentBtCache(){
@@ -9493,24 +9432,6 @@ function calcRecentBacktest(k){
   var wins = 0, losses = 0, expired = 0, invalidated = 0;
   var trades = [];  // per-trade outcomes for failure mode analysis
 
-  // ── VARIANT COUNTERS (v8 — backtest-only, no live rule change) ──
-  // Fresh-alignment gate (≥ N bars of unbroken 4/4 before signal fires).
-  // Only signals where alignment held for FRESH_MIN_BARS prior bars are
-  // tallied here — answers "does filtering alignment-flickers help?".
-  var FRESH_MIN_BARS = 3;
-  var freshWins = 0, freshLosses = 0, freshExpired = 0, freshInvalidated = 0;
-  var freshConsidered = 0;
-  // Extended expiry (12 bars instead of 8). Targets the "expired-no-retest"
-  // cohort — checks bars 9-12 of expired setups for delayed retest plus
-  // forward outcome. Same wick entry/stop/target as standard.
-  var EXT_EXPIRY_BARS = 12;
-  var extRescueWins = 0, extRescueLosses = 0, extStillExpired = 0;
-  // Track 4/4 alignment direction at each m15 bar so the freshness gate
-  // can verify "has 4/4 held for ≥ N prior bars". Populated below as
-  // ewDir/tlDir/nwDir/clDir get computed for each bar.
-  var alignedAtBar = new Array(n);
-  for(var afi = 0; afi < n; afi++) alignedAtBar[afi] = null;
-
   // ── HYBRID RULE TRACKING ──
   // The standard rule waits for price to retest the creator bar's wick
   // extreme. ~61% of triggers never retest. Hybrid adds a backup entry at
@@ -9657,15 +9578,6 @@ function calcRecentBacktest(k){
     // NO FALLBACK to STATE[k].ew here — that would introduce lookahead
     // bias. If insufficient daily history at this point, skip the bar.
     var ewDir = ewDirAtTime(k, curTs);
-
-    // Record alignment-at-bar BEFORE the early-exit gates, so the freshness
-    // variant can verify "4/4 held for ≥ N prior bars" without needing a
-    // second pass over the data.
-    if(ewDir && tlDir && nwDir && clDir &&
-       ewDir === tlDir && tlDir === nwDir && nwDir === clDir &&
-       (ewDir === 'bull' || ewDir === 'bear')){
-      alignedAtBar[i] = ewDir;
-    }
 
     // 4/4 alignment check (v6: added 4H EMA21/55 cloud as Layer 4).
     if(!ewDir || !tlDir || !nwDir || !clDir){ i++; continue; }
@@ -9954,65 +9866,6 @@ function calcRecentBacktest(k){
     else if(resolved === 'expired') expired++;
     else if(resolved === 'invalidated') invalidated++;
 
-    // ── VARIANT 1: FRESH-ALIGNMENT GATE TALLY ──
-    // Only tally into the fresh counters when 4/4 alignment held in the
-    // same direction for the FRESH_MIN_BARS prior bars. Setup rule remains
-    // identical to the standard sim — just filtered.
-    var passedFreshness = (i >= FRESH_MIN_BARS);
-    for(var fb = i - 1; passedFreshness && fb >= i - FRESH_MIN_BARS; fb--){
-      if(fb < 0 || alignedAtBar[fb] !== alignedDir){ passedFreshness = false; }
-    }
-    if(passedFreshness){
-      freshConsidered++;
-      if(resolved === 'win') freshWins++;
-      else if(resolved === 'loss') freshLosses++;
-      else if(resolved === 'expired') freshExpired++;
-      else if(resolved === 'invalidated') freshInvalidated++;
-    }
-
-    // ── VARIANT 2: EXTENDED EXPIRY RESCUE (8 → 12 bars) ──
-    // For setups the standard sim resolved as 'expired' (never retested),
-    // re-walk bars 9-12 from creator looking for a delayed wick retest;
-    // if found, simulate forward target/stop. Same wick/stop/target as
-    // standard. Opposing-CHoCH in the extended window is approximated to
-    // close-beyond-stop only — exhaustive parity would need a full re-sim
-    // and isn't needed at the "cohort signal" fidelity we want here.
-    if(resolved === 'expired'){
-      var extEntry = entryLive, extStop = stopLive, extTarget = targetLive;
-      var extLift = false;
-      var extTrig = -1;
-      var extOutcome = null;
-      var extEnd = Math.min(n - 1, creatorIdxLive + EXT_EXPIRY_BARS);
-      for(var ej = creatorIdxLive + 1; ej <= extEnd; ej++){
-        var eb = m15Bars[ej];
-        if(extTrig < 0){
-          if(alignedDir === 'bear' && eb.c > extStop){ extOutcome = 'invalidated'; break; }
-          if(alignedDir === 'bull' && eb.c < extStop){ extOutcome = 'invalidated'; break; }
-        }
-        if(!extLift){
-          if(alignedDir === 'bull' && eb.h >= m15Bars[creatorIdxLive].h) extLift = true;
-          else if(alignedDir === 'bear' && eb.l <= m15Bars[creatorIdxLive].l) extLift = true;
-        }
-        if(extTrig < 0 && extLift){
-          var ereaches = (alignedDir === 'bear' && eb.h >= extEntry) ||
-                         (alignedDir === 'bull' && eb.l <= extEntry);
-          if(ereaches){ extTrig = ej; continue; }
-        }
-        if(extTrig >= 0 && ej > extTrig){
-          if(alignedDir === 'bull'){
-            if(eb.h >= extTarget){ extOutcome = 'win'; break; }
-            if(eb.l <= extStop){   extOutcome = 'loss'; break; }
-          } else {
-            if(eb.l <= extTarget){ extOutcome = 'win'; break; }
-            if(eb.h >= extStop){   extOutcome = 'loss'; break; }
-          }
-        }
-      }
-      if(extOutcome === 'win') extRescueWins++;
-      else if(extOutcome === 'loss') extRescueLosses++;
-      else extStillExpired++;
-    }
-
     // Record per-trade outcome for failure mode analysis
     if(resolved){
       trades.push({
@@ -10164,22 +10017,7 @@ function calcRecentBacktest(k){
       riskR: hybRiskSum,
       rate: hybRate,             // trade-count win rate
       rRate: hybRRate,           // R-weighted win rate (more accurate for profitability)
-      triggerRate: hybTriggerRate,  // % of signals that produced ANY trade
-      // ── Variant tests (v8) — backtest-only, no live rule change ──
-      fresh: {
-        minBars: FRESH_MIN_BARS,
-        wins: freshWins,
-        losses: freshLosses,
-        expired: freshExpired,
-        invalidated: freshInvalidated,
-        considered: freshConsidered  // setups that passed the freshness gate
-      },
-      extended: {
-        expiryBars: EXT_EXPIRY_BARS,
-        rescueWins: extRescueWins,   // expired-by-8 setups that won in bars 9-12
-        rescueLosses: extRescueLosses,
-        stillExpired: extStillExpired
-      }
+      triggerRate: hybTriggerRate  // % of signals that produced ANY trade
     }
   };
 }
