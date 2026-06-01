@@ -8747,46 +8747,10 @@ function compareAutoVsSeed(k){
   };
 }
 
-// ── Seed-aware macro direction (defers to auto-EW when seed exists) ──
-// The live engine's direction reading should match the FRACTAL DEGREE
-// of the seed, not just any visible swing. The auto-EW algorithm
-// (autoDetectEW) already does multi-degree analysis with macro priority
-// AND knows about "in-progress impulses" where the recent move can be
-// counter to the macro thesis (e.g. Wave 2 retracement during a bear).
-//
-// So the cleanest fix: when a seed exists, defer to the auto-EW macro
-// reading. The auto-EW correctly distinguishes a Wave 2 bounce from
-// a true regime change.
-//
-// Returns: 'bull' | 'bear' | null
-function calcEWDirAtSeedFractal(k){
-  if(typeof autoDetectEW !== 'function') return null;
-  if(typeof WICKATOR_EW === 'undefined' || !WICKATOR_EW[k]) return null;
-  var seed = WICKATOR_EW[k];
-
-  var auto;
-  try { auto = autoDetectEW(k); }
-  catch(e){ return null; }
-  if(!auto || !auto.ok || !auto.ew) return null;
-
-  // The auto-EW.ew.dir already represents the macro thesis direction.
-  // For "in-progress-impulse-w2" patterns this is the W3 expected direction
-  // (i.e. the *thesis* direction, not necessarily the recent price move).
-  // For "5-wave-impulse-complete" or "ABC-correction-complete" it represents
-  // the just-completed pattern's direction.
-  //
-  // We trust this output when it agrees with the seed — that's our
-  // confidence signal. When they disagree, return null and let the
-  // caller fall back to the seed (with conflict flagged elsewhere).
-  if(auto.ew.dir === seed.dir) return seed.dir;
-  return null;
-}
-
 // Cache for auto-EW results (recomputing on every refresh would be wasteful;
 // daily-level direction doesn't change minute to minute)
 var _autoEWCache = {};
 var AUTO_EW_CACHE_TTL_MS = 30 * 60 * 1000;  // 30 minutes
-var AUTO_EW_CONFIDENCE_THRESHOLD = 0.60;     // 60% — chosen for conservative use
 
 function _getCachedAutoEW(k){
   var c = _autoEWCache[k];
@@ -8799,16 +8763,18 @@ function _setCachedAutoEW(k, result){
 }
 
 function calcEWDir(k) {
-  // Live macro EW direction.
+  // Live macro EW direction. Algorithm aligned with the server's
+  // detect_triggers.py so the dashboard engine and directions.json
+  // agree on EW:
+  //   1. High-confidence auto-EW pattern (>= AUTO_EW_MIN_CONFIDENCE,
+  //      valid pattern) — matches server's auto_detect_ew gate.
+  //   2. Otherwise, structural-break direction on daily bars via
+  //      calcIndependentDir — same code path the server uses.
   //
-  // RESOLUTION ORDER (Option B — conservative integration):
-  //   1. Try autoDetectEW (Trendoscope+LuxAlgo+Fib). If confidence ≥ 60%,
-  //      use its direction. The richer algorithm catches structure the
-  //      simpler logic misses.
-  //   2. If autoDetectEW unavailable or low-confidence, fall back to
-  //      seed-aware logic (calcEWDirAtSeedFractal). Preserves the
-  //      conflict-guard safety net.
-  //   3. If neither works, fall back to generic 60-bar pivot reading.
+  // The previous calcEWDirAtSeedFractal layer (which preferred the
+  // Wickator seed when auto-EW agreed with it) and the lower-threshold
+  // 60% auto-EW path have been removed. The engine is now authoritative
+  // and seed-agnostic — moving away from the manual Wickator dependency.
   try {
     var cachedAuto = _getCachedAutoEW(k);
     var auto = cachedAuto;
@@ -8818,67 +8784,31 @@ function calcEWDir(k) {
     }
     if(auto && auto.ok && auto.ew && auto.ew.dir){
       var conf = auto.ew.conf || auto.ew.confidence || 0;
-      if(conf >= AUTO_EW_CONFIDENCE_THRESHOLD &&
+      if(conf >= AUTO_EW_MIN_CONFIDENCE &&
+         AUTO_EW_VALID_PATTERNS[auto.ew.pattern] &&
          (auto.ew.dir === 'bull' || auto.ew.dir === 'bear')){
         return auto.ew.dir;
       }
-      // Below threshold — fall through to seed-aware logic
     }
   } catch(e){ /* defensive: never crash on auto-EW errors */ }
 
-  var seedAware = calcEWDirAtSeedFractal(k);
-  if(seedAware !== null) return seedAware;
-
-  // No seed match — use generic 60-bar reading. Source cascade:
-  // HISTORICAL (history.json) → DEEP_HIST daily (historical-ohlc.json)
-  // → HISTORY runtime daily buffer. The DEEP_HIST tier ensures new
-  // pairs get a macro direction even when history.json's loaded copy
-  // doesn't include them yet.
-  var prices;
-  if(typeof HISTORICAL !== 'undefined' && HISTORICAL[k] && HISTORICAL[k].length >= 5){
-    prices = HISTORICAL[k].slice(-60).map(function(c){ return c.c; });
+  // Structural-break fallback on daily bars. Mirrors server's
+  // calc_independent_dir(daily, lookback=8).
+  var daily = null;
+  if(typeof HISTORICAL !== 'undefined' && HISTORICAL[k] && HISTORICAL[k].length >= 8){
+    daily = HISTORICAL[k];
   } else if(typeof DEEP_HIST !== 'undefined' && DEEP_HIST[k] &&
-            DEEP_HIST[k].daily && DEEP_HIST[k].daily.length >= 5){
-    prices = DEEP_HIST[k].daily.slice(-60).map(function(c){ return c.c; });
+            DEEP_HIST[k].daily && DEEP_HIST[k].daily.length >= 8){
+    daily = DEEP_HIST[k].daily;
   } else {
     if(!HISTORY[k]) loadHistory(k);
-    var daily = HISTORY[k].daily;
-    if(daily.length < 5) return null;
-    prices = daily.map(function(d){ return d.p; });
+    var d = HISTORY[k] && HISTORY[k].daily;
+    if(!d || d.length < 8) return null;
+    daily = d;
   }
-  
-  var pivots = detectPivots(prices);
-  if(pivots.length < 3) {
-    var recent = prices.slice(-10);
-    if(recent.length < 3) return null;
-    var first = recent[0], last = recent[recent.length-1];
-    var pct = (last - first) / first;
-    if(pct > 0.002) return 'bull';
-    if(pct < -0.002) return 'bear';
-    return null;
-  }
-  
-  var last = pivots.slice(-5);
-  var highs = last.filter(function(p){ return p.type === 'H'; });
-  var lows  = last.filter(function(p){ return p.type === 'L'; });
-  
-  var hhCount = 0, hlCount = 0, lhCount = 0, llCount = 0;
-  for(var i = 1; i < highs.length; i++){
-    if(highs[i].price > highs[i-1].price) hhCount++;
-    else lhCount++;
-  }
-  for(var i = 1; i < lows.length; i++){
-    if(lows[i].price > lows[i-1].price) hlCount++;
-    else llCount++;
-  }
-  
-  if(hhCount > lhCount && hlCount >= llCount) return 'bull';
-  if(lhCount > hhCount && llCount >= hlCount) return 'bear';
-  var first = prices[Math.max(0, prices.length-10)];
-  var lastP = prices[prices.length-1];
-  if(lastP > first * 1.002) return 'bull';
-  if(lastP < first * 0.998) return 'bear';
-  return null;
+
+  var bars = _ticksToBars(daily);
+  return calcIndependentDir(bars, 8);
 }
 
 

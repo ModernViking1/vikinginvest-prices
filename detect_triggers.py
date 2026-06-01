@@ -468,35 +468,6 @@ AUTO_EW_VALID_PATTERNS = {
 AUTO_EW_THRESHOLDS = [0.5, 0.8, 1.0, 1.5, 2.5, 4.0, 6.0, 8.0, 10.0, 12.0]
 
 
-# ── WICKATOR_EW seed directions ─────────────────────────────────
-# Mirrors the WICKATOR_EW dict at the top of dashboard.html. The
-# dashboard's STATE[k].ew priority chain prefers a high-confidence
-# auto-detected pattern, then the live in-browser structural calc,
-# then directions.json (the server's value), then the static seed.
-# In practice the user-curated Wickator macro is the bias they want
-# trades aligned with, and when our server-computed `ew` disagrees
-# the dashboard ends up showing partial confluence — so the Telegram
-# alert fires on a 4/4 the user can't see (e.g. USDCAD 2026-05-28:
-# server BULL, seed/dashboard BEAR).
-#
-# Used as a suppression guard in scan_pairs: a pair whose seed
-# direction conflicts with our computed `ew` is treated as NOT
-# aligned for alert purposes. This only ever SUPPRESSES alerts —
-# never adds new ones.
-#
-# Keep in sync with dashboard.html's WICKATOR_EW. Future refactor:
-# extract to shared wickator_seeds.json read by both sides.
-WICKATOR_SEED_DIR = {
-    'dxy':    'bear', 'xauusd': 'bull', 'xagusd': 'bull',
-    'eurusd': 'bull', 'gbpusd': 'bull', 'audusd': 'bull', 'nzdusd': 'bull',
-    'usdjpy': 'bear', 'usdcad': 'bear', 'usdchf': 'bear', 'usdsgd': 'bear',
-    'eurnzd': 'bear', 'gbpaud': 'bear', 'euraud': 'bear', 'audnzd': 'bull',
-    'eurgbp': 'bear', 'audchf': 'bull', 'cadjpy': 'bear',
-    'usoil':  'bull', 'de40':   'bear',
-    'btcusd': 'bear', 'suiusd': 'bear',
-}
-
-
 def _detect_pivots_refined(prices, pct_threshold):
     """ZigZag pivot detector. Walks the close series, emits a pivot
     whenever price reverses by `pct_threshold`% from the last extreme."""
@@ -1108,21 +1079,6 @@ def scan_pairs(intraday_data, historical_data):
             and ew == tl == nw == cl
         )
         aligned_dir = ew if aligned else None
-
-        # Wickator seed guard. If a pair has a manually configured macro
-        # direction in the dashboard's WICKATOR_EW dict and the server's
-        # computed `ew` disagrees, the dashboard will pick the seed and
-        # show < 4/4 confluence — so an alert here would fire on a setup
-        # the user cannot see on their screen. Suppress the alignment for
-        # alert purposes; directions.json still records the raw computed
-        # values so the dashboard can render its "engine X / server Y"
-        # divergence warning.
-        seed_dir = WICKATOR_SEED_DIR.get(pair)
-        seed_conflict = bool(seed_dir and aligned_dir and seed_dir != aligned_dir)
-        if seed_conflict:
-            print(f'  suppress(seed-mismatch): {pair} server={aligned_dir} seed={seed_dir} — alignment cleared')
-            aligned = False
-            aligned_dir = None
 
         last_price = None
         last_bar = m15[-1] if m15 else None
