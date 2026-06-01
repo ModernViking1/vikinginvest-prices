@@ -2262,29 +2262,8 @@ function getLayerDet(k,layer,sig){
                    '<span class="rb">Inv</span> '+invTxt+srcTag+'</span>';
       }
     } catch(e){}
-    // Conflict marker: setupField() targets come from the WickatorFX seed,
-    // but `sig` is the engine direction. When they disagree, the card
-    // would otherwise show e.g. "Bullish macro. Target: <bearish levels>"
-    // with no visible explanation of why. Surface the conflict explicitly
-    // here so the user sees it inside the same card where the mismatch
-    // would appear.
-    var conflictTag = '';
-    try {
-      var _seedEW = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k]) ? WICKATOR_EW[k] : null;
-      if(_seedEW && _seedEW.dir && (sig === 'bull' || sig === 'bear') && _seedEW.dir !== sig){
-        conflictTag = ' <span style="color:var(--gold);font-size:8.5px;font-weight:700;" title="Engine ('+sig.toUpperCase()+') and WickatorFX seed ('+_seedEW.dir.toUpperCase()+') disagree on macro direction. Targets below have been overridden to the engine direction so they don\'t contradict the bull/bear pills.">&#9888; engine '+sig.toUpperCase()+' / seed '+_seedEW.dir.toUpperCase()+'</span>';
-      }
-      // Server/engine disagreement — the server-side detector (driving
-      // Telegram alerts) read a different macro direction than the
-      // dashboard's in-browser engine. Surface it inline so the user can
-      // see WHY the alert and dashboard score might differ.
-      var _srv = (typeof SERVER_DIR !== 'undefined' && SERVER_DIR[k]) ? SERVER_DIR[k] : null;
-      if(_srv && _srv.ew && (sig === 'bull' || sig === 'bear') && _srv.ew !== sig){
-        conflictTag += ' <span style="color:var(--purple);font-size:8.5px;font-weight:700;" title="The in-browser engine read '+sig.toUpperCase()+' but the server-side detector (Telegram alert source) read '+_srv.ew.toUpperCase()+'. The dashboard pill shows the engine direction; targets below use the engine direction whenever the server\'s setup disagrees, so the card stays internally consistent.">&#9888; engine '+sig.toUpperCase()+' / server '+_srv.ew.toUpperCase()+'</span>';
-      }
-    } catch(e){}
-    if(sig==='bear')return '<span class="rb">Bearish</span> macro. LH/LL daily structure. Target: <span class="rb">'+setupField(k,'tgt')+'</span>'+conflictTag+waveSuffix+tpSuffix;
-    if(sig==='bull')return '<span class="rg">Bullish</span> macro. HH/HL daily structure. Target: <span class="rg">'+setupField(k,'tgt')+'</span>'+conflictTag+waveSuffix+tpSuffix;
+    if(sig==='bear')return '<span class="rb">Bearish</span> macro. LH/LL daily structure. Target: <span class="rb">'+setupField(k,'tgt')+'</span>'+waveSuffix+tpSuffix;
+    if(sig==='bull')return '<span class="rg">Bullish</span> macro. HH/HL daily structure. Target: <span class="rg">'+setupField(k,'tgt')+'</span>'+waveSuffix+tpSuffix;
     return '<span class="ro">Neutral</span> &#8212; transitioning. Await structure formation.'+waveSuffix+tpSuffix;
   }
   if(layer==='tl'){
@@ -2609,108 +2588,13 @@ function refreshAlert(k){
   ab.className='abanner';sco.className='scc';sco.textContent=score.tot+'/4';
   var wb='<span style="font-family:Orbitron,monospace;font-size:7px;font-weight:700;padding:1px 5px;border-radius:2px;margin-left:4px;vertical-align:middle;background:'+(m.wr>=75?'rgba(26,122,74,.15)':'rgba(200,134,10,.12)')+';color:'+(m.wr>=75?'var(--bull)':'var(--gold)');wb+=';border:1px solid '+(m.wr>=75?'rgba(26,122,74,.3)':'rgba(200,134,10,.3)')+';"> '+wrLabel(m,'short')+'</span>';
 
-  // ── DIRECTION CONFLICT GUARD (Fix A) ──────────────────────────
-  // Block the 4/4 SETUP READY alert when the indicator engine's macro
-  // direction (STATE[k].ew) disagrees with the seed (WICKATOR_EW[k].dir).
-  // Without this guard, the dashboard can show "4/4 BULL — SETUP READY"
-  // with bear-direction targets pulled from the seed (or vice versa),
-  // which is dangerous for a real trader.
-  //
-  // Three severity levels:
-  //   HIGH  = engine ≠ seed AND auto-EW also disagrees with seed
-  //           → seed is likely stale; block alert, recommend manual review
-  //   MED   = engine ≠ seed AND auto-EW unavailable (no HISTORICAL data,
-  //           or no pattern detected)
-  //           → can't confirm; block alert defensively, softer wording
-  //   LOW   = engine ≠ seed BUT auto-EW agrees with seed
-  //           → engine is reading sub-fractal noise; trust seed + auto;
-  //             block the contradictory alert and show seed-direction
-  //             instead (effectively overriding engine for this banner)
-  //
-  // In all three cases the banner is blocked from "SETUP READY". The
-  // setup card panel below the banner still shows the seed's targets
-  // unchanged, and the indicator pills still show what they read.
-  var conflictLevel = null;  // null | 'low' | 'med' | 'high'
-  var conflictDetail = null;
-  try {
-    var seed = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k]) ? WICKATOR_EW[k] : null;
-    if(seed && seed.dir && STATE[k] && STATE[k].ew && seed.dir !== STATE[k].ew){
-      var auto = null;
-      try { if(typeof autoDetectEW === 'function') auto = autoDetectEW(k); } catch(e){}
-      if(auto && auto.ok && auto.ew && auto.ew.dir){
-        if(auto.ew.dir !== seed.dir){
-          conflictLevel = 'high';
-        } else {
-          conflictLevel = 'low';
-        }
-        conflictDetail = {
-          seedDir: seed.dir,
-          engineDir: STATE[k].ew,
-          autoDir: auto.ew.dir,
-          autoConf: auto.ew.conf || auto.ew.confidence || null,
-          autoPattern: auto.ew.pattern || null
-        };
-      } else {
-        // Auto unavailable — defensive medium conflict
-        conflictLevel = 'med';
-        conflictDetail = {
-          seedDir: seed.dir,
-          engineDir: STATE[k].ew,
-          autoDir: null,
-          autoConf: null,
-          autoPattern: null
-        };
-      }
-    }
-  } catch(e){ /* defensive: never block alert flow on conflict-check error */ }
-
   // Event deferral: if a high-impact event is imminent for this pair,
   // override the 4/4 alert with a DEFERRED state to prevent trading
   // through volatility. Window: 2 hours before to 30 min after.
   var imminentEvents = (typeof eventsAffecting === 'function') ? eventsAffecting(k, 2) : [];
   var inDeferralWindow = imminentEvents.length > 0;
 
-  if(score.tot===4 && conflictLevel){
-    // Conflict takes precedence over event deferral.
-    var seedDirLabel = conflictDetail.seedDir.toUpperCase();
-    var engineDirLabel = conflictDetail.engineDir.toUpperCase();
-    ab.classList.add('ns');sco.classList.add('s1');
-    if(conflictLevel === 'high'){
-      ico.innerHTML='&#9888;&#65039;';
-      atit.innerHTML='&#9888; DIRECTION CONFLICT &#8212; manual review'+wb;
-      atit.style.color='var(--bear)';
-      var autoConfLabel = conflictDetail.autoConf != null
-        ? ' (auto conf '+Math.round(conflictDetail.autoConf*100)+'%)' : '';
-      var patternLabel = conflictDetail.autoPattern ? ' &#183; pattern: '+conflictDetail.autoPattern : '';
-      adsc.innerHTML =
-        '<strong>Engine reads '+engineDirLabel+', seed is '+seedDirLabel+', auto-EW also reads '+conflictDetail.autoDir.toUpperCase()+autoConfLabel+'.</strong>'+patternLabel
-        + '<br><span style="color:var(--inkd);font-size:9px;">'
-        + 'Seed thesis ('+seedDirLabel+') is stale. Trade setup targets below have been overridden to the engine direction ('+engineDirLabel+') so they don\'t contradict the bull/bear pills. '
-        + 'Do NOT enter on this signal until you\'ve reviewed the auto-EW diagnostic on the Backtest tab, checked your Wickator chart, and updated the seed if appropriate.</span>';
-    } else if(conflictLevel === 'med'){
-      ico.innerHTML='&#9888;&#65039;';
-      atit.innerHTML='&#9888; DIRECTION CONFLICT &#8212; awaiting auto-EW'+wb;
-      atit.style.color='var(--gold)';
-      adsc.innerHTML =
-        '<strong>Engine reads '+engineDirLabel+', seed is '+seedDirLabel+'.</strong> '
-        + 'Auto-EW has no pattern result for this pair yet (HISTORICAL data may still be loading).'
-        + '<br><span style="color:var(--inkd);font-size:9px;">'
-        + 'Setup targets below have been overridden to the engine direction ('+engineDirLabel+') so they don\'t contradict the bull/bear pills. '
-        + 'Do not enter on this signal until auto-EW resolves and confirms which direction is correct — if auto-EW lands on '+seedDirLabel+' the alert will reset and the seed targets return.</span>';
-    } else {  // low
-      ico.innerHTML='&#9432;';
-      atit.innerHTML='SUB-FRACTAL CONFLICT &#8212; engine reading noise'+wb;
-      atit.style.color='var(--gold)';
-      adsc.innerHTML =
-        '<strong>Engine reads '+engineDirLabel+' (sub-fractal), but seed AND auto-EW agree on '+seedDirLabel+'.</strong>'
-        + '<br><span style="color:var(--inkd);font-size:9px;">'
-        + 'The engine is likely reading a smaller corrective fractal. Macro thesis ('+seedDirLabel+') is still intact. '
-        + 'Setup targets remain valid. Wait for engine to realign with macro before entering, '
-        + 'or take the trade only if your independent analysis confirms '+seedDirLabel+' direction.</span>';
-    }
-    // Do NOT call logSignal() — conflicted signals don't go to journal/snapshot
-  }
-  else if(score.tot===4 && inDeferralWindow){
+  if(score.tot===4 && inDeferralWindow){
     var nextEvt = imminentEvents[0];
     var hoursLabel = nextEvt.hoursUntil < 0
       ? Math.abs(Math.round(nextEvt.hoursUntil*60))+'min ago'
@@ -11887,61 +11771,53 @@ function applyPrice(k,pd) {
   priceTimeSeries[k].push(np);
   if(priceTimeSeries[k].length>EW_MAX) priceTimeSeries[k].shift();
 
-  // Server-computed direction baseline (directions.json). Used as the
-  // fallback when the in-browser engine calc can't run — typically the
-  // newly-added pairs, whose deep history (~90 MB historical-ohlc.json)
-  // is too large to load reliably in the browser. directions.json is a
-  // ~3 KB file computed by the GitHub Actions runner from the repo data
-  // directly, so it's always populated for every pair. Falls through to
-  // the static MKTS seed only if directions.json hasn't loaded yet.
+  // Server-computed direction baseline (directions.json) is the
+  // authoritative source of truth for EW/TL/NW/CL. detect_triggers.py
+  // recomputes the four layers from full repo data every cycle and
+  // publishes a ~3 KB JSON the dashboard reads at boot + on refresh.
+  // The in-browser engine still runs (calcEWDir / calcIndependentTLDir
+  // / calcIndependentNWDir) but only as a FALLBACK for the brief window
+  // before SERVER_DIR is populated — once it loads, the dashboard
+  // displays exactly what the server computed, which is what
+  // detect_triggers.py uses to gate Telegram alerts. Result: dashboard
+  // and Telegram cannot disagree on the 4/4 score.
   var srvDir = (typeof SERVER_DIR !== 'undefined' && SERVER_DIR[k]) ? SERVER_DIR[k] : null;
 
-  // ── LAYER 1: ELLIOTT WAVE (Daily) — BLENDED SOURCE ────────────
-  // Priority:
-  //   1. High-confidence auto-EW pattern (Lux-inspired pivot-hierarchy
-  //      detector, conf ≥ 0.70, completed-or-in-progress structure).
-  //      When present, it also drives the W3/W5/stop targets shown in
-  //      the Macro card via calcWickatorTPs.
-  //   2. Live in-browser structural-break direction (calcEWDir).
-  //   3. Server-computed directions.json (recomputed by the Actions
-  //      runner from full history every cycle).
-  //   4. Static manual seed (last resort — can be days stale).
+  // ── LAYER 1: ELLIOTT WAVE (Daily) ─────────────────────────────
+  // Priority: directions.json → in-browser auto-EW → structural calc → static.
   var autoShape = (typeof refreshAutoEW === 'function') ? refreshAutoEW(k) : null;
   var ewCalc = calcEWDir(k);
-  if(autoShape && (autoShape.dir === 'bull' || autoShape.dir === 'bear')){
+  if(srvDir && (srvDir.ew === 'bull' || srvDir.ew === 'bear')){
+    STATE[k].ew = srvDir.ew;
+  } else if(autoShape && (autoShape.dir === 'bull' || autoShape.dir === 'bear')){
     STATE[k].ew = autoShape.dir;
   } else if(ewCalc === 'bull' || ewCalc === 'bear'){
     STATE[k].ew = ewCalc;
-  } else if(srvDir && (srvDir.ew === 'bull' || srvDir.ew === 'bear')){
-    STATE[k].ew = srvDir.ew;
   } else if(!STATE[k].ew || STATE[k].ew === 'neutral'){
     STATE[k].ew = m.ew || 'neutral';
   }
 
   // ── LAYER 2: HOURLY (Independent) ─────────────────────────────
-  // Priority: live 1H structural calc → server directions.json → keep
-  // last known value (else neutral). NEVER fall back to STATE[k].ew —
-  // the hourly is an independent layer; copying the macro manufactures
-  // false 4/4 confluence where all three layers echo one stale source.
+  // Priority: directions.json → live 1H structural calc → keep last (else neutral).
+  // NEVER fall back to STATE[k].ew — the hourly is an independent layer;
+  // copying the macro manufactures false 4/4 confluence.
   var tlCalc = (typeof calcIndependentTLDir === 'function') ? calcIndependentTLDir(k) : null;
-  if(tlCalc === 'bull' || tlCalc === 'bear'){
-    STATE[k].tl = tlCalc;
-  } else if(srvDir && (srvDir.tl === 'bull' || srvDir.tl === 'bear')){
+  if(srvDir && (srvDir.tl === 'bull' || srvDir.tl === 'bear')){
     STATE[k].tl = srvDir.tl;
+  } else if(tlCalc === 'bull' || tlCalc === 'bear'){
+    STATE[k].tl = tlCalc;
   } else if(!STATE[k].tl){
     STATE[k].tl = 'neutral';
   }
-  // (If neither calc nor srvDir, keep existing STATE[k].tl unchanged.)
 
   // ── LAYER 3: 15m NOWICK (Independent) ─────────────────────────
-  // Priority: live 15m structural calc → server directions.json → keep
-  // last known value (else neutral). Independent layer — never inherits EW.
+  // Priority: directions.json → live 15m structural calc → keep last (else neutral).
   var prevNwDir = STATE[k].nw;  // capture before update for flip detection
   var nwCalc = (typeof calcIndependentNWDir === 'function') ? calcIndependentNWDir(k) : null;
-  if(nwCalc === 'bull' || nwCalc === 'bear'){
-    STATE[k].nw = nwCalc;
-  } else if(srvDir && (srvDir.nw === 'bull' || srvDir.nw === 'bear')){
+  if(srvDir && (srvDir.nw === 'bull' || srvDir.nw === 'bear')){
     STATE[k].nw = srvDir.nw;
+  } else if(nwCalc === 'bull' || nwCalc === 'bear'){
+    STATE[k].nw = nwCalc;
   } else if(!STATE[k].nw){
     STATE[k].nw = 'neutral';
   }
