@@ -296,6 +296,8 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   background:#1c1a17;color:#f0ede8;
 }
 .viauth-card button[type=submit]:disabled{opacity:0.55;cursor:wait;}
+.viauth-hint{font-size:11px;color:#9a9088;line-height:1.5;margin:-2px 0 4px;}
+.viauth-hint a{color:#c8860a;text-decoration:underline;}
 .viauth-msg{font-size:12.5px;text-align:center;margin-top:13px;min-height:18px;font-weight:500;}
 .viauth-msg.viauth-ok{color:#1a7a4a;}
 .viauth-msg.viauth-err{color:#c0281a;}
@@ -331,9 +333,11 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <button type="button" class="viauth-close" onclick="window.__viAuthClose&&window.__viAuthClose()" aria-label="Close">&times;</button>
     <div class="viauth-eyebrow">Restricted access</div>
     <h2 id="viauth-title">Sign in to view Signals &amp; Backtest</h2>
-    <p>The Signal Log and Backtest tabs are for registered users. Enter your email and we&rsquo;ll send a one-tap magic link &mdash; no passwords.</p>
+    <p>The Signal Log and Backtest tabs are for registered users. Sign in with your email &mdash; and optionally add your Telegram ID to receive real-time signal alerts as they fire.</p>
     <form id="viauth-form">
       <input type="email" id="viauth-email" placeholder="you@example.com" autocomplete="email" required>
+      <input type="text" id="viauth-telegram" placeholder="Telegram ID (optional)" autocomplete="off" inputmode="numeric">
+      <div class="viauth-hint">For real-time alerts. Get your ID from <a href="https://t.me/userinfobot" target="_blank" rel="noopener">@userinfobot</a> on Telegram.</div>
       <button type="submit" id="viauth-btn">Send magic link</button>
     </form>
     <div id="viauth-msg" class="viauth-msg"></div>
@@ -1833,7 +1837,7 @@ function mainDashboardWrLabel(k, m, mode){
     var rate = Math.round(live.rate * 1000) / 10;
     return mode === 'long'
       ? rate+'% &#183; '+live.wins+'W/'+live.losses+'L &#183; n='+live.total+' (15m live)'
-      : rate+'% n='+live.total+' 15m';
+      : rate+'% win rate';
   }
   // Layer 2: 12-month deep backtest (Option D) — strongest data-driven source.
   // ⚠️ Read cache only. NEVER trigger sync compute from a render path.
@@ -1845,7 +1849,7 @@ function mainDashboardWrLabel(k, m, mode){
       var dDays = rb.days || 365;
       return mode === 'long'
         ? dRate+'% &#183; '+rb.wins+'W/'+rb.losses+'L &#183; n='+rb.total+' ('+dDays+'d backtest)'
-        : dRate+'% n='+rb.total+' bt';
+        : dRate+'% win rate';
     }
     // SAFETY NET (mobile fix): if DEEP_HIST is loaded in memory but no
     // cached backtest exists, kick async compute. Boot-path normally does
@@ -1937,7 +1941,7 @@ function mainDashboardWrLabel(k, m, mode){
     var simRate = Math.round(sim.rate * 1000) / 10;
     return mode === 'long'
       ? simRate+'% &#183; '+sim.wins+'W/'+sim.losses+'L &#183; n='+sim.total+' <span style="color:var(--inkd);">(15m sim)</span>'
-      : simRate+'% n='+sim.total+' sim';
+      : simRate+'% win rate';
   }
   // Layer 4: static EW historical
   var ewLabel = wrLabel(m, mode);
@@ -10679,16 +10683,21 @@ function detectIntradaySignal(k){
   var ewDir = STATE[k].ew;
   var tlDir = STATE[k].tl;
   var nwDir = STATE[k].nw;
+  var clDir = STATE[k].cl;
 
-  // 4/4 alignment requirement — the safety filter
-  if(!ewDir || !tlDir || !nwDir) return null;
+  // 4/4 alignment requirement — the safety filter. Must include the 4H
+  // EMA Cloud (clDir) since the strategy is 4/4, not 3/3. Before this
+  // guard, intraday signals could fire on pairs at 3/4 confluence when
+  // the Cloud layer was opposing — see Brent on 2026-05-28 (3/4 BULL on
+  // dashboard but intraday signal armed and in-trade).
+  if(!ewDir || !tlDir || !nwDir || !clDir) return null;
   if(ewDir !== 'bull' && ewDir !== 'bear') return null;
   var dir = ewDir;
-  // Detect alignment break without bailing. If EW disagrees with TL/NW, the
-  // setup has been cancelled — but we want to keep computing levels so the
-  // dashboard can render an explicit "CANCELLED" indicator instead of
-  // silently hiding the intraday signal when the 15m flips against macro.
-  var alignmentBroken = (ewDir !== tlDir || tlDir !== nwDir);
+  // Detect alignment break without bailing. If any of TL/NW/CL disagrees
+  // with EW, the setup has been cancelled — but we want to keep computing
+  // levels so the dashboard can render an explicit "CANCELLED" indicator
+  // instead of silently hiding the intraday signal.
+  var alignmentBroken = (ewDir !== tlDir || tlDir !== nwDir || nwDir !== clDir);
 
   // ── SEED/ENGINE CONFLICT GUARD ───────────────────────────────
   // The intraday signal is a sub-strategy of the 4/4 macro setup.
@@ -12732,7 +12741,7 @@ startLiveEngine();
    Anon key is safe to embed (designed for client use; RLS protects data). */
 (function(){
   var SUPABASE_URL = 'https://opwdsuusdmsaicoyqxti.supabase.co';
-  var SUPABASE_ANON_KEY = 'PASTE_SUPABASE_ANON_KEY_HERE';
+  var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wd2RzdXVzZG1zYWljb3lxeHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjQwNTYsImV4cCI6MjA5NTg0MDA1Nn0.4QAzhvJUyu5sxou_A1IjVfrH25Ft1sRuYbZmf435_1Y';
   var GATED = {bt:1, log:1};
 
   if(!window.supabase || !window.supabase.createClient){
@@ -12808,6 +12817,17 @@ startLiveEngine();
     session = newSession || null;
     updateStatus();
     if(session){
+      // If a Telegram ID was entered before the magic-link round-trip and
+      // the user already existed (so signInWithOtp.data was ignored),
+      // apply it now via updateUser so it lands on raw_user_meta_data.
+      try {
+        var pending = localStorage.getItem('vi_pending_telegram');
+        if(pending){
+          sb.auth.updateUser({data:{telegram_id: pending}}).then(function(){
+            try { localStorage.removeItem('vi_pending_telegram'); } catch(e){}
+          }).catch(function(){});
+        }
+      } catch(e){}
       window.__viAuthClose();
       if(wantedPage && GATED[wantedPage] && typeof window.switchPage === 'function'){
         var p = wantedPage; wantedPage = null;
@@ -12822,14 +12842,30 @@ startLiveEngine();
       form.addEventListener('submit', function(e){
         e.preventDefault();
         var email = (document.getElementById('viauth-email').value || '').trim();
+        var telegramEl = document.getElementById('viauth-telegram');
+        var telegram = telegramEl ? (telegramEl.value || '').trim() : '';
         var msg = document.getElementById('viauth-msg');
         var btn = document.getElementById('viauth-btn');
         if(!email) return;
         msg.className='viauth-msg'; msg.textContent='Sending magic link…';
         btn.disabled = true;
+        // Stash optional Telegram ID as Supabase user metadata so it's
+        // visible in Authentication > Users alongside the email. New
+        // users get it on first sign-up; for existing users it's a no-op
+        // (Supabase preserves existing metadata on subsequent OTP calls).
+        var meta = {};
+        if(telegram){
+          meta.telegram_id = telegram;
+          // Stash so existing users (where signInWithOtp.data is ignored)
+          // get the Telegram ID applied via updateUser after sign-in.
+          try { localStorage.setItem('vi_pending_telegram', telegram); } catch(e){}
+        }
         sb.auth.signInWithOtp({
           email: email,
-          options: {emailRedirectTo: window.location.origin + window.location.pathname}
+          options: {
+            emailRedirectTo: window.location.origin + window.location.pathname,
+            data: meta
+          }
         }).then(function(r){
           btn.disabled = false;
           if(r && r.error){
