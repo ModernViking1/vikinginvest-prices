@@ -3508,9 +3508,9 @@ function buildBacktest(){
     //   - AUTO-EW (auto-EW pattern detection first, structural fallback —
     //     matches the live engine after the seed was removed)
     //   - +50/200 (auto-EW PLUS a 4H 50/200 EMA regime filter)
-    // Auto-EW and regime lines render only when their caches have results,
-    // so the regular cards stay clean until "Force Re-Run Backtests"
-    // populates them.
+    // Each variant row is immediately followed by its own FIB 38% (½ size)
+    // sub-row computed from that variant's hybrid data, so the Fib half-size
+    // numbers reflect THIS variant's macro direction (not legacy structural).
     var recentBtRow = '';
     try {
       var allRecent = (typeof computeAllRecentBacktests === 'function')
@@ -3546,51 +3546,56 @@ function buildBacktest(){
           + '</div>';
       };
 
-      recentBtRow = _btRowFor(allRecent && allRecent[k], '4/4 BT &middot; STRUCT', 'var(--inkd)');
+      // Render one FIB 38% half-size sub-row for a given variant's hybrid
+      // data. Returns '' (no row) if the variant has no Fib trades — common
+      // for the +50/200 filter, which can shrink the trade set enough to
+      // leave the Fib bucket empty.
+      var _fibRowFor = function(rb){
+        if(!rb || !rb.hybrid) return '';
+        var hyb = rb.hybrid;
+        var fibW = hyb.midWins || 0;
+        var fibL = hyb.midLosses || 0;
+        var fibTotal = fibW + fibL;
+        if(fibTotal <= 0) return '';
+        var fibRate = (fibW / fibTotal * 100).toFixed(1);
+        var fibColor = wrCol(fibW / fibTotal * 100);
+        var fibNetR = 0.5 * (fibW - fibL);
+        var netSign = fibNetR >= 0 ? '+' : '';
+        var netColor = fibNetR > 0 ? 'var(--bull)' : (fibNetR < 0 ? 'var(--bear)' : 'var(--inkd)');
+        var wickNetR = (hyb.wickWins || 0) - (hyb.wickLosses || 0);
+        var combinedNetR = wickNetR + fibNetR;
+        var combinedSign = combinedNetR >= 0 ? '+' : '';
+        return '<div style="border-top:1px dashed rgba(0,0,0,0.06);margin-top:3px;padding-top:4px;padding-left:14px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
+          + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;" title="Fib 38% half-size entry — captures setups that triggered at the shallower 38% retrace without reaching the wick. Each W/L = 0.5R.">+ fib 38% (½ size)</div>'
+          + '  <div style="display:flex;gap:6px;align-items:center;">'
+          + '    <span style="color:'+fibColor+';font-weight:700;">'+fibRate+'%</span>'
+          + '    <span style="font-size:7.5px;color:var(--inkd);">'+fibW+'W/'+fibL+'L</span>'
+          + '    <span style="font-size:7.5px;color:'+netColor+';font-weight:700;" title="Net R from Fib variant alone (half-size, each unit = 0.5R)">'+netSign+fibNetR.toFixed(1)+'R</span>'
+          + '    <span style="font-size:7px;padding:1px 5px;border-radius:2px;background:rgba(0,0,0,0.04);color:var(--inkm);letter-spacing:0.5px;" title="Combined wick + fib net R for this variant">total '+combinedSign+combinedNetR.toFixed(1)+'R</span>'
+          + '  </div>'
+          + '</div>';
+      };
+
+      var rbStruct = allRecent && allRecent[k];
+      var rbAuto   = allRecentAuto && allRecentAuto[k];
+      var rbReg    = allRecentRegime && allRecentRegime[k];
+
+      recentBtRow  = _btRowFor(rbStruct, '4/4 BT &middot; STRUCT', 'var(--inkd)');
+      recentBtRow += _fibRowFor(rbStruct);
       if(allRecentAuto){
-        recentBtRow += _btRowFor(allRecentAuto[k], '4/4 BT &middot; AUTO-EW', 'var(--purple)');
+        recentBtRow += _btRowFor(rbAuto, '4/4 BT &middot; AUTO-EW', 'var(--purple)');
+        recentBtRow += _fibRowFor(rbAuto);
       }
       if(allRecentRegime){
-        recentBtRow += _btRowFor(allRecentRegime[k], '4/4 BT &middot; AUTO-EW + 50/200', 'var(--gold)');
+        recentBtRow += _btRowFor(rbReg, '4/4 BT &middot; AUTO-EW + 50/200', 'var(--gold)');
+        recentBtRow += _fibRowFor(rbReg);
       }
     } catch(e){ recentBtRow = ''; }
 
-    // ── FIB 38% BREAKDOWN ROW (v7) ──
-    // The standard counters above are wick-only. The Fib half-size
-    // variant added in the v7 backtest port is tracked separately in
-    // rb.hybrid.midWins / midLosses. Surface it here so the user can
-    // judge whether the variant is improving expectancy.
+    // (FIB 38% half-size rows are now interleaved per variant inside
+    // recentBtRow — see _fibRowFor above. The standalone struct-only
+    // Fib row that used to live here has been removed.)
     var fibRow = '';
-    try {
-      var rbHyb = allRecent && allRecent[k] && allRecent[k].hybrid;
-      if(rbHyb){
-        var fibW = rbHyb.midWins || 0;
-        var fibL = rbHyb.midLosses || 0;
-        var fibTotal = fibW + fibL;
-        if(fibTotal > 0){
-          var fibRate = (fibW / fibTotal * 100).toFixed(1);
-          var fibColor = wrCol(fibW / fibTotal * 100);
-          // Half-size means each W/L contributes 0.5R; net = 0.5 * (W - L).
-          var fibNetR = 0.5 * (fibW - fibL);
-          var netSign = fibNetR >= 0 ? '+' : '';
-          var netColor = fibNetR > 0 ? 'var(--bull)' : (fibNetR < 0 ? 'var(--bear)' : 'var(--inkd)');
-          // Combined wick+fib net R for context (lets user compare against
-          // the wick-only +NR shown in the rrText line above).
-          var wickNetR = (rbHyb.wickWins || 0) - (rbHyb.wickLosses || 0);
-          var combinedNetR = wickNetR + fibNetR;
-          var combinedSign = combinedNetR >= 0 ? '+' : '';
-          fibRow = '<div style="border-top:1px dashed rgba(0,0,0,0.06);margin-top:3px;padding-top:4px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
-            + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;" title="Fib 38% half-size entry — captures setups that triggered at the shallower 38% retrace without reaching the wick. Each W/L = 0.5R.">+ fib 38% (½ size)</div>'
-            + '  <div style="display:flex;gap:6px;align-items:center;">'
-            + '    <span style="color:'+fibColor+';font-weight:700;">'+fibRate+'%</span>'
-            + '    <span style="font-size:7.5px;color:var(--inkd);">'+fibW+'W/'+fibL+'L</span>'
-            + '    <span style="font-size:7.5px;color:'+netColor+';font-weight:700;" title="Net R contribution from the Fib variant alone (half-size, so each unit = 0.5R)">'+netSign+fibNetR.toFixed(1)+'R</span>'
-            + '    <span style="font-size:7px;padding:1px 5px;border-radius:2px;background:rgba(0,0,0,0.04);color:var(--inkm);letter-spacing:0.5px;" title="Combined wick + fib net R">total '+combinedSign+combinedNetR.toFixed(1)+'R</span>'
-            + '  </div>'
-            + '</div>';
-        }
-      }
-    } catch(e){ /* defensive */ }
 
     // Stats row — prefer deep backtest counts when available, fall back
     // to legacy static MKTS counts (Apr 2025-Apr 2026 Wickator reconstruction)
