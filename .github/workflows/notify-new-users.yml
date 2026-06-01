@@ -1,0 +1,70 @@
+name: Notify New Users
+
+# Polls Supabase Auth for new signups and Telegram-alerts on each one.
+# Runs every 15 minutes. State is kept in notified-users.json so each
+# user is alerted exactly once. First run baselines the existing users
+# silently (no spam) so only genuinely new signups after install fire.
+#
+# Requires repo secrets:
+#   SUPABASE_URL
+#   SUPABASE_SERVICE_ROLE_KEY   (Supabase: Project Settings -> API)
+#   TELEGRAM_BOT_TOKEN          (same as detect_triggers.py)
+#   TELEGRAM_CHAT_ID            (same as detect_triggers.py)
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write  # Commit notified-users.json after each run
+
+concurrency:
+  group: notify-new-users
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run notifier
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python notify_new_users.py
+
+      - name: Commit notified-users.json if changed
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add notified-users.json 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "No state changes to commit"
+            exit 0
+          fi
+          git commit -m "chore: update notified-users.json"
+
+          # Push with race-condition retry — main is busy from other workflows
+          MAX_ATTEMPTS=5
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Push attempt $attempt/$MAX_ATTEMPTS"
+            if git push origin main; then
+              echo "Pushed."
+              exit 0
+            fi
+            git fetch origin main
+            git rebase origin/main || git rebase --abort
+            sleep $((attempt * 3))
+          done
+          echo "::error::Push failed after $MAX_ATTEMPTS attempts"
+          exit 1
