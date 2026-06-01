@@ -1890,6 +1890,13 @@ function mainDashboardWrLabel(k, m, mode){
     // cached backtest exists, kick async compute. Boot-path normally does
     // this, but on mobile the boot async sometimes gets paused/killed by
     // iOS Safari. Triggering from first render call ensures it always fires.
+    //
+    // Runs the AUTO-EW backtest (production methodology) so the headline
+    // win-rate badge on each card reflects the per-class entry method
+    // (wick for FX/crypto, Fib half-size for commodities/indices). The
+    // structural cache is no longer auto-computed at boot — it's only
+    // generated when the user clicks Force Re-Run Backtests for ad-hoc
+    // comparison.
     if(!_lazyBacktestTriggered &&
        typeof DEEP_HIST !== 'undefined' && Object.keys(DEEP_HIST).length > 0 &&
        typeof computeAllRecentBacktestsAsync === 'function'){
@@ -1899,7 +1906,7 @@ function mainDashboardWrLabel(k, m, mode){
       // Force-refresh in that case so we recompute on DEEP_HIST data.
       var needsForceRefresh = false;
       try {
-        var existingCache = (typeof _loadRecentBtCache === 'function') ? _loadRecentBtCache() : null;
+        var existingCache = (typeof _loadRecentBtCache === 'function') ? _loadRecentBtCache('auto-ew') : null;
         if(existingCache){
           var firstKey = Object.keys(existingCache)[0];
           var firstRb = firstKey && existingCache[firstKey];
@@ -1909,12 +1916,17 @@ function mainDashboardWrLabel(k, m, mode){
           }
         }
       } catch(e){ /* defensive */ }
-      if(typeof addNote === 'function') try { addNote('⚙️ Computing backtest (lazy-triggered)... DEEP_HIST='+Object.keys(DEEP_HIST).length+' pairs'+(needsForceRefresh?' [force]':'')); } catch(e){}
+      if(typeof addNote === 'function') try { addNote('⚙️ Computing auto-EW backtest (lazy-triggered)... DEEP_HIST='+Object.keys(DEEP_HIST).length+' pairs'+(needsForceRefresh?' [force]':'')); } catch(e){}
       // setTimeout to defer until after current render completes
       setTimeout(function(){
         try {
           computeAllRecentBacktestsAsync(needsForceRefresh, null, function(){
-            if(typeof addNote === 'function') try { addNote('✅ Backtest ready · re-rendering'); } catch(e){}
+            if(typeof addNote === 'function') try { addNote('✅ Auto-EW backtest ready · re-rendering'); } catch(e){}
+            // Critical: refresh the headline win-rate badge on each card
+            // now that the auto-EW cache is populated. Without this,
+            // MKTS[k].wr stays at whatever the legacy tier computed
+            // earlier in boot.
+            try { if(typeof refreshBacktestWR === 'function') refreshBacktestWR(); } catch(e){}
             try {
               Object.keys(MKTS).forEach(function(kk){
                 if(typeof updateOV === 'function') updateOV(kk);
@@ -1928,7 +1940,7 @@ function mainDashboardWrLabel(k, m, mode){
             if(typeof buildBacktest === 'function'){
               setTimeout(buildBacktest, 50);
             }
-          });
+          }, 'auto-ew');
         } catch(e){
           if(typeof addNote === 'function') try { addNote('❌ Lazy backtest compute crashed: '+(e.message||e)); } catch(e2){}
         }
@@ -3484,59 +3496,11 @@ function buildBacktest(){
       hintLine = '<div style="font-size:7.5px;color:'+hintCol+';font-style:italic;margin-top:4px;line-height:1.35;border-top:1px dashed rgba(0,0,0,0.06);padding-top:4px;">' + gate.hint + '</div>';
     }
 
-    // 15m intraday WR — separate from the macro EW backtest above.
-    // Different strategy → tracked separately, not summed.
-    // Filtered to currently 4/4-aligned pairs only (matches live signal logic).
-    var intra = (typeof intradayWinRate === 'function') ? intradayWinRate(k) : null;
-    var intraRow;
-    var pairAligned = STATE[k] && STATE[k].ew === STATE[k].tl && STATE[k].tl === STATE[k].nw &&
-                      (STATE[k].ew === 'bull' || STATE[k].ew === 'bear');
-    if(intra){
-      var intraColor = wrCol(intra.rate * 100);
-      var intraRate = (Math.round(intra.rate * 1000) / 10).toFixed(1);
-      var srcLabel = intra.source === 'live' ? 'live' : 'sim';
-      var srcCol = intra.source === 'live' ? 'var(--bull)' : 'var(--inkd)';
-      // Expanded breakdown: show resolved W/L plus expired/invalidated separately.
-      // Expired = signal armed but never retested in 8 bars.
-      // Invalidated = closed beyond stop before retest happened.
-      // These aren't "losses" per se (no money lost — trade never entered),
-      // but they ARE signal failures and should be visible to the user.
-      var wlPart = intra.wins + 'W/' + intra.losses + 'L';
-      var failurePart = '';
-      var hasFailures = (intra.expired > 0 || intra.invalidated > 0);
-      if(hasFailures){
-        var failureBits = [];
-        if(intra.expired > 0)     failureBits.push(intra.expired + ' exp');
-        if(intra.invalidated > 0) failureBits.push(intra.invalidated + ' inv');
-        failurePart = ' · ' + failureBits.join(' · ');
-      }
-      // If there are NO resolved trades but DID have signals (all expired/invalidated),
-      // show "no completed trades" instead of misleading 0.0%
-      var rateDisplay = (intra.total === 0 && hasFailures)
-        ? '<span style="font-size:7.5px;color:var(--inkd);font-style:italic;">no completed trades</span>'
-        : '<span style="color:'+intraColor+';font-weight:700;">'+intraRate+'%</span>'
-          + '<span style="font-size:7.5px;color:var(--inkd);margin-left:6px;">'+wlPart+failurePart+'</span>';
-      intraRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:6px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
-        + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;">15m intraday 1:1</div>'
-        + '  <div style="display:flex;gap:6px;align-items:center;">'
-        +     rateDisplay
-        + '    <span style="font-size:7px;padding:1px 5px;border-radius:2px;background:rgba(0,0,0,0.04);color:'+srcCol+';letter-spacing:0.5px;">'+srcLabel.toUpperCase()+' n='+intra.totalSignals+'</span>'
-        + '  </div>'
-        + '</div>';
-    } else if(!pairAligned){
-      // Pair not currently 4/4 aligned — intraday rule wouldn't apply.
-      // Distinguish from "no data yet" so user understands why no stats.
-      intraRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:6px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
-        + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;">15m intraday 1:1</div>'
-        + '  <div style="font-size:7.5px;color:var(--inkd);font-style:italic;">not 4/4 aligned</div>'
-        + '</div>';
-    } else {
-      // Aligned but no signals yet
-      intraRow = '<div style="border-top:1px dashed rgba(0,0,0,0.08);margin-top:6px;padding-top:5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">'
-        + '  <div style="font-family:Orbitron,monospace;font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;">15m intraday 1:1</div>'
-        + '  <div style="font-size:7.5px;color:var(--inkd);font-style:italic;">no signals in buffer yet</div>'
-        + '</div>';
-    }
+    // 15m intraday WR row removed (user request 2026-05-29) — was the
+    // "15M INTRADAY 1:1 . not 4/4 aligned" row that cluttered each card
+    // without adding production value. The intraday signal itself still
+    // lives on the dashboard alert flash / Telegram alert.
+    var intraRow = '';
 
     // Primary backtest row — ONE row per pair, using the entry methodology
     // chosen for this pair's instrument class:
