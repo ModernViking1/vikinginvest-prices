@@ -399,6 +399,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <span class="fpill" id="fp-major" onclick="setFilter('major')">Majors</span>
     <span class="fpill" id="fp-minor" onclick="setFilter('minor')">Minors <span class="xtag">X</span></span>
     <span class="fpill" id="fp-crypto" onclick="setFilter('crypto')" style="border-color:var(--orange);color:var(--orange);">₿ Crypto</span>
+    <span class="fpill" id="fp-index" onclick="setFilter('index')" style="border-color:var(--purple);color:var(--purple);">📊 Indices</span>
     <span class="fpill" id="fp-fire" style="border-color:var(--bear);color:var(--bear);" onclick="setFilter('fire')">🔴 Active</span>
   </div>
   <div class="ovgrid" id="ovGrid"></div>
@@ -759,7 +760,7 @@ var MKTS = {
     // Stop: below $58 (Jan 2026 low / impulse anchor).
     wr:58.0,g:'C',bw:10,bl:8,brr:0.6,
     entry:'95&#8211;100 OB (Wave 2 retest)',stop:'Below 58.00',tgt:'115 Wave 3 / 125-130 Wave 5',inv:'Close&lt;58.00',rr:'1:0.6'},
-  de40:{sym:'DAX 30',t:'comm',px:'24,315',p:24315,d:0,sc:200,up:false,chg:'-1.17%',
+  de40:{sym:'DAX 30',t:'index',px:'24,315',p:24315,d:0,sc:200,up:false,chg:'-1.17%',
     ew:'bear',tl:'bear',nw:'bear',
     // WICKATOR METHOD: Wave 5/(A) top at 25,512 complete. ABC correction in progress.
     // Wave A=5 down done to 21,863 LL. Wave B bounce = 3 waves up to 23,900 (0.618 fib).
@@ -2111,12 +2112,17 @@ function fmtP(p,d){if(d===0)return p.toLocaleString();if(p>=100)return p.toFixed
 function shouldShow(k){
   var m=MKTS[k];
   if(filterMode==='all') return true;
-  // DXY is a macro anchor — only visible under 'All' view
-  if(m.t === 'index') return false;
+  // DXY is a macro anchor (the regime gate for all USD pairs) and is
+  // only visible under 'All' view. Pre-fix this check matched any
+  // pair with t:'index', which silently hid NAS 100 (and any future
+  // index added) from the Active / Indices / Crypto filters. Now
+  // keyed on the literal 'dxy' symbol so real indices pass through.
+  if(k === 'dxy') return false;
   if(filterMode==='major')  return m.t==='major';
   if(filterMode==='minor')  return m.t==='minor';
   if(filterMode==='comm')   return m.t==='comm';
   if(filterMode==='crypto') return m.t==='crypto';
+  if(filterMode==='index')  return m.t==='index';
   if(filterMode==='fire')   return isFire(k);
   return true;
 }
@@ -6970,7 +6976,33 @@ function updateStatusBar(){
   }
 }
 
-function setFilter(mode){filterMode=mode;var map={all:'fa',major:'fm',minor:'fx',comm:'fc',crypto:'fc',fire:'ff'};['all','major','minor','comm','crypto','fire'].forEach(function(f){var el=document.getElementById('fp-'+f);if(!el)return;el.className='fpill';if(f===mode)el.classList.add(map[f]);if(f==='fire'){el.style.borderColor='var(--bear)';el.style.color=mode==='fire'?'#fff':'var(--bear)';}if(f==='comm'||f==='crypto'){el.style.borderColor='var(--orange)';el.style.color=(mode===f)?'#fff':'var(--orange)';}});Object.keys(MKTS).forEach(function(k){updateOV(k);var tab=document.getElementById('tab-'+k);if(tab)tab.style.display=shouldShow(k)?'':'none';});}
+function setFilter(mode){
+  filterMode=mode;
+  var map={all:'fa',major:'fm',minor:'fx',comm:'fc',crypto:'fc',index:'fc',fire:'ff'};
+  ['all','major','minor','comm','crypto','index','fire'].forEach(function(f){
+    var el=document.getElementById('fp-'+f);
+    if(!el)return;
+    el.className='fpill';
+    if(f===mode)el.classList.add(map[f]);
+    if(f==='fire'){
+      el.style.borderColor='var(--bear)';
+      el.style.color=mode==='fire'?'#fff':'var(--bear)';
+    }
+    if(f==='comm'||f==='crypto'){
+      el.style.borderColor='var(--orange)';
+      el.style.color=(mode===f)?'#fff':'var(--orange)';
+    }
+    if(f==='index'){
+      el.style.borderColor='var(--purple)';
+      el.style.color=(mode==='index')?'#fff':'var(--purple)';
+    }
+  });
+  Object.keys(MKTS).forEach(function(k){
+    updateOV(k);
+    var tab=document.getElementById('tab-'+k);
+    if(tab)tab.style.display=shouldShow(k)?'':'none';
+  });
+}
 
 function runScan(){loggedSess={};Object.keys(MKTS).forEach(function(k){refreshAlert(k);});var cnt=Object.keys(MKTS).filter(isFire).length;var n=Object.keys(MKTS).length;addNote('&#9889; Scan complete &#8212; '+cnt+' active 4/4 signal'+(cnt!==1?'s':'')+' across '+n+' markets.');}
 
