@@ -10702,7 +10702,16 @@ function detect15mLevels(k){
   // Scan back from the current bar looking for a CHoCH event in the bar
   // sequence (price crossed previous swing). The bar BEFORE that CHoCH,
   // in the OPPOSITE direction, is the OB. Limit search to last 30 bars.
-  var seedDir = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k] && WICKATOR_EW[k].dir) || ewDir;
+  // Search direction for OB/FVG = the live engine reading. The previous
+  // code defaulted to WICKATOR_EW[k].dir and only fell back to ewDir
+  // when no seed existed — so for any pair where the seed disagreed
+  // with the engine (e.g. XAG/USD 2026-05-30: seed bull, engine bear)
+  // the loop below was scanning for the WRONG direction's structures.
+  // The visible symptom was "Auto-detection: no fresh OB/FVG found in
+  // last 30 bars" while TradingView clearly showed CHoCH + LH OBs in
+  // the engine direction. Engine has been authoritative since the
+  // 2026-05-29 seed-removal decision; this code path was missed.
+  var seedDir = ewDir;
   var ob = null;
   var searchStart = Math.max(5, n - 30);  // need at least 5 bars of preceding history
   for(var i = n - 1; i >= searchStart; i--){
@@ -11012,28 +11021,12 @@ function detectIntradaySignal(k){
   // instead of silently hiding the intraday signal.
   var alignmentBroken = (ewDir !== tlDir || tlDir !== nwDir || nwDir !== clDir);
 
-  // ── SEED/ENGINE CONFLICT GUARD ───────────────────────────────
-  // The intraday signal is a sub-strategy of the 4/4 macro setup.
-  // If the macro 4/4 banner is being blocked by a direction conflict
-  // (seed disagrees with engine), the intraday signal must also be
-  // blocked — it would be telling the user to BUY when their seed
-  // thesis says SELL.
-  //
-  // Trigger: seed direction (WICKATOR_EW[k].dir) exists AND disagrees
-  // with engine direction (STATE[k].ew). In that case, return a
-  // "blocked" state so the dashboard can show the conflict warning
-  // instead of an actionable trade.
-  try {
-    var seed = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k]) ? WICKATOR_EW[k] : null;
-    if(seed && seed.dir && seed.dir !== dir){
-      // Seed and engine disagree — suppress the intraday signal entirely.
-      // The conflict warning panel above will still show on the dashboard,
-      // alerting the user to manually review the situation.
-      return null;
-    }
-  } catch(e){ /* defensive — never block detection on conflict-check error */ }
-
-  // Use the same data source preference as detect15mLevels
+  // Engine takes priority over seed (2026-05-29 decision). The
+  // previous seed/engine conflict guard that returned null here when
+  // WICKATOR_EW[k].dir disagreed with the live engine is gone —
+  // engine is authoritative; signals fire whenever 4/4 aligns even
+  // if the legacy Wickator seed points the other way. This was why
+  // XAG/USD 2026-05-30 (engine 4/4 BEAR, seed bull) never armed.
   var ticks = null;
   if(typeof INTRADAY !== 'undefined' && INTRADAY[k] && INTRADAY[k].length >= 10){
     ticks = INTRADAY[k];
@@ -11681,12 +11674,9 @@ function simulateIntradayWinRate(k){
   if(ewDir !== 'bull' && ewDir !== 'bear') return null;
   var alignedDir = ewDir;
 
-  // Same seed/engine conflict guard as detectIntradaySignal — keep all
-  // three sources (live detector, simulator, classifier) consistent.
-  try {
-    var seed = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k]) ? WICKATOR_EW[k] : null;
-    if(seed && seed.dir && seed.dir !== alignedDir) return null;
-  } catch(e){ /* defensive */ }
+  // Seed/engine conflict guard removed 2026-05-30 — engine is
+  // authoritative; the simulator now follows whatever the live engine
+  // reads regardless of the legacy Wickator seed direction.
 
   // Prefer INTRADAY (richer), fall back to HISTORY[k].m15
   var ticks = null;
@@ -11847,11 +11837,9 @@ function classifySimulatedTrades(k){
   if(ewDir !== 'bull' && ewDir !== 'bear') return [];
   var alignedDir = ewDir;  // the direction the live signal would test
 
-  // Seed/engine conflict guard — see detectIntradaySignal for rationale
-  try {
-    var seedC = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k]) ? WICKATOR_EW[k] : null;
-    if(seedC && seedC.dir && seedC.dir !== alignedDir) return [];
-  } catch(e){ /* defensive */ }
+  // Seed/engine conflict guard removed 2026-05-30 — engine is
+  // authoritative; the classifier now follows whatever the live engine
+  // reads regardless of the legacy Wickator seed direction.
 
   var ticks = null;
   if(typeof INTRADAY !== 'undefined' && INTRADAY[k] && INTRADAY[k].length >= 20){
