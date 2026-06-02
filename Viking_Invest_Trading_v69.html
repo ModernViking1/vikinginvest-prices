@@ -3482,12 +3482,29 @@ function buildBacktest(){
   // uses exactly one entry method (wick OR fib) per its profile.
   var agg=document.getElementById('aggRow');
   // Compute confidence breakdown: pairs with high-conf real backtest vs low-conf vs structural
+  // Confidence breakdown — counts pairs by sample size of their
+  // production-methodology backtest. Recognises both the new
+  // profile-* sources (set by refreshBacktestWR's Tier 0 after the
+  // 2026-05-29 per-class routing) AND the legacy wickator-real
+  // source (still used by tier 1 simWickatorRealBacktest).
+  // Pre-fix this only matched wickator-real, so every pair landed in
+  // confStruct → "0/38" High-Conf WR even when 200+ deep-backtest
+  // trades existed (the 2026-05-30 symptom).
   var confHigh = 0, confMed = 0, confLow = 0, confStruct = 0;
   Object.keys(MKTS).forEach(function(k){
     var m = MKTS[k];
     var src = m._btSource || 'wickator-structure';
     var n = m._btSample || 0;
-    if(src === 'wickator-real'){
+    var isProfile = src.indexOf && src.indexOf('profile-') === 0;
+    if(isProfile){
+      // Profile-* sources read from the 12-month deep backtest cache —
+      // trade counts run into the hundreds, so use larger thresholds.
+      if(n >= 100)     confHigh++;
+      else if(n >= 30) confMed++;
+      else if(n >= 3)  confLow++;
+      else             confStruct++;
+    } else if(src === 'wickator-real'){
+      // Legacy real-historical-trade counts (tier 1) — small windows.
       if(n >= 20)      confHigh++;
       else if(n >= 5)  confMed++;
       else             confLow++;
