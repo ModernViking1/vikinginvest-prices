@@ -192,6 +192,59 @@ jobs:
           }
           PKG
 
+      - name: Detect triggers + send Telegram alerts
+        # Inlined here on 2026-06-02 because alert-on-trigger.yml's
+        # scheduled cron `*/5 * * * *` was being throttled by GitHub
+        # Actions to ~every 4 hours (last successful schedule run was
+        # 17:10 UTC, before which a 4-hour gap). The workflow_run
+        # chain on alert-on-trigger from this workflow was also not
+        # firing — likely because workflow_run doesn't reliably chain
+        # off `repository_dispatch` upstream events.
+        #
+        # Running detect_triggers.py inline here means alerts inherit
+        # fetch-data's reliable every-5-min cadence. alert-on-trigger
+        # stays in the repo as a catch-up workflow (schedule + manual
+        # dispatch) but is no longer the live-latency path.
+        #
+        # The detector reads the data files we just committed above,
+        # so we don't need a separate checkout step.
+        if: steps.push.outputs.pushed == '1'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          set +e  # don't fail the workflow on alert errors — data already pushed
+          python detect_triggers.py
+          DT_EXIT=$?
+          if [ $DT_EXIT -ne 0 ]; then
+            echo "::warning::detect_triggers.py exited $DT_EXIT (non-fatal — data already pushed)"
+            exit 0
+          fi
+          set -e
+          # Commit alerts-state.json + directions.json separately so the
+          # data-files commit above stays focused. Race-retry pattern
+          # matches the data-files step.
+          git add alerts-state.json directions.json 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "No alert-state changes to commit"
+            exit 0
+          fi
+          git commit -m "chore: update alert state + directions"
+          MAX_ATTEMPTS=5
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            if git push origin main 2>&1; then
+              echo "✅ Alert state pushed (attempt $attempt)"
+              exit 0
+            fi
+            if [ "$attempt" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::warning::Alert state push failed after $MAX_ATTEMPTS attempts — next run picks it up"
+              exit 0
+            fi
+            git fetch origin main
+            git rebase origin/main || git rebase --abort
+            sleep $((attempt * 2))
+          done
+
       - name: Publish to npm (non-fatal)
         if: steps.push.outputs.pushed == '1'
         env:
