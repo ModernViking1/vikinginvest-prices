@@ -63,6 +63,43 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
   .card .num{font-size:36px;}
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ── Admin auth gate ── */
+.gate{
+  display:none;flex-direction:column;align-items:center;gap:14px;
+  padding:30px 24px;background:var(--sf);border:1px solid var(--rule);
+  border-radius:14px;box-shadow:var(--shad);
+}
+.gate.show{display:flex;}
+.gate-eyebrow{
+  font-family:'Orbitron',monospace;font-size:10px;font-weight:700;
+  letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);
+}
+.gate-h{font-family:'Orbitron',monospace;font-size:18px;font-weight:800;color:var(--ink);text-align:center;}
+.gate-p{font-size:13px;color:var(--inkm);line-height:1.55;text-align:center;max-width:380px;}
+.gate-form{display:flex;flex-direction:column;gap:9px;width:100%;max-width:340px;}
+.gate-form input{
+  font-family:'Mukta',sans-serif;font-size:14px;
+  padding:11px 13px;border:1.5px solid var(--rule);border-radius:7px;
+  background:#fff;color:var(--ink);box-sizing:border-box;
+}
+.gate-form input:focus{outline:none;border-color:var(--gold);}
+.gate-form button{
+  font-family:'Orbitron',monospace;font-size:11px;font-weight:700;
+  letter-spacing:1px;text-transform:uppercase;padding:12px 16px;
+  border:0;border-radius:7px;cursor:pointer;background:var(--ink);color:var(--bg);
+}
+.gate-form button:disabled{opacity:0.55;cursor:wait;}
+.gate-msg{font-size:12.5px;text-align:center;margin-top:6px;min-height:18px;font-weight:500;}
+.gate-msg.ok{color:#1a7a4a;}
+.gate-msg.err{color:#c0281a;}
+.gate-signout{
+  font-family:'Orbitron',monospace;font-size:9px;font-weight:700;
+  padding:5px 9px;border:1px solid var(--ink);background:transparent;
+  color:var(--ink);border-radius:4px;cursor:pointer;letter-spacing:0.5px;
+}
+</style>
 </head>
 <body>
   <div class="wrap">
@@ -70,6 +107,31 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
       <span class="brand-dot"></span>
       <span class="brand-name">Viking Invest</span>
     </div>
+
+    <!-- ── ACCESS GATE — Supabase auth + admin email allowlist ── -->
+    <div id="gateCheck" class="gate show">
+      <div class="gate-eyebrow">Checking access&hellip;</div>
+    </div>
+
+    <div id="gateSignIn" class="gate">
+      <div class="gate-eyebrow">Restricted</div>
+      <div class="gate-h">Admin sign-in required</div>
+      <div class="gate-p">Visitor stats are admin-only. Enter your admin email and we'll send a one-tap magic link.</div>
+      <form id="gateForm" class="gate-form">
+        <input type="email" id="gateEmail" placeholder="admin@vikinginvest.org" required autocomplete="email">
+        <button type="submit" id="gateBtn">Send magic link</button>
+      </form>
+      <div id="gateMsg" class="gate-msg"></div>
+    </div>
+
+    <div id="gateDenied" class="gate">
+      <div class="gate-eyebrow">Access restricted</div>
+      <div class="gate-h">Not authorised</div>
+      <div class="gate-p">You're signed in as <code id="gateDeniedEmail"></code> but this page is admin-only.</div>
+      <button type="button" class="gate-signout" onclick="gateSignOut()">Sign out</button>
+    </div>
+
+    <div id="statsBody" style="display:none;">
     <span class="eyebrow">Visitor stats</span>
     <h1>Unique visitors</h1>
     <div class="cards">
@@ -96,7 +158,98 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
       Counter powered by <a href="https://github.com/JasonCameron/abacus" target="_blank" rel="noopener">abacus</a>.
       Raw: <a id="rawSite" target="_blank" rel="noopener">site</a> &middot; <a id="rawDash" target="_blank" rel="noopener">dashboard</a>.
     </div>
+    </div>  <!-- /#statsBody -->
   </div>
+
+<script>
+/* ── Supabase admin auth gate ─────────────────────────────────────
+   Stats page is admin-only. Only the email in ADMIN_EMAILS sees
+   the visitor counts; everyone else (signed-in or not) hits the
+   gate. Uses the same Supabase project as the dashboard.
+   ─────────────────────────────────────────────────────────────── */
+(function(){
+  var SUPABASE_URL = 'https://opwdsuusdmsaicoyqxti.supabase.co';
+  var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wd2RzdXVzZG1zYWljb3lxeHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjQwNTYsImV4cCI6MjA5NTg0MDA1Nn0.4QAzhvJUyu5sxou_A1IjVfrH25Ft1sRuYbZmf435_1Y';
+  var ADMIN_EMAILS = ['kmma@vikinginvest.org'];  // lower-case match
+
+  function show(id){
+    ['gateCheck','gateSignIn','gateDenied'].forEach(function(g){
+      var el = document.getElementById(g);
+      if(el) el.classList.toggle('show', g === id);
+    });
+    var body = document.getElementById('statsBody');
+    if(body) body.style.display = (id === null) ? '' : 'none';
+  }
+
+  if(!window.supabase || !window.supabase.createClient){
+    show('gateSignIn');
+    document.getElementById('gateMsg').className = 'gate-msg err';
+    document.getElementById('gateMsg').textContent = 'Auth SDK failed to load — refresh.';
+    return;
+  }
+  var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}
+  });
+
+  function applySession(session){
+    if(!session || !session.user){
+      show('gateSignIn');
+      return;
+    }
+    var email = (session.user.email || '').toLowerCase();
+    if(ADMIN_EMAILS.indexOf(email) === -1){
+      document.getElementById('gateDeniedEmail').textContent = email;
+      show('gateDenied');
+      return;
+    }
+    // Admin — reveal stats and run the existing loader.
+    show(null);
+    if(typeof window.loadAll === 'function') window.loadAll();
+  }
+
+  window.gateSignOut = function(){
+    sb.auth.signOut().then(function(){ show('gateSignIn'); });
+  };
+
+  sb.auth.getSession().then(function(r){
+    applySession(r && r.data && r.data.session);
+  });
+  sb.auth.onAuthStateChange(function(_event, session){
+    applySession(session);
+  });
+
+  var form = document.getElementById('gateForm');
+  if(form){
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      var emailEl = document.getElementById('gateEmail');
+      var msg = document.getElementById('gateMsg');
+      var btn = document.getElementById('gateBtn');
+      var email = (emailEl.value || '').trim();
+      if(!email) return;
+      msg.className = 'gate-msg'; msg.textContent = 'Sending magic link…';
+      btn.disabled = true;
+      sb.auth.signInWithOtp({
+        email: email,
+        options: {emailRedirectTo: window.location.origin + window.location.pathname}
+      }).then(function(r){
+        btn.disabled = false;
+        if(r && r.error){
+          msg.className = 'gate-msg err';
+          msg.textContent = r.error.message || 'Send failed.';
+        } else {
+          msg.className = 'gate-msg ok';
+          msg.textContent = '✓ Magic link sent — check your inbox.';
+        }
+      }).catch(function(err){
+        btn.disabled = false;
+        msg.className = 'gate-msg err';
+        msg.textContent = (err && err.message) || 'Network error — try again.';
+      });
+    });
+  }
+})();
+</script>
 
 <script>
 (function(){

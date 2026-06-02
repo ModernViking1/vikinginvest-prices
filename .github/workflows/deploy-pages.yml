@@ -20,7 +20,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'dashboard.html'
+      # dashboard.html is no longer tracked in the repo — deploy-time
+      # derived from Viking_Invest_Trading_v*.html. Trigger on the source.
       - 'index.html'
       - 'stats.html'
       - 'Viking_Invest_Trading_v*.html'
@@ -51,9 +52,22 @@ jobs:
       - name: Build static site (HTML only — data is fetched from CDN)
         run: |
           mkdir -p _site
-          cp dashboard.html _site/
           # Include all versioned HTML files so older bookmarks keep working
           cp Viking_Invest_Trading_v*.html _site/ 2>/dev/null || true
+          # Derive dashboard.html from the latest versioned source. The
+          # repo no longer tracks dashboard.html as a separate file — it
+          # was always byte-identical to the latest Viking_Invest_Trading
+          # version, just duplicated. Generating it here at deploy time
+          # means single-source edits to the versioned file automatically
+          # publish under the legacy /dashboard.html bookmark.
+          LATEST=$(ls -1 _site/Viking_Invest_Trading_v*.html 2>/dev/null | sort -V | tail -1)
+          if [ -n "$LATEST" ]; then
+            cp "$LATEST" _site/dashboard.html
+            echo "Generated _site/dashboard.html from $(basename "$LATEST")"
+          else
+            echo "::error::No Viking_Invest_Trading_v*.html source found"
+            exit 1
+          fi
           # Optional landing page if present
           cp index.html _site/ 2>/dev/null || true
           # Private visitor-stats page (unlinked, noindex)
