@@ -339,6 +339,12 @@ def main():
                     help="Output directory (used with --per-pair)")
     ap.add_argument("--pairs", default=None,
                     help="Comma-separated subset of pair keys (for testing)")
+    ap.add_argument("--merge", action="store_true",
+                    help="Merge with existing --output file: pairs not in the "
+                         "--pairs subset are copied from the existing file "
+                         "rather than dropped. Lets you deep-fetch a small "
+                         "subset (e.g. just new crypto) without losing the "
+                         "other 30+ pairs already in historical-ohlc.json.")
     args = ap.parse_args()
 
     m15_days = args.m15_days if args.m15_days is not None else args.days
@@ -373,6 +379,29 @@ def main():
     out_dir = Path(args.output_dir)
     if args.per_pair:
         out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Merge mode: read existing output file FIRST, copy through every
+    # pair that ISN'T in our fetch subset so the final combined file
+    # still has full coverage. Pairs in the fetch subset will be
+    # overwritten below with freshly-fetched data.
+    if args.merge and not args.per_pair:
+        existing_path = Path(args.output)
+        if existing_path.exists():
+            try:
+                with open(existing_path, 'r', encoding='utf-8') as f:
+                    existing = json.load(f)
+                existing_pairs = existing.get('pairs', {}) if isinstance(existing, dict) else {}
+                preserved = 0
+                fetch_set = set(pairs_to_fetch)
+                for k, v in existing_pairs.items():
+                    if k not in fetch_set:
+                        output_data['pairs'][k] = v
+                        preserved += 1
+                print(f"  Merge: preserved {preserved} existing pairs from {existing_path}", flush=True)
+            except Exception as e:
+                print(f"  WARN: merge read failed ({e}); proceeding without merge", flush=True)
+        else:
+            print(f"  Merge: no existing {existing_path} to merge from", flush=True)
 
     for idx, pair_key in enumerate(pairs_to_fetch, 1):
         print(f"[{idx}/{len(pairs_to_fetch)}] {pair_key}", flush=True)

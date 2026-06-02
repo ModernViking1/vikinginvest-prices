@@ -1,0 +1,149 @@
+name: Crypto Deep Fetch (one-shot)
+
+# One-button deep fetch for the 9 Coinbase crypto pairs, pulling as much
+# history as the API allows in a single run. Use after a new crypto pair
+# is added to MKTS to backfill enough m15/h1/daily bars for the 12-month
+# deep backtest (the dashboard's calcRecentBacktest needs m15 >= 1000 and
+# h1 >= 200 — about 11 days of fresh-listed coin history).
+#
+# Why a dedicated workflow rather than re-running publish-historical-ohlc:
+#   - That workflow refetches ALL ~40 pairs from OANDA + Coinbase. Runtime
+#     ~5 min and burns OANDA quota for no reason when the deficit is only
+#     on the 9 crypto pairs.
+#   - This one fetches the 9 crypto pairs only, --merge mode preserves
+#     every other pair already in historical-ohlc.json, ~2 min runtime,
+#     no OANDA quota consumed.
+#
+# Trigger from the Actions tab. No inputs required.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: historical-ohlc
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node (for npm publish)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Deep-fetch crypto pairs (merge mode)
+        run: |
+          # --days 730 asks for up to 2 years of history. Coinbase will
+          # return whatever the listing-date allows — older coins (BTC,
+          # ETH, XRP, SOL) get the full 2 years; younger coins (HYPE,
+          # ONDO, NEAR, TAO, SUI) get as much as exists.
+          # --m15-days 30 limits the 15-minute layer to 30 days. The deep
+          # backtest only needs m15 >= 1000 (~10.4 days). 30 days gives
+          # plenty of headroom without making the JSON file enormous.
+          # --merge preserves every non-crypto pair already in the file.
+          python fetch_historical_ohlc.py \
+            --pairs btcusd,suiusd,ethusd,solusd,xrpusd,taousd,nearusd,hypeusd,ondousd \
+            --days 730 \
+            --m15-days 30 \
+            --merge \
+            --output historical-ohlc.json
+
+      - name: Report bar counts
+        run: |
+          python -c "
+          import json
+          with open('historical-ohlc.json') as f:
+              d = json.load(f)
+          crypto = ['btcusd','suiusd','ethusd','solusd','xrpusd','taousd','nearusd','hypeusd','ondousd']
+          print('Crypto pair bar counts after fetch:')
+          for k in crypto:
+              p = d.get('pairs', {}).get(k, {})
+              m = len(p.get('m15', []))
+              h = len(p.get('h1', []))
+              dd = len(p.get('daily', []))
+              ok = '✓' if (m >= 1000 and h >= 200) else '✗'
+              print(f'  {ok} {k}: m15={m}  h1={h}  daily={dd}')
+          "
+
+      - name: Commit + push (with race-retry)
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # package.json version bump so npm-publish picks up the new file
+          if [ -f package.json ]; then
+            node -e "
+              const fs = require('fs');
+              const pkg = JSON.parse(fs.readFileSync('package.json','utf8'));
+              const parts = (pkg.version || '0.0.0').split('.').map(Number);
+              parts[2] = (parts[2] || 0) + 1;
+              pkg.version = parts.join('.');
+              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+              console.log('Bumped to', pkg.version);
+            "
+          fi
+
+          git add historical-ohlc.json package.json 2>/dev/null || git add historical-ohlc.json
+          if git diff --staged --quiet; then
+            echo "No changes after fetch — Coinbase may have returned nothing."
+            exit 0
+          fi
+          git commit -m "Crypto deep fetch (one-shot)"
+
+          MAX_ATTEMPTS=5
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Push attempt $attempt of $MAX_ATTEMPTS"
+            if git push origin main 2>&1; then
+              echo "✅ Push succeeded"
+              exit 0
+            fi
+            if [ "$attempt" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::Push failed after $MAX_ATTEMPTS attempts"
+              exit 1
+            fi
+            git fetch origin main
+            if ! git rebase origin/main; then
+              echo "Rebase conflict — taking our fetched history"
+              for f in historical-ohlc.json package.json; do
+                if [ -f "$f" ]; then
+                  git checkout --theirs "$f" 2>/dev/null || true
+                  git add "$f" 2>/dev/null || true
+                fi
+              done
+              git rebase --continue || git rebase --abort
+            fi
+            sleep $((attempt * 3))
+          done
+
+      - name: Publish to npm + purge jsDelivr
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # Same pattern as publish-historical-ohlc.yml — the dashboard
+          # reads historical-ohlc.json from jsDelivr /npm/@latest, so we
+          # need to publish + purge before the new crypto bars are
+          # visible in the browser.
+          if npm publish --access=public 2>&1; then
+            echo "✅ npm publish succeeded"
+          else
+            echo "::warning::npm publish failed (non-fatal); next fetch-data cycle will republish"
+          fi
+          curl -s -m 20 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/historical-ohlc.json" || echo "purge failed (non-fatal)"
+          echo "Done — hard-refresh the dashboard in ~30s and Force Re-Run Backtests."
