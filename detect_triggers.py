@@ -1068,7 +1068,13 @@ def scan_pairs(intraday_data, historical_data):
         if len(daily) < 30 or len(h1) < 12 or len(m15) < 16:
             continue
 
-        nw = calc_independent_dir(m15, lookback=8)
+        # NW (15m) uses lookback=5 — matches the dashboard's
+        # calcIndependentNWDir change on 2026-05-30. The 8-bar window
+        # was missing CHoCH-style pivot breaks that TradingView's 3-5
+        # bar pivot detection picks up (DAX 30 2026-05-30 case). TL
+        # (1H) and EW (daily) keep lookback=8 — longer-timeframe
+        # structure needs deeper breaks before flipping.
+        nw = calc_independent_dir(m15, lookback=5)
         tl = calc_independent_dir(h1, lookback=8)
         ew_structural = calc_independent_dir(daily, lookback=8)
         cl = calc_4h_cloud_dir(h1)

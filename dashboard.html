@@ -435,19 +435,19 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <div class="rules-grid">
       <div class="rule-card rc-entry">
         <h3 style="color:#f0b940;">① Macro (Daily)</h3>
-        <p>Daily/weekly chart structure sets the macro bias. Only trade in the direction of the dominant trend. Impulsive phases = highest probability. Corrective phases set counter-trend caution zones. <span class="rule-hl">Must agree with layers 2 and 3.</span></p>
+        <p>Daily/weekly chart structure sets the macro bias. Only trade in the direction of the dominant trend. Impulsive phases = highest probability; corrective phases set counter-trend caution zones. <span class="rule-hl">Must agree with all 4 layers</span> &mdash; macro alone is not enough.</p>
       </div>
       <div class="rule-card rc-target">
-        <h3 style="color:#1a7a4a;">② Hourly</h3>
-        <p>Price oscillates within a bearish or bullish channel on the hourly. <span class="rule-hl">Only enter</span> when price is at the channel boundary — resistance (bear) or support (bull). Break of the hourly channel = CHoCH confirmation signal. Mid-channel = stand aside.</p>
+        <h3 style="color:#1a7a4a;">② 4H EMA Cloud</h3>
+        <p>4H EMA21 vs EMA55 cloud direction. Bull when EMA21 above EMA55, bear when below. Acts as the medium-term trend filter sitting between the daily macro and the 1H channel reading. <span class="rule-hl">Must agree with all 4 layers</span> before any trade fires.</p>
       </div>
       <div class="rule-card rc-stop">
-        <h3 style="color:#c0281a;">③ 15m</h3>
-        <p>After 15m CHoCH confirmed, wait for price to retest the <span class="rule-hl">Order Block (OB) or FVG</span> that caused the CHoCH. Limit entry at OB 50% or FVG midpoint. Stop beyond swept structural extreme. Target next liquidity zone.</p>
+        <h3 style="color:#c0281a;">③ 1 Hour</h3>
+        <p>Price oscillates within a bearish or bullish channel on the hourly. <span class="rule-hl">Only enter</span> when price is at the channel boundary &mdash; resistance (bear) or support (bull). Break of the hourly channel = CHoCH confirmation signal. Mid-channel = stand aside.</p>
       </div>
       <div class="rule-card rc-filter">
-        <h3 style="color:#4da2ff;">④ 4/4 Filter (EW · TL · NW · 4H EMA Cloud)</h3>
-        <p><span class="rule-hl">All four layers must agree</span> before any trade. Partial signals (1/4, 2/4 or 3/4) are logged as WATCH only &mdash; never entered. Invalidation: 15m close beyond CHoCH origin. Entry only after OB/FVG retest confirmed.</p>
+        <h3 style="color:#4da2ff;">④ 15 Minute</h3>
+        <p>After 15m CHoCH confirmed, wait for price to retest the <span class="rule-hl">Order Block (OB) or FVG</span> that caused the CHoCH. Limit entry at OB 50% / Fib 38% for fib-class pairs, or wick-extreme for wick-class pairs. Stop beyond swept structural extreme. Target next liquidity zone. Partial signals (1/4, 2/4 or 3/4) are WATCH only &mdash; never entered.</p>
       </div>
     </div>
   </div>
@@ -3424,47 +3424,62 @@ function buildBacktest(){
   var totW=0,totL=0,totR=0;Object.keys(MKTS).forEach(function(k){var m=MKTS[k];totW+=m.bw;totL+=m.bl;totR+=m.bw*m.brr-m.bl;});
   var totWR=((totW/(totW+totL))*100).toFixed(1);
 
-  // ── DEEP BACKTEST AGGREGATES (Option D) ──
-  // When DEEP_HIST is loaded and the recent-backtest cache has results,
-  // compute the same aggregates from the real 12-month walk.
+  // ── DEEP BACKTEST AGGREGATES — profile-aware (2026-05-30) ──
+  // Each pair contributes ONLY the stats matching its production
+  // methodology (set by _btProfileFor):
+  //   majors except AUD/USD -> structural cache, wick stats
+  //   AUD/USD, minors, crypto -> auto-EW cache, wick stats
+  //   commodities, indices    -> auto-EW cache, Fib half-size stats
+  //                              (net R is 0.5 * (W - L) — half size)
+  // The legacy aggregation summed wick+midpoint for all pairs from
+  // the struct cache, which double-counted methodologies and didn't
+  // reflect what's actually being traded. Removed.
   var deepW = 0, deepL = 0, deepNetR = 0, deepCount = 0;
-  // ── HYBRID RULE AGGREGATES ──
-  // Same window but using the hybrid rule (wick-extreme full size + midpoint half size).
-  var hybW = 0, hybL = 0, hybMidW = 0, hybMidL = 0, hybNet = 0, hybCount = 0;
+  var deepWickPairs = 0, deepFibPairs = 0;
   try {
-    var allRb = (typeof computeAllRecentBacktests === 'function')
-      ? computeAllRecentBacktests(false) : null;
-    if(allRb){
-      Object.keys(allRb).forEach(function(k){
-        var rb = allRb[k];
-        if(rb && rb.dataSource === 'deep' && rb.totalSignals > 0){
-          deepW += rb.wins;
-          deepL += rb.losses;
-          deepNetR += (rb.wins - rb.losses);
+    var allRbAuto = (typeof _loadRecentBtCache === 'function')
+      ? _loadRecentBtCache('auto-ew') : null;
+    var allRbStruct = (typeof _loadRecentBtCache === 'function')
+      ? _loadRecentBtCache('structural') : null;
+    Object.keys(MKTS).forEach(function(k){
+      var profile = (typeof _btProfileFor === 'function')
+        ? _btProfileFor(k) : {source: 'auto-ew', method: 'wick'};
+      var rb = profile.source === 'structural'
+        ? (allRbStruct && allRbStruct[k])
+        : (allRbAuto && allRbAuto[k]);
+      // Fall back to the other cache if the preferred one isn't
+      // populated for this pair (same cascade the headline uses).
+      if(!rb){
+        rb = profile.source === 'structural'
+          ? (allRbAuto && allRbAuto[k])
+          : (allRbStruct && allRbStruct[k]);
+      }
+      if(!rb || rb.dataSource !== 'deep') return;
+      if(profile.method === 'fib' && rb.hybrid){
+        var fW = rb.hybrid.midWins || 0;
+        var fL = rb.hybrid.midLosses || 0;
+        if(fW + fL > 0){
+          deepW += fW;
+          deepL += fL;
+          deepNetR += 0.5 * (fW - fL);  // half-size sizing
           deepCount++;
-          if(rb.hybrid){
-            hybW += rb.hybrid.wickWins;
-            hybL += rb.hybrid.wickLosses;
-            hybMidW += rb.hybrid.midWins;
-            hybMidL += rb.hybrid.midLosses;
-            hybNet += rb.hybrid.netR;
-            hybCount++;
-          }
+          deepFibPairs++;
         }
-      });
-    }
+      } else if(rb.totalSignals > 0){
+        deepW += rb.wins || 0;
+        deepL += rb.losses || 0;
+        deepNetR += ((rb.wins || 0) - (rb.losses || 0));
+        deepCount++;
+        deepWickPairs++;
+      }
+    });
   } catch(e){ /* defensive — fall back to EW aggregates */ }
 
   var hasDeep = deepCount > 0 && (deepW + deepL) > 0;
-  var hasHyb  = hybCount > 0 && (hybW + hybL + hybMidW + hybMidL) > 0;
   var deepWR = hasDeep ? ((deepW / (deepW + deepL)) * 100).toFixed(1) : null;
-  // Hybrid trade-weighted WR
-  var hybTotal = hybW + hybL + hybMidW + hybMidL;
-  var hybWR = hasHyb ? (((hybW + hybMidW) / hybTotal) * 100).toFixed(1) : null;
-  // Hybrid trigger-rate uplift: standard rule had (deepW+deepL) trades; hybrid had hybTotal
-  var triggerUplift = (hasDeep && hasHyb && (deepW + deepL) > 0)
-    ? Math.round((hybTotal / (deepW + deepL) - 1) * 100)
-    : 0;
+  // hasHyb / hybWR / triggerUplift removed 2026-05-30 — the hybrid
+  // "wick + midpoint" comparison stat no longer applies; each pair
+  // uses exactly one entry method (wick OR fib) per its profile.
   var agg=document.getElementById('aggRow');
   // Compute confidence breakdown: pairs with high-conf real backtest vs low-conf vs structural
   var confHigh = 0, confMed = 0, confLow = 0, confStruct = 0;
@@ -3491,8 +3506,8 @@ function buildBacktest(){
   ];
   if(hasDeep){
     aggCards.push({v:deepWR+'%',l:'Avg Win Rate',s:'365d backtest · n='+(deepW+deepL),c:parseFloat(deepWR)>=70?'var(--bull)':parseFloat(deepWR)>=55?'var(--gold)':'var(--bear)'});
-    aggCards.push({v:deepW+'/'+deepL,l:'W/L Total',s:'365d real walk',c:'var(--ink)'});
-    aggCards.push({v:(deepNetR>=0?'+':'')+deepNetR.toFixed(0)+'R',l:'Net Return',s:'1:1 RR · $1k/signal',c:deepNetR>=0?'var(--bull)':'var(--bear)'});
+    aggCards.push({v:deepW+'/'+deepL,l:'W/L Total',s:'365d real walk · per-class methodology',c:'var(--ink)'});
+    aggCards.push({v:(deepNetR>=0?'+':'')+deepNetR.toFixed(1)+'R',l:'Net Return',s:'1.0R wick + 0.5R Fib · $1k/signal',c:deepNetR>=0?'var(--bull)':'var(--bear)'});
   } else {
     aggCards.push({v:totWR+'%',l:'Avg Win Rate',s:'4/4 signals only (EW · TL · NW · 4H Cloud)',c:parseFloat(totWR)>=70?'var(--bull)':'var(--gold)'});
     aggCards.push({v:totW+'/'+totL,l:'W/L Total',s:'Apr 2025&#8211;26 (EW est)',c:'var(--ink)'});
@@ -3501,25 +3516,14 @@ function buildBacktest(){
   aggCards.push({v:confHigh+'/'+Object.keys(MKTS).length,l:'High-Conf WR',s:confTxt,c:confColor});
   aggCards.push({v:Object.keys(MKTS).filter(function(k){return MKTS[k].g==='A+';}).length+' A+',l:'Top Grade Pairs',s:'WR &#8805;75%',c:'var(--bull)'});
 
-  // ── HYBRID RULE COMPARISON CARD ──
-  // Only show when we have real deep data to compare against. Shows the
-  // hybrid rule's net R alongside trigger uplift. Net R is the honest
-  // metric (accounts for half-size midpoint trades). A positive uplift
-  // alongside positive net R means the hybrid is genuinely better.
-  if(hasHyb){
-    var hybColor = hybNet > deepNetR ? 'var(--bull)' : (hybNet < deepNetR ? 'var(--bear)' : 'var(--gold)');
-    var hybDelta = hybNet - deepNetR;
+  // Methodology composition card — visible mix of wick-class vs
+  // fib-class pairs contributing to the aggregate above.
+  if(hasDeep && (deepWickPairs + deepFibPairs) > 0){
     aggCards.push({
-      v: (hybNet>=0?'+':'')+hybNet.toFixed(1)+'R',
-      l: 'Hybrid Net Return',
-      s: 'Δ '+(hybDelta>=0?'+':'')+hybDelta.toFixed(1)+'R · '+(triggerUplift>=0?'+':'')+triggerUplift+'% trades',
-      c: hybColor
-    });
-    aggCards.push({
-      v: hybWR+'%',
-      l: 'Hybrid Win Rate',
-      s: hybTotal+' trades · '+hybW+'W/'+hybL+'L wick + '+hybMidW+'W/'+hybMidL+'L mid (×0.5)',
-      c: parseFloat(hybWR)>=70?'var(--bull)':parseFloat(hybWR)>=55?'var(--gold)':'var(--bear)'
+      v: deepWickPairs + '·' + deepFibPairs,
+      l: 'Wick · Fib pairs',
+      s: 'FX/crypto wick + comm/idx Fib ½ (per-class profile)',
+      c: 'var(--inkm)'
     });
   }
 
@@ -9206,7 +9210,15 @@ function calcIndependentNWDir(k){
   }
   if(!ticks) return null;
   var bars = _ticksToBars(ticks);
-  return calcIndependentDir(bars, 8);
+  // 15m lookback reduced from 8 -> 5 on 2026-05-30. The 8-bar window
+  // (~2h of price action) was missing CHoCH-style pivot breaks that
+  // TradingView's 3-5 bar pivot detection picks up — e.g. DAX 30
+  // 2026-05-30 12:13 UTC, the price had clearly broken below the
+  // recent HL (CHoCH on TradingView) but our 8-bar swing low was
+  // still down at the prior rally low, so the direction stayed bull.
+  // 5 bars (~1h 15m) tracks short-term structure closer to how a
+  // trader reads the chart. TL (1H) and EW (daily) keep lookback=8.
+  return calcIndependentDir(bars, 5);
 }
 
 // ── HOURLY RSI (Phase A — display only) ─────────────────────────────────
@@ -9867,7 +9879,11 @@ function calcRecentBacktest(k, mode){
 
   while(i < n - 1){
     if(i <= lastResolvedIdx){ i++; continue; }
-    var lookback = m15Bars.slice(Math.max(0, i - 8), i);
+    // 15m NW lookback = 5 (CHoCH-style pivot sensitivity). Matches the
+    // live calcIndependentNWDir change on 2026-05-30 so the backtest's
+    // historical NW reading walks the same algorithm the live engine
+    // uses today.
+    var lookback = m15Bars.slice(Math.max(0, i - 5), i);
     if(lookback.length < 5){ i++; continue; }
 
     var curTs = m15Ts[i];
@@ -9880,7 +9896,7 @@ function calcRecentBacktest(k, mode){
     }
 
     // Incrementally update NW direction: check if THIS m15 bar broke
-    // its 8-bar lookback (same logic calcIndependentDir uses)
+    // its 5-bar lookback (matches calcIndependentNWDir live logic).
     var pxA15 = Math.abs(m15Bars[i].c);
     var mp15 = pxA15 > 1000 ? pxA15 * 0.001 : (pxA15 > 5 ? pxA15 * 0.0008 : 0.0005);
     if(m15Bars[i].c > swingHigh && (m15Bars[i].c - swingHigh) >= mp15) nwBreakDir = 'bull';
