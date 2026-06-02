@@ -55,14 +55,13 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 
 /* ── FILTER PILLS ── */
 .fpills{
+  /* Two-row wrap that always keeps Active (last child) trailing —
+     the parent flex with flex-wrap:wrap lets the row break naturally
+     when the viewport is too narrow for all 7 pills on one line, and
+     justify-content:flex-start keeps the order stable. */
   display:flex;gap:5px;margin-bottom:10px;align-items:center;
-  /* Single horizontally-scrolling row (no wrap) so all six pills are
-     always reachable on mobile without re-flowing the layout. */
-  flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
-  scrollbar-width:none;  /* Firefox */
-  padding-bottom:2px;
+  flex-wrap:wrap;justify-content:flex-start;
 }
-.fpills::-webkit-scrollbar{display:none;}  /* Safari/Chrome */
 .fpills > *{flex-shrink:0;}
 .fpill{font-family:'Orbitron',monospace;font-size:8px;font-weight:600;padding:4px 11px;border-radius:12px;cursor:pointer;border:1.5px solid var(--rule);color:var(--inkd);background:var(--sf2);transition:all .18s;}
 .fpill.fa{background:var(--gold);color:#fff;border-color:var(--gold);}
