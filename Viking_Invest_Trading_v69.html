@@ -192,6 +192,14 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 .agg-sub{font-size:10px;color:var(--inkm);margin-top:3px;}
 
 .mktcards{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px;}
+/* Category section headers separating FX Majors / Minors / Commodities /
+   Indices (incl. DXY) / Crypto inside the backtest grid. The header spans
+   the full grid row, so the next category's cards always start cleanly on
+   a new row below it instead of being mixed in with the previous group. */
+.mkt-section-header{grid-column:1 / -1;display:flex;align-items:baseline;gap:8px;padding:10px 2px 2px 2px;margin-top:4px;border-bottom:1px solid var(--rule);}
+.mkt-section-header:first-child{margin-top:0;padding-top:2px;}
+.mkt-section-title{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--ink);}
+.mkt-section-count{font-family:'Orbitron',monospace;font-size:8px;font-weight:600;color:var(--inkd);letter-spacing:1px;}
 .mktcard{background:var(--sf);border:1px solid var(--rule);border-radius:3px;box-shadow:var(--shad);overflow:hidden;cursor:pointer;transition:transform .18s;}
 .mktcard:hover{transform:translateY(-2px);}
 .mktcard .ctop{padding:9px 11px;border-bottom:1px solid var(--rule);}
@@ -2459,9 +2467,30 @@ function getLayerDet(k,layer,sig){
                    '<span class="rb">Inv</span> '+invTxt+srcTag+'</span>';
       }
     } catch(e){}
-    if(sig==='bear')return '<span class="rb">Bearish</span> macro. LH/LL daily structure. Target: <span class="rb">'+setupField(k,'tgt')+'</span>'+waveSuffix+tpSuffix;
-    if(sig==='bull')return '<span class="rg">Bullish</span> macro. HH/HL daily structure. Target: <span class="rg">'+setupField(k,'tgt')+'</span>'+waveSuffix+tpSuffix;
-    return '<span class="ro">Neutral</span> &#8212; transitioning. Await structure formation.'+waveSuffix+tpSuffix;
+    // Auto-EW pattern confidence badge — surfaces which pattern the
+    // multi-degree pivot detector matched at the latest scan, and how
+    // confident it is. Helps the user judge how much weight to put on
+    // the macro pill on a given bar (e.g. 80%+ on a completed 5-wave =
+    // strong; 70-75% on an in-progress W2 = directional but provisional).
+    // A ⚠ marker appears when the detected pattern's direction differs
+    // from the displayed engine direction (rare since 2026-05-29, but
+    // possible while the engine catches up to a fresh pivot break).
+    var autoEwTag = '';
+    try {
+      var ewShape = (typeof getAutoEWShape === 'function') ? getAutoEWShape(k) : null;
+      if(ewShape && ewShape.pattern){
+        var conf = ewShape.confidence || 0;
+        var confPct = Math.round(conf * 100);
+        var confColor = confPct >= 80 ? 'var(--bull)' : confPct >= 70 ? 'var(--gold)' : 'var(--inkd)';
+        var dirMismatch = (ewShape.dir === 'bull' || ewShape.dir === 'bear') && ewShape.dir !== sig
+          ? ' <span style="color:var(--bear);" title="Auto-EW pattern direction (' + ewShape.dir.toUpperCase() + ') differs from displayed macro (' + (sig||'NEUTRAL').toUpperCase() + ')">&#9888;</span>'
+          : '';
+        autoEwTag = ' <br><span style="font-size:8.5px;font-weight:600;color:'+confColor+';font-family:Orbitron,monospace;letter-spacing:0.3px;" title="Auto-EW pattern detector — pattern name + confidence at last scan">&#9889; '+ewShape.pattern+' &middot; '+confPct+'%'+dirMismatch+'</span>';
+      }
+    } catch(e){}
+    if(sig==='bear')return '<span class="rb">Bearish</span> macro. LH/LL daily structure. Target: <span class="rb">'+setupField(k,'tgt')+'</span>'+waveSuffix+tpSuffix+autoEwTag;
+    if(sig==='bull')return '<span class="rg">Bullish</span> macro. HH/HL daily structure. Target: <span class="rg">'+setupField(k,'tgt')+'</span>'+waveSuffix+tpSuffix+autoEwTag;
+    return '<span class="ro">Neutral</span> &#8212; transitioning. Await structure formation.'+waveSuffix+tpSuffix+autoEwTag;
   }
   if(layer==='tl'){
     // RSI badge (Phase A — display only). Surfaces the 14-period RSI
@@ -3618,7 +3647,34 @@ function buildBacktest(){
   if(typeof renderEventsSummary === 'function') renderEventsSummary();
   if(typeof renderAutoEWDiagnostic === 'function') renderAutoEWDiagnostic();
   if(typeof renderFailureModeAnalysis === 'function') renderFailureModeAnalysis();
-  var mc=document.getElementById('mktCards');Object.keys(MKTS).forEach(function(k){
+  var mc=document.getElementById('mktCards');
+  // Group pairs into the same 5 categories the user thinks in
+  // (FX Majors / FX Minors / Commodities / Indices / Crypto), each
+  // sorted alphabetically by display symbol. DXY lives under Indices.
+  // The dashboard tab keeps its existing per-pillar order; only this
+  // backtest grid is categorised so the long pair list scans cleanly.
+  var BT_GROUPS = [
+    {key:'major', label:'FX Majors'},
+    {key:'minor', label:'FX Minors'},
+    {key:'comm',  label:'Commodities'},
+    {key:'index', label:'Indices (incl. DXY)'},
+    {key:'crypto',label:'Crypto'}
+  ];
+  var btBuckets = {major:[], minor:[], comm:[], index:[], crypto:[]};
+  Object.keys(MKTS).forEach(function(k){
+    var t = (MKTS[k] && MKTS[k].t) || 'major';
+    if(!btBuckets[t]) btBuckets[t] = [];
+    btBuckets[t].push(k);
+  });
+  Object.keys(btBuckets).forEach(function(t){
+    btBuckets[t].sort(function(a, b){
+      var sa = (MKTS[a].sym || a).toUpperCase();
+      var sb = (MKTS[b].sym || b).toUpperCase();
+      return sa < sb ? -1 : sa > sb ? 1 : 0;
+    });
+  });
+
+  function _renderBacktestCard(k){
     var m=MKTS[k],gc=gradeCls(m.g),netR=(m.bw*m.brr-m.bl).toFixed(1);
     // Use the layered label/color (live → deep-365d → sim → EW) so the
     // backtest tab header matches what the dashboard shows. Previously
@@ -3860,6 +3916,17 @@ function buildBacktest(){
     var card=document.createElement('div');card.className='mktcard';card.onclick=(function(key){return function(){switchPage('dash');switchMkt(key);};})(k);
     card.innerHTML='<div class="ctop"><div class="csym">'+m.sym+srcTag+confDotHtml+evtDotHtml+'</div><div class="cwr-row"><div class="cwr" style="color:'+col+';font-size:11px;">'+wrTxt+'</div><span class="grade '+gc+'">'+m.g+'</span></div></div><div class="cbar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:'+(m.wr||0)+'%;background:linear-gradient(90deg,'+col+','+col+'88)"></div></div><div style="font-size:8px;color:var(--inkd);margin-top:2px;font-family:Orbitron,monospace;" title="Average reward per 1R risked">'+rrText+'</div></div><div class="cstats"><div class="cstat"><div class="csv" style="color:var(--bull)">'+statsWins+'</div><div class="csl">Wins</div></div><div class="cstat"><div class="csv" style="color:var(--bear)">'+statsLosses+'</div><div class="csl">Losses</div></div><div class="cstat"><div class="csv" style="color:var(--gold)">'+statsTrades+'</div><div class="csl">Trades</div></div></div><div style="font-size:7px;text-align:center;color:var(--inkd);margin-top:-4px;letter-spacing:0.5px;text-transform:uppercase;font-family:Orbitron,monospace;">stats: '+statsTag+'</div>'+intraRow+recentBtRow+fibRow+hintLine;
     mc.appendChild(card);
+  }
+
+  BT_GROUPS.forEach(function(group){
+    var keys = btBuckets[group.key] || [];
+    if(keys.length === 0) return;
+    var hdr = document.createElement('div');
+    hdr.className = 'mkt-section-header';
+    hdr.innerHTML = '<span class="mkt-section-title">'+group.label+'</span>'
+                  + '<span class="mkt-section-count">'+keys.length+' pair'+(keys.length===1?'':'s')+'</span>';
+    mc.appendChild(hdr);
+    keys.forEach(_renderBacktestCard);
   });
   drawEquity();
 }
