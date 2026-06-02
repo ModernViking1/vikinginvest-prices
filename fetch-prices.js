@@ -68,6 +68,7 @@ const OANDA_PAIRS = {
   ftse100: 'UK100_GBP',  // FTSE 100
   dj30:    'US30_USD',   // Dow Jones Industrial Average
   nas100:  'NAS100_USD', // Nasdaq 100
+  spx500:  'SPX500_USD', // S&P 500
   // Helper: USD/SEK needed for synthetic DXY computation in the dashboard,
   // even though it doesn't have a tradeable MKTS entry of its own.
   usdsek: 'USD_SEK',

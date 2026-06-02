@@ -484,8 +484,11 @@ AUTO_EW_THRESHOLDS = [0.5, 0.8, 1.0, 1.5, 2.5, 4.0, 6.0, 8.0, 10.0, 12.0]
 FIB_ENTRY_PAIRS = {
     # Commodities
     'xauusd', 'xagusd', 'usoil',
-    # Indices (existing + future)
-    'de40', 'nas100', 'us30', 'uk100', 'spx500',
+    # Indices (pair keys must match fetch-prices.js and MKTS — earlier
+    # versions used 'us30'/'uk100' which never matched the actual
+    # dj30/ftse100 keys used everywhere else, so server-side gating
+    # silently fell through to no-fib-class on those two pairs).
+    'de40', 'nas100', 'dj30', 'ftse100', 'spx500',
 }
 
 def uses_fib_entry(pair):

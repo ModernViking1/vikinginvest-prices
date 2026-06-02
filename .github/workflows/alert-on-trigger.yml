@@ -1,37 +1,31 @@
-name: Alert on Trigger
+name: Alert on Trigger (manual / catch-up)
 
-# Runs every 10 minutes (and also right after each Fetch Data run).
-# Detects pairs that just transitioned to 3/3 confluence alignment, and
-# 15m 1:1-RR setups that just triggered, and sends a Telegram message
-# for each. State persisted in alerts-state.json so we don't re-alert
-# while a pair stays aligned / on an already-alerted setup.
+# RETIRED AS THE LIVE PATH (2026-06-02).
+# detect_triggers.py now runs inline at the end of fetch-data.yml
+# (commit 0abe1d58 → 82c27c76), so live Telegram alerts inherit
+# fetch-data's reliable every-5-min cadence via repository_dispatch.
+#
+# This workflow is kept for two reasons:
+#   1. Manual catch-up runs — set send_all_aligned=true to fire a
+#      Telegram for every currently-aligned pair (ignoring stored
+#      state). Useful after a long outage or for verifying the
+#      pipeline end-to-end.
+#   2. Belt-and-braces fallback if the inline path in fetch-data.yml
+#      ever breaks — a single weekly scheduled run will still flag
+#      any in-progress trigger that the live path missed.
 #
 # Requires repo secrets:
 #   TELEGRAM_BOT_TOKEN
 #   TELEGRAM_CHAT_ID
-# Without them the script runs but skips the actual send (useful for
-# baselining state without spam).
-#
-# First run after this workflow lands: no alerts will fire — the script
-# treats the missing alerts-state.json as a baseline-establishment run.
-# Subsequent runs detect transitions from that baseline.
 
 on:
-  # Primary trigger: a fixed schedule, independent of Fetch Data. The
-  # detector only reads already-committed data files, so it does not
-  # need Fetch Data to have *just* completed. Chaining solely off
-  # workflow_run was fragile — any Fetch Data run that concluded
-  # 'failure' silently skipped the alert job (see the detect job's `if`),
-  # which is why automatic alerts never fired.
+  # Weekly fallback only. The 5-min cron used to live here but
+  # GitHub Actions was throttling it to every 3-4h anyway, and the
+  # workflow_run chain off Fetch Data wasn't firing reliably either.
+  # The live path is now inlined in fetch-data.yml; this schedule
+  # only fires once a week as a sanity check.
   schedule:
-    # Every 5 minutes — halves trigger-alert latency vs the old 10-min
-    # cadence. With trigger alerts being the only auto-fired path now
-    # (alignment alerts are catch-up-only), low latency matters more.
-    - cron: '*/5 * * * *'
-  # Low-latency path: also fire immediately after Fetch Data succeeds.
-  workflow_run:
-    workflows: ["Fetch Data (prices + intraday OHLC)"]
-    types: [completed]
+    - cron: '7 12 * * 1'  # every Monday at 12:07 UTC
   workflow_dispatch:
     inputs:
       send_all_aligned:
@@ -53,7 +47,8 @@ jobs:
     # workflow_run path only, skip if the upstream Fetch Data run failed
     # — alerting on stale data is misleading, and the next scheduled run
     # picks it up anyway once data recovers.
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    # workflow_run trigger removed 2026-06-02; only schedule + manual now.
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     timeout-minutes: 10
 
     steps:

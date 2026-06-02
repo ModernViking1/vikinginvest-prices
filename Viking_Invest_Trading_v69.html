@@ -874,6 +874,18 @@ var MKTS = {
     ew:'neutral',tl:'neutral',nw:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
     entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  dj30:{sym:'DJ 30',t:'index',px:'42,000',p:42000,d:1,sc:200,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  ftse100:{sym:'FTSE 100',t:'index',px:'8,200',p:8200,d:1,sc:50,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  spx500:{sym:'S&P 500',t:'index',px:'5,800',p:5800,d:2,sc:30,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
   ethusd:{sym:'ETH/USD',t:'crypto',px:'3,500',p:3500,d:2,sc:30,up:true,chg:'+0.00%',
     ew:'neutral',tl:'neutral',nw:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
@@ -1002,9 +1014,31 @@ function _btProfileColor(k){
 // XAU/XAG LONG. Each pair's own structure still dictates its zones.
 // ─────────────────────────────────────────────────────────────────────
 // Schema: { dir, invalid, anchor, pivot, w2Zone:[nearer,farther],
-//           phase, source:'wickator'|'live'|'carried', tp1Override?, tp2Override? }
+//           phase, source:'wickator'|'live'|'carried'|'inferred',
+//           tp1Override?, tp2Override? }
+//
+// ⚠ DEPRECATION NOTE (2026-05-29 engine-priority decision):
+//   The `dir` field is NO LONGER authoritative for the displayed
+//   macro direction. The dashboard's STATE[k].ew is now driven by
+//   the live engine (auto-EW pattern + structural break) via
+//   directions.json. Where `dir` is still read:
+//     1. setupField() / calcWickatorTPs() seedStale check — if
+//        seed.dir disagrees with engine, the seed's anchor / pivot /
+//        w2Zone / TPs are bypassed in favour of getAutoSetup()'s
+//        engine-direction-derived levels.
+//     2. The auto-EW diagnostic panel (Backtest tab) — compares
+//        seed.dir to autoDetectEW's pattern direction so the user
+//        can see when the manual Wickator chart has drifted from
+//        what the algorithm currently detects.
+//   New rows being added to this dict do NOT need a `dir` field
+//   for the dashboard to show a direction (engine handles that).
+//   They DO still benefit from the trade-level fields (anchor,
+//   pivot, w2Zone, tp1Override, tp2Override) when there's a real
+//   Wickator chart anchored for the pair.
+//
 // source = 'wickator': hand-read from WickatorFX chart → full confidence
 // source = 'live':     auto-graduated from live pivots (see EW pipeline)
+// source = 'inferred': educated guess from related pair behaviour
 // source = 'carried':  placeholder pending chart read
 // tp1/tp2Override:     use for Wave 5 terminus beyond 0.618 extension
 // ─────────────────────────────────────────────────────────────────────
@@ -1791,7 +1825,7 @@ var VIKING_SRC_MAP = {
   // Commodities
   xauusd:'OND', xagusd:'OND', usoil:'OND',
   // Equity indices
-  de40:'OND', ftse100:'OND', dj30:'OND', nas100:'OND',
+  de40:'OND', ftse100:'OND', dj30:'OND', nas100:'OND', spx500:'OND',
   // Coinbase (crypto)
   btcusd:'CB', suiusd:'CB', ethusd:'CB', solusd:'CB',
   xrpusd:'CB', taousd:'CB',

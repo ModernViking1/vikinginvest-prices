@@ -97,6 +97,7 @@ PAIRS: Dict[str, Dict[str, str]] = {
     "ftse100": {"oanda": "UK100_GBP"},
     "dj30":    {"oanda": "US30_USD"},
     "nas100":  {"oanda": "NAS100_USD"},
+    "spx500":  {"oanda": "SPX500_USD"},
     # Crypto
     "btcusd":  {"coinbase": "BTC-USD"},
     "suiusd":  {"coinbase": "SUI-USD"},
