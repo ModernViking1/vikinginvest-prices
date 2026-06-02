@@ -54,7 +54,16 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 .page{display:none;}.page.active{display:block;}
 
 /* ── FILTER PILLS ── */
-.fpills{display:flex;gap:5px;margin-bottom:10px;align-items:center;flex-wrap:wrap;}
+.fpills{
+  display:flex;gap:5px;margin-bottom:10px;align-items:center;
+  /* Single horizontally-scrolling row (no wrap) so all six pills are
+     always reachable on mobile without re-flowing the layout. */
+  flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;  /* Firefox */
+  padding-bottom:2px;
+}
+.fpills::-webkit-scrollbar{display:none;}  /* Safari/Chrome */
+.fpills > *{flex-shrink:0;}
 .fpill{font-family:'Orbitron',monospace;font-size:8px;font-weight:600;padding:4px 11px;border-radius:12px;cursor:pointer;border:1.5px solid var(--rule);color:var(--inkd);background:var(--sf2);transition:all .18s;}
 .fpill.fa{background:var(--gold);color:#fff;border-color:var(--gold);}
 .fpill.fm{background:var(--ink);color:#fff;border-color:var(--ink);}
@@ -397,7 +406,8 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <span style="font-family:'Orbitron',monospace;font-size:8px;color:var(--inkd);letter-spacing:1px;flex-shrink:0;">FILTER:</span>
     <span class="fpill fa" id="fp-all" onclick="setFilter('all')">All</span>
     <span class="fpill" id="fp-major" onclick="setFilter('major')">Majors</span>
-    <span class="fpill" id="fp-minor" onclick="setFilter('minor')">Minors <span class="xtag">X</span></span>
+    <span class="fpill" id="fp-minor" onclick="setFilter('minor')">Minors</span>
+    <span class="fpill" id="fp-comm" onclick="setFilter('comm')" style="border-color:var(--gold);color:var(--gold);">⛏ Commodities</span>
     <span class="fpill" id="fp-crypto" onclick="setFilter('crypto')" style="border-color:var(--orange);color:var(--orange);">₿ Crypto</span>
     <span class="fpill" id="fp-index" onclick="setFilter('index')" style="border-color:var(--purple);color:var(--purple);">📊 Indices</span>
     <span class="fpill" id="fp-fire" style="border-color:var(--bear);color:var(--bear);" onclick="setFilter('fire')">🔴 Active</span>
@@ -6988,9 +6998,15 @@ function setFilter(mode){
       el.style.borderColor='var(--bear)';
       el.style.color=mode==='fire'?'#fff':'var(--bear)';
     }
-    if(f==='comm'||f==='crypto'){
+    if(f==='comm'){
+      // Commodities use the gold accent (XAU/XAG/oil colour family)
+      // so they read distinctly from crypto's orange.
+      el.style.borderColor='var(--gold)';
+      el.style.color=(mode==='comm')?'#fff':'var(--gold)';
+    }
+    if(f==='crypto'){
       el.style.borderColor='var(--orange)';
-      el.style.color=(mode===f)?'#fff':'var(--orange)';
+      el.style.color=(mode==='crypto')?'#fff':'var(--orange)';
     }
     if(f==='index'){
       el.style.borderColor='var(--purple)';
