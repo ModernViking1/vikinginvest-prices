@@ -410,6 +410,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <span class="fpill" id="fp-crypto" onclick="setFilter('crypto')" style="border-color:var(--orange);color:var(--orange);">₿ Crypto</span>
     <span class="fpill" id="fp-index" onclick="setFilter('index')" style="border-color:var(--purple);color:var(--purple);">📊 Indices</span>
     <span class="fpill" id="fp-fire" style="border-color:var(--bear);color:var(--bear);" onclick="setFilter('fire')">🔴 Active</span>
+    <span class="fpill" id="fp-trig" style="border-color:var(--bull);color:var(--bull);" onclick="setFilter('trig')">⚡ Triggered</span>
   </div>
   <div class="ovgrid" id="ovGrid"></div>
   <div class="mscroll" id="mScroll"></div>
@@ -1446,6 +1447,18 @@ function refreshChartData(k){
 // v6 — 4/4 confluence: macro (EW), hourly (TL), 15m (NW), 4H EMA cloud (CL).
 function sc(k){var s=STATE[k],layers=[s.ew,s.tl,s.nw,s.cl],b=layers.filter(function(v){return v==='bear';}).length,g=layers.filter(function(v){return v==='bull';}).length,t=Math.max(b,g);return{tot:t,dir:b>g?'bear':g>b?'bull':'neutral'};}
 function isFire(k){return sc(k).tot>=4;}
+// True if the intraday signal has actually triggered (i.e. price has
+// retested the OB/FVG that the 4/4 setup primed). Distinct from isFire,
+// which only checks 4/4 alignment — many aligned pairs are still in
+// "armed, awaiting retest" state. isTriggered drives the ⚡ Triggered
+// pill, surfacing the subset that's already in-trade.
+function isTriggered(k){
+  if(typeof detectIntradaySignal !== 'function') return false;
+  try {
+    var sig = detectIntradaySignal(k);
+    return !!(sig && (sig.state === 'triggered' || sig.fib_state === 'triggered'));
+  } catch(e){ return false; }
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // DXY CORRELATION MODEL
@@ -2133,6 +2146,7 @@ function shouldShow(k){
   if(filterMode==='crypto') return m.t==='crypto';
   if(filterMode==='index')  return m.t==='index';
   if(filterMode==='fire')   return isFire(k);
+  if(filterMode==='trig')   return isTriggered(k);
   return true;
 }
 
@@ -6987,8 +7001,8 @@ function updateStatusBar(){
 
 function setFilter(mode){
   filterMode=mode;
-  var map={all:'fa',major:'fm',minor:'fx',comm:'fc',crypto:'fc',index:'fc',fire:'ff'};
-  ['all','major','minor','comm','crypto','index','fire'].forEach(function(f){
+  var map={all:'fa',major:'fm',minor:'fx',comm:'fc',crypto:'fc',index:'fc',fire:'ff',trig:'ff'};
+  ['all','major','minor','comm','crypto','index','fire','trig'].forEach(function(f){
     var el=document.getElementById('fp-'+f);
     if(!el)return;
     el.className='fpill';
@@ -6996,6 +7010,12 @@ function setFilter(mode){
     if(f==='fire'){
       el.style.borderColor='var(--bear)';
       el.style.color=mode==='fire'?'#fff':'var(--bear)';
+    }
+    if(f==='trig'){
+      // Bull-green to read distinct from Active's bear-red. Conceptually:
+      // Active = setup ready (waiting). Triggered = in-trade (acted).
+      el.style.borderColor='var(--bull)';
+      el.style.color=mode==='trig'?'#fff':'var(--bull)';
     }
     if(f==='comm'){
       // Commodities use the gold accent (XAU/XAG/oil colour family)
