@@ -1960,7 +1960,14 @@ function mainDashboardWrLabel(k, m, mode){
     // structural cache is no longer auto-computed at boot — it's only
     // generated when the user clicks Force Re-Run Backtests for ad-hoc
     // comparison.
-    if(!_lazyBacktestTriggered &&
+    // Lazy trigger gates: fire when not yet triggered this session OR
+    // when the auto-EW cache is missing/expired (cache TTL is now 24h
+    // but a returning user past that window will see an empty cache
+    // and we want to recompute without waiting for them to click Force
+    // Re-Run). Two reset paths so the chain re-fires when needed.
+    var _autoEwCacheCurrentlyFresh = (typeof _loadRecentBtCache === 'function')
+      && _loadRecentBtCache('auto-ew') != null;
+    if((!_lazyBacktestTriggered || !_autoEwCacheCurrentlyFresh) &&
        typeof DEEP_HIST !== 'undefined' && Object.keys(DEEP_HIST).length > 0 &&
        typeof computeAllRecentBacktestsAsync === 'function'){
       _lazyBacktestTriggered = true;
@@ -5915,9 +5922,21 @@ function refreshBacktestWR(){
     //   majors except AUD/USD -> structural cache, wick stats
     //   AUD/USD, minors, crypto -> auto-EW cache, wick stats
     //   commodities, indices    -> auto-EW cache, Fib half-size stats
+    //
+    // If the profile-preferred cache is missing (still computing on
+    // first boot, or the lazy chain hasn't reached the structural
+    // pass yet), fall back to the OTHER cache so MKTS[k].wr always
+    // reflects fresh deep-backtest data — matches the cascade in
+    // mainDashboardWrLabel and prevents the "majors stuck at static
+    // m.wr" symptom reported 2026-05-30.
     var profile = (typeof _btProfileFor === 'function')
       ? _btProfileFor(k) : {source: 'auto-ew', method: 'wick'};
     var srcCache = profile.source === 'structural' ? allRecentStruct : allRecentAuto;
+    var srcFromFallback = false;
+    if(!(srcCache && srcCache[k])){
+      srcCache = profile.source === 'structural' ? allRecentAuto : allRecentStruct;
+      srcFromFallback = true;
+    }
     if(srcCache && srcCache[k]){
       var rb = srcCache[k];
       if(profile.method === 'fib' && rb.hybrid){
@@ -5930,7 +5949,7 @@ function refreshBacktestWR(){
             winrate: (fW / fT) * 100,
             avgRR: 1.0
           };
-          source = 'profile-auto-ew-fib';
+          source = 'profile-auto-ew-fib' + (srcFromFallback ? '-fallback' : '');
           autoEwCount++;
         }
       } else if(rb.totalSignals >= MIN_REAL_TRADES) {
@@ -5943,8 +5962,11 @@ function refreshBacktestWR(){
             winrate: (wW / wT) * 100,
             avgRR: 1.0
           };
-          source = profile.source === 'structural' ? 'profile-struct-wick' : 'profile-auto-ew-wick';
-          if(profile.source === 'structural') structCount0++; else autoEwCount++;
+          source = (profile.source === 'structural' && !srcFromFallback)
+            ? 'profile-struct-wick'
+            : 'profile-auto-ew-wick' + (srcFromFallback ? '-fallback' : '');
+          if(profile.source === 'structural' && !srcFromFallback) structCount0++;
+          else autoEwCount++;
         }
       }
     }
@@ -9357,7 +9379,12 @@ function refreshHourlyRSI(k){
 var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v9';
 var RECENT_BT_CACHE_KEY_AUTO = 'vit_recent_backtest_v9_auto';
 var RECENT_BT_CACHE_KEY_AUTO_REGIME = 'vit_recent_backtest_v9_auto_regime';
-var RECENT_BT_CACHE_TTL_MS = 4 * 60 * 60 * 1000;  // 4 hours
+var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
+// Previously 4 hours. Bumped 2026-05-30: with the per-pair-class
+// routing (struct for majors except AUD/USD, auto-EW for everything
+// else), a 4h TTL meant overnight users always saw fallback-cache
+// numbers on the headline because both caches had expired before
+// they reloaded. 24h survives a normal trading day.
 function _cacheKeyForMode(mode){
   if(mode === 'auto-ew') return RECENT_BT_CACHE_KEY_AUTO;
   if(mode === 'auto-ew-regime') return RECENT_BT_CACHE_KEY_AUTO_REGIME;
