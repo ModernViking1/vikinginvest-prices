@@ -10827,16 +10827,50 @@ function forceRerunAllBacktests(){
   var btn = document.getElementById('btForceRerunBtn');
   var statusEl = document.getElementById('btForceRerunStatus');
   if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '↻ RUNNING...'; }
-  // Clear all three caches so every variant is recomputed.
-  try { localStorage.removeItem(RECENT_BT_CACHE_KEY); } catch(e){}
-  try { localStorage.removeItem(RECENT_BT_CACHE_KEY_AUTO); } catch(e){}
-  try { localStorage.removeItem(RECENT_BT_CACHE_KEY_AUTO_REGIME); } catch(e){}
 
   if(typeof computeAllRecentBacktestsAsync !== 'function'){
     if(statusEl) statusEl.textContent = 'Backtest engine not loaded';
     if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '↻ FORCE RE-RUN BACKTESTS'; }
     return;
   }
+
+  // Wait for any page-load lazy compute to drain BEFORE clearing
+  // caches and starting our own. Otherwise the in-flight guard inside
+  // computeAllRecentBacktestsAsync fires for each variant we kick,
+  // marks the run "completed" without computing anything, AND we've
+  // already wiped the cache — leaving every card on
+  // "no data — force re-run backtests" while the status reads
+  // "✓ All three variants completed". 60s safety override force-drops
+  // the flag if the in-flight legitimately never finishes.
+  function _waitForDrainThen(cb){
+    if(!_backtestInFlight){ cb(); return; }
+    if(statusEl) statusEl.textContent = 'Waiting for page-load backtest to finish…';
+    var t0 = Date.now();
+    var timer = setInterval(function(){
+      if(!_backtestInFlight){
+        clearInterval(timer); cb();
+      } else if(Date.now() - t0 > 60000){
+        clearInterval(timer);
+        _backtestInFlight = false;
+        if(statusEl) statusEl.textContent = '⚠ in-flight took too long, overriding…';
+        cb();
+      } else if(statusEl){
+        statusEl.textContent = 'Waiting for page-load backtest to finish… ('
+          + Math.round((Date.now() - t0) / 1000) + 's)';
+      }
+    }, 250);
+  }
+
+  _waitForDrainThen(function(){
+    // Clear all three caches so every variant is recomputed.
+    try { localStorage.removeItem(RECENT_BT_CACHE_KEY); } catch(e){}
+    try { localStorage.removeItem(RECENT_BT_CACHE_KEY_AUTO); } catch(e){}
+    try { localStorage.removeItem(RECENT_BT_CACHE_KEY_AUTO_REGIME); } catch(e){}
+    _runForceRerunVariants(btn, statusEl);
+  });
+}
+
+function _runForceRerunVariants(btn, statusEl){
 
   // Run the three variants in sequence: structural -> auto-EW -> auto-EW + regime.
   // Each variant gets a fresh forceRefresh=true pass so cached results from
@@ -11379,19 +11413,25 @@ function autoFibTarget(bars, anchorIdx, entry, stop, setupDir){
 function detectConsecutiveCounterBars(bars, fromIdx, currentIdx, setupDir, minProminence){
   if(!bars || fromIdx < 0 || currentIdx <= fromIdx + 1) return -1;
   if(currentIdx >= bars.length) currentIdx = bars.length - 1;
+  if(currentIdx < 1) return -1;
+  // O(1) per call: only check whether bars[currentIdx-1] and
+  // bars[currentIdx] form the qualifying pair. Earlier pairs in the
+  // window would already have been detected on previous bar-by-bar
+  // calls — every caller iterates `currentIdx` from `fromIdx + 1`
+  // upward, so the first qualifying pair is always returned at the
+  // bar it forms on. Original O(n) walk was the dominant cost in the
+  // deep backtest after the 2026-06-03b addition.
+  var prev = bars[currentIdx - 1];
+  var curr = bars[currentIdx];
   var minBody = (minProminence || 0) * 0.25;
   var isCounter = function(b){
     if(setupDir === 'bear') return (b.c > b.o) && ((b.c - b.o) >= minBody);
     if(setupDir === 'bull') return (b.c < b.o) && ((b.o - b.c) >= minBody);
     return false;
   };
-  for(var i = fromIdx + 2; i <= currentIdx; i++){
-    var prev = bars[i - 1];
-    var curr = bars[i];
-    if(!isCounter(prev) || !isCounter(curr)) continue;
-    if(setupDir === 'bear' && curr.c > prev.c) return i;
-    if(setupDir === 'bull' && curr.c < prev.c) return i;
-  }
+  if(!isCounter(prev) || !isCounter(curr)) return -1;
+  if(setupDir === 'bear' && curr.c > prev.c) return currentIdx;
+  if(setupDir === 'bull' && curr.c < prev.c) return currentIdx;
   return -1;
 }
 
