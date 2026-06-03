@@ -4418,13 +4418,25 @@ function fetchServerDirections(){
   // pair, regardless of whether the browser managed to load the giant
   // historical-ohlc.json (~3 KB).
   //
-  // Two CDN paths tried in order:
-  //   1. /gh/@main — serves the live git HEAD. Updates within seconds
-  //      of each Alert workflow commit. Requires the repo to be public.
-  //   2. /npm/@latest — fallback path. Updates only when fetch-data.yml
-  //      successfully npm-publishes (the publish step is non-fatal, so
-  //      if the npm token expires the @latest tag silently stalls and
-  //      the file 404s here).
+  // Order of attempts (changed 2026-06-03):
+  //   1. raw.githubusercontent.com — direct from git HEAD, no edge
+  //      cache. Always reflects the latest commit on main. ~150ms
+  //      slower than jsDelivr but matters for a 3 KB file only on
+  //      first load.
+  //   2. /gh/@main on jsDelivr — fast CDN but its branch-tip TTL has
+  //      misbehaved (DAX showed 4/4 BULL on 2026-06-03 against a 5
+  //      DAY OLD directions.json because the edge cache hadn't
+  //      refreshed). Kept as fallback because most of the time it's
+  //      fast and correct.
+  //   3. /npm/@latest — last-resort fallback. Updates only when
+  //      fetch-prices.yml's publish step succeeds. Silently stalls if
+  //      the npm token expires.
+  //
+  // Cache-bust query string on the raw URL — raw.githubusercontent.com
+  // respects them, ensuring the browser/edge sees the request as
+  // distinct each 5-minute bucket.
+  var bucket = Math.floor(Date.now() / (5 * 60 * 1000));
+  var rawUrl = 'https://raw.githubusercontent.com/ModernViking1/vikinginvest-prices/main/directions.json?t=' + bucket;
   var ghUrl  = 'https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/directions.json';
   var npmUrl = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/directions.json';
   var apply = function(d){
@@ -4459,26 +4471,33 @@ function fetchServerDirections(){
         return r.json();
       });
   };
-  return tryFetch(ghUrl)
+  return tryFetch(rawUrl)
     .then(apply)
-    .catch(function(e1){
-      // GH path failed (private repo or jsDelivr miss). Try npm.
-      return tryFetch(npmUrl).then(apply).catch(function(e2){
-        var msg = String(e1 && e1.message || 'gh_fail') + ' / ' + String(e2 && e2.message || 'npm_fail');
-        window._serverDirErr = msg.substring(0, 60);
-        return 0;
-      });
+    .catch(function(eRaw){
+      return tryFetch(ghUrl)
+        .then(apply)
+        .catch(function(e1){
+          // CDN paths failed (private repo or jsDelivr miss). Try npm.
+          return tryFetch(npmUrl).then(apply).catch(function(e2){
+            var msg = 'raw:'+String(eRaw && eRaw.message || '?')
+                    + ' / gh:'+String(e1 && e1.message || '?')
+                    + ' / npm:'+String(e2 && e2.message || '?');
+            window._serverDirErr = msg.substring(0, 90);
+            return 0;
+          });
+        });
     });
 }
 
 function fetchEvents(){
   // events.json is written by publish-events.yml every hour but is NOT
   // republished to npm on its own (only fetch-prices.yml does npm publish).
-  // Use /gh/@main first so the file reflects git HEAD; fall back to npm
-  // (older but stable) and raw.githubusercontent (uncached, last resort).
+  // Order changed 2026-06-03 (after directions.json staleness incident):
+  // raw first to bypass jsDelivr's edge cache, gh + npm as fallbacks.
+  var bucket = Math.floor(Date.now() / (5 * 60 * 1000));
+  var urlRaw = 'https://raw.githubusercontent.com/ModernViking1/vikinginvest-prices/main/events.json?t=' + bucket;
   var urlGh  = 'https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/events.json';
   var urlNpm = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/events.json';
-  var urlRaw = 'https://raw.githubusercontent.com/ModernViking1/vikinginvest-prices/main/events.json';
 
   function tryFetch(url, label){
     return fetch(url, {method:'GET', cache:'no-store'})
@@ -4492,11 +4511,12 @@ function fetchEvents(){
       });
   }
 
-  return tryFetch(urlGh, 'gh')
-    .catch(function(e1){
-      return tryFetch(urlNpm, 'npm').catch(function(e2){
-        return tryFetch(urlRaw, 'raw');
-      });
+  return tryFetch(urlRaw, 'raw')
+    .catch(function(){
+      return tryFetch(urlGh, 'gh')
+        .catch(function(e1){
+          return tryFetch(urlNpm, 'npm');
+        });
     })
     .then(function(d){
       EVENTS = d.events;
@@ -13236,27 +13256,42 @@ function applyPrice(k,pd) {
 
   var ew = STATE[k].ew;
 
-  // ── LAYER 2: 1H TRENDLINE (Hourly triangles + S/R) ────────────
-  // Reads HISTORY[k].h1.
-  var tlCalc = calcTLDir(k);
-  if(tlCalc) {
-    STATE[k].tl = tlCalc;
-  } else {
-    // Calc returned null (insufficient/ambiguous pivot data). Don't leave
-    // STATE.tl pinned to the seed — fall back to a simple price-vs-mean
-    // check on accumulated 1h ticks so the indicator still responds to
-    // real price movement rather than locking on the seed forever.
-    var h1Buf = HISTORY[k] && HISTORY[k].h1;
-    if(h1Buf && h1Buf.length >= 4){
-      var recent = h1Buf.slice(-Math.min(20, h1Buf.length));
-      var mean = recent.reduce(function(s,p){ return s + p.p; }, 0) / recent.length;
-      var px = h1Buf[h1Buf.length-1].p;
-      var thresh = mean * 0.0015; // 0.15% buffer to avoid flicker
-      if(px > mean + thresh) STATE[k].tl = 'bull';
-      else if(px < mean - thresh) STATE[k].tl = 'bear';
-      else STATE[k].tl = 'neutral';
-    } else if(!STATE[k].tl) {
-      STATE[k].tl = m.tl || ew || 'neutral';
+  // ── LAYER 2: 1H TRENDLINE (legacy fallback) ───────────────────
+  // This block USED to unconditionally overwrite STATE[k].tl with
+  // calcTLDir (the older auto-trendline algorithm), which silently
+  // clobbered the authoritative SERVER_DIR.tl set in the block at
+  // line ~13109 above. Symptom on 2026-06-03: DAX 30 showed 4/4 BULL
+  // with all four pills green even though directions.json clearly
+  // said tl:bear, nw:bear — calcTLDir's trendline projection was
+  // still bull-biased while the structural break detector
+  // (calcIndependentTLDir) had already flipped to bear.
+  //
+  // Now guarded: only run this fallback when the authoritative TL
+  // (set above from SERVER_DIR or calcIndependentTLDir) didn't
+  // produce a directional value. STATE[k].tl === 'neutral' is the
+  // signal that the upstream didn't have enough data — only then do
+  // we lean on the legacy projection / price-vs-mean overlay.
+  if(STATE[k].tl !== 'bull' && STATE[k].tl !== 'bear'){
+    var tlCalc = calcTLDir(k);
+    if(tlCalc) {
+      STATE[k].tl = tlCalc;
+    } else {
+      // Calc returned null (insufficient/ambiguous pivot data). Don't
+      // leave STATE.tl pinned to the seed — fall back to a simple
+      // price-vs-mean check on accumulated 1h ticks so the indicator
+      // still responds to real price movement.
+      var h1Buf = HISTORY[k] && HISTORY[k].h1;
+      if(h1Buf && h1Buf.length >= 4){
+        var recent = h1Buf.slice(-Math.min(20, h1Buf.length));
+        var mean = recent.reduce(function(s,p){ return s + p.p; }, 0) / recent.length;
+        var px = h1Buf[h1Buf.length-1].p;
+        var thresh = mean * 0.0015; // 0.15% buffer to avoid flicker
+        if(px > mean + thresh) STATE[k].tl = 'bull';
+        else if(px < mean - thresh) STATE[k].tl = 'bear';
+        else STATE[k].tl = 'neutral';
+      } else if(!STATE[k].tl) {
+        STATE[k].tl = m.tl || ew || 'neutral';
+      }
     }
   }
 
