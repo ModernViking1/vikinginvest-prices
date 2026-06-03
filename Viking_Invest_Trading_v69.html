@@ -2700,12 +2700,25 @@ function getLayerDet(k,layer,sig){
           var entryDescriptor = iDir === 'bull' ? 'creator low / wick' : 'creator high / wick';
           var stateLabel, stateColor, stateIcon;
           if(iSig.state === 'invalidated'){
-            // Pre-trigger invalidation — either the setup armed and an
-            // opposing CHoCH printed before the retest, or the 15m
-            // structure flipped against the macro after arming.
-            stateLabel = iSig.alignmentBroken
-              ? 'CANCELLED &middot; 15m flipped vs macro'
-              : 'CANCELLED &middot; opposing CHoCH pre-trigger';
+            // Pre-trigger invalidation — pick the specific reason so the
+            // user knows which rule actually fired (the old catch-all
+            // "opposing CHoCH" label hid counter-bar firings as if they
+            // were full structure flips, which made signals look
+            // mysteriously cancelled when only 2 small green candles
+            // had formed).
+            var reasonLabel;
+            if(iSig.alignmentBroken){
+              reasonLabel = '15m flipped vs macro';
+            } else if(iSig.invalidationReason === 'counter-bars'){
+              reasonLabel = '2 counter-bars (momentum reversal)';
+            } else if(iSig.invalidationReason === 'stop-breached'){
+              reasonLabel = 'stop breached pre-trigger';
+            } else if(iSig.invalidationReason === 'opposing-choch'){
+              reasonLabel = 'opposing CHoCH (swing flip)';
+            } else {
+              reasonLabel = 'opposing CHoCH pre-trigger';
+            }
+            stateLabel = 'CANCELLED &middot; ' + reasonLabel;
             stateColor = 'var(--bear)';
             stateIcon = '⊘';
           } else if(iSig.state === 'armed'){
@@ -2716,9 +2729,17 @@ function getLayerDet(k,layer,sig){
             if(iSig.outcome === 'target-hit'){ stateLabel = 'TRIGGERED &middot; target hit ✓'; stateColor = 'var(--bull)'; stateIcon = '⚡'; }
             else if(iSig.outcome === 'stop-hit'){ stateLabel = 'TRIGGERED &middot; stop hit ✗'; stateColor = 'var(--bear)'; stateIcon = '⚡'; }
             else if(iSig.outcome === 'choch-invalidated'){
-              stateLabel = iSig.alignmentBroken
-                ? 'INVALIDATED &middot; 15m flipped vs macro'
-                : 'INVALIDATED &middot; opposing CHoCH';
+              var postReason;
+              if(iSig.alignmentBroken){
+                postReason = '15m flipped vs macro';
+              } else if(iSig.invalidationReason === 'counter-bars'){
+                postReason = '2 counter-bars (momentum reversal)';
+              } else if(iSig.invalidationReason === 'opposing-choch'){
+                postReason = 'opposing CHoCH (swing flip)';
+              } else {
+                postReason = 'opposing CHoCH';
+              }
+              stateLabel = 'INVALIDATED &middot; ' + postReason;
               stateColor = 'var(--bear)'; stateIcon = '⊘';
             }
             else if(iSig.outcome === 'stale-expired'){
@@ -2850,6 +2871,35 @@ function getLayerDet(k,layer,sig){
               + '</div>';
           }
 
+          // ── INVALIDATION DIAGNOSTIC LINE ──
+          // When the signal is invalidated, show WHICH bar tripped the
+          // rule so the user can find it on TradingView. Otherwise an
+          // "opposing CHoCH" cancellation looks mysterious — the user
+          // sees no obvious flip on their chart because the rule fired
+          // on a subtle 2-bar momentum reversal, not a full swing flip.
+          if((iSig.state === 'invalidated' || iSig.outcome === 'choch-invalidated')
+             && iSig.invalidationReason && iSig.invalidationBarIdx >= 0){
+            var invBarTs = iSig.invalidationTs ? fmtTs(iSig.invalidationTs) : '?';
+            var invDescr;
+            if(iSig.invalidationReason === 'counter-bars'){
+              invDescr = '🔎 Fired by 2 consecutive '
+                + (iSig.dir === 'bear' ? 'bullish' : 'bearish')
+                + ' bodies w/ '
+                + (iSig.dir === 'bear' ? 'rising' : 'falling')
+                + ' closes &middot; 2nd bar closed at ' + invBarTs
+                + ' (verify on TradingView; tighter rule fires before full CHoCH swing pattern)';
+            } else if(iSig.invalidationReason === 'opposing-choch'){
+              invDescr = '🔎 Fired by opposing CHoCH at ' + invBarTs
+                + ' (swing peak/trough + close-through pattern formed)';
+            } else if(iSig.invalidationReason === 'stop-breached'){
+              invDescr = '🔎 Fired by close beyond stop pre-trigger at ' + invBarTs;
+            } else if(iSig.invalidationReason === 'alignment-broken'){
+              invDescr = '🔎 Fired by 4/4 alignment break (NW / TL / CL flipped vs macro)';
+            } else {
+              invDescr = '🔎 Reason: ' + iSig.invalidationReason;
+            }
+            intraMsg += '<div style="margin-top:2px;color:var(--inkd);font-size:7.5px;font-style:italic;">' + invDescr + '</div>';
+          }
           // ── CHoCH DIAGNOSTIC LINE ──
           // Shows what the algorithm is watching for invalidation.
           // Helps user understand why a visually-obvious CHoCH may not
@@ -12011,6 +12061,12 @@ function detectIntradaySignal(k){
   // extend the move, THEN retrace to the entry.
   var state = 'armed';        // wick state (existing)
   var fibState = 'armed';     // Fib-zone state (new variant)
+  // Track which rule caused invalidation so the dashboard can show a
+  // specific label ("opposing CHoCH" vs "2 counter-bars" vs "stop
+  // breached") rather than the catch-all "opposing CHoCH" that hid
+  // counter-bar firings as if they were full structure flips.
+  var invalidationReason = null;
+  var invalidationBarIdx = -1;
   var triggerBarIdx = -1;     // wick trigger bar
   var fibTriggerBarIdx = -1;  // Fib-zone trigger bar (typically fires earlier)
   var liftReached = false;
@@ -12019,8 +12075,8 @@ function detectIntradaySignal(k){
     // Check invalidation: closed beyond stop before EITHER variant triggered.
     // Once any entry has fired, the post-trigger loop handles the trade.
     if(triggerBarIdx === -1 && fibTriggerBarIdx === -1){
-      if(dir === 'bear' && b.c > stop){ state = 'invalidated'; fibState = 'invalidated'; break; }
-      if(dir === 'bull' && b.c < stop){ state = 'invalidated'; fibState = 'invalidated'; break; }
+      if(dir === 'bear' && b.c > stop){ state = 'invalidated'; fibState = 'invalidated'; invalidationReason = 'stop-breached'; invalidationBarIdx = i; break; }
+      if(dir === 'bull' && b.c < stop){ state = 'invalidated'; fibState = 'invalidated'; invalidationReason = 'stop-breached'; invalidationBarIdx = i; break; }
     }
     // ── OPPOSING CHoCH INVALIDATION (pre-trigger) ────────────
     if(triggerBarIdx === -1 && fibTriggerBarIdx === -1){
@@ -12028,6 +12084,8 @@ function detectIntradaySignal(k){
       if(opposingIdx >= 0){
         state = 'invalidated';
         fibState = 'invalidated';
+        invalidationReason = 'opposing-choch';
+        invalidationBarIdx = opposingIdx;
         break;
       }
       // Fast momentum-reversal: two consecutive bull bodies (bear setup) /
@@ -12039,6 +12097,8 @@ function detectIntradaySignal(k){
       if(counterIdx >= 0){
         state = 'invalidated';
         fibState = 'invalidated';
+        invalidationReason = 'counter-bars';
+        invalidationBarIdx = counterIdx;
         break;
       }
     }
@@ -12122,6 +12182,8 @@ function detectIntradaySignal(k){
         // Only count as invalidation if CHoCH happened AFTER trigger
         if(opposingPostTrigger > triggerBarIdx){
           outcome = 'choch-invalidated';
+          invalidationReason = 'opposing-choch';
+          invalidationBarIdx = opposingPostTrigger;
           break;
         }
       }
@@ -12131,6 +12193,8 @@ function detectIntradaySignal(k){
       var counterPostTrigger = detectConsecutiveCounterBars(bars, triggerBarIdx, i, dir, minProminence);
       if(counterPostTrigger > triggerBarIdx){
         outcome = 'choch-invalidated';
+        invalidationReason = 'counter-bars';
+        invalidationBarIdx = counterPostTrigger;
         break;
       }
     }
@@ -12213,8 +12277,10 @@ function detectIntradaySignal(k){
   if(alignmentBroken){
     if(state === 'armed'){
       state = 'invalidated';
+      if(!invalidationReason) invalidationReason = 'alignment-broken';
     } else if(state === 'triggered' && !outcome){
       outcome = 'choch-invalidated';
+      if(!invalidationReason) invalidationReason = 'alignment-broken';
     }
   }
 
@@ -12234,6 +12300,9 @@ function detectIntradaySignal(k){
     R: R,
     triggerBarIdx: triggerBarIdx,
     outcome: outcome,
+    invalidationReason: invalidationReason,
+    invalidationBarIdx: invalidationBarIdx,
+    invalidationTs: invalidationBarIdx >= 0 && bars[invalidationBarIdx] ? bars[invalidationBarIdx].t : null,
     chochDiag: chochDiag,
     ohlcSource: hasNative ? 'native' : 'approximated',
     alignmentBroken: alignmentBroken,
