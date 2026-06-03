@@ -80,7 +80,7 @@ const OANDA_PAIRS = {
   // Equity index additions (v7)
   jp225:   'JP225_USD',  // Nikkei 225 (note: index level is 225, not 250)
   fra40:   'FR40_EUR',   // CAC 40 (France)
-  esp35:   'ES35_EUR',   // IBEX 35 (Spain) — confirm OANDA ticker if 404
+  esp35:   'ESP35_EUR',  // IBEX 35 (Spain) — OANDA uses ESP35_EUR (not ES35_EUR)
   // Helper: USD/SEK needed for synthetic DXY computation in the dashboard,
   // even though it doesn't have a tradeable MKTS entry of its own.
   usdsek: 'USD_SEK',

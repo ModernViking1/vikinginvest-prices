@@ -56,12 +56,20 @@ PAIR_DISPLAY = {
     # Commodities / indices
     'xauusd': 'XAU/USD', 'xagusd': 'XAG/USD', 'usoil': 'BRENT',
     'de40':   'DAX 30',  'ftse100': 'FTSE 100',
-    'dj30':   'DJ 30',   'nas100':  'NAS 100',
+    'dj30':   'DJ 30',   'nas100':  'NAS 100', 'spx500':  'S&P 500',
+    # v7 FX minors (2026-06-03)
+    'nzdcad': 'NZD/CAD', 'eurnok': 'EUR/NOK', 'nzdchf': 'NZD/CHF',
+    'gbpchf': 'GBP/CHF', 'usdzar': 'USD/ZAR', 'usdcnh': 'USD/CNH',
+    'eursgd': 'EUR/SGD',
+    # v7 indices (2026-06-03)
+    'jp225':  'Nikkei 225', 'fra40':  'CAC 40', 'esp35':  'IBEX 35',
     # Crypto
     'btcusd': 'BTC/USD', 'suiusd': 'SUI/USD',
     'ethusd': 'ETH/USD', 'solusd': 'SOL/USD',
     'xrpusd': 'XRP/USD', 'taousd': 'TAO/USD',
     'nearusd': 'NEAR/USD', 'hypeusd': 'HYPE/USD', 'ondousd': 'ONDO/USD',
+    # v7 crypto
+    'ltcusd': 'LTC/USD',
     'dxy':    'DXY',
 }
 
