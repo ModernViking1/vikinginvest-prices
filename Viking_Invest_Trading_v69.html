@@ -5539,6 +5539,15 @@ function renderFailureModeAnalysis(){
   var resolved = t.wins + t.losses;
   var stdRate = resolved > 0 ? (t.wins / resolved * 100) : 0;
 
+  // Collapsed-by-default toggle (mirrors the Auto-EW Diagnostic
+  // pattern). The headline classification mix is already surfaced on
+  // the cards' "stats: ..." row, so the full panel — variant rescue
+  // grid, recommendation paragraphs, per-pair breakdown table —
+  // doesn't need to take up vertical space until the user opens it.
+  if(typeof window._failureModeExpanded === 'undefined'){
+    window._failureModeExpanded = false;
+  }
+
   // Compute variant outcomes (only on losing trades — variants try to "rescue")
   // For variants, a "win" means it rescued the loss; "loss" means it would have lost too
   var variantSuccessRate = function(vstats){
@@ -5651,8 +5660,50 @@ function renderFailureModeAnalysis(){
   var filterTag = '<span style="font-size:7.5px;color:var(--gold);font-style:italic;">'
                 + 'filtered to ' + pc.alignedPairs + ' currently 4/4-aligned pair' + (pc.alignedPairs===1?'':'s')
                 + ' (of ' + pc.totalPairs + ')</span>';
+
+  // ── COLLAPSED VIEW ──
+  // Compact one-line summary so the panel doesn't dominate the
+  // backtest tab until the user wants to inspect failure modes.
+  // Shows the dominant failure mode at a glance + an EXPAND chip;
+  // the variant rescue grid and per-pair breakdown only render when
+  // opened. State sticks to window._failureModeExpanded for the
+  // session and defaults to collapsed on every full reload.
+  if(!window._failureModeExpanded){
+    // Pick a representative failure to surface in the compact view
+    var topClass = null, topCount = 0;
+    Object.keys(c).forEach(function(cls){
+      if(cls === 'win') return;
+      if(c[cls] > topCount){ topCount = c[cls]; topClass = cls; }
+    });
+    var topPct = t.all > 0 ? Math.round(topCount / t.all * 100) : 0;
+    var compactClassLabel = {
+      'never-retested': 'Never retested',
+      'stop-clean-broke': 'Stop hit cleanly',
+      'stopped-after-progress': 'Stopped after partial progress',
+      'invalidated-before-retest': 'Invalidated pre-trigger'
+    }[topClass] || topClass || '—';
+    host.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">'
+      + '  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+      + '    <div style="font-family:Orbitron,monospace;font-size:11px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:var(--bear);">&#9656; ' + headerLabel + '</div>'
+      +      srcTag + verTag
+      + '  </div>'
+      + '  <button onclick="window._failureModeExpanded=true;renderFailureModeAnalysis();" style="font-family:Orbitron,monospace;font-size:8px;padding:4px 10px;border:1px solid var(--bear);background:transparent;color:var(--bear);border-radius:3px;cursor:pointer;letter-spacing:0.7px;font-weight:700;">EXPAND &#9662;</button>'
+      + '</div>'
+      + '<div style="margin-top:5px;font-size:8.5px;color:var(--inkd);line-height:1.6;">'
+      +   t.all + ' ' + tradesLabel + ' &middot; '
+      +   '<span style="color:var(--ink);font-weight:700;">' + t.wins + 'W/' + t.losses + 'L</span> resolved &middot; '
+      +   '<span style="color:' + (stdRate >= 70 ? 'var(--bull)' : stdRate >= 50 ? 'var(--gold)' : 'var(--bear)') + ';font-weight:700;">'
+      +     Math.round(stdRate) + '% win rate</span>'
+      +   (topClass ? ' &middot; dominant failure: <strong style="color:var(--bear);">' + compactClassLabel + '</strong> (' + topPct + '%)' : '')
+      + '</div>'
+      + '<div style="margin-top:3px;">' + filterTag + '</div>';
+    host.style.display = 'block';
+    return;
+  }
+  var collapseBtn = '<button onclick="window._failureModeExpanded=false;renderFailureModeAnalysis();" title="Hide details" style="font-family:Orbitron,monospace;font-size:8px;padding:4px 10px;border:1px solid var(--inkd);background:transparent;color:var(--inkd);border-radius:3px;cursor:pointer;letter-spacing:0.7px;font-weight:700;margin-left:6px;">COLLAPSE &#9652;</button>';
   var aggHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:6px;">'
-    + '<div style="display:flex;align-items:center;gap:8px;"><div style="font-family:Orbitron,monospace;font-size:11px;font-weight:900;letter-spacing:1.2px;color:var(--bear);text-transform:uppercase;">▸ ' + headerLabel + '</div>' + srcTag + verTag + '</div>'
+    + '<div style="display:flex;align-items:center;gap:8px;"><div style="font-family:Orbitron,monospace;font-size:11px;font-weight:900;letter-spacing:1.2px;color:var(--bear);text-transform:uppercase;">▸ ' + headerLabel + '</div>' + srcTag + verTag + collapseBtn + '</div>'
     + '<div style="font-size:8.5px;color:var(--inkd);">'+t.all+' ' + tradesLabel + ' &middot; '
     +   '<span title="Win rate of trades that resolved as W/L (excludes the ' + (t.expired||0) + ' that expired before retest and the ' + (t.invalidated||0) + ' invalidated pre-trigger). Of all ' + t.all + ' simulated trades, ' + t.wins + ' were wins (' + (t.all > 0 ? Math.round(t.wins/t.all*100) : 0) + '% raw).">'
     +     t.wins + 'W/' + t.losses + 'L resolved · ' + Math.round(stdRate) + '% win rate'
@@ -5759,15 +5810,27 @@ function renderAutoEWDiagnostic(){
     + 'style="font-family:Orbitron,monospace;font-size:9px;padding:3px 6px;border:1px solid var(--rule);background:rgba(255,255,255,0.5);border-radius:3px;letter-spacing:0.4px;">'
     + pairOptions + '</select>';
 
-  // Summary scan: count agree / refine / disagree / no-pattern across all 22 pairs.
-  var scanCounts = { agree:0, refine:0, disagree:0, noPattern:0, error:0 };
+  // Summary scan: agree / refine / disagree / no-seed / no-pattern across
+  // the fleet. Split the previous catch-all "no-pattern" into two so the
+  // user can tell whether the engine had nothing to compare against
+  // (no_seed — most of the new minors / crypto / extra indices) vs the
+  // engine genuinely failed to detect a pattern (no_valid_pattern,
+  // insufficient_history). They have different implications: no-seed is
+  // "we just haven't added a manual Wickator note yet", no-pattern is
+  // "the engine looked and couldn't find a clean impulse/ABC/WXY".
+  var scanCounts = { agree:0, refine:0, disagree:0, noPattern:0, noSeed:0, error:0 };
   var scanByPair = {};
   Object.keys(MKTS).forEach(function(key){
     try {
       var c = compareAutoVsSeed(key);
       if(!c.ok){
-        scanCounts.noPattern++;
-        scanByPair[key] = { state: 'noPattern', reason: c.reason };
+        if(c.reason === 'no_seed'){
+          scanCounts.noSeed++;
+          scanByPair[key] = { state: 'noSeed', reason: c.reason };
+        } else {
+          scanCounts.noPattern++;
+          scanByPair[key] = { state: 'noPattern', reason: c.reason };
+        }
       } else if(!c.agree){
         scanCounts.disagree++;
         scanByPair[key] = { state: 'disagree' };
@@ -5788,7 +5851,8 @@ function renderAutoEWDiagnostic(){
     + '<div style="padding:3px 6px;background:rgba(26,122,74,0.1);border:1px solid rgba(26,122,74,0.3);border-radius:2px;color:var(--bull);"><strong>'+scanCounts.agree+'</strong> AGREE</div>'
     + '<div style="padding:3px 6px;background:rgba(240,185,64,0.1);border:1px solid rgba(240,185,64,0.3);border-radius:2px;color:var(--gold);"><strong>'+scanCounts.refine+'</strong> REFINE</div>'
     + '<div style="padding:3px 6px;background:rgba(192,40,26,0.1);border:1px solid rgba(192,40,26,0.3);border-radius:2px;color:var(--bear);"><strong>'+scanCounts.disagree+'</strong> DISAGREE</div>'
-    + '<div style="padding:3px 6px;background:rgba(0,0,0,0.04);border:1px solid var(--rule);border-radius:2px;color:var(--inkd);"><strong>'+scanCounts.noPattern+'</strong> no-pattern</div>'
+    + '<div title="Engine has a pattern but no manual Wickator seed exists for these pairs — add a WICKATOR_EW entry to get them off this list." style="padding:3px 6px;background:rgba(77,162,255,0.08);border:1px solid rgba(77,162,255,0.3);border-radius:2px;color:#4da2ff;cursor:help;"><strong>'+scanCounts.noSeed+'</strong> no-seed</div>'
+    + '<div title="Engine couldn\'t detect a clean impulse / ABC / WXY at any degree — usually insufficient daily history, sometimes a complex correction the algorithm doesn\'t recognise yet." style="padding:3px 6px;background:rgba(0,0,0,0.04);border:1px solid var(--rule);border-radius:2px;color:var(--inkd);cursor:help;"><strong>'+scanCounts.noPattern+'</strong> no-pattern</div>'
     + (scanCounts.error > 0 ? '<div style="padding:3px 6px;background:rgba(192,40,26,0.15);border:1px solid var(--bear);border-radius:2px;color:var(--bear);"><strong>'+scanCounts.error+'</strong> error</div>' : '')
     + '</div>';
 
@@ -5815,7 +5879,8 @@ function renderAutoEWDiagnostic(){
     if(s === 'refine') return 'var(--gold)';
     if(s === 'disagree') return 'var(--bear)';
     if(s === 'error') return 'var(--bear)';
-    return 'var(--inkd)';
+    if(s === 'noSeed') return '#4da2ff';  // matches no-seed pill above
+    return 'var(--inkd)';  // noPattern
   };
   var chipsHTML = '<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:5px;font-size:7.5px;letter-spacing:0.3px;">'
     + Object.keys(MKTS).map(function(key){
