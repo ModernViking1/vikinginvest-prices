@@ -5466,9 +5466,14 @@ function renderFailureModeAnalysis(){
 function renderAutoEWDiagnostic(){
   // Track A: render auto-EW comparison for any pair (selectable).
   // Default to EUR/USD on first render. The user can switch via dropdown.
+  // Collapsed by default — the per-pair confidence/pattern is now surfaced
+  // on the Macro card itself via the ⚡ auto-EW badge, so this panel is
+  // demoted to a QA tool for spotting engine drift or stale Wickator
+  // seeds across the fleet. Click the EXPAND chip to open it.
   var host = document.getElementById('autoEWDiag');
   if(!host) return;
   if(!window._autoEWPair) window._autoEWPair = 'eurusd';
+  if(typeof window._autoEWExpanded === 'undefined') window._autoEWExpanded = false;
   var k = window._autoEWPair;
   if(!MKTS[k]) k = 'eurusd';
 
@@ -5514,6 +5519,23 @@ function renderAutoEWDiagnostic(){
     + (scanCounts.error > 0 ? '<div style="padding:3px 6px;background:rgba(192,40,26,0.15);border:1px solid var(--bear);border-radius:2px;color:var(--bear);"><strong>'+scanCounts.error+'</strong> error</div>' : '')
     + '</div>';
 
+  // Collapsed view — compact one-line summary with the fleet counts plus
+  // an EXPAND chip. This is the default on every render so the panel
+  // stays out of the way until the user wants to QA the engine.
+  if(!window._autoEWExpanded){
+    host.style.display = 'block';
+    host.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">'
+      + '  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+      + '    <div style="font-size:11px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:#4da2ff;">&#9656; Auto-EW Diagnostic</div>'
+      + '    <div style="font-size:8px;color:var(--inkd);font-style:italic;letter-spacing:0.3px;">engine health across all pairs &mdash; per-pair pattern now shown on each Macro card</div>'
+      + '  </div>'
+      + '  <button onclick="window._autoEWExpanded=true;renderAutoEWDiagnostic();" style="font-family:Orbitron,monospace;font-size:8px;padding:4px 10px;border:1px solid #4da2ff;background:transparent;color:#4da2ff;border-radius:3px;cursor:pointer;letter-spacing:0.7px;font-weight:700;">EXPAND &#9662;</button>'
+      + '</div>'
+      + scanHTML;
+    return;
+  }
+
   // Per-pair quick-pick chips: click to switch
   var chipColor = function(s){
     if(s === 'agree') return 'var(--bull)';
@@ -5541,6 +5563,7 @@ function renderAutoEWDiagnostic(){
     + '  <div style="display:flex;gap:6px;align-items:center;">'
     +     selectorHTML
     + '    <button onclick="if(typeof fetchVikingHistory===\'function\'){fetchVikingHistory().then(function(){renderAutoEWDiagnostic();});}" style="font-family:Orbitron,monospace;font-size:8px;padding:4px 10px;border:1px solid #4da2ff;background:transparent;color:#4da2ff;border-radius:3px;cursor:pointer;letter-spacing:0.5px;">↻ REFRESH</button>'
+    + '    <button onclick="window._autoEWExpanded=false;renderAutoEWDiagnostic();" title="Hide diagnostic" style="font-family:Orbitron,monospace;font-size:8px;padding:4px 10px;border:1px solid var(--inkd);background:transparent;color:var(--inkd);border-radius:3px;cursor:pointer;letter-spacing:0.7px;font-weight:700;">COLLAPSE &#9652;</button>'
     + '  </div>'
     + '</div>'
     + scanHTML
