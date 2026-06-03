@@ -9631,8 +9631,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-03';
+var RULES_VERSION = '2026-06-03b';
 var RULES_VERSION_NOTES = [
+  '2026-06-03b — Fast momentum-reversal invalidation: 2 consecutive counter-bars heading toward EMA cloud invalidate (1 counter-bar still valid)',
   '2026-06-03 — Auto-EW badge on Macro card; backtest grid categorised; Auto-EW Diagnostic collapsed by default',
   '2026-05-30 — NW 15m lookback 8 → 5 (CHoCH sensitivity); cache TTL 4h → 24h',
   '2026-05-29 — Engine-vs-seed direction guards removed (engine authoritative)',
@@ -9645,6 +9646,7 @@ function RULES_FINGERPRINT(){
     tl: TL_LOOKBACK,
     ewMin: (typeof EW_MIN !== 'undefined') ? EW_MIN : null,
     autoEwMinConf: (typeof AUTO_EW_MIN_CONFIDENCE !== 'undefined') ? AUTO_EW_MIN_CONFIDENCE : null,
+    counterBarsThresh: 2,
     fibPairs: ['xauusd','xagusd','usoil','de40','nas100','dj30','ftse100','spx500'].sort().join(',')
   });
 }
@@ -10381,6 +10383,15 @@ function calcRecentBacktest(k, mode){
             resolved = 'invalidated'; failureMode = 'choch-pre-trigger'; resolvedAt = j; break;
           }
         }
+        // Fast momentum-reversal pre-trigger (2026-06-03): 2 consecutive
+        // counter-bars heading toward the EMA cloud invalidate before
+        // a formal CHoCH would. Backtest parity with the live detector.
+        if(typeof detectConsecutiveCounterBars === 'function'){
+          var ctrPre = detectConsecutiveCounterBars(m15Bars, creatorIdxLive, j, alignedDir, minProm);
+          if(ctrPre >= 0){
+            resolved = 'invalidated'; failureMode = 'counter-bars-pre-trigger'; resolvedAt = j; break;
+          }
+        }
         var reaches = (alignedDir === 'bear' && b.h >= entryLive) ||
                       (alignedDir === 'bull' && b.l <= entryLive);
         if(reaches){ triggered = true; triggerBarJ = j; resolvedAt = j; }
@@ -10411,6 +10422,15 @@ function calcRecentBacktest(k, mode){
           var oppPost = detectOpposingCHoCH(m15Bars, i, j, alignedDir, minProm);
           if(oppPost > resolvedAt){
             resolved = 'invalidated'; failureMode = 'choch-post-trigger'; resolvedAt = j; break;
+          }
+        }
+        // Fast momentum-reversal post-trigger — measured from the
+        // trigger bar (triggerBarJ) rather than the creator so only
+        // counter-bars that formed after entry can invalidate.
+        if(typeof detectConsecutiveCounterBars === 'function' && triggerBarJ >= 0){
+          var ctrPost = detectConsecutiveCounterBars(m15Bars, triggerBarJ, j, alignedDir, minProm);
+          if(ctrPost > triggerBarJ){
+            resolved = 'invalidated'; failureMode = 'counter-bars-post-trigger'; resolvedAt = j; break;
           }
         }
         // PR #3 parity: alignment-broken post-trigger. If EW (daily) or TL
@@ -10514,6 +10534,10 @@ function calcRecentBacktest(k, mode){
           var hOppPre = detectOpposingCHoCH(m15Bars, i, hj, alignedDir, minProm);
           if(hOppPre >= 0){ midOutcome = 'invalidated'; break; }
         }
+        if(typeof detectConsecutiveCounterBars === 'function'){
+          var hCtrPre = detectConsecutiveCounterBars(m15Bars, i, hj, alignedDir, minProm);
+          if(hCtrPre >= 0){ midOutcome = 'invalidated'; break; }
+        }
         // Check 38% Fib trigger
         var midReaches = (alignedDir === 'bear' && hb.h >= midEntry) ||
                          (alignedDir === 'bull' && hb.l <= midEntry);
@@ -10533,6 +10557,10 @@ function calcRecentBacktest(k, mode){
         if(typeof detectOpposingCHoCH === 'function'){
           var hOppPost = detectOpposingCHoCH(m15Bars, i, hj, alignedDir, minProm);
           if(hOppPost > i){ midOutcome = 'invalidated'; break; }
+        }
+        if(typeof detectConsecutiveCounterBars === 'function'){
+          var hCtrPost = detectConsecutiveCounterBars(m15Bars, i, hj, alignedDir, minProm);
+          if(hCtrPost > i){ midOutcome = 'invalidated'; break; }
         }
       }
     }
@@ -11114,6 +11142,47 @@ function detect15mLevels(k){
 //   setupDir - 'bear' or 'bull' — the direction of the original setup
 //   minProminence - swing prominence threshold (must match BoS scaling)
 // Returns: index of CHoCH bar, or -1 if none found.
+// detectConsecutiveCounterBars — fast momentum-reversal invalidation
+// for setups that triggered but immediately reversed back toward the
+// 4H EMA cloud. Complements detectOpposingCHoCH (which requires a
+// full structural flip pattern — low → swing peak with lower next
+// high → close-above) by catching obvious counter pushes BEFORE a
+// formal CHoCH has formed.
+//
+// Rule (bear setup):
+//   Two consecutive bars where each has a bullish body (c > o) with
+//   a meaningful body size, AND the second bar's close is above the
+//   first bar's close — i.e. price is decisively pushing up two bars
+//   running. Mirror logic for bull setups (bearish bodies + falling
+//   closes).
+//
+// A single counter-bar is permitted (normal pull-back during a trend).
+// Two consecutive ones flag exhaustion of the trade thesis and
+// invalidate. minProminence is reused as the noise floor — 25% of it
+// is the minimum body size to count as a real counter-bar, so a
+// 1-pip green spike inside a strong bear move doesn't false-trigger.
+//
+// Returns the index of the SECOND consecutive counter-bar (the
+// invalidation moment), or -1 if no qualifying pair was found.
+function detectConsecutiveCounterBars(bars, fromIdx, currentIdx, setupDir, minProminence){
+  if(!bars || fromIdx < 0 || currentIdx <= fromIdx + 1) return -1;
+  if(currentIdx >= bars.length) currentIdx = bars.length - 1;
+  var minBody = (minProminence || 0) * 0.25;
+  var isCounter = function(b){
+    if(setupDir === 'bear') return (b.c > b.o) && ((b.c - b.o) >= minBody);
+    if(setupDir === 'bull') return (b.c < b.o) && ((b.o - b.c) >= minBody);
+    return false;
+  };
+  for(var i = fromIdx + 2; i <= currentIdx; i++){
+    var prev = bars[i - 1];
+    var curr = bars[i];
+    if(!isCounter(prev) || !isCounter(curr)) continue;
+    if(setupDir === 'bear' && curr.c > prev.c) return i;
+    if(setupDir === 'bull' && curr.c < prev.c) return i;
+  }
+  return -1;
+}
+
 function detectOpposingCHoCH(bars, creatorIdx, currentIdx, setupDir, minProminence){
   if(!bars || creatorIdx < 0 || currentIdx <= creatorIdx + 2) return -1;
   if(currentIdx >= bars.length) currentIdx = bars.length - 1;
@@ -11526,6 +11595,17 @@ function detectIntradaySignal(k){
         fibState = 'invalidated';
         break;
       }
+      // Fast momentum-reversal: two consecutive bull bodies (bear setup) /
+      // bear bodies (bull setup) with rising/falling closes mean price is
+      // decisively pushing back toward the 4H EMA cloud before a formal
+      // CHoCH has had time to form. A single counter-bar is normal
+      // pull-back; two in a row is exhaustion.
+      var counterIdx = detectConsecutiveCounterBars(bars, creatorIdx, i, dir, minProminence);
+      if(counterIdx >= 0){
+        state = 'invalidated';
+        fibState = 'invalidated';
+        break;
+      }
     }
     // Fib-zone retest — fires at the SHALLOWER 38% retrace edge. Always
     // checked first because price reaches it before the full wick.
@@ -11578,6 +11658,8 @@ function detectIntradaySignal(k){
       }
       var oppFib = detectOpposingCHoCH(bars, creatorIdx, i, dir, minProminence);
       if(oppFib > fibTriggerBarIdx){ fibOutcome = 'choch-invalidated'; break; }
+      var ctrFib = detectConsecutiveCounterBars(bars, fibTriggerBarIdx, i, dir, minProminence);
+      if(ctrFib > fibTriggerBarIdx){ fibOutcome = 'choch-invalidated'; break; }
     }
     if(!fibOutcome && fibTriggerBarIdx >= 0){
       var barsSinceFib = n - 1 - fibTriggerBarIdx;
@@ -11607,6 +11689,14 @@ function detectIntradaySignal(k){
           outcome = 'choch-invalidated';
           break;
         }
+      }
+      // Fast momentum-reversal post-trigger — see pre-trigger comment.
+      // Counted from triggerBarIdx so only counter-bars that formed
+      // after entry can invalidate the in-trade position.
+      var counterPostTrigger = detectConsecutiveCounterBars(bars, triggerBarIdx, i, dir, minProminence);
+      if(counterPostTrigger > triggerBarIdx){
+        outcome = 'choch-invalidated';
+        break;
       }
     }
     // Time-based expiry for in-trade signals. Without this, a triggered
@@ -12121,6 +12211,11 @@ function classifySimulatedTrades(k){
         if(setup.dir === 'bear' && b.c > setup.stop){ resolved='invalidated'; resolvedAt=j; break; }
         if(setup.dir === 'bull' && b.c < setup.stop){ resolved='invalidated'; resolvedAt=j; break; }
         if(j - fromIdx > 8){ resolved='expired'; resolvedAt=j; break; }
+        // Fast momentum-reversal pre-trigger (parity with live detector)
+        if(typeof detectConsecutiveCounterBars === 'function'){
+          var ctrPreCls = detectConsecutiveCounterBars(bars, setup.creatorIdx, j, setup.dir, clsMinProminence);
+          if(ctrPreCls >= 0){ resolved='invalidated'; resolvedAt=j; break; }
+        }
         var reaches = (setup.dir === 'bear' && b.h >= setup.entry) ||
                       (setup.dir === 'bull' && b.l <= setup.entry);
         if(reaches){ triggeredAt = j; }
@@ -12147,6 +12242,12 @@ function classifySimulatedTrades(k){
         if(typeof detectOpposingCHoCH === 'function'){
           var clsOppPost = detectOpposingCHoCH(bars, setup.creatorIdx, j, setup.dir, clsMinProminence);
           if(clsOppPost > triggeredAt){
+            resolved='invalidated'; resolvedAt=j; break;
+          }
+        }
+        if(typeof detectConsecutiveCounterBars === 'function'){
+          var clsCtrPost = detectConsecutiveCounterBars(bars, triggeredAt, j, setup.dir, clsMinProminence);
+          if(clsCtrPost > triggeredAt){
             resolved='invalidated'; resolvedAt=j; break;
           }
         }
@@ -12303,7 +12404,9 @@ function analyseIntradayFailures(){
     if(failureMode === 'stopped-after-partial-progress') return 'stopped-after-progress';
     if(failureMode === 'stop-breached-pre-trigger') return 'invalidated-before-retest';
     if(failureMode === 'choch-pre-trigger') return 'invalidated-before-retest';
+    if(failureMode === 'counter-bars-pre-trigger') return 'invalidated-before-retest';
     if(failureMode === 'choch-post-trigger') return 'stopped-after-progress';
+    if(failureMode === 'counter-bars-post-trigger') return 'stopped-after-progress';
     // Fall through for unknown / null
     if(outcome === 'expired') return 'never-retested';
     if(outcome === 'loss') return 'stop-clean-broke';
