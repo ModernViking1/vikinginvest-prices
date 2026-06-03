@@ -74,6 +74,15 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 
 /* ── OVERVIEW GRID ── */
 .ovgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:10px;}
+/* Category dividers inside the overview grid — same shape as the
+   backtest tab's .mkt-section-header so the two views read as a
+   matched pair. Span the full grid row so the next group's cards
+   start cleanly on a new row beneath. Hidden via display:none when
+   a filter pill leaves no visible cards in that section. */
+.ov-section-header{grid-column:1 / -1;display:flex;align-items:baseline;gap:8px;padding:8px 2px 2px 2px;margin-top:2px;border-bottom:1px solid var(--rule);}
+.ov-section-header:first-child{margin-top:0;padding-top:0;}
+.ov-section-title{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--ink);}
+.ov-section-count{font-family:'Orbitron',monospace;font-size:8px;font-weight:600;color:var(--inkd);letter-spacing:1px;}
 .ovc{background:var(--sf);border:1px solid var(--rule);border-radius:3px;padding:8px 9px;box-shadow:var(--shad);cursor:pointer;transition:transform .18s;position:relative;overflow:hidden;}
 .ovc:hover{transform:translateY(-2px);}
 .ovc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
@@ -2219,7 +2228,54 @@ function buildUI(){
 }
 
 // ── Overview Grid ──────────────────────────────────────────────
-function buildOvGrid(){var g=document.getElementById('ovGrid');g.innerHTML='';Object.keys(MKTS).forEach(function(k){var d=document.createElement('div');d.id='ov-'+k;d.onclick=(function(key){return function(){switchPage('dash');switchMkt(key);};})(k);g.appendChild(d);updateOV(k);});}
+// Single source of truth for the dashboard overview's category order.
+// Same five groups the backtest tab uses (FX Majors / FX Minors /
+// Commodities / Indices (incl. DXY) / Crypto), each sorted A-Z by
+// display symbol. Headers render between groups so the long pair grid
+// scans cleanly when the "All" filter is active; setFilter() hides
+// headers whose section has no visible cards under the current filter.
+var OV_GROUPS = [
+  {key:'major', label:'FX Majors'},
+  {key:'minor', label:'FX Minors'},
+  {key:'comm',  label:'Commodities'},
+  {key:'index', label:'Indices (incl. DXY)'},
+  {key:'crypto',label:'Crypto'}
+];
+
+function buildOvGrid(){
+  var g=document.getElementById('ovGrid');
+  g.innerHTML='';
+  var buckets = {major:[], minor:[], comm:[], index:[], crypto:[]};
+  Object.keys(MKTS).forEach(function(k){
+    var t = (MKTS[k] && MKTS[k].t) || 'major';
+    if(!buckets[t]) buckets[t] = [];
+    buckets[t].push(k);
+  });
+  Object.keys(buckets).forEach(function(t){
+    buckets[t].sort(function(a, b){
+      var sa = (MKTS[a].sym || a).toUpperCase();
+      var sb = (MKTS[b].sym || b).toUpperCase();
+      return sa < sb ? -1 : sa > sb ? 1 : 0;
+    });
+  });
+  OV_GROUPS.forEach(function(group){
+    var keys = buckets[group.key] || [];
+    if(keys.length === 0) return;
+    var hdr = document.createElement('div');
+    hdr.className = 'ov-section-header';
+    hdr.id = 'ov-hdr-' + group.key;
+    hdr.innerHTML = '<span class="ov-section-title">'+group.label+'</span>'
+                  + '<span class="ov-section-count" id="ov-hdr-count-'+group.key+'">'+keys.length+' pair'+(keys.length===1?'':'s')+'</span>';
+    g.appendChild(hdr);
+    keys.forEach(function(k){
+      var d = document.createElement('div');
+      d.id = 'ov-' + k;
+      d.onclick = (function(key){return function(){switchPage('dash');switchMkt(key);};})(k);
+      g.appendChild(d);
+      updateOV(k);
+    });
+  });
+}
 function updateOV(k){
   var el=document.getElementById('ov-'+k);if(!el)return;
   var m=MKTS[k],score=sc(k),cc,col,lbl;
@@ -2352,7 +2408,39 @@ function updateOV(k){
 }
 
 // ── Scroller ──────────────────────────────────────────────────
-function buildScroller(){var sc2=document.getElementById('mScroll');sc2.innerHTML='';var all=document.createElement('div');all.className='mtab active';all.id='tab-overview';var _nTr=Object.keys(MKTS).length-(MKTS.dxy?1:0);var _allLbl=_nTr+(MKTS.dxy?' + DXY':'');all.innerHTML='<div class="tsym">ALL</div><div class="tpx">'+_allLbl+'</div><div class="tsig cn">&#9675;</div>';all.onclick=function(){switchMkt('overview');};sc2.appendChild(all);Object.keys(MKTS).forEach(function(k){var tab=document.createElement('div');tab.className='mtab';tab.id='tab-'+k;tab.onclick=(function(key){return function(){switchMkt(key);};})(k);sc2.appendChild(tab);updateTab(k);});}
+// Returns MKTS keys in the same alpha-by-category order the overview
+// grid uses, so the horizontal pair-tab strip and per-pair detail
+// panels follow the same flow when the user arrow-keys / swipes
+// between pairs.
+function _sortedMktKeysByCategory(){
+  var buckets = {major:[], minor:[], comm:[], index:[], crypto:[]};
+  Object.keys(MKTS).forEach(function(k){
+    var t = (MKTS[k] && MKTS[k].t) || 'major';
+    if(!buckets[t]) buckets[t] = [];
+    buckets[t].push(k);
+  });
+  Object.keys(buckets).forEach(function(t){
+    buckets[t].sort(function(a, b){
+      var sa = (MKTS[a].sym || a).toUpperCase();
+      var sb = (MKTS[b].sym || b).toUpperCase();
+      return sa < sb ? -1 : sa > sb ? 1 : 0;
+    });
+  });
+  var out = [];
+  (typeof OV_GROUPS !== 'undefined' ? OV_GROUPS : [
+    {key:'major'},{key:'minor'},{key:'comm'},{key:'index'},{key:'crypto'}
+  ]).forEach(function(group){
+    (buckets[group.key] || []).forEach(function(k){ out.push(k); });
+  });
+  // Safety net: append any pairs whose t didn't match a known bucket
+  // so they don't silently vanish from the strip.
+  Object.keys(MKTS).forEach(function(k){
+    if(out.indexOf(k) === -1) out.push(k);
+  });
+  return out;
+}
+
+function buildScroller(){var sc2=document.getElementById('mScroll');sc2.innerHTML='';var all=document.createElement('div');all.className='mtab active';all.id='tab-overview';var _nTr=Object.keys(MKTS).length-(MKTS.dxy?1:0);var _allLbl=_nTr+(MKTS.dxy?' + DXY':'');all.innerHTML='<div class="tsym">ALL</div><div class="tpx">'+_allLbl+'</div><div class="tsig cn">&#9675;</div>';all.onclick=function(){switchMkt('overview');};sc2.appendChild(all);_sortedMktKeysByCategory().forEach(function(k){var tab=document.createElement('div');tab.className='mtab';tab.id='tab-'+k;tab.onclick=(function(key){return function(){switchMkt(key);};})(k);sc2.appendChild(tab);updateTab(k);});}
 function updateTab(k){var tab=document.getElementById('tab-'+k);if(!tab)return;var m=MKTS[k],score=sc(k),cls,sig;
   // v6 — 4/4 gate: full fire at tot===4; partial covers 2/4 and 3/4.
   if(score.tot===4&&score.dir==='bear'){cls='cb';sig='&#128308;';}else if(score.tot===4&&score.dir==='bull'){cls='cg';sig='&#128994;';}else if(score.tot===2||score.tot===3){cls='cp';sig='&#9888;';}else{cls='cn';sig='&#8987;';}
@@ -7168,6 +7256,23 @@ function setFilter(mode){
     var tab=document.getElementById('tab-'+k);
     if(tab)tab.style.display=shouldShow(k)?'':'none';
   });
+  // Hide section headers whose group now has zero visible cards under
+  // the active filter (e.g. clicking "Indices" should drop the FX
+  // Majors / Minors / Commodities / Crypto headers, not leave them
+  // hanging above empty space). Also refresh the per-section count so
+  // it reflects what the user can actually see.
+  if(typeof OV_GROUPS !== 'undefined'){
+    OV_GROUPS.forEach(function(group){
+      var visible = 0;
+      Object.keys(MKTS).forEach(function(k){
+        if(((MKTS[k] && MKTS[k].t) || 'major') === group.key && shouldShow(k)) visible++;
+      });
+      var hdr = document.getElementById('ov-hdr-' + group.key);
+      if(hdr) hdr.style.display = visible > 0 ? '' : 'none';
+      var cnt = document.getElementById('ov-hdr-count-' + group.key);
+      if(cnt) cnt.textContent = visible + ' pair' + (visible === 1 ? '' : 's');
+    });
+  }
 }
 
 function runScan(){loggedSess={};Object.keys(MKTS).forEach(function(k){refreshAlert(k);});var cnt=Object.keys(MKTS).filter(isFire).length;var n=Object.keys(MKTS).length;addNote('&#9889; Scan complete &#8212; '+cnt+' active 4/4 signal'+(cnt!==1?'s':'')+' across '+n+' markets.');}
