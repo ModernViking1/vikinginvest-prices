@@ -146,6 +146,28 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
         <div class="sub">/dashboard.html</div>
       </div>
     </div>
+
+    <!-- ── Registered users (Supabase auth.users) ────────────────────
+         Counts come from the SECURITY DEFINER RPC defined in
+         /supabase/admin_signup_stats.sql. The anon client cannot
+         read auth.users directly — the RPC runs with elevated
+         privileges and checks the caller's JWT email against the
+         same allowlist used by the page gate above. ─────────────── -->
+    <span class="eyebrow" style="margin-top:34px;">Registered users</span>
+    <h1 style="margin-bottom:18px;">Sign-ups (magic-link)</h1>
+    <div class="cards">
+      <div class="card">
+        <div class="label">Total</div>
+        <div class="num" id="cntSignupTotal">&middot;&middot;&middot;</div>
+        <div class="sub" id="cntSignupLatest">latest: &mdash;</div>
+      </div>
+      <div class="card">
+        <div class="label">Last 7 / 30 days</div>
+        <div class="num" id="cntSignup7d">&middot;&middot;&middot;</div>
+        <div class="sub" id="cntSignup30d">&middot;&middot;&middot; in 30d</div>
+      </div>
+    </div>
+    <div class="note" id="signupNote" style="display:none;"></div>
     <div class="note">
       Each number is unique browsers (one per device, ever). This page is
       unlinked from the site and marked <code>noindex</code> so search engines
@@ -190,6 +212,10 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
   var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}
   });
+  // Expose the authenticated client so the counter loader (separate
+  // IIFE further down) can call sb.rpc('admin_signup_stats') once the
+  // admin session is active.
+  window._sbStats = sb;
 
   function applySession(session){
     if(!session || !session.user){
@@ -271,9 +297,88 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
       })
       .catch(function(){ el.textContent = '—'; });
   }
+
+  // Format an ISO timestamp as "5d ago · 2026-06-03 14:22" or "—".
+  function fmtRel(iso){
+    if(!iso) return '—';
+    try {
+      var t = new Date(iso).getTime();
+      if(!isFinite(t)) return '—';
+      var ageMs = Date.now() - t;
+      var rel;
+      if(ageMs < 60*1000) rel = 'just now';
+      else if(ageMs < 60*60*1000) rel = Math.round(ageMs / 60000) + 'm ago';
+      else if(ageMs < 24*60*60*1000) rel = Math.round(ageMs / (60*60*1000)) + 'h ago';
+      else rel = Math.round(ageMs / (24*60*60*1000)) + 'd ago';
+      var d = new Date(iso);
+      var pad = function(n){ return n < 10 ? '0' + n : '' + n; };
+      var stamp = d.getUTCFullYear() + '-' + pad(d.getUTCMonth()+1) + '-' + pad(d.getUTCDate())
+                + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + 'Z';
+      return rel + ' · ' + stamp;
+    } catch(e){ return '—'; }
+  }
+
+  function loadSignups(){
+    var totalEl   = document.getElementById('cntSignupTotal');
+    var d7El      = document.getElementById('cntSignup7d');
+    var d30El     = document.getElementById('cntSignup30d');
+    var latestEl  = document.getElementById('cntSignupLatest');
+    var noteEl    = document.getElementById('signupNote');
+    if(totalEl) totalEl.textContent = '…';
+    if(d7El)    d7El.textContent    = '…';
+    var sb = window._sbStats;
+    if(!sb){
+      // Admin session not ready yet — loadAll runs once at boot before
+      // the gate has resolved. The gate will call loadAll() again the
+      // moment applySession picks up the admin user.
+      if(totalEl) totalEl.textContent = '—';
+      if(d7El)    d7El.textContent    = '—';
+      return;
+    }
+    sb.rpc('admin_signup_stats').then(function(r){
+      if(r && r.error){
+        // 42501 = not_authorised (the RPC's email-allowlist guard).
+        // 42883 = function doesn't exist (run the SQL migration in
+        //         /supabase/admin_signup_stats.sql first).
+        var msg = r.error.message || 'RPC failed';
+        var hint = r.error.code === '42883'
+          ? 'Run /supabase/admin_signup_stats.sql in the Supabase SQL editor to enable this panel.'
+          : (r.error.code === '42501'
+              ? 'Caller email not on the admin allowlist (check the function definition).'
+              : msg);
+        if(noteEl){
+          noteEl.style.display = '';
+          noteEl.innerHTML = '<strong>Sign-up RPC error:</strong> ' + hint;
+        }
+        if(totalEl) totalEl.textContent  = '—';
+        if(d7El)    d7El.textContent     = '—';
+        if(d30El)   d30El.textContent    = '— in 30d';
+        if(latestEl) latestEl.textContent = 'latest: —';
+        return;
+      }
+      var d = r && r.data ? r.data : null;
+      if(!d || typeof d.total !== 'number'){
+        if(totalEl) totalEl.textContent = '—';
+        return;
+      }
+      if(noteEl) noteEl.style.display = 'none';
+      if(totalEl) totalEl.textContent = d.total.toLocaleString();
+      if(d7El)    d7El.textContent    = (d.last_7d || 0).toLocaleString();
+      if(d30El)   d30El.textContent   = (d.last_30d || 0).toLocaleString() + ' in 30d';
+      if(latestEl) latestEl.textContent = 'latest: ' + fmtRel(d.latest_signup);
+    }).catch(function(err){
+      if(totalEl) totalEl.textContent = '—';
+      if(noteEl){
+        noteEl.style.display = '';
+        noteEl.innerHTML = '<strong>Sign-up RPC error:</strong> ' + ((err && err.message) || 'network error');
+      }
+    });
+  }
+
   window.loadAll = function(){
     load('site', document.getElementById('cntSite'));
     load('dashboard', document.getElementById('cntDash'));
+    loadSignups();
   };
   loadAll();
 })();
