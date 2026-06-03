@@ -5522,9 +5522,13 @@ function renderFailureModeAnalysis(){
       recs.push('<strong>+25% wider stop</strong> rescued ' + Math.round(stopPlus25Success) + '% of losses (n=' + (v.stopPlus25.wins+v.stopPlus25.losses) + ')');
     }
     // Variant B: Fib 38% entry (half size, live since v7) — meaningful
-    // for never-retested cohort. Labels track the live rule name.
+    // for never-retested cohort. SCOPE NOTE 2026-06-03: commodities and
+    // indices ALREADY trade Fib half-size as production methodology
+    // (see _btMethodFor), so their outcomes are excluded from this
+    // aggregate — the "rescue" interpretation only applies to
+    // wick-primary pairs (FX majors / minors / crypto / AUD/USD).
     if(midpointSuccess !== null && midpointSuccess > 50 && (c['never-retested']||0) >= 3){
-      recs.push('<strong>Fib 38% entry</strong> (half size) rescued ' + Math.round(midpointSuccess) + '% of expired-no-retest signals (n=' + (v.midpointEntry.wins+v.midpointEntry.losses) + ')');
+      recs.push('<strong>Fib 38% entry</strong> (half size) rescued ' + Math.round(midpointSuccess) + '% of expired-no-retest signals on <strong>wick-primary pairs only</strong> (n=' + (v.midpointEntry.wins+v.midpointEntry.losses) + '). Commodities &amp; indices already use Fib half-size as production rule, so they\'re excluded from this rescue stat.');
     }
 
     // Diagnostic-driven hints (separate from variant rescues). Surface the
@@ -5616,8 +5620,8 @@ function renderFailureModeAnalysis(){
     + '    </div>'
     + '    <div style="font-size:7.5px;color:var(--inkd);">'+v.stopPlus25.wins+'W / '+v.stopPlus25.losses+'L</div>'
     + '  </div>'
-    + '  <div style="background:rgba(0,0,0,0.02);padding:6px 8px;border-radius:2px;">'
-    + '    <div style="font-size:8px;color:var(--inkm);font-weight:700;">Fib 38% entry (half size)</div>'
+    + '  <div style="background:rgba(0,0,0,0.02);padding:6px 8px;border-radius:2px;" title="Wick-primary pairs only (FX + crypto + AUD/USD). Commodities &amp; indices are excluded — they already use Fib half-size as production methodology, so counting them here would double-claim the rescue.">'
+    + '    <div style="font-size:8px;color:var(--inkm);font-weight:700;">Fib 38% entry (half size) <span style="color:var(--inkd);font-weight:400;font-style:italic;">· wick-primary only</span></div>'
     + '    <div style="font-size:9px;color:'+(midpointSuccess > 50 ? 'var(--bull)' : 'var(--inkd)')+';font-weight:700;">'
     +       (midpointSuccess === null ? 'no data' : Math.round(midpointSuccess) + '% rescue rate')
     + '    </div>'
@@ -13004,9 +13008,24 @@ function analyseIntradayFailures(){
           else aggVariants.stopPlus25.unresolved++;
         }
         if(t.variants.midpointEntry){
-          if(t.variants.midpointEntry === 'win'){ pair.variants.midpointEntry.wins++; aggVariants.midpointEntry.wins++; }
-          else if(t.variants.midpointEntry === 'loss'){ pair.variants.midpointEntry.losses++; aggVariants.midpointEntry.losses++; }
-          else aggVariants.midpointEntry.unresolved++;
+          // The Fib 38% / midpoint entry variant is meaningless as a
+          // "rescue" for pairs that ALREADY use Fib half-size as their
+          // production methodology (commodities + indices via
+          // _btMethodFor). For those pairs the variant outcome IS what
+          // they're actually trading — counting it would double-claim
+          // a rescue that's already the primary rule. Restrict the
+          // aggregate (and the on-card pair count) to wick-primary
+          // pairs only so the "rescue rate" answers the question
+          // the user is actually asking: should the WICK-primary
+          // pairs (FX majors / minors / crypto / AUD/USD) switch to
+          // Fib half-size?
+          var pairUsesFibPrimary = (typeof _btMethodFor === 'function')
+            ? (_btMethodFor(k) === 'fib') : false;
+          if(!pairUsesFibPrimary){
+            if(t.variants.midpointEntry === 'win'){ pair.variants.midpointEntry.wins++; aggVariants.midpointEntry.wins++; }
+            else if(t.variants.midpointEntry === 'loss'){ pair.variants.midpointEntry.losses++; aggVariants.midpointEntry.losses++; }
+            else aggVariants.midpointEntry.unresolved++;
+          }
         }
       }
     });
