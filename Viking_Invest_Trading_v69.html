@@ -934,6 +934,58 @@ var MKTS = {
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
     entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
 
+  // ── v7 batch (2026-06-03): minors / crypto / additional indices ──
+  // All seed directions left 'neutral' so the server-computed
+  // directions.json drives them from first load. Placeholder px / sc /
+  // d values are approximate and self-correct from the first price
+  // tick. If the dashboard slows down materially after these land,
+  // they can be removed without touching the rest of the codebase
+  // (each addition lives entirely under its pair key).
+  nzdcad:{sym:'NZD/CAD',t:'minor',px:'0.8200',p:0.82,d:5,sc:0.004,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  eurnok:{sym:'EUR/NOK',t:'minor',px:'11.500',p:11.5,d:4,sc:0.05,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  nzdchf:{sym:'NZD/CHF',t:'minor',px:'0.5000',p:0.5,d:5,sc:0.003,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  gbpchf:{sym:'GBP/CHF',t:'minor',px:'1.1000',p:1.1,d:5,sc:0.003,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  usdzar:{sym:'USD/ZAR',t:'minor',px:'18.500',p:18.5,d:4,sc:0.08,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  usdcnh:{sym:'USD/CNH',t:'minor',px:'7.2000',p:7.2,d:4,sc:0.02,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  eursgd:{sym:'EUR/SGD',t:'minor',px:'1.4500',p:1.45,d:5,sc:0.004,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  ltcusd:{sym:'LTC/USD',t:'crypto',px:'75.00',p:75,d:2,sc:1.2,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  jp225:{sym:'Nikkei 225',t:'index',px:'38,000',p:38000,d:0,sc:200,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  fra40:{sym:'CAC 40',t:'index',px:'7,700',p:7700,d:1,sc:40,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  esp35:{sym:'IBEX 35',t:'index',px:'11,700',p:11700,d:1,sc:60,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+
   // ── DXY MACRO ANCHOR ──────────────────────────────────────────────
   // The Dollar Index is the regime gate for every USD pair below.
   // Not a tradeable 4/4 signal — shown for confluence context only.
@@ -1538,15 +1590,17 @@ var USD_CORRELATION = {
   // Crypto — DXY correlation is WEAK/EPISODIC. Own cycle dominates. Treat as 'cross'.
   btcusd:'cross', suiusd:'cross',
   ethusd:'cross', solusd:'cross', xrpusd:'cross', taousd:'cross',
-  nearusd:'cross', hypeusd:'cross', ondousd:'cross',
+  nearusd:'cross', hypeusd:'cross', ondousd:'cross', ltcusd:'cross',
   // USDxxx (USD is base) — bear when DXY bear, bull when DXY bull
   usdjpy:'USDxxx', usdcad:'USDxxx', usdchf:'USDxxx', usdsgd:'USDxxx',
+  usdzar:'USDxxx', usdcnh:'USDxxx',
   // FX crosses (no direct USD leg)
   eurnzd:'cross', gbpaud:'cross',
   euraud:'cross', audnzd:'cross', eurgbp:'cross',
   audchf:'cross', cadjpy:'cross',
+  nzdcad:'cross', eurnok:'cross', nzdchf:'cross', gbpchf:'cross', eursgd:'cross',
   // CDS commodities (not USD-correlated directly)
-  usoil:'cross', de40:'cross',
+  usoil:'cross', de40:'cross', jp225:'cross', fra40:'cross', esp35:'cross',
   // The index itself
   dxy:'index'
 };
@@ -1839,14 +1893,18 @@ var VIKING_SRC_MAP = {
   // v5 FX additions
   audcad:'OND', gbpcad:'OND', nzdjpy:'OND', usdnok:'OND',
   gbpnzd:'OND', eursek:'OND',
+  // v7 FX additions (minors)
+  nzdcad:'OND', eurnok:'OND', nzdchf:'OND', gbpchf:'OND',
+  usdzar:'OND', usdcnh:'OND', eursgd:'OND',
   // Commodities
   xauusd:'OND', xagusd:'OND', usoil:'OND',
   // Equity indices
   de40:'OND', ftse100:'OND', dj30:'OND', nas100:'OND', spx500:'OND',
+  jp225:'OND', fra40:'OND', esp35:'OND',
   // Coinbase (crypto)
   btcusd:'CB', suiusd:'CB', ethusd:'CB', solusd:'CB',
   xrpusd:'CB', taousd:'CB',
-  nearusd:'CB', hypeusd:'CB', ondousd:'CB',
+  nearusd:'CB', hypeusd:'CB', ondousd:'CB', ltcusd:'CB',
   // Synthesised
   dxy:'SY'
 };
@@ -4374,6 +4432,12 @@ var PAIR_CURRENCIES = {
   de40:  ['EUR'],
   suiusd:[], audnzd:['AUD','NZD'], eurgbp:['EUR','GBP'],
   audchf:['AUD','CHF'], btcusd:[],
+  // v7 additions (2026-06-03)
+  nzdcad:['NZD','CAD'], eurnok:['EUR','NOK'], nzdchf:['NZD','CHF'],
+  gbpchf:['GBP','CHF'], usdzar:['USD','ZAR'], usdcnh:['USD','CNH'],
+  eursgd:['EUR','SGD'],
+  ltcusd:[],
+  jp225:['JPY'], fra40:['EUR'], esp35:['EUR'],
   dxy:   ['USD','EUR','JPY','GBP','CAD','SEK','CHF']
 };
 
@@ -9850,8 +9914,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-03d';
+var RULES_VERSION = '2026-06-03e';
 var RULES_VERSION_NOTES = [
+  '2026-06-03e — Added 7 FX minors (NZDCAD, EURNOK, NZDCHF, GBPCHF, USDZAR, USDCNH, EURSGD), LTC/USD, and 3 indices (Nikkei 225 / CAC 40 / IBEX 35). Indices use Fib half-size entry. Cache auto-invalidates on the FIB_ENTRY_PAIRS expansion',
   '2026-06-03d — Reverted 2026-06-03c target change (didn\'t backtest cleanly). Targets restored to 1:1 R:R; TV Auto Fib Retracement levels (1.272 / 1.618 / 2.618) surfaced as advisory text in the 15m intraday box only',
   '2026-06-03b — Fast momentum-reversal invalidation: 2 consecutive counter-bars heading toward EMA cloud invalidate (1 counter-bar still valid)',
   '2026-06-03 — Auto-EW badge on Macro card; backtest grid categorised; Auto-EW Diagnostic collapsed by default',
@@ -9867,7 +9932,7 @@ function RULES_FINGERPRINT(){
     ewMin: (typeof EW_MIN !== 'undefined') ? EW_MIN : null,
     autoEwMinConf: (typeof AUTO_EW_MIN_CONFIDENCE !== 'undefined') ? AUTO_EW_MIN_CONFIDENCE : null,
     counterBarsThresh: 2,
-    fibPairs: ['xauusd','xagusd','usoil','de40','nas100','dj30','ftse100','spx500'].sort().join(',')
+    fibPairs: ['xauusd','xagusd','usoil','de40','nas100','dj30','ftse100','spx500','jp225','fra40','esp35'].sort().join(',')
   });
 }
 function _cacheKeyForMode(mode){

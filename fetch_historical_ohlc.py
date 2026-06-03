@@ -88,6 +88,14 @@ PAIRS: Dict[str, Dict[str, str]] = {
     "usdnok":  {"oanda": "USD_NOK"},
     "gbpnzd":  {"oanda": "GBP_NZD"},
     "eursek":  {"oanda": "EUR_SEK"},
+    # v7 additions (2026-06-03 — minors)
+    "nzdcad":  {"oanda": "NZD_CAD"},
+    "eurnok":  {"oanda": "EUR_NOK"},
+    "nzdchf":  {"oanda": "NZD_CHF"},
+    "gbpchf":  {"oanda": "GBP_CHF"},
+    "usdzar":  {"oanda": "USD_ZAR"},
+    "usdcnh":  {"oanda": "USD_CNH"},
+    "eursgd":  {"oanda": "EUR_SGD"},
     # Commodities
     "xauusd":  {"oanda": "XAU_USD"},
     "xagusd":  {"oanda": "XAG_USD"},
@@ -98,6 +106,10 @@ PAIRS: Dict[str, Dict[str, str]] = {
     "dj30":    {"oanda": "US30_USD"},
     "nas100":  {"oanda": "NAS100_USD"},
     "spx500":  {"oanda": "SPX500_USD"},
+    # v7 additions (2026-06-03 — indices)
+    "jp225":   {"oanda": "JP225_USD"},   # Nikkei 225
+    "fra40":   {"oanda": "FR40_EUR"},    # CAC 40
+    "esp35":   {"oanda": "ES35_EUR"},    # IBEX 35
     # Crypto
     "btcusd":  {"coinbase": "BTC-USD"},
     "suiusd":  {"coinbase": "SUI-USD"},
@@ -108,6 +120,8 @@ PAIRS: Dict[str, Dict[str, str]] = {
     "nearusd": {"coinbase": "NEAR-USD"},
     "hypeusd": {"coinbase": "HYPE-USD"},
     "ondousd": {"coinbase": "ONDO-USD"},
+    # v7 crypto addition
+    "ltcusd":  {"coinbase": "LTC-USD"},
 }
 
 # OANDA granularity codes

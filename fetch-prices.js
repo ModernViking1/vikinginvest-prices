@@ -59,6 +59,14 @@ const OANDA_PAIRS = {
   usdnok:  'USD_NOK',
   gbpnzd:  'GBP_NZD',
   eursek:  'EUR_SEK',
+  // FX additions (v7 — 2026-06-03)
+  nzdcad:  'NZD_CAD',
+  eurnok:  'EUR_NOK',
+  nzdchf:  'NZD_CHF',
+  gbpchf:  'GBP_CHF',
+  usdzar:  'USD_ZAR',
+  usdcnh:  'USD_CNH',
+  eursgd:  'EUR_SGD',
   // Commodities
   xauusd: 'XAU_USD',     // gold
   xagusd: 'XAG_USD',     // silver
@@ -69,6 +77,10 @@ const OANDA_PAIRS = {
   dj30:    'US30_USD',   // Dow Jones Industrial Average
   nas100:  'NAS100_USD', // Nasdaq 100
   spx500:  'SPX500_USD', // S&P 500
+  // Equity index additions (v7)
+  jp225:   'JP225_USD',  // Nikkei 225 (note: index level is 225, not 250)
+  fra40:   'FR40_EUR',   // CAC 40 (France)
+  esp35:   'ES35_EUR',   // IBEX 35 (Spain) — confirm OANDA ticker if 404
   // Helper: USD/SEK needed for synthetic DXY computation in the dashboard,
   // even though it doesn't have a tradeable MKTS entry of its own.
   usdsek: 'USD_SEK',
@@ -87,6 +99,8 @@ const COINBASE_PAIRS = {
   nearusd: 'NEAR-USD',
   hypeusd: 'HYPE-USD',
   ondousd: 'ONDO-USD',
+  // v7 additions (2026-06-03)
+  ltcusd:  'LTC-USD',
 };
 
 // ── HTTP helpers ─────────────────────────────────────────────

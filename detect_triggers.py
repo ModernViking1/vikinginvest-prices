@@ -489,6 +489,8 @@ FIB_ENTRY_PAIRS = {
     # dj30/ftse100 keys used everywhere else, so server-side gating
     # silently fell through to no-fib-class on those two pairs).
     'de40', 'nas100', 'dj30', 'ftse100', 'spx500',
+    # v7 additions (2026-06-03)
+    'jp225', 'fra40', 'esp35',
 }
 
 def uses_fib_entry(pair):

@@ -1,48 +1,49 @@
-# Pending instrument additions
+# Instrument additions — log
 
-Not yet deployed — placeholder list captured 2026-06-03 so we can wire
-them up in one batch once the data feeds (OANDA mapping +
-fetch-prices.js + fetch_historical_ohlc.py + intraday OHLC publisher +
-detect_triggers.py) are ready.
+## v7 batch (2026-06-03) — DEPLOYED
 
-## FX Minors
+All 11 new pairs wired across MKTS, fetch-prices.js,
+fetch_historical_ohlc.py, publish_intraday_ohlc.py, and (for the new
+indices) detect_triggers.py's FIB_ENTRY_PAIRS. RULES_VERSION bumped to
+2026-06-03e so the backtest cache auto-invalidates and recomputes
+under the expanded fib-pair set on next page load.
 
-| Key       | Symbol  | OANDA pair | Notes |
-|-----------|---------|------------|-------|
-| `nzdcad`  | NZD/CAD | NZD_CAD    | NZ Dollar vs Canadian Dollar |
-| `eursek`  | EUR/SEK | EUR_SEK    | already a placeholder MKTS entry — verify feed mapping |
-| `eurnok`  | EUR/NOK | EUR_NOK    | Euro vs Norwegian Krone |
-| `nzdchf`  | NZD/CHF | NZD_CHF    | NZ Dollar vs Swiss Franc |
-| `gbpchf`  | GBP/CHF | GBP_CHF    | GBP vs Swiss Franc |
-| `usdzar`  | USD/ZAR | USD_ZAR    | USD vs South African Rand — high spread, watch sizing |
-| `usdcnh`  | USD/CNH | USD_CNH    | USD vs China Offshore (CNH, not CNY) |
-| `eursgd`  | EUR/SGD | EUR_SGD    | Euro vs Singapore Dollar |
+### FX Minors
 
-## Crypto
+| Key       | Symbol  | OANDA pair |
+|-----------|---------|------------|
+| `nzdcad`  | NZD/CAD | NZD_CAD    |
+| `eurnok`  | EUR/NOK | EUR_NOK    |
+| `nzdchf`  | NZD/CHF | NZD_CHF    |
+| `gbpchf`  | GBP/CHF | GBP_CHF    |
+| `usdzar`  | USD/ZAR | USD_ZAR    |
+| `usdcnh`  | USD/CNH | USD_CNH    |
+| `eursgd`  | EUR/SGD | EUR_SGD    |
 
-| Key       | Symbol  | OANDA pair  | Notes |
-|-----------|---------|-------------|-------|
-| `ltcusd`  | LTC/USD | LTC_USD     | Litecoin |
+`eursek` was already in the codebase (existing placeholder) so it
+wasn't re-added.
 
-## Indices
+### Crypto
 
-| Key       | Symbol     | OANDA pair  | Notes |
-|-----------|------------|-------------|-------|
-| `jp225`   | Nikkei 225 | JP225_USD   | User wrote "Nikkei 250" — actual index is 225. Confirm before deploy. |
+| Key       | Symbol  | Coinbase   |
+|-----------|---------|------------|
+| `ltcusd`  | LTC/USD | LTC-USD    |
+
+### Indices (Fib half-size entry)
+
+| Key       | Symbol     | OANDA pair  | Note |
+|-----------|------------|-------------|------|
+| `jp225`   | Nikkei 225 | JP225_USD   | User originally wrote "Nikkei 250" — actual index is 225 |
 | `fra40`   | CAC 40     | FR40_EUR    | French large-cap |
-| `esp35`   | IBEX 35    | ES35_EUR    | Spanish large-cap |
+| `esp35`   | IBEX 35    | ES35_EUR    | Spanish large-cap — confirm OANDA ticker if /candles returns 404 |
 
-## Deploy checklist (per instrument)
+Also patched: `spx500` was missing from `publish_intraday_ohlc.py`'s
+PAIRS dict (present everywhere else). Added during this batch so the
+intraday workflow now actually fetches m15 OHLC for the S&P.
 
-1. Add MKTS entry (Viking_Invest_Trading_v69.html) with `t:` set to the
-   right category — the dashboard's grouped overview + the backtest
-   tab will pick it up automatically.
-2. Add WICKATOR_EW seed entry (or rely on auto-EW).
-3. Add to `_btProfileFor` if it needs Fib half-size routing (indices
-   default to Fib; minors and crypto default to AUTO-EW + wick).
-4. Add to `FIB_ENTRY_PAIRS` in `detect_triggers.py` if it's an
-   index/commodity.
-5. Add the price-feed mapping in `fetch-prices.js` and
-   `fetch_historical_ohlc.py`.
-6. Add to the intraday-OHLC publisher's pair list.
-7. Force-rerun backtests so the deep cache picks it up.
+## Rollback
+
+If the dashboard becomes too slow with these added, revert the v7
+batch by reverting commits between this entry and the previous
+"v6 additions" comments — none of the existing code paths depend
+on the new pairs.
