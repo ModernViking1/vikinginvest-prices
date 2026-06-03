@@ -5373,13 +5373,20 @@ function renderFailureModeAnalysis(){
   var srcTag = report.dataSource === 'deep'
     ? '<span style="font-size:7.5px;padding:1px 5px;border-radius:2px;background:rgba(107,63,160,0.12);color:var(--purple);letter-spacing:0.5px;font-weight:700;">365d BACKTEST</span>'
     : '<span style="font-size:7.5px;padding:1px 5px;border-radius:2px;background:rgba(200,134,10,0.12);color:var(--gold);letter-spacing:0.5px;font-weight:700;">15m SIM</span>';
+  // Rules-version chip — hover shows the changelog. Tells the user which
+  // ruleset produced the displayed stats, so they don't wonder whether a
+  // recent rule change has propagated. The fingerprint check inside
+  // _loadRecentBtCache guarantees the cache is recomputed under the
+  // current rules; this chip just surfaces which version that is.
+  var verTag = '<span title="Recent rule changes:\n' + RULES_VERSION_NOTES.join('\n').replace(/"/g,'&quot;')
+             + '" style="font-size:7.5px;padding:1px 5px;border-radius:2px;background:rgba(77,162,255,0.10);color:#4da2ff;letter-spacing:0.5px;font-weight:700;cursor:help;">RULES ' + RULES_VERSION + '</span>';
   var headerLabel = report.dataSource === 'deep' ? 'Failure mode analysis' : 'Failure mode analysis (simulated)';
   var tradesLabel = report.dataSource === 'deep' ? 'backtested trades' : 'simulated trades';
   var filterTag = '<span style="font-size:7.5px;color:var(--gold);font-style:italic;">'
                 + 'filtered to ' + pc.alignedPairs + ' currently 4/4-aligned pair' + (pc.alignedPairs===1?'':'s')
                 + ' (of ' + pc.totalPairs + ')</span>';
   var aggHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:6px;">'
-    + '<div style="display:flex;align-items:center;gap:8px;"><div style="font-family:Orbitron,monospace;font-size:11px;font-weight:900;letter-spacing:1.2px;color:var(--bear);text-transform:uppercase;">▸ ' + headerLabel + '</div>' + srcTag + '</div>'
+    + '<div style="display:flex;align-items:center;gap:8px;"><div style="font-family:Orbitron,monospace;font-size:11px;font-weight:900;letter-spacing:1.2px;color:var(--bear);text-transform:uppercase;">▸ ' + headerLabel + '</div>' + srcTag + verTag + '</div>'
     + '<div style="font-size:8.5px;color:var(--inkd);">'+t.all+' ' + tradesLabel + ' &middot; '
     +   '<span title="Win rate of trades that resolved as W/L (excludes the ' + (t.expired||0) + ' that expired before retest and the ' + (t.invalidated||0) + ' invalidated pre-trigger). Of all ' + t.all + ' simulated trades, ' + t.wins + ' were wins (' + (t.all > 0 ? Math.round(t.wins/t.all*100) : 0) + '% raw).">'
     +     t.wins + 'W/' + t.losses + 'L resolved · ' + Math.round(stdRate) + '% win rate'
@@ -9149,6 +9156,11 @@ function calcEWDir(k) {
 //      Price below projected resistance = bearish trendline
 //      Both agree = tl direction. Conflict = neutral.
 var TL_LOOKBACK = 5; // Mirrors shortLookback=5 in Pine Script
+// 15m NW lookback — referenced by both the live detector (calcIndependentNWDir
+// 15m path) and the deep backtest walk so both algorithms move together. Used
+// by RULES_FINGERPRINT() so any change here auto-invalidates the recent-backtest
+// cache on next page load instead of waiting for the 24h TTL.
+var NW_LOOKBACK_15M = 5;
 
 function findPivotHighs(prices, lb) {
   // Pine Script: ta.pivothigh(high, lb, lb) — price[i] is pivot high if
@@ -9426,7 +9438,7 @@ function calcIndependentNWDir(k){
   // still down at the prior rally low, so the direction stayed bull.
   // 5 bars (~1h 15m) tracks short-term structure closer to how a
   // trader reads the chart. TL (1H) and EW (daily) keep lookback=8.
-  return calcIndependentDir(bars, 5);
+  return calcIndependentDir(bars, NW_LOOKBACK_15M);
 }
 
 // ── HOURLY RSI (Phase A — display only) ─────────────────────────────────
@@ -9605,6 +9617,37 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // else), a 4h TTL meant overnight users always saw fallback-cache
 // numbers on the headline because both caches had expired before
 // they reloaded. 24h survives a normal trading day.
+
+// ── Rules version + auto-invalidating fingerprint ─────────────────────
+// RULES_VERSION is a human-readable stamp shown in the failure-mode
+// header so the user always knows which ruleset produced the displayed
+// stats. Bump it whenever you change a rule that affects backtest
+// outcomes (lookbacks, thresholds, fib-half-size pair list, etc).
+//
+// RULES_FINGERPRINT() returns a JSON string of the actual rule values.
+// _saveRecentBtCache writes it alongside the cached data; _loadRecentBtCache
+// rejects any cache whose fingerprint doesn't match the running code.
+// This means rule changes propagate within seconds (next page load)
+// instead of waiting up to 24h for the TTL to expire — and there is no
+// way to silently skip the invalidation since the fingerprint is derived
+// from the same constants the engine uses, not a hand-bumped key.
+var RULES_VERSION = '2026-06-03';
+var RULES_VERSION_NOTES = [
+  '2026-06-03 — Auto-EW badge on Macro card; backtest grid categorised; Auto-EW Diagnostic collapsed by default',
+  '2026-05-30 — NW 15m lookback 8 → 5 (CHoCH sensitivity); cache TTL 4h → 24h',
+  '2026-05-29 — Engine-vs-seed direction guards removed (engine authoritative)',
+  '2026-05-28 — Added DJ 30 / FTSE 100 / S&P 500; Fib half-size entry on indices'
+];
+function RULES_FINGERPRINT(){
+  return JSON.stringify({
+    v: RULES_VERSION,
+    nw15: NW_LOOKBACK_15M,
+    tl: TL_LOOKBACK,
+    ewMin: (typeof EW_MIN !== 'undefined') ? EW_MIN : null,
+    autoEwMinConf: (typeof AUTO_EW_MIN_CONFIDENCE !== 'undefined') ? AUTO_EW_MIN_CONFIDENCE : null,
+    fibPairs: ['xauusd','xagusd','usoil','de40','nas100','dj30','ftse100','spx500'].sort().join(',')
+  });
+}
 function _cacheKeyForMode(mode){
   if(mode === 'auto-ew') return RECENT_BT_CACHE_KEY_AUTO;
   if(mode === 'auto-ew-regime') return RECENT_BT_CACHE_KEY_AUTO_REGIME;
@@ -9618,6 +9661,11 @@ function _loadRecentBtCache(mode){
     var parsed = JSON.parse(raw);
     if(!parsed || !parsed.timestamp) return null;
     if(Date.now() - parsed.timestamp > RECENT_BT_CACHE_TTL_MS) return null;
+    // Auto-invalidate when the rules that produced this cache no longer
+    // match the running code. Caches written before fingerprinting was
+    // added have no fingerprint field and are accepted (one-off grace
+    // period — they'll naturally expire under the TTL within 24h).
+    if(parsed.fingerprint && parsed.fingerprint !== RULES_FINGERPRINT()) return null;
     return parsed.data || null;
   } catch(e){ return null; }
 }
@@ -9652,6 +9700,7 @@ function _saveRecentBtCache(data, mode){
   try {
     localStorage.setItem(_cacheKeyForMode(mode), JSON.stringify({
       timestamp: Date.now(),
+      fingerprint: RULES_FINGERPRINT(),
       data: slim
     }));
   } catch(e){
@@ -10091,8 +10140,8 @@ function calcRecentBacktest(k, mode){
     // live calcIndependentNWDir change on 2026-05-30 so the backtest's
     // historical NW reading walks the same algorithm the live engine
     // uses today.
-    var lookback = m15Bars.slice(Math.max(0, i - 5), i);
-    if(lookback.length < 5){ i++; continue; }
+    var lookback = m15Bars.slice(Math.max(0, i - NW_LOOKBACK_15M), i);
+    if(lookback.length < NW_LOOKBACK_15M){ i++; continue; }
 
     var curTs = m15Ts[i];
 
