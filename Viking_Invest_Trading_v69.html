@@ -2334,25 +2334,25 @@ function updateOV(k){
         } else if(iSig.state === 'armed'){
           iColor = 'var(--gold)'; iAnim = '';
           iIcon = '⏳';
-          iTip = 'Intraday signal ARMED — awaiting retest at ' + iSig.entry.toFixed(iSig.entry < 10 ? 4 : (iSig.entry < 100 ? 3 : 2));
+          iTip = 'Intraday 1:1 ARMED — awaiting retest at ' + iSig.entry.toFixed(iSig.entry < 10 ? 4 : (iSig.entry < 100 ? 3 : 2));
         } else if(iSig.outcome === 'target-hit'){
           iColor = 'var(--bull)'; iAnim = '';
           iIcon = '⚡';
-          iTip = 'Intraday TARGET HIT — Auto Fib target reached';
+          iTip = 'Intraday 1:1 TARGET HIT (+1R)';
         } else if(iSig.outcome === 'stop-hit'){
           iColor = 'var(--bear)'; iAnim = '';
           iIcon = '⚡';
-          iTip = 'Intraday STOP HIT (-1R)';
+          iTip = 'Intraday 1:1 STOP HIT (-1R)';
         } else if(iSig.outcome === 'choch-invalidated'){
           iColor = 'var(--bear)'; iAnim = '';
           iIcon = '⊘';
           iTip = iSig.alignmentBroken
-            ? 'Intraday INVALIDATED — 15m structure flipped vs macro, exit at CHoCH flip'
-            : 'Intraday INVALIDATED — opposing CHoCH or 2 counter-bars, structure flipped';
+            ? 'Intraday 1:1 INVALIDATED — 15m structure flipped vs macro, exit at CHoCH flip'
+            : 'Intraday 1:1 INVALIDATED — opposing CHoCH printed, structure flipped';
         } else if(iSig.outcome === 'stale-expired'){
           iColor = 'var(--inkd)'; iAnim = '';
           iIcon = '⌛';
-          iTip = 'Intraday EXPIRED — triggered >4h ago without target/stop/CHoCH; treat as stale';
+          iTip = 'Intraday 1:1 EXPIRED — triggered >4h ago without target/stop/CHoCH; treat as stale';
         } else {
           // Default "triggered, in trade" branch. If the underlying 15m
           // data is more than 15 min behind real time, don't show the
@@ -2376,7 +2376,7 @@ function updateOV(k){
             iColor = 'var(--gold)';
             iAnim = 'animation:spulse 1.5s ease-in-out infinite;';
             iIcon = '⚡';
-            iTip = 'Intraday TRIGGERED — in trade, Auto Fib ' + (iSig.targetFib || '1.618') + ' target ' + iSig.target.toFixed(iSig.target < 10 ? 4 : (iSig.target < 100 ? 3 : 2));
+            iTip = 'Intraday 1:1 TRIGGERED — in trade, target ' + iSig.target.toFixed(iSig.target < 10 ? 4 : (iSig.target < 100 ? 3 : 2));
           }
         }
         ovIntra = '<span style="display:inline-block;font-size:11px;margin-left:4px;color:'+iColor+';font-weight:900;'+iAnim+'cursor:help;vertical-align:middle;line-height:1;" title="'+iTip+'">'+iIcon+'</span>';
@@ -2686,14 +2686,7 @@ function getLayerDet(k,layer,sig){
           var pipsR = iSig.R;
           var pipMult = Math.abs(iSig.entry) > 50 ? 100 : 10000;
           var pipsLabel = (pipsR * pipMult).toFixed(1) + ' pips';
-          // Reward = target-to-entry distance. With Auto Fib targets the
-          // reward distance varies per setup (not always 1:1 R:R) — read
-          // it from the actual target rather than re-using R.
-          var rewardDist = Math.abs((iSig.target != null ? iSig.target : iSig.entry) - iSig.entry);
-          var pipsTarget = (rewardDist * pipMult).toFixed(1) + ' pips';
-          var rrRatio = pipsR > 0 ? (rewardDist / pipsR) : 0;
-          var fibLabel = iSig.targetFib ? ('Fib ' + iSig.targetFib) : 'Fib —';
-          var fibSrcLabel = iSig.targetSource === 'auto-fib' ? 'auto' : 'R-fallback';
+          var pipsTarget = (pipsR * pipMult).toFixed(1) + ' pips';
           var actionVerb = iDir === 'bull' ? 'BUY' : 'SELL';
           var entryDescriptor = iDir === 'bull' ? 'creator low / wick' : 'creator high / wick';
           var stateLabel, stateColor, stateIcon;
@@ -2803,12 +2796,12 @@ function getLayerDet(k,layer,sig){
           }
           intraMsg = '<br><div style="margin-top:6px;padding:6px 8px;background:rgba(200,134,10,0.06);border-left:2px solid var(--gold);border-radius:2px;font-size:9px;line-height:1.5;">'
             + '<div style="font-weight:700;color:'+stateColor+';letter-spacing:0.5px;text-transform:uppercase;font-size:8px;">'
-            +   stateIcon + ' INTRADAY SIGNAL ('+fibLabel+' target &middot; '+rrRatio.toFixed(2)+':1 R:R) &middot; '+stateLabel + armedAtTxt
+            +   stateIcon + ' INTRADAY SIGNAL (1:1 R:R) &middot; '+stateLabel + armedAtTxt
             + '</div>'
             + '<div style="margin-top:3px;color:var(--ink);">'
             +   '<strong>'+actionVerb+'</strong> @ '+fmt(iSig.entry)+' ('+entryDescriptor+', '+iSig.barsAgo+' bars ago)'
-            +   ' &middot; <strong>Stop:</strong> '+fmt(iSig.stop)+' <span style="color:var(--inkd);font-weight:500;">('+pipsLabel+')</span>'
-            +   ' &middot; <strong>Target:</strong> '+fmt(iSig.target)+' <span style="color:var(--inkd);font-weight:500;" title="Target distance from entry">('+pipsTarget+', '+fibLabel+' '+fibSrcLabel+')</span>'
+            +   ' &middot; <strong>Stop:</strong> '+fmt(iSig.stop)
+            +   ' &middot; <strong>Target:</strong> '+fmt(iSig.target)
             + '</div>'
             + '<div style="margin-top:2px;color:var(--inkd);font-size:8px;">'
             +   'Risk: '+pipsLabel+' &middot; Reward: '+pipsTarget+ triggeredAtTxt + ' &middot; '
@@ -2816,6 +2809,37 @@ function getLayerDet(k,layer,sig){
             +   precisionTag
             +   dataAgeTag
             + '</div>';
+
+          // ── ADVISORY: TradingView Auto Fib Retracement levels ──
+          // Display only — does NOT alter the 1:1 R:R target above.
+          // Surfaces the swing high → swing low the 60-bar lookback
+          // would anchor on, plus the 1.272 / 1.618 / 2.618 extensions
+          // projected beyond it in the trade direction, so the trader
+          // can see where TradingView's Auto Fib Retracement indicator
+          // would mark take-profit zones on the same chart.
+          if(iSig.fibAdvisory){
+            var fa = iSig.fibAdvisory;
+            var fibDistPips = function(level){
+              return ((Math.abs(level - iSig.entry)) * pipMult).toFixed(0) + 'p';
+            };
+            var legPips = ((fa.leg) * pipMult).toFixed(0) + 'p';
+            var ext1272 = (iDir === 'bear')
+              ? fa.swingLow - 0.272 * fa.leg
+              : fa.swingHigh + 0.272 * fa.leg;
+            var ext1618 = (iDir === 'bear')
+              ? fa.swingLow - 0.618 * fa.leg
+              : fa.swingHigh + 0.618 * fa.leg;
+            var ext2618 = (iDir === 'bear')
+              ? fa.swingLow - 1.618 * fa.leg
+              : fa.swingHigh + 1.618 * fa.leg;
+            intraMsg += '<div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(0,0,0,0.08);color:var(--inkd);font-size:7.5px;line-height:1.5;" title="TradingView Auto Fib Retracement levels — advisory only. The wick trade still resolves on the 1:1 R:R target above.">'
+              + '<span style="font-family:Orbitron,monospace;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--purple);">🪜 TV Auto Fib (advisory):</span> '
+              + 'SH '+fmt(fa.swingHigh)+' &rarr; SL '+fmt(fa.swingLow)+' (leg '+legPips+') &middot; '
+              + '<strong>1.272</strong> '+fmt(ext1272)+' ('+fibDistPips(ext1272)+') &middot; '
+              + '<strong>1.618</strong> '+fmt(ext1618)+' ('+fibDistPips(ext1618)+') &middot; '
+              + '<strong>2.618</strong> '+fmt(ext2618)+' ('+fibDistPips(ext2618)+')'
+              + '</div>';
+          }
 
           // ── CHoCH DIAGNOSTIC LINE ──
           // Shows what the algorithm is watching for invalidation.
@@ -9273,15 +9297,6 @@ var TL_LOOKBACK = 5; // Mirrors shortLookback=5 in Pine Script
 // by RULES_FINGERPRINT() so any change here auto-invalidates the recent-backtest
 // cache on next page load instead of waiting for the 24h TTL.
 var NW_LOOKBACK_15M = 5;
-// 15m intraday target = entry ± TARGET_FIB_MULT × R where R is the
-// distance from entry to the swept BoS reference (the structural stop).
-// Default = 1.618 (Fibonacci extension) per user spec 2026-06-03 — the
-// previous fixed 1:1 R:R left trades exiting one tier short of where
-// EW practitioners traditionally take profit. Higher Fib levels
-// (2.618, 3.618) give bigger trends a chance to run but lower the hit
-// rate; 1.618 is the Goldilocks default. Wired into the live detector
-// and both backtest paths so they always agree.
-var TARGET_FIB_MULT = 1.618;
 
 function findPivotHighs(prices, lb) {
   // Pine Script: ta.pivothigh(high, lb, lb) — price[i] is pivot high if
@@ -9752,9 +9767,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-03c';
+var RULES_VERSION = '2026-06-03d';
 var RULES_VERSION_NOTES = [
-  '2026-06-03c — Targets now use TradingView-style Auto Fib Retracement: project 1.272/1.618/2.0/2.618 extensions from the most recent swing high/low; prefer 1.618. R-based fallback when the lookback lacks a clean leg',
+  '2026-06-03d — Reverted 2026-06-03c target change (didn\'t backtest cleanly). Targets restored to 1:1 R:R; TV Auto Fib Retracement levels (1.272 / 1.618 / 2.618) surfaced as advisory text in the 15m intraday box only',
   '2026-06-03b — Fast momentum-reversal invalidation: 2 consecutive counter-bars heading toward EMA cloud invalidate (1 counter-bar still valid)',
   '2026-06-03 — Auto-EW badge on Macro card; backtest grid categorised; Auto-EW Diagnostic collapsed by default',
   '2026-05-30 — NW 15m lookback 8 → 5 (CHoCH sensitivity); cache TTL 4h → 24h',
@@ -9769,8 +9784,6 @@ function RULES_FINGERPRINT(){
     ewMin: (typeof EW_MIN !== 'undefined') ? EW_MIN : null,
     autoEwMinConf: (typeof AUTO_EW_MIN_CONFIDENCE !== 'undefined') ? AUTO_EW_MIN_CONFIDENCE : null,
     counterBarsThresh: 2,
-    targetFibMult: TARGET_FIB_MULT,
-    autoFibLookback: AUTO_FIB_LOOKBACK,
     fibPairs: ['xauusd','xagusd','usoil','de40','nas100','dj30','ftse100','spx500'].sort().join(',')
   });
 }
@@ -10337,24 +10350,15 @@ function calcRecentBacktest(k, mode){
       stop = findStructHigh(bosSlice);
       if(stop <= entry){ i++; continue; }
       R = stop - entry;
+      target = entry - R;
     } else {
       entry = m15Bars[i].l;
       stop = findStructLow(bosSlice);
       if(stop >= entry){ i++; continue; }
       R = entry - stop;
+      target = entry + R;
     }
     if(R <= 0){ i++; continue; }
-    // Auto-Fib target (2026-06-03c) — backtest parity with the live
-    // detector. Falls back to entry ± TARGET_FIB_MULT × R when the
-    // 60-bar lookback doesn't carry a clean leg.
-    var fibProjBt = (typeof autoFibTarget === 'function')
-      ? autoFibTarget(m15Bars, i, entry, stop, alignedDir) : null;
-    if(fibProjBt){
-      target = fibProjBt.target;
-    } else {
-      target = (alignedDir === 'bear') ? entry - TARGET_FIB_MULT * R
-                                       : entry + TARGET_FIB_MULT * R;
-    }
 
     // ── HYBRID RULE: 38% Fib retrace entry (HALF SIZE) ──
     // Matches the live rule: a parallel half-size trade triggered when
@@ -10370,14 +10374,12 @@ function calcRecentBacktest(k, mode){
     if(alignedDir === 'bear'){
       midEntry = m15Bars[i].l + creatorRange * 0.382;   // 38% retrace from creator low
       midR = stop - midEntry;
+      midTarget = midEntry - midR;
     } else {
       midEntry = m15Bars[i].h - creatorRange * 0.382;   // 38% retrace from creator high
       midR = midEntry - stop;
+      midTarget = midEntry + midR;
     }
-    // Both Fib-retest and wick entries aim at the same Auto-Fib target —
-    // the structural objective is a property of the macro swing, not
-    // the entry mechanic.
-    midTarget = target;
 
     // Track time window
     if(!fromTs) fromTs = curTs;
@@ -10459,6 +10461,7 @@ function calcRecentBacktest(k, mode){
               newStop = findStructHigh(newBosSlice);
               if(newStop > newEntry){
                 newR = newStop - newEntry;
+                newTarget = newEntry - newR;
               } else {
                 newEntry = null;
               }
@@ -10467,20 +10470,12 @@ function calcRecentBacktest(k, mode){
               newStop = findStructLow(newBosSlice);
               if(newStop < newEntry){
                 newR = newEntry - newStop;
+                newTarget = newEntry + newR;
               } else {
                 newEntry = null;
               }
             }
             if(newEntry !== null && newR > 0){
-              // Re-arm target — Auto Fib from the NEW creator's
-              // anchor index, falling back to R-based if the new
-              // window doesn't carry a clean leg.
-              var newFibProj = (typeof autoFibTarget === 'function')
-                ? autoFibTarget(m15Bars, j, newEntry, newStop, alignedDir) : null;
-              newTarget = newFibProj
-                ? newFibProj.target
-                : ((alignedDir === 'bear') ? newEntry - TARGET_FIB_MULT * newR
-                                           : newEntry + TARGET_FIB_MULT * newR);
               // RE-ARM: replace creator levels
               creatorIdxLive = j;
               entryLive = newEntry;
@@ -10491,10 +10486,11 @@ function calcRecentBacktest(k, mode){
               midEntryLive = newMid;
               if(alignedDir === 'bear'){
                 midRLive = stopLive - midEntryLive;
+                midTargetLive = midEntryLive - midRLive;
               } else {
                 midRLive = midEntryLive - stopLive;
+                midTargetLive = midEntryLive + midRLive;
               }
-              midTargetLive = newTarget;  // fib + wick aim at the same Auto-Fib target
               rearmCount++;
               // After re-arm, this bar IS the new creator. Don't process
               // pre-trigger invalidations against it on the same bar.
@@ -11305,7 +11301,7 @@ function detect15mLevels(k){
 //
 // Returns the index of the SECOND consecutive counter-bar (the
 // invalidation moment), or -1 if no qualifying pair was found.
-// autoFibTarget — TradingView "Auto Fib Retracement"-style target picker.
+// autoFibTarget — TradingView "Auto Fib Retracement"-style swing scanner.
 //
 // Looks back AUTO_FIB_LOOKBACK bars from the trigger and finds the two
 // dominant pivots (the highest high and lowest low in that window). The
@@ -11314,16 +11310,19 @@ function detect15mLevels(k){
 // direction of the trade — exactly what TradingView's Auto Fib indicator
 // draws.
 //
-// Returns {target, fib, swingHigh, swingLow, leg} for the chosen
-// extension level (preferring TARGET_FIB_MULT = 1.618, falling back to
-// the closest other extension that's still beyond entry), or null if
-// the swing geometry doesn't align with the trade direction (e.g. for
-// a BEAR setup the low must come AFTER the high — otherwise the
-// indicator would be projecting in the wrong direction).
+// Used in ADVISORY mode only (2026-06-03d). The live wick/Fib trades
+// resolve on their 1:1 R:R targets; the swing levels returned here are
+// surfaced as reference text in the 15m intraday box so the trader can
+// see where TV's Auto Fib indicator would mark take-profit zones on
+// the same chart. NOT wired into the backtest path — the algorithm
+// outcome is unchanged from 2026-06-03b.
 //
-// The R-based fallback (entry ± TARGET_FIB_MULT × R) is used by the
-// caller if this returns null — so a poorly-shaped lookback window
-// never blocks a signal, it just downgrades the target precision.
+// Returns {target, fib, swingHigh, swingLow, leg} for the chosen
+// extension level (whichever is closest to the stop distance — i.e. the
+// closest-to-1:1-R:R Fib level), or null if the swing geometry doesn't
+// align with the trade direction (for a BEAR setup the low must come
+// AFTER the high — otherwise the indicator would be projecting in the
+// wrong direction).
 var AUTO_FIB_LOOKBACK = 60;  // 60 × 15m = 15h of macro context
 function autoFibTarget(bars, anchorIdx, entry, stop, setupDir){
   if(!bars || anchorIdx == null || anchorIdx < 5) return null;
@@ -11732,10 +11731,13 @@ function detectIntradaySignal(k){
   //              (high for bear, low for bull)
   //   - Stop:  at the Break of Structure (BoS) reference — the swept
   //              swing high/low that the creator just broke
-  //   - Target: Auto Fib Retracement extension level (1.618 preferred)
-  //             of the most recent 60-bar swing — falls back to
-  //             entry ± TARGET_FIB_MULT × R when the lookback doesn't
-  //             have a clean leg.
+  //   - Target: 1:1 R:R from entry (conservative)
+  //
+  // TradingView-style Auto Fib Retracement extensions (1.272 / 1.618 /
+  // 2.618) are computed by autoFibTarget() and returned alongside as
+  // `fibAdvisory` — purely informational, surfaced in the 15m signal
+  // box on the dashboard so the trader can see where TV's indicator
+  // would mark take-profit zones without altering the live target.
   //
   // This places the stop at a real structural level rather than an
   // arbitrary spread buffer. If price returns past the swept swing,
@@ -11747,32 +11749,23 @@ function detectIntradaySignal(k){
     entry = creator.h;        // top of Nowick candle
     stop  = bosRef;           // swept swing high (the BoS reference)
     R     = stop - entry;     // distance from entry up to BoS
+    target = entry - R;       // 1:1 R:R below entry
   } else {  // bull
     entry = creator.l;        // bottom of Nowick candle
     stop  = bosRef;           // swept swing low (the BoS reference)
     R     = entry - stop;     // distance from entry down to BoS
+    target = entry + R;       // 1:1 R:R above entry
   }
   // Sanity: stop must be on the correct side of entry. If it's not
   // (data quirk), the signal isn't valid.
   if(R <= 0) return null;
-  // Target — Auto Fib Retracement style (2026-06-03c). Project Fib
-  // extension levels from the macro swing in the trade direction;
-  // prefer 1.618, fall back to whichever extension lands closest to
-  // 1:1 R:R when 1.618 is unreachable. R-based fallback (entry ±
-  // TARGET_FIB_MULT × R) is used if the lookback window doesn't carry
-  // a clean leg, so the signal never blocks on swing geometry.
-  var fibProj = autoFibTarget(bars, creatorIdx, entry, stop, dir);
-  var targetFib, targetSource;
-  if(fibProj){
-    target = fibProj.target;
-    targetFib = fibProj.fib;
-    targetSource = 'auto-fib';
-  } else {
-    target = (dir === 'bear') ? entry - TARGET_FIB_MULT * R
-                              : entry + TARGET_FIB_MULT * R;
-    targetFib = String(TARGET_FIB_MULT);
-    targetSource = 'R-fallback';
-  }
+  // Advisory Auto Fib levels — display only, never alters target. The
+  // wick trade still resolves on the 1:1 R:R target above; the Fib
+  // figures from autoFibTarget are surfaced as reference levels in
+  // the 15m intraday box so the trader can see what TradingView's
+  // Auto Fib Retracement indicator would draw on the same chart.
+  var fibAdvisory = (typeof autoFibTarget === 'function')
+    ? autoFibTarget(bars, creatorIdx, entry, stop, dir) : null;
 
   // ── FIB-ZONE VARIANT (38-62% retrace of the creator candle) ────
   // Half-size backup entry intended to capture the "expired-no-retest"
@@ -11791,10 +11784,7 @@ function detectIntradaySignal(k){
     fibZoneFar = creator.h - creatorRange * 0.618;
   }
   var fibR = dir === 'bear' ? (stop - fibEntry) : (fibEntry - stop);
-  // Fib-retest variant uses the same Auto-Fib target as the wick entry —
-  // the structural target is a property of the swing, not the entry
-  // mechanic, so both entries aim for the same level.
-  var fibTarget = target;
+  var fibTarget = dir === 'bear' ? (fibEntry - fibR) : (fibEntry + fibR);
   var fibValid = fibR > 0;
 
   // ── DETECT RETEST AND CURRENT STATE ────────────────────────
@@ -12030,8 +12020,7 @@ function detectIntradaySignal(k){
     entry: entry,
     stop: stop,
     target: target,
-    targetFib: targetFib,
-    targetSource: targetSource,
+    fibAdvisory: fibAdvisory,
     R: R,
     triggerBarIdx: triggerBarIdx,
     outcome: outcome,
@@ -12287,19 +12276,13 @@ function simulateIntradayWinRate(k){
     if(alignedDir === 'bear' && bars[i].c < swingLo){
       var entry = bars[i].h, stop = findStructHigh(bosSlice);
       if(stop > entry){
-        var R = stop - entry;
-        var fp = (typeof autoFibTarget === 'function')
-          ? autoFibTarget(bars, i, entry, stop, 'bear') : null;
-        var target = fp ? fp.target : (entry - TARGET_FIB_MULT * R);
+        var R = stop - entry, target = entry - R;
         setup = {dir:'bear', entry, stop, target, R};
       }
     } else if(alignedDir === 'bull' && bars[i].c > swingHi){
       var entry = bars[i].l, stop = findStructLow(bosSlice);
       if(stop < entry){
-        var R = entry - stop;
-        var fp = (typeof autoFibTarget === 'function')
-          ? autoFibTarget(bars, i, entry, stop, 'bull') : null;
-        var target = fp ? fp.target : (entry + TARGET_FIB_MULT * R);
+        var R = entry - stop, target = entry + R;
         setup = {dir:'bull', entry, stop, target, R};
       }
     }
