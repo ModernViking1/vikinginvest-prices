@@ -25,6 +25,7 @@ on:
       - 'index.html'
       - 'stats.html'
       - 'Viking_Invest_Trading_v*.html'
+      - 'font-samples/**/*.html'
       - 'CNAME'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
@@ -72,6 +73,14 @@ jobs:
           cp index.html _site/ 2>/dev/null || true
           # Private visitor-stats page (unlinked, noindex)
           cp stats.html _site/ 2>/dev/null || true
+          # Font-sample variants of the consultancy page — unlinked from
+          # the live nav; reached via /font-samples/. Existence is
+          # optional so deploys still succeed once the samples are
+          # eventually deleted.
+          if [ -d font-samples ]; then
+            mkdir -p _site/font-samples
+            cp font-samples/*.html _site/font-samples/ 2>/dev/null || true
+          fi
           # Custom domain if present
           cp CNAME _site/ 2>/dev/null || true
 
