@@ -2041,7 +2041,16 @@ function mainDashboardWrLabel(k, m, mode){
     // Re-Run). Two reset paths so the chain re-fires when needed.
     var _autoEwCacheCurrentlyFresh = (typeof _loadRecentBtCache === 'function')
       && _loadRecentBtCache('auto-ew') != null;
-    if((!_lazyBacktestTriggered || !_autoEwCacheCurrentlyFresh) &&
+    // If the auto-EW cache is already fresh for the running rules
+    // fingerprint, there's nothing to compute. The previous gate fired
+    // on every first-of-session call regardless of cache freshness,
+    // forcing a redundant refreshBacktestWR + buildBacktest pass even
+    // when the cards already reflected the cached numbers. With the
+    // fingerprint changes of the last few days that meant every page
+    // load was repeating the full chain.
+    if(_autoEwCacheCurrentlyFresh){
+      _lazyBacktestTriggered = true;
+    } else if(!_lazyBacktestTriggered &&
        typeof DEEP_HIST !== 'undefined' && Object.keys(DEEP_HIST).length > 0 &&
        typeof computeAllRecentBacktestsAsync === 'function'){
       _lazyBacktestTriggered = true;
@@ -10411,6 +10420,15 @@ function calcRecentBacktest(k, mode){
     var midEntryLive  = midEntry;
     var midRLive      = midR;
     var midTargetLive = midTarget;
+    // Stateful CHoCH trackers — incremental O(1) advance per bar.
+    // preTracker is rebuilt on re-arm (creator changes); postTracker is
+    // built once at the moment of trigger and tracks against the
+    // ORIGINAL creator i (matching the live detector's behaviour).
+    // The Fib-hybrid loop below uses its own pair of trackers anchored
+    // on i since that pass doesn't re-arm.
+    var preTracker = (typeof makeOpposingCHoCHTracker === 'function')
+      ? makeOpposingCHoCHTracker(m15Bars, creatorIdxLive, alignedDir, minProm) : null;
+    var postTracker = null;
 
     // Helper: check if bar j is a fresh CHoCH in alignedDir relative to its
     // own 8-bar lookback. Same logic the live detector uses.
@@ -10492,6 +10510,11 @@ function calcRecentBacktest(k, mode){
                 midTargetLive = midEntryLive + midRLive;
               }
               rearmCount++;
+              // Rebuild the pre-tracker against the new creator —
+              // structure invalidation is now measured from j, not i.
+              if(typeof makeOpposingCHoCHTracker === 'function'){
+                preTracker = makeOpposingCHoCHTracker(m15Bars, j, alignedDir, minProm);
+              }
               // After re-arm, this bar IS the new creator. Don't process
               // pre-trigger invalidations against it on the same bar.
               continue;
@@ -10513,9 +10536,10 @@ function calcRecentBacktest(k, mode){
         // Opposing CHoCH (structure flip pre-trigger) — search from the
         // CURRENT (possibly re-armed) creator, not the original. After a
         // re-arm, the relevant invalidation is against the new creator's
-        // structure, not the old.
-        if(typeof detectOpposingCHoCH === 'function'){
-          var oppPre = detectOpposingCHoCH(m15Bars, creatorIdxLive, j, alignedDir, minProm);
+        // structure, not the old. preTracker is recreated on re-arm so
+        // its internal state is always anchored on creatorIdxLive.
+        if(preTracker){
+          var oppPre = preTracker.advance(j);
           if(oppPre >= 0){
             resolved = 'invalidated'; failureMode = 'choch-pre-trigger'; resolvedAt = j; break;
           }
@@ -10554,9 +10578,17 @@ function calcRecentBacktest(k, mode){
             resolvedAt = j; break;
           }
         }
-        // Opposing m15 CHoCH (NW flip detected via structure scan)
-        if(typeof detectOpposingCHoCH === 'function'){
-          var oppPost = detectOpposingCHoCH(m15Bars, i, j, alignedDir, minProm);
+        // Opposing m15 CHoCH (NW flip detected via structure scan).
+        // postTracker is lazily created at the moment we triggered and
+        // is anchored on the ORIGINAL creator i (matches the live
+        // detector). resolvedAt is set to the trigger bar before this
+        // branch runs, so the > resolvedAt guard preserves the original
+        // semantics (post-trigger CHoCH must form after entry).
+        if(!postTracker && typeof makeOpposingCHoCHTracker === 'function'){
+          postTracker = makeOpposingCHoCHTracker(m15Bars, i, alignedDir, minProm);
+        }
+        if(postTracker){
+          var oppPost = postTracker.advance(j);
           if(oppPost > resolvedAt){
             resolved = 'invalidated'; failureMode = 'choch-post-trigger'; resolvedAt = j; break;
           }
@@ -10660,6 +10692,15 @@ function calcRecentBacktest(k, mode){
     var midOutcome = null;
     var midMaxFav = 0;
 
+    // Fib hybrid trackers — single creator (i), no re-arm; one for
+    // pre- and one for post- so the post-trigger guard "> i" matches
+    // the original semantics (any CHoCH after trigger invalidates,
+    // but pre-trigger CHoCHs detected by hybTracker shouldn't echo
+    // through after midTriggered flips). The stateful preTracker
+    // approach amortises the swing scan to O(1) per advance.
+    var hybPreTracker = (typeof makeOpposingCHoCHTracker === 'function')
+      ? makeOpposingCHoCHTracker(m15Bars, i, alignedDir, minProm) : null;
+    var hybPostTracker = null;
     for(var hj = i + 1; hj < Math.min(n, i + 1 + 8 + 32) && !midOutcome; hj++){
       var hb = m15Bars[hj];
       if(!midTriggered){
@@ -10667,8 +10708,8 @@ function calcRecentBacktest(k, mode){
         if(alignedDir === 'bear' && hb.c > stop){ midOutcome = 'invalidated'; break; }
         if(alignedDir === 'bull' && hb.c < stop){ midOutcome = 'invalidated'; break; }
         if(hj - i > 8){ midOutcome = 'expired'; break; }
-        if(typeof detectOpposingCHoCH === 'function'){
-          var hOppPre = detectOpposingCHoCH(m15Bars, i, hj, alignedDir, minProm);
+        if(hybPreTracker){
+          var hOppPre = hybPreTracker.advance(hj);
           if(hOppPre >= 0){ midOutcome = 'invalidated'; break; }
         }
         if(typeof detectConsecutiveCounterBars === 'function'){
@@ -10691,8 +10732,11 @@ function calcRecentBacktest(k, mode){
           if(hb.h >= midTarget){ midOutcome = 'win'; break; }
           if(hb.l <= stop){ midOutcome = 'loss'; break; }
         }
-        if(typeof detectOpposingCHoCH === 'function'){
-          var hOppPost = detectOpposingCHoCH(m15Bars, i, hj, alignedDir, minProm);
+        if(!hybPostTracker && typeof makeOpposingCHoCHTracker === 'function'){
+          hybPostTracker = makeOpposingCHoCHTracker(m15Bars, i, alignedDir, minProm);
+        }
+        if(hybPostTracker){
+          var hOppPost = hybPostTracker.advance(hj);
           if(hOppPost > i){ midOutcome = 'invalidated'; break; }
         }
         if(typeof detectConsecutiveCounterBars === 'function'){
@@ -11527,6 +11571,132 @@ function detectOpposingCHoCH(bars, creatorIdx, currentIdx, setupDir, minProminen
     return -1;
   }
   return -1;
+}
+
+// makeOpposingCHoCHTracker — incremental, stateful variant of
+// detectOpposingCHoCH for callers that walk `currentIdx` bar-by-bar
+// in monotone order. Each `advance(currentIdx)` call only processes
+// bars newly seen since the previous call, so amortised work per bar
+// is O(1) instead of the stateless function's O(currentIdx - creatorIdx).
+//
+// Behaviour must be — and is — identical to detectOpposingCHoCH on
+// the same sequence of currentIdx values, because:
+//   1. lowVal/lowIdx (highVal/highIdx for bull) is the running min/max
+//      of the eligibility window [creatorIdx+1, currentIdx-2]. We
+//      extend this window by one bar each call, updating only if the
+//      new bar beats the running extreme. A new extreme resets the
+//      swing-peak/trough state (swing is anchored on the latest
+//      extreme).
+//   2. The swing scan from (lowIdx+1, currentIdx) is monotone — bars
+//      already inspected don't change classification when newer bars
+//      arrive (their `nextH`/`nextL` lookups are against bars[i+1]
+//      from the full array, not the windowed view).
+//   3. CHoCH triggers latch — once fired we cache triggerIdx and
+//      every subsequent advance returns it.
+//
+// Used inside calcRecentBacktest's inner forward-sim loop where the
+// stateless function was being called once per bar with creatorIdx
+// fixed — quadratic work that dominated the deep backtest after the
+// 2026-06-03b counter-bar rule landed. The stateless detectOpposingCHoCH
+// is preserved for classifySimulatedTrades and any one-off callers.
+function makeOpposingCHoCHTracker(bars, creatorIdx, setupDir, minProminence){
+  var chochProm = (minProminence || 0) * 0.3;
+  var st = {
+    triggered: false, triggerIdx: -1,
+    lastEligibleEnd: creatorIdx,
+    lowVal: Infinity, lowIdx: -1,
+    swingPeak: null, swingPeakIdx: -1,
+    highVal: -Infinity, highIdx: -1,
+    swingTrough: null, swingTroughIdx: -1,
+    lastScanIdx: -1
+  };
+  function advance(currentIdx){
+    if(st.triggered) return st.triggerIdx;
+    if(!bars || creatorIdx < 0 || currentIdx <= creatorIdx + 2) return -1;
+    if(currentIdx >= bars.length) currentIdx = bars.length - 1;
+    if(currentIdx - creatorIdx < 3) return -1;
+    var newEligibleEnd = currentIdx - 2;
+    if(setupDir === 'bear'){
+      // 1. Extend eligibility window with newly-eligible bars
+      for(var i = st.lastEligibleEnd + 1; i <= newEligibleEnd; i++){
+        if(bars[i].l < st.lowVal){
+          st.lowVal = bars[i].l;
+          st.lowIdx = i;
+          // New low resets swing tracking — peak must form AFTER lowIdx
+          st.swingPeak = null;
+          st.swingPeakIdx = -1;
+          st.lastScanIdx = st.lowIdx;
+        }
+      }
+      if(newEligibleEnd > st.lastEligibleEnd) st.lastEligibleEnd = newEligibleEnd;
+      if(st.lowIdx === -1) return -1;
+      // 2. Scan newly-visible bars for swing peak + close-through
+      var scanStart = Math.max(st.lowIdx + 1, st.lastScanIdx + 1);
+      for(var i = scanStart; i <= currentIdx; i++){
+        var thisH = bars[i].h;
+        var nextH = (i + 1 < bars.length) ? bars[i + 1].h : null;
+        if(st.swingPeak === null && nextH !== null && thisH > nextH){
+          if((thisH - st.lowVal) >= chochProm){
+            st.swingPeak = thisH;
+            st.swingPeakIdx = i;
+          }
+        }
+        if(st.swingPeak !== null && i > st.swingPeakIdx){
+          if(bars[i].c > st.swingPeak){
+            st.triggered = true;
+            st.triggerIdx = i;
+            st.lastScanIdx = i;
+            return i;
+          }
+          if(nextH !== null && thisH > nextH && (thisH - st.lowVal) >= chochProm && thisH > st.swingPeak){
+            st.swingPeak = thisH;
+            st.swingPeakIdx = i;
+          }
+        }
+      }
+      st.lastScanIdx = currentIdx;
+      return -1;
+    } else if(setupDir === 'bull'){
+      for(var i = st.lastEligibleEnd + 1; i <= newEligibleEnd; i++){
+        if(bars[i].h > st.highVal){
+          st.highVal = bars[i].h;
+          st.highIdx = i;
+          st.swingTrough = null;
+          st.swingTroughIdx = -1;
+          st.lastScanIdx = st.highIdx;
+        }
+      }
+      if(newEligibleEnd > st.lastEligibleEnd) st.lastEligibleEnd = newEligibleEnd;
+      if(st.highIdx === -1) return -1;
+      var scanStart = Math.max(st.highIdx + 1, st.lastScanIdx + 1);
+      for(var i = scanStart; i <= currentIdx; i++){
+        var thisL = bars[i].l;
+        var nextL = (i + 1 < bars.length) ? bars[i + 1].l : null;
+        if(st.swingTrough === null && nextL !== null && thisL < nextL){
+          if((st.highVal - thisL) >= chochProm){
+            st.swingTrough = thisL;
+            st.swingTroughIdx = i;
+          }
+        }
+        if(st.swingTrough !== null && i > st.swingTroughIdx){
+          if(bars[i].c < st.swingTrough){
+            st.triggered = true;
+            st.triggerIdx = i;
+            st.lastScanIdx = i;
+            return i;
+          }
+          if(nextL !== null && thisL < nextL && (st.highVal - thisL) >= chochProm && thisL < st.swingTrough){
+            st.swingTrough = thisL;
+            st.swingTroughIdx = i;
+          }
+        }
+      }
+      st.lastScanIdx = currentIdx;
+      return -1;
+    }
+    return -1;
+  }
+  return {advance: advance};
 }
 
 function detectIntradaySignal(k){
