@@ -332,6 +332,52 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   line-height:1;border-radius:5px;padding:0;
 }
 .viauth-close:hover{background:rgba(0,0,0,0.05);color:#1c1a17;}
+/* ── Profile-completion modal — extends the auth-card visuals so ─
+   both modals look like one design family. .vipro-card widens the
+   max-width since the form has more fields than magic-link. */
+.vipro-card{max-width:520px;}
+.vipro-intro{font-size:13px;color:#4a4640;line-height:1.55;margin:0 0 16px;}
+.vipro-form{display:flex;flex-direction:column;gap:11px;}
+.vipro-form label{
+  display:flex;flex-direction:column;gap:5px;font-size:11.5px;
+  font-weight:600;color:#1c1a17;letter-spacing:0.2px;
+}
+.vipro-form input,.vipro-form select{
+  font-family:'Inter','Mukta',sans-serif;font-size:14px;
+  padding:10px 12px;border:1.5px solid #ddd8d0;border-radius:7px;
+  background:#fff;color:#1c1a17;width:100%;box-sizing:border-box;
+  font-weight:400;
+}
+.vipro-form select{appearance:none;-webkit-appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path fill="%239a9088" d="M0 0l5 6 5-6z"/></svg>');background-repeat:no-repeat;background-position:right 13px center;padding-right:30px;}
+.vipro-form input:focus,.vipro-form select:focus{outline:none;border-color:#c8860a;}
+.vipro-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+@media(max-width:520px){ .vipro-row{grid-template-columns:1fr;} }
+.vipro-opt{color:#9a9088;font-weight:400;font-size:11px;margin-left:4px;}
+.vipro-check{
+  flex-direction:row;align-items:flex-start;gap:9px;
+  background:rgba(200,134,10,0.06);padding:10px 12px;border-radius:7px;
+  font-weight:400;font-size:12px;color:#4a4640;line-height:1.45;
+}
+.vipro-check input{width:auto;margin-top:1px;flex-shrink:0;}
+.vipro-privacy{
+  font-size:10.5px;color:#7a7268;line-height:1.55;background:rgba(0,0,0,0.025);
+  padding:10px 12px;border-radius:6px;border:1px solid #e8e2d8;
+}
+.vipro-privacy a{color:#c8860a;}
+.vipro-privacy em{font-style:normal;font-weight:600;color:#4a4640;}
+.vipro-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:4px;}
+.vipro-skip{
+  font-family:'Inter','Mukta',sans-serif;font-size:11px;font-weight:600;
+  letter-spacing:0.5px;padding:10px 16px;border-radius:7px;cursor:pointer;
+  background:transparent;color:#7a7268;border:1.5px solid #ddd8d0;
+}
+.vipro-skip:hover{color:#1c1a17;border-color:#9a9088;}
+.vipro-save{
+  font-family:'Inter','Mukta',sans-serif;font-size:11px;font-weight:700;
+  letter-spacing:1px;text-transform:uppercase;padding:10px 18px;border-radius:7px;
+  cursor:pointer;background:#1c1a17;color:#f0ede8;border:0;
+}
+.vipro-save:disabled{opacity:0.55;cursor:wait;}
 #viauth-status{display:inline-flex;align-items:center;gap:6px;margin-right:6px;}
 .viauth-chip{
   display:inline-flex;align-items:center;gap:5px;
@@ -366,6 +412,59 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       <button type="submit" id="viauth-btn">Send magic link</button>
     </form>
     <div id="viauth-msg" class="viauth-msg"></div>
+  </div>
+</div>
+
+<!-- ── PROFILE COMPLETION MODAL (post-signin, optional) ── -->
+<div id="vipro-modal" class="viauth-overlay" style="display:none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="vipro-title">
+  <div class="viauth-card vipro-card">
+    <button type="button" class="viauth-close" onclick="window.__viProClose&&window.__viProClose()" aria-label="Close">&times;</button>
+    <div class="viauth-eyebrow">Welcome — tell us about you</div>
+    <h2 id="vipro-title">Help us tailor Viking Invest to your work</h2>
+    <p class="vipro-intro">All fields optional. We use these to personalise the dashboard, qualify consulting introductions, and route relevant content. <strong>Your details are never shared with third parties.</strong></p>
+    <form id="vipro-form" class="vipro-form">
+      <div class="vipro-row">
+        <label>First name<input type="text" id="vipro-firstname" autocomplete="given-name" maxlength="60"></label>
+        <label>Last name<input type="text" id="vipro-lastname" autocomplete="family-name" maxlength="60"></label>
+      </div>
+      <label>Country<input type="text" id="vipro-country" placeholder="e.g. United Kingdom, Denmark, United States" autocomplete="country-name" maxlength="60"></label>
+      <label>Company / firm <span class="vipro-opt">(optional)</span><input type="text" id="vipro-company" autocomplete="organization" maxlength="80"></label>
+      <label>Role
+        <select id="vipro-role">
+          <option value="">&mdash; select &mdash;</option>
+          <option value="portfolio_manager">Portfolio Manager</option>
+          <option value="day_trader">Day / Independent Trader</option>
+          <option value="risk_analyst">Risk Analyst</option>
+          <option value="treasury">Treasury / FX</option>
+          <option value="quant">Quant / Researcher</option>
+          <option value="consultant">Consultant / Advisor</option>
+          <option value="student">Student</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+      <label>Trading experience
+        <select id="vipro-experience">
+          <option value="">&mdash; select &mdash;</option>
+          <option value="beginner">Beginner (&lt; 1 year)</option>
+          <option value="intermediate">Intermediate (1&ndash;3 years)</option>
+          <option value="advanced">Advanced (3&ndash;10 years)</option>
+          <option value="professional">Professional / Institutional (10+ years)</option>
+        </select>
+      </label>
+      <label>Telegram handle <span class="vipro-opt">(optional &mdash; for real-time alerts)</span><input type="text" id="vipro-telegram" placeholder="e.g. 123456789 or @yourhandle" autocomplete="off" maxlength="60"></label>
+      <label class="vipro-check">
+        <input type="checkbox" id="vipro-newsletter">
+        <span>I'd like occasional newsletters about the dashboard, methodology updates, and AI consulting work.</span>
+      </label>
+      <div class="vipro-privacy">
+        We process the details above to personalise your experience and qualify consulting introductions. Lawful basis: consent (newsletter) and legitimate interest (personalisation). You can edit or delete this data at any time by signing in and using the <em>Edit profile</em> link in the topbar, or by emailing <a href="mailto:hello@vikinginvest.ai">hello@vikinginvest.ai</a>. By submitting you confirm you've read the above.
+      </div>
+      <div class="vipro-actions">
+        <button type="button" class="vipro-skip" id="vipro-skip">Remind me later</button>
+        <button type="submit" class="vipro-save" id="vipro-save">Save details</button>
+      </div>
+    </form>
+    <div id="vipro-msg" class="viauth-msg"></div>
   </div>
 </div>
 
@@ -14060,6 +14159,7 @@ startLiveEngine();
       el.innerHTML =
         '<span class="viauth-chip"><span class="viauth-dot"></span>' +
         '<span class="viauth-name" title="'+email.replace(/"/g,'')+'">' + email + '</span></span>' +
+        '<button type="button" class="viauth-link" onclick="window.__viProEdit&&window.__viProEdit()">Edit profile</button>' +
         '<button type="button" class="viauth-link" onclick="window.__viAuthSignOut()">Sign out</button>';
     } else {
       el.innerHTML = '<button type="button" class="viauth-link" onclick="window.__viAuthOpen()">Sign in</button>';
@@ -14126,8 +14226,216 @@ startLiveEngine();
         var p = wantedPage; wantedPage = null;
         setTimeout(function(){ window.switchPage(p); }, 100);
       }
+      // Post-sign-in profile prompt — fires once per session.
+      try { setTimeout(_viProMaybeShow, 800); } catch(e){}
     }
   });
+
+  // ── PROFILE COMPLETION MODAL ─────────────────────────────────────
+  // Surfaces once per session after sign-in if the user hasn't yet
+  // filled the four lead-qualification fields (first name / country
+  // / role / experience). Skip = mark dismissed_at on the row so the
+  // modal stops nagging across sessions until the user opens it
+  // manually via the topbar.
+  //
+  // Privacy / lawful basis copy lives in the modal markup. Bump
+  // VIPRO_CONSENT_VERSION here whenever that copy materially changes
+  // — the modal then re-prompts users whose stored consent_version
+  // doesn't match (so they re-acknowledge the new terms).
+  var VIPRO_CONSENT_VERSION = '2026-06-03-v1';
+  var _viProShownThisSession = false;
+  var _viProSubmitting = false;
+
+  function _viProGetForm(){
+    return {
+      first_name:        (document.getElementById('vipro-firstname')||{}).value,
+      last_name:         (document.getElementById('vipro-lastname')||{}).value,
+      country:           (document.getElementById('vipro-country')||{}).value,
+      company:           (document.getElementById('vipro-company')||{}).value,
+      role:              (document.getElementById('vipro-role')||{}).value,
+      experience:        (document.getElementById('vipro-experience')||{}).value,
+      telegram_handle:   (document.getElementById('vipro-telegram')||{}).value,
+      newsletter_opt_in: !!(document.getElementById('vipro-newsletter')||{}).checked
+    };
+  }
+  function _viProFillForm(p){
+    if(!p) return;
+    var set = function(id, val){
+      var el = document.getElementById(id);
+      if(el) el.value = val == null ? '' : val;
+    };
+    set('vipro-firstname', p.first_name);
+    set('vipro-lastname',  p.last_name);
+    set('vipro-country',   p.country);
+    set('vipro-company',   p.company);
+    set('vipro-role',      p.role);
+    set('vipro-experience',p.experience);
+    set('vipro-telegram',  p.telegram_handle);
+    var nl = document.getElementById('vipro-newsletter');
+    if(nl) nl.checked = !!p.newsletter_opt_in;
+  }
+  function _viProIsComplete(p){
+    if(!p) return false;
+    return !!(p.first_name && p.country && p.role && p.experience);
+  }
+  function _viProOpen(){
+    var m = document.getElementById('vipro-modal');
+    if(!m) return;
+    m.style.display = 'flex';
+    m.setAttribute('aria-hidden', 'false');
+  }
+  function _viProClose(){
+    var m = document.getElementById('vipro-modal');
+    if(!m) return;
+    m.style.display = 'none';
+    m.setAttribute('aria-hidden', 'true');
+    var msg = document.getElementById('vipro-msg');
+    if(msg){ msg.className='viauth-msg'; msg.textContent=''; }
+  }
+  window.__viProOpen  = _viProOpen;
+  window.__viProClose = _viProClose;
+  // Topbar "Edit profile" entry point — re-opens the modal regardless
+  // of completion / dismissal state and re-loads the latest stored
+  // row into the form fields.
+  window.__viProEdit  = function(){ _viProLoadAndMaybeShow(true); };
+
+  function _viProLoadAndMaybeShow(force){
+    if(!session || !session.user) return;
+    sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle()
+      .then(function(r){
+        if(r && r.error){
+          // 42P01 = table doesn't exist (run profiles.sql) — silently
+          // skip so the dashboard doesn't nag the user about a
+          // backend migration they can't act on. Admin sees this in
+          // the stats panel where the same RPC is wired.
+          if(r.error.code === '42P01') return;
+          return;
+        }
+        var profile = (r && r.data) || null;
+        // Already complete + consent up-to-date → only open if user
+        // explicitly invoked it (force=true via "Edit profile").
+        if(profile && _viProIsComplete(profile)
+           && profile.consent_version === VIPRO_CONSENT_VERSION
+           && !force){
+          return;
+        }
+        // Dismissed recently? Respect that unless force=true. We
+        // re-show after 14 days so the prompt stays useful for users
+        // who keep skipping.
+        if(profile && profile.dismissed_at && !force){
+          var dAge = (Date.now() - new Date(profile.dismissed_at).getTime()) / (24*3600*1000);
+          if(dAge < 14) return;
+        }
+        // Preload telegram_id from auth metadata if the user gave it
+        // at sign-in but hasn't seen the profile form yet.
+        if(profile && !profile.telegram_handle){
+          try {
+            var meta = (session.user.user_metadata || {});
+            if(meta.telegram_id) profile.telegram_handle = meta.telegram_id;
+          } catch(e){}
+        }
+        _viProFillForm(profile);
+        _viProOpen();
+      })
+      .catch(function(){});
+  }
+
+  function _viProMaybeShow(){
+    if(_viProShownThisSession) return;
+    _viProShownThisSession = true;
+    _viProLoadAndMaybeShow(false);
+  }
+
+  // Submit handler — upsert into profiles. Empty strings stored as
+  // NULL so the SQL completion counts stay honest.
+  function _viProInit(){
+    var form = document.getElementById('vipro-form');
+    if(!form || form.__viProWired) return;
+    form.__viProWired = true;
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      if(!session || !session.user) return;
+      if(_viProSubmitting) return;
+      _viProSubmitting = true;
+      var btn = document.getElementById('vipro-save');
+      var msg = document.getElementById('vipro-msg');
+      if(btn) btn.disabled = true;
+      if(msg){ msg.className='viauth-msg'; msg.textContent='Saving…'; }
+      var data = _viProGetForm();
+      var nullIfBlank = function(s){
+        if(s == null) return null;
+        var v = String(s).trim();
+        return v ? v : null;
+      };
+      var row = {
+        id:                session.user.id,
+        first_name:        nullIfBlank(data.first_name),
+        last_name:         nullIfBlank(data.last_name),
+        country:           nullIfBlank(data.country),
+        company:           nullIfBlank(data.company),
+        role:              nullIfBlank(data.role),
+        experience:        nullIfBlank(data.experience),
+        telegram_handle:   nullIfBlank(data.telegram_handle),
+        newsletter_opt_in: data.newsletter_opt_in,
+        consent_version:   VIPRO_CONSENT_VERSION,
+        consent_at:        new Date().toISOString(),
+        dismissed_at:      null
+      };
+      sb.from('profiles').upsert(row, {onConflict:'id'}).then(function(r){
+        _viProSubmitting = false;
+        if(btn) btn.disabled = false;
+        if(r && r.error){
+          if(msg){
+            msg.className='viauth-msg viauth-err';
+            msg.textContent = r.error.code === '42P01'
+              ? 'Profile backend not yet enabled — admin needs to run the migration.'
+              : (r.error.message || 'Save failed.');
+          }
+          return;
+        }
+        if(msg){ msg.className='viauth-msg viauth-ok'; msg.textContent='✓ Saved'; }
+        // Mirror telegram_handle into auth metadata so the Telegram
+        // pipeline (which reads from raw_user_meta_data) sees the
+        // value without a join. Best-effort; failure is silent.
+        if(row.telegram_handle){
+          try { sb.auth.updateUser({data:{telegram_id: row.telegram_handle}}); } catch(e){}
+        }
+        setTimeout(_viProClose, 700);
+      }).catch(function(err){
+        _viProSubmitting = false;
+        if(btn) btn.disabled = false;
+        if(msg){
+          msg.className='viauth-msg viauth-err';
+          msg.textContent = (err && err.message) || 'Network error — try again.';
+        }
+      });
+    });
+    var skip = document.getElementById('vipro-skip');
+    if(skip){
+      skip.addEventListener('click', function(){
+        if(!session || !session.user){ _viProClose(); return; }
+        // Mark dismissed so the modal stops nagging across sessions.
+        // We still allow it to re-surface after 14 days (see
+        // _viProLoadAndMaybeShow above).
+        sb.from('profiles').upsert({
+          id: session.user.id,
+          dismissed_at: new Date().toISOString()
+        }, {onConflict:'id'}).then(function(){}).catch(function(){});
+        _viProClose();
+      });
+    }
+    var overlay = document.getElementById('vipro-modal');
+    if(overlay){
+      overlay.addEventListener('click', function(e){
+        if(e.target === overlay) _viProClose();
+      });
+    }
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', _viProInit);
+  } else {
+    _viProInit();
+  }
 
   function onReady(){
     var form = document.getElementById('viauth-form');

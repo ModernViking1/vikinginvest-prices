@@ -62,6 +62,21 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
   .cards{grid-template-columns:1fr;}
   .card .num{font-size:36px;}
 }
+.profile-field-grid{
+  display:grid;grid-template-columns:repeat(2,1fr);gap:9px;
+  background:var(--sf);border:1px solid var(--rule);border-radius:10px;
+  padding:14px 16px;font-family:'Mukta',sans-serif;
+}
+@media(max-width:540px){ .profile-field-grid{grid-template-columns:1fr;} }
+.pfg-row{
+  display:flex;justify-content:space-between;align-items:baseline;
+  font-size:13px;color:var(--inkm);padding:4px 0;
+}
+.pfg-row .pfg-label{font-weight:500;color:var(--ink);}
+.pfg-row .pfg-val{
+  font-family:'Orbitron',monospace;font-size:13px;font-weight:700;color:var(--ink);
+}
+.pfg-row .pfg-pct{font-size:11px;color:var(--inkd);margin-left:5px;font-weight:400;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -168,6 +183,31 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
       </div>
     </div>
     <div class="note" id="signupNote" style="display:none;"></div>
+
+    <!-- ── Profile completion (Supabase public.profiles) ─────────────
+         Counts come from admin_profile_stats() in
+         /supabase/profiles.sql. Mirrors the same RPC pattern as the
+         sign-up panel above: SECURITY DEFINER + email allowlist,
+         never exposes individual rows. Two big numbers + a per-field
+         completion grid so we can see WHICH fields people skip. ── -->
+    <span class="eyebrow" style="margin-top:30px;">Profile completion</span>
+    <h1 style="margin-bottom:18px;">Profiles filled</h1>
+    <div class="cards">
+      <div class="card">
+        <div class="label">Started</div>
+        <div class="num" id="cntProfileTotal">&middot;&middot;&middot;</div>
+        <div class="sub">profile row exists</div>
+      </div>
+      <div class="card">
+        <div class="label">Completed</div>
+        <div class="num" id="cntProfileCompleted">&middot;&middot;&middot;</div>
+        <div class="sub" id="cntProfileCompletePct">name + country + role + experience</div>
+      </div>
+    </div>
+    <div id="profileFieldGrid" style="margin-top:14px;display:none;">
+      <div class="profile-field-grid"></div>
+    </div>
+    <div class="note" id="profileNote" style="display:none;"></div>
     <div class="note">
       Each number is unique browsers (one per device, ever). This page is
       unlinked from the site and marked <code>noindex</code> so search engines
@@ -375,10 +415,91 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
     });
   }
 
+  function loadProfiles(){
+    var totalEl     = document.getElementById('cntProfileTotal');
+    var doneEl      = document.getElementById('cntProfileCompleted');
+    var donePctEl   = document.getElementById('cntProfileCompletePct');
+    var gridHost    = document.getElementById('profileFieldGrid');
+    var grid        = gridHost && gridHost.querySelector('.profile-field-grid');
+    var noteEl      = document.getElementById('profileNote');
+    if(totalEl) totalEl.textContent = '…';
+    if(doneEl)  doneEl.textContent  = '…';
+    var sb = window._sbStats;
+    if(!sb){
+      // Same defer-until-session pattern as loadSignups — applySession
+      // will re-invoke loadAll() once the admin user is authenticated.
+      if(totalEl) totalEl.textContent = '—';
+      if(doneEl)  doneEl.textContent  = '—';
+      return;
+    }
+    sb.rpc('admin_profile_stats').then(function(r){
+      if(r && r.error){
+        var hint = r.error.code === '42883'
+          ? 'Run /supabase/profiles.sql in the Supabase SQL editor to enable this panel.'
+          : (r.error.code === '42501'
+              ? 'Caller email not on the admin allowlist (check the function definition).'
+              : r.error.code === '42P01'
+                ? 'profiles table missing — run /supabase/profiles.sql.'
+                : (r.error.message || 'RPC failed'));
+        if(noteEl){
+          noteEl.style.display = '';
+          noteEl.innerHTML = '<strong>Profile RPC error:</strong> ' + hint;
+        }
+        if(totalEl)   totalEl.textContent   = '—';
+        if(doneEl)    doneEl.textContent    = '—';
+        if(gridHost)  gridHost.style.display = 'none';
+        return;
+      }
+      var d = r && r.data ? r.data : null;
+      if(!d || typeof d.total !== 'number'){
+        if(totalEl) totalEl.textContent = '—';
+        return;
+      }
+      if(noteEl) noteEl.style.display = 'none';
+      var total = d.total || 0;
+      var done  = d.completed || 0;
+      if(totalEl) totalEl.textContent = total.toLocaleString();
+      if(doneEl)  doneEl.textContent  = done.toLocaleString();
+      if(donePctEl){
+        var donePct = total > 0 ? Math.round(done / total * 100) : 0;
+        donePctEl.textContent = total > 0
+          ? donePct + '% of started profiles · name + country + role + experience'
+          : 'name + country + role + experience';
+      }
+      if(grid && d.fields){
+        var labels = {
+          first_name: 'First name', last_name: 'Last name',
+          country: 'Country', company: 'Company',
+          role: 'Role', experience: 'Experience',
+          telegram: 'Telegram', newsletter: 'Newsletter opt-in'
+        };
+        var html = '';
+        Object.keys(labels).forEach(function(k){
+          var v = d.fields[k] || 0;
+          var pct = total > 0 ? Math.round(v / total * 100) : 0;
+          html += '<div class="pfg-row">'
+                + '<span class="pfg-label">' + labels[k] + '</span>'
+                + '<span class="pfg-val">' + v.toLocaleString()
+                +   '<span class="pfg-pct">(' + pct + '%)</span></span>'
+                + '</div>';
+        });
+        grid.innerHTML = html;
+        gridHost.style.display = total > 0 ? '' : 'none';
+      }
+    }).catch(function(err){
+      if(totalEl) totalEl.textContent = '—';
+      if(noteEl){
+        noteEl.style.display = '';
+        noteEl.innerHTML = '<strong>Profile RPC error:</strong> ' + ((err && err.message) || 'network error');
+      }
+    });
+  }
+
   window.loadAll = function(){
     load('site', document.getElementById('cntSite'));
     load('dashboard', document.getElementById('cntDash'));
     loadSignups();
+    loadProfiles();
   };
   loadAll();
 })();
