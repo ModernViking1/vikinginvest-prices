@@ -18,7 +18,7 @@ on:
         required: false
         default: '365'
       pairs:
-        description: 'Optional subset of pairs (comma-separated, leave blank for all)'
+        description: 'Optional subset (comma-separated, e.g. "jp225,fra40,esp35"). Subset runs auto-merge with the existing file so other pairs are preserved. Leave blank for a full rebuild of every pair.'
         required: false
         default: ''
       publish_only:
@@ -59,14 +59,27 @@ jobs:
         env:
           OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
         run: |
+          # Auto-enable --merge when a pair subset is supplied. Without
+          # this, a subset run writes ONLY the listed pairs to
+          # historical-ohlc.json and silently drops everyone else —
+          # turning a "just refresh these 3 indices" run into a
+          # full-file wipe of the other 46 pairs. With --merge, pairs
+          # not in the subset are copied from the existing file
+          # (fetch_historical_ohlc.py line 357). Leaving the pairs
+          # field blank still does a full rebuild as before.
           PAIRS_ARG=""
+          MERGE_ARG=""
           if [ -n "${{ inputs.pairs }}" ]; then
             PAIRS_ARG="--pairs ${{ inputs.pairs }}"
+            MERGE_ARG="--merge"
+            echo "Subset run: $PAIRS_ARG (merging with existing file)"
+          else
+            echo "Full rebuild: refetching every pair in PAIRS dict"
           fi
           python fetch_historical_ohlc.py \
             --days ${{ inputs.days }} \
             --output historical-ohlc.json \
-            $PAIRS_ARG
+            $PAIRS_ARG $MERGE_ARG
           ls -lh historical-ohlc.json
 
       - name: Verify output sanity
