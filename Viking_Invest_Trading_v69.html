@@ -535,6 +535,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <span class="fpill" id="fp-crypto" onclick="setFilter('crypto')" style="border-color:var(--orange);color:var(--orange);">₿ Crypto</span>
     <span class="fpill" id="fp-index" onclick="setFilter('index')" style="border-color:var(--purple);color:var(--purple);">📊 Indices</span>
     <span class="fpill" id="fp-fire" style="border-color:var(--bear);color:var(--bear);" onclick="setFilter('fire')">🔴 Active</span>
+    <span class="fpill" id="fp-armed" style="border-color:var(--gold);color:var(--gold);" onclick="setFilter('armed')">⏳ Armed</span>
     <span class="fpill" id="fp-trig" style="border-color:var(--bull);color:var(--bull);" onclick="setFilter('trig')">⚡ Triggered</span>
   </div>
   <div class="ovgrid" id="ovGrid"></div>
@@ -1670,6 +1671,19 @@ function isTriggered(k){
     return !!(sig && (sig.state === 'triggered' || sig.fib_state === 'triggered'));
   } catch(e){ return false; }
 }
+// True if the intraday signal has armed (creator CHoCH found, levels
+// computed) but price hasn't yet retested. The intermediate state
+// between Active (4/4 aligned, no setup yet) and Triggered (in trade).
+// Drives the ⏳ Armed filter pill — the cohort the trader should be
+// watching most closely on TradingView since a fill could happen on
+// the next 15m bar.
+function isArmed(k){
+  if(typeof detectIntradaySignal !== 'function') return false;
+  try {
+    var sig = detectIntradaySignal(k);
+    return !!(sig && (sig.state === 'armed' || (sig.fib && sig.fib.state === 'armed')));
+  } catch(e){ return false; }
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // DXY CORRELATION MODEL
@@ -2372,6 +2386,7 @@ function shouldShow(k){
   if(filterMode==='crypto') return m.t==='crypto';
   if(filterMode==='index')  return m.t==='index';
   if(filterMode==='fire')   return isFire(k);
+  if(filterMode==='armed')  return isArmed(k);
   if(filterMode==='trig')   return isTriggered(k);
   return true;
 }
@@ -7571,8 +7586,8 @@ function updateStatusBar(){
 
 function setFilter(mode){
   filterMode=mode;
-  var map={all:'fa',major:'fm',minor:'fx',comm:'fc',crypto:'fc',index:'fc',fire:'ff',trig:'ff'};
-  ['all','major','minor','comm','crypto','index','fire','trig'].forEach(function(f){
+  var map={all:'fa',major:'fm',minor:'fx',comm:'fc',crypto:'fc',index:'fc',fire:'ff',armed:'ff',trig:'ff'};
+  ['all','major','minor','comm','crypto','index','fire','armed','trig'].forEach(function(f){
     var el=document.getElementById('fp-'+f);
     if(!el)return;
     el.className='fpill';
@@ -7580,6 +7595,14 @@ function setFilter(mode){
     if(f==='fire'){
       el.style.borderColor='var(--bear)';
       el.style.color=mode==='fire'?'#fff':'var(--bear)';
+    }
+    if(f==='armed'){
+      // Gold to match the ARMED state colour inside the intraday
+      // signal box. Reads visually between Active (red — setup ready
+      // but no creator yet) and Triggered (green — already in trade).
+      el.style.borderColor='var(--gold)';
+      el.style.background=mode==='armed'?'var(--gold)':'transparent';
+      el.style.color=mode==='armed'?'#fff':'var(--gold)';
     }
     if(f==='trig'){
       // Bull-green to read distinct from Active's bear-red. Conceptually:
