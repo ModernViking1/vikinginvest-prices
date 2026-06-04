@@ -292,11 +292,20 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   display:flex;align-items:center;justify-content:center;
   z-index:9999;padding:20px;backdrop-filter:blur(4px);
   font-family:'Inter','Mukta',sans-serif;
+  /* Allow the whole overlay to scroll if the card is taller than the
+     viewport. Without this, vertical flex centering clips the top of
+     long forms above the visible area (profile modal on phones). */
+  overflow-y:auto;
 }
 .viauth-card{
   background:#fff;border:1px solid #ddd8d0;border-radius:14px;
   padding:34px 30px 26px;max-width:430px;width:100%;
   box-shadow:0 24px 80px rgba(0,0,0,0.32);position:relative;
+  /* Cap to viewport minus overlay padding and let the card scroll
+     internally when content exceeds it. The X close button stays
+     reachable at the top of the scroll. */
+  max-height:calc(100vh - 40px);
+  overflow-y:auto;
 }
 .viauth-eyebrow{
   font-size:9.5px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
