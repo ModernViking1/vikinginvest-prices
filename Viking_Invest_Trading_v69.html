@@ -1677,11 +1677,24 @@ function isTriggered(k){
 // Drives the ⏳ Armed filter pill — the cohort the trader should be
 // watching most closely on TradingView since a fill could happen on
 // the next 15m bar.
+//
+// Two gates layered on the state check:
+//   1. isFire(k) — the pair must be 4/4-aligned right now. Without
+//      this, partial 3/4 pairs (where, say, the 4H cloud went neutral
+//      after the signal armed) leak into the filter because
+//      detectIntradaySignal still computes a signal for them.
+//   2. !sig.alignmentBroken — guards against the residual case where
+//      detectIntradaySignal flips the wick `state` to 'invalidated'
+//      on alignment break but leaves the Fib variant's `fib.state` at
+//      'armed' (so the OR-with-fib check below would still pass).
+//      Belt + braces with #1.
 function isArmed(k){
+  if(!isFire(k)) return false;
   if(typeof detectIntradaySignal !== 'function') return false;
   try {
     var sig = detectIntradaySignal(k);
-    return !!(sig && (sig.state === 'armed' || (sig.fib && sig.fib.state === 'armed')));
+    if(!sig || sig.alignmentBroken) return false;
+    return !!(sig.state === 'armed' || (sig.fib && sig.fib.state === 'armed'));
   } catch(e){ return false; }
 }
 
