@@ -1,0 +1,153 @@
+// ============================================================================
+//  Viking Invest — 4H trend bias + 1H CCI breakout (commodities)
+//  © Viking Invest 2026 · for backtesting on TradingView
+// ============================================================================
+//
+// HOW IT WORKS
+// ------------
+// A two-timeframe momentum strategy. The higher timeframe (4H) determines
+// whether we'll consider longs OR shorts at all; the execution timeframe
+// (1H by default, configurable to 4H) waits for a CCI breakout in that
+// direction before firing.
+//
+//   1. 4H trend bias
+//      - Bullish if the 4H bar's close breaks above its 8-bar prior high
+//        AND 4H RSI(14) > 50.
+//      - Bearish if the 4H close breaks below its 8-bar prior low AND
+//        4H RSI < 50.
+//      - Otherwise no setup is considered.
+//
+//   2. 1H execution
+//      - Long signal: CCI(20) crosses ABOVE +100 from below. The cross
+//        bar's close is the trigger. We treat this as breakout
+//        confirmation — price has left its average band with force.
+//      - Short signal: CCI(20) crosses BELOW -100 from above.
+//
+//   3. Risk management
+//      - Stop: 1.5 × ATR(14) on the entry timeframe.
+//      - Target: 2.0 × ATR(14) (so the trade aims for ~1.33:1 reward
+//        to risk — matches the commodity Fib half-size rule the
+//        dashboard already runs).
+//
+// CCI RULE — IMPORTANT
+//   The cross direction matters. "CCI is currently above +100" is not
+//   the same as "CCI just crossed +100 from below". Only the bar where
+//   the cross happens fires the entry; subsequent bars while CCI stays
+//   above +100 do NOT re-fire. Symmetric for -100 / shorts.
+//
+// OPTIONAL FILTERS (off by default)
+//   - 1H execution can be switched to 4H via the input — useful for
+//     pairs where the 1H is too noisy (XAU sometimes).
+//   - "RSI dead zone": skip trades when 4H RSI is between 45 and 55,
+//     i.e. no clear trend. Off by default; turn on if you see
+//     whipsaws around regime changes.
+//
+// ASSUMPTIONS
+//   - Spreads / commissions are not modelled — net P&L will be slightly
+//     worse than what the strategy tester reports. For commodities on
+//     OANDA, 1.5-3 pip spread is typical; budget for it.
+//   - The 4H structure check uses lookback=8 (32 hours of context),
+//     mirroring the dashboard's daily-EW lookback.
+//   - Cross detection is on the bar CLOSE, not intra-bar. This avoids
+//     fills on bars that briefly touched +100 then closed back below.
+//
+// ============================================================================
+
+//@version=5
+strategy("Viking Invest — 4H + 1H CCI Breakout (commodities)",
+     shorttitle = "VI · CCI 4H+1H",
+     overlay = true,
+     pyramiding = 0,
+     initial_capital = 10000,
+     default_qty_type = strategy.percent_of_equity,
+     default_qty_value = 5,
+     process_orders_on_close = true)
+
+// ── Inputs ───────────────────────────────────────────────────────────────
+exec_tf      = input.timeframe("60",  title = "Execution timeframe",
+                               options = ["60", "240"])
+trend_tf     = input.timeframe("240", title = "Trend-bias timeframe")
+cci_len      = input.int(20,  title = "CCI length",      minval = 5)
+cci_thresh   = input.float(100, title = "CCI breakout level", minval = 50, step = 10)
+rsi_len      = input.int(14,  title = "RSI length",      minval = 5)
+struct_lb    = input.int(8,   title = "Structure lookback (HT bars)", minval = 4)
+atr_len      = input.int(14,  title = "ATR length",      minval = 5)
+sl_atr_mult  = input.float(1.5, title = "Stop = ATR ×",  minval = 0.5, step = 0.1)
+tp_atr_mult  = input.float(2.0, title = "Target = ATR ×", minval = 0.5, step = 0.1)
+use_dead_zone = input.bool(false, title = "Skip RSI dead zone (45-55)")
+
+// ── Higher-timeframe (4H) trend bias ─────────────────────────────────────
+// Pull HT bars via request.security. lookahead_off + barmerge for honest
+// backtesting — no repainting from future bars.
+ht_high   = request.security(syminfo.tickerid, trend_tf, high,
+                             lookahead = barmerge.lookahead_off)
+ht_low    = request.security(syminfo.tickerid, trend_tf, low,
+                             lookahead = barmerge.lookahead_off)
+ht_close  = request.security(syminfo.tickerid, trend_tf, close,
+                             lookahead = barmerge.lookahead_off)
+
+// Swing high/low over the prior `struct_lb` HT bars (excluding current).
+ht_swing_high = ta.highest(ht_high[1], struct_lb)
+ht_swing_low  = ta.lowest (ht_low [1], struct_lb)
+
+ht_bull_struct = ht_close > ht_swing_high
+ht_bear_struct = ht_close < ht_swing_low
+
+ht_rsi = request.security(syminfo.tickerid, trend_tf, ta.rsi(close, rsi_len),
+                          lookahead = barmerge.lookahead_off)
+
+in_dead_zone = use_dead_zone and ht_rsi >= 45 and ht_rsi <= 55
+
+ht_bull_bias = ht_bull_struct and ht_rsi > 50 and not in_dead_zone
+ht_bear_bias = ht_bear_struct and ht_rsi < 50 and not in_dead_zone
+
+// ── Execution-timeframe signals ──────────────────────────────────────────
+// CCI on the execution TF (1H by default). When exec_tf == chart TF,
+// request.security simply returns the chart series — Pine compiles fine.
+exec_cci = request.security(syminfo.tickerid, exec_tf,
+                            ta.cci(close, cci_len),
+                            lookahead = barmerge.lookahead_off)
+exec_atr = request.security(syminfo.tickerid, exec_tf,
+                            ta.atr(atr_len),
+                            lookahead = barmerge.lookahead_off)
+
+// Cross detection on the EXECUTION series (uses ta.crossover/under so the
+// trigger fires only on the bar of the cross — subsequent bars above
+// +100 do NOT re-fire).
+bull_cross = ta.crossover (exec_cci,  cci_thresh)
+bear_cross = ta.crossunder(exec_cci, -cci_thresh)
+
+// ── Entry conditions ─────────────────────────────────────────────────────
+long_signal  = ht_bull_bias and bull_cross
+short_signal = ht_bear_bias and bear_cross
+
+// ── Stop + target levels ─────────────────────────────────────────────────
+long_stop    = close - sl_atr_mult * exec_atr
+long_target  = close + tp_atr_mult * exec_atr
+short_stop   = close + sl_atr_mult * exec_atr
+short_target = close - tp_atr_mult * exec_atr
+
+// ── Orders ───────────────────────────────────────────────────────────────
+// `process_orders_on_close = true` (see strategy() above) means entries
+// fire on the close of the cross bar, not the next bar's open.
+if long_signal and strategy.position_size == 0
+    strategy.entry("Long", strategy.long)
+    strategy.exit("Long-exit", "Long",  stop = long_stop,  limit = long_target)
+
+if short_signal and strategy.position_size == 0
+    strategy.entry("Short", strategy.short)
+    strategy.exit("Short-exit", "Short", stop = short_stop, limit = short_target)
+
+// ── Markers ──────────────────────────────────────────────────────────────
+plotshape(long_signal,  title = "Long",  style = shape.triangleup,
+          location = location.belowbar, color = color.new(color.green, 0),
+          size = size.small, text = "BUY")
+plotshape(short_signal, title = "Short", style = shape.triangledown,
+          location = location.abovebar, color = color.new(color.red, 0),
+          size = size.small, text = "SELL")
+
+// ── Alerts ───────────────────────────────────────────────────────────────
+alertcondition(long_signal,  title = "VI CCI · LONG",
+     message  = "VI CCI 4H+1H · LONG {{ticker}} @ {{close}} · SL {{strategy.position_avg_price}} TP via ATR")
+alertcondition(short_signal, title = "VI CCI · SHORT",
+     message  = "VI CCI 4H+1H · SHORT {{ticker}} @ {{close}} · SL {{strategy.position_avg_price}} TP via ATR")

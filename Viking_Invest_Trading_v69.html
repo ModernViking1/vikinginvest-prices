@@ -4324,6 +4324,12 @@ function buildBacktest(){
                   + '<span class="mkt-section-count">'+keys.length+' pair'+(keys.length===1?'':'s')+'</span>';
     mc.appendChild(hdr);
     keys.forEach(_renderBacktestCard);
+    // After the Commodities cards, inject the CCI 4H+1H variant
+    // comparison panel. Display-only — must beat the current
+    // commodity win rate before promotion to production routing.
+    if(group.key === 'comm' && typeof _renderCCIVariantPanel === 'function'){
+      try { _renderCCIVariantPanel(mc, keys); } catch(e){}
+    }
   });
   drawEquity();
 }
@@ -11311,6 +11317,10 @@ function _runForceRerunVariants(btn, statusEl){
       try { if(typeof refreshBacktestWR === 'function') refreshBacktestWR(); } catch(e){}
       try { if(typeof renderFailureModeAnalysis === 'function') renderFailureModeAnalysis(); } catch(e){}
       try { Object.keys(MKTS).forEach(function(k){ if(typeof refreshAlert === 'function') refreshAlert(k); }); } catch(e){}
+      // CCI variant panel results are cached per session; clear on
+      // force-rerun so the panel recomputes against the now-fresh
+      // h1 data the next time the Backtest tab renders.
+      try { window._cciStratResults = {}; } catch(e){}
       return;
     }
     var v = variants[vIdx++];
@@ -14209,6 +14219,369 @@ function startLiveEngine(){
 
 buildUI();
 startLiveEngine();
+
+// ─────────────────────────────────────────────────────────────────────
+// CCI 4H+1H BREAKOUT — commodity backtest variant (research panel)
+// ─────────────────────────────────────────────────────────────────────
+// Mirror of the Pine v5 strategy at /pinescript/cci_4h_1h_breakout.pine.
+// Display-only: results appear under the Commodities cards in the
+// Backtest tab. Will be promoted to the production commodity routing
+// only if it beats the current AUTO-EW + FIB ½ baseline materially
+// and survives forward-walk validation.
+//
+// Logic:
+//   - Higher TF (4H): bull bias iff close > prior 8-bar high AND RSI(14) > 50.
+//                     bear bias iff close < prior 8-bar low  AND RSI(14) < 50.
+//   - Execution (1H): CCI(20) cross above +100 (long) or below -100 (short).
+//                     Cross-only — currently-above doesn't re-fire.
+//   - Risk: stop = 1.5×ATR(14), target = 2.0×ATR(14) on the entry TF.
+//   - Trades expire if neither stop nor target hit within 48 h1 bars.
+
+function _cciCalc(bars, period){
+  period = period || 20;
+  var n = (bars || []).length;
+  var out = new Array(n).fill(null);
+  if(n < period) return out;
+  var tp = new Array(n);
+  for(var i = 0; i < n; i++) tp[i] = (bars[i].h + bars[i].l + bars[i].c) / 3;
+  for(var i = period - 1; i < n; i++){
+    var sum = 0;
+    for(var j = i - period + 1; j <= i; j++) sum += tp[j];
+    var sma = sum / period;
+    var mad = 0;
+    for(var j = i - period + 1; j <= i; j++) mad += Math.abs(tp[j] - sma);
+    mad /= period;
+    out[i] = mad > 0 ? (tp[i] - sma) / (0.015 * mad) : 0;
+  }
+  return out;
+}
+
+function _atrCalc(bars, period){
+  period = period || 14;
+  var n = (bars || []).length;
+  var out = new Array(n).fill(null);
+  if(n < period + 1) return out;
+  // Wilder ATR
+  var trSum = 0;
+  for(var i = 1; i <= period; i++){
+    var tr = Math.max(
+      bars[i].h - bars[i].l,
+      Math.abs(bars[i].h - bars[i-1].c),
+      Math.abs(bars[i].l - bars[i-1].c)
+    );
+    trSum += tr;
+  }
+  out[period] = trSum / period;
+  for(var i = period + 1; i < n; i++){
+    var tr2 = Math.max(
+      bars[i].h - bars[i].l,
+      Math.abs(bars[i].h - bars[i-1].c),
+      Math.abs(bars[i].l - bars[i-1].c)
+    );
+    out[i] = (out[i-1] * (period - 1) + tr2) / period;
+  }
+  return out;
+}
+
+// Aggregate h1 bars into 4H buckets anchored to UTC 0/4/8/12/16/20.
+// Assumes bars are time-ordered. Each h1 bar needs a `.t` field
+// (ISO string or ms timestamp).
+function _aggregateH1ToH4(h1Bars){
+  if(!h1Bars || h1Bars.length === 0) return [];
+  var groups = {}, order = [];
+  for(var i = 0; i < h1Bars.length; i++){
+    var b = h1Bars[i];
+    if(b.t == null) continue;
+    var d = new Date(b.t);
+    if(isNaN(d.getTime())) continue;
+    var bucketHour = Math.floor(d.getUTCHours() / 4) * 4;
+    var key = d.getUTCFullYear() + '-' + (d.getUTCMonth()+1) + '-' + d.getUTCDate() + '-' + bucketHour;
+    if(!groups[key]){ groups[key] = []; order.push(key); }
+    groups[key].push(b);
+  }
+  var out = [];
+  for(var j = 0; j < order.length; j++){
+    var g = groups[order[j]];
+    var hi = g[0].h, lo = g[0].l;
+    for(var x = 1; x < g.length; x++){
+      if(g[x].h > hi) hi = g[x].h;
+      if(g[x].l < lo) lo = g[x].l;
+    }
+    out.push({ t: g[0].t, o: g[0].o, h: hi, l: lo, c: g[g.length-1].c });
+  }
+  return out;
+}
+
+// Maps an h1 bar's timestamp to the index of the h4 bar containing it.
+// Linear scan with hint — fine since we call it bar-by-bar in monotone
+// order during the strategy walk.
+function _findH4Idx(h4Bars, h1Time, hintIdx){
+  if(!h4Bars || h4Bars.length === 0) return -1;
+  var target = new Date(h1Time).getTime();
+  if(!isFinite(target)) return -1;
+  var start = Math.max(0, hintIdx || 0);
+  for(var i = start; i < h4Bars.length; i++){
+    var hi = new Date(h4Bars[i].t).getTime();
+    if(!isFinite(hi)) continue;
+    if(hi > target) return i - 1;
+  }
+  return h4Bars.length - 1;
+}
+
+// Wilder RSI matching the existing calcRSI but vectorised — returns
+// an array of RSI values aligned to `closes` so we can look up any
+// historical bar without re-walking.
+function _rsiSeries(closes, period){
+  period = period || 14;
+  var n = (closes || []).length;
+  var out = new Array(n).fill(null);
+  if(n < period + 1) return out;
+  var gain = 0, loss = 0;
+  for(var i = 1; i <= period; i++){
+    var d = closes[i] - closes[i-1];
+    if(d >= 0) gain += d; else loss -= d;
+  }
+  var avgGain = gain / period, avgLoss = loss / period;
+  out[period] = avgLoss === 0 ? 100 : (100 - 100 / (1 + avgGain / avgLoss));
+  for(var i = period + 1; i < n; i++){
+    var d2 = closes[i] - closes[i-1];
+    var g = d2 > 0 ? d2 : 0, l = d2 < 0 ? -d2 : 0;
+    avgGain = (avgGain * (period - 1) + g) / period;
+    avgLoss = (avgLoss * (period - 1) + l) / period;
+    out[i] = avgLoss === 0 ? 100 : (100 - 100 / (1 + avgGain / avgLoss));
+  }
+  return out;
+}
+
+// Main strategy walker. Returns {wins, losses, expired, total,
+// winRate, netR, trades, error}. Caller decides display.
+function calcCCIStrategyBacktest(k, opts){
+  opts = opts || {};
+  var STRUCT_LB    = opts.structLB   || 8;
+  var CCI_LEN      = opts.cciLen     || 20;
+  var CCI_THR      = opts.cciThresh  || 100;
+  var RSI_LEN      = opts.rsiLen     || 14;
+  var ATR_LEN      = opts.atrLen     || 14;
+  var SL_MULT      = opts.slMult     || 1.5;
+  var TP_MULT      = opts.tpMult     || 2.0;
+  var FORWARD_CAP  = opts.forwardCap || 48;  // bars after entry before expire
+  var USE_DEADZONE = !!opts.useDeadZone;
+
+  if(typeof DEEP_HIST === 'undefined' || !DEEP_HIST[k]) return {error: 'no_deep_hist'};
+  var h1 = DEEP_HIST[k].h1;
+  if(!h1 || h1.length < 200) return {error: 'insufficient_h1', n: h1 ? h1.length : 0};
+
+  var h4 = _aggregateH1ToH4(h1);
+  if(h4.length < 30) return {error: 'insufficient_h4', n: h4.length};
+
+  var cci = _cciCalc(h1, CCI_LEN);
+  var atr = _atrCalc(h1, ATR_LEN);
+  var h4Closes = h4.map(function(b){ return b.c; });
+  var h4Rsi = _rsiSeries(h4Closes, RSI_LEN);
+
+  var trades = [];
+  var h4Hint = 0;
+  for(var i = Math.max(CCI_LEN, ATR_LEN) + 2; i < h1.length - FORWARD_CAP - 2; i++){
+    var prevCCI = cci[i-1], curCCI = cci[i];
+    if(prevCCI == null || curCCI == null) continue;
+    var bullCross = prevCCI <  CCI_THR && curCCI >=  CCI_THR;
+    var bearCross = prevCCI > -CCI_THR && curCCI <= -CCI_THR;
+    if(!bullCross && !bearCross) continue;
+
+    // Locate the contemporary 4H bar (the one CONTAINING this h1 bar's
+    // time — we use bias from the close of THAT bar, mirroring how
+    // Pine's request.security on h4 would feed it).
+    h4Hint = _findH4Idx(h4, h1[i].t, h4Hint);
+    if(h4Hint < STRUCT_LB + 1) continue;
+    var h4Cur = h4[h4Hint];
+    if(!h4Cur) continue;
+
+    // 4H structural bias: close vs prior STRUCT_LB-bar swing high/low.
+    var prior = h4.slice(h4Hint - STRUCT_LB, h4Hint);
+    if(prior.length < STRUCT_LB) continue;
+    var swHi = -Infinity, swLo = Infinity;
+    for(var p = 0; p < prior.length; p++){
+      if(prior[p].h > swHi) swHi = prior[p].h;
+      if(prior[p].l < swLo) swLo = prior[p].l;
+    }
+    var bullBias = h4Cur.c > swHi;
+    var bearBias = h4Cur.c < swLo;
+
+    var rsi = h4Rsi[h4Hint];
+    if(rsi == null) continue;
+    if(USE_DEADZONE && rsi >= 45 && rsi <= 55) continue;
+
+    var isLong  = bullCross && bullBias && rsi > 50;
+    var isShort = bearCross && bearBias && rsi < 50;
+    if(!isLong && !isShort) continue;
+
+    var dir = isLong ? 'bull' : 'bear';
+    var entry = h1[i].c;
+    var aTR = atr[i];
+    if(aTR == null || aTR <= 0) continue;
+    var stop   = dir === 'bull' ? entry - SL_MULT * aTR : entry + SL_MULT * aTR;
+    var target = dir === 'bull' ? entry + TP_MULT * aTR : entry - TP_MULT * aTR;
+    var rrRatio = TP_MULT / SL_MULT;
+
+    var outcome = null, exitIdx = -1;
+    for(var j = i + 1; j < Math.min(h1.length, i + 1 + FORWARD_CAP); j++){
+      var b = h1[j];
+      if(dir === 'bull'){
+        if(b.h >= target){ outcome = 'win';  exitIdx = j; break; }
+        if(b.l <= stop  ){ outcome = 'loss'; exitIdx = j; break; }
+      } else {
+        if(b.l <= target){ outcome = 'win';  exitIdx = j; break; }
+        if(b.h >= stop  ){ outcome = 'loss'; exitIdx = j; break; }
+      }
+    }
+    if(!outcome){ outcome = 'expired'; exitIdx = Math.min(h1.length - 1, i + FORWARD_CAP); }
+    trades.push({
+      i: i, dir: dir, outcome: outcome,
+      entry: entry, stop: stop, target: target,
+      bars: exitIdx - i
+    });
+    // Skip forward to the exit so we don't double-count overlapping
+    // signals while a position would still be open.
+    i = exitIdx;
+  }
+
+  var wins    = trades.filter(function(t){ return t.outcome === 'win'; }).length;
+  var losses  = trades.filter(function(t){ return t.outcome === 'loss'; }).length;
+  var expired = trades.filter(function(t){ return t.outcome === 'expired'; }).length;
+  var resolved = wins + losses;
+  var winRate = resolved > 0 ? (wins / resolved) * 100 : 0;
+  // Each win = +TP_MULT/SL_MULT R, each loss = -1R. Expired = 0R.
+  var netR = wins * (TP_MULT / SL_MULT) - losses;
+  return {
+    wins: wins, losses: losses, expired: expired,
+    total: trades.length, resolved: resolved,
+    winRate: winRate, netR: netR, rrRatio: (TP_MULT / SL_MULT),
+    sample: trades.length
+  };
+}
+
+// Render the comparison panel below the Commodities section in the
+// Backtest tab. Cached on first compute per pair; force-rerun
+// invalidates via window._cciStratResults = {}.
+window._cciStratResults = window._cciStratResults || {};
+
+function _renderCCIVariantPanel(host, commodityKeys){
+  if(!host || !commodityKeys || commodityKeys.length === 0) return;
+  var hdr = document.createElement('div');
+  hdr.className = 'mkt-section-header';
+  hdr.style.borderTop = '2px solid var(--gold)';
+  hdr.style.marginTop = '14px';
+  hdr.innerHTML = '<span class="mkt-section-title" style="color:var(--purple);">🧪 CCI 4H+1H · Variant Backtest</span>'
+                + '<span class="mkt-section-count">research · must beat current rule to deploy</span>';
+  host.appendChild(hdr);
+
+  var card = document.createElement('div');
+  card.className = 'mktcard';
+  card.style.gridColumn = '1 / -1';
+  card.style.padding = '12px 16px';
+  card.style.background = 'rgba(107,63,160,0.04)';
+  card.style.borderColor = 'rgba(107,63,160,0.3)';
+
+  // Sum aggregates as we compute.
+  var totWins = 0, totLosses = 0, totExpired = 0, totTrades = 0;
+  var baseWins = 0, baseLosses = 0;
+  var rows = [];
+
+  // Per-pair: existing baseline (from auto-ew cache hybrid.midWins) vs
+  // CCI strategy.
+  var allRecent = (typeof _loadRecentBtCache === 'function')
+                    ? _loadRecentBtCache('auto-ew') : null;
+  commodityKeys.forEach(function(k){
+    var sym = (MKTS[k] && MKTS[k].sym) || k;
+    // Existing baseline (Fib half-size on commodity pairs)
+    var rb = allRecent && allRecent[k];
+    var bW = 0, bL = 0;
+    if(rb && rb.hybrid){ bW = rb.hybrid.midWins || 0; bL = rb.hybrid.midLosses || 0; }
+    var bResolved = bW + bL;
+    var bRate = bResolved > 0 ? (bW / bResolved * 100) : 0;
+    baseWins += bW; baseLosses += bL;
+
+    // CCI strategy — cached per session so re-renders are fast
+    if(!window._cciStratResults[k]){
+      window._cciStratResults[k] = calcCCIStrategyBacktest(k);
+    }
+    var r = window._cciStratResults[k];
+    var cciCell;
+    if(r && r.error){
+      cciCell = '<span style="color:var(--inkd);font-style:italic;">'
+              + (r.error === 'insufficient_h1' || r.error === 'insufficient_h4'
+                  ? 'awaiting deep h1 history'
+                  : r.error)
+              + '</span>';
+    } else if(r){
+      totWins += r.wins; totLosses += r.losses; totExpired += r.expired; totTrades += r.total;
+      var delta = r.winRate - bRate;
+      var deltaCol = delta >= 5 ? 'var(--bull)' : (delta <= -5 ? 'var(--bear)' : 'var(--inkd)');
+      var deltaTxt = (delta >= 0 ? '+' : '') + delta.toFixed(1) + ' pp';
+      cciCell = '<span style="font-weight:700;color:'+(r.winRate>=bRate?'var(--bull)':'var(--bear)')+';">'
+              + r.winRate.toFixed(1) + '%</span> '
+              + '<span style="font-size:8.5px;color:var(--inkd);">'
+              + r.wins + 'W/' + r.losses + 'L</span> '
+              + '<span style="font-size:8.5px;color:'+deltaCol+';font-weight:700;">('+deltaTxt+')</span>';
+    } else {
+      cciCell = '<span style="color:var(--inkd);">—</span>';
+    }
+    rows.push({sym: sym, bRate: bRate, bW: bW, bL: bL, cciCell: cciCell});
+  });
+
+  var rowsHTML = rows.map(function(row){
+    return '<tr>'
+      + '<td style="padding:5px 8px;font-weight:700;color:var(--ink);">'+row.sym+'</td>'
+      + '<td style="padding:5px 8px;text-align:right;">'
+      +   '<span style="color:var(--gold);font-weight:700;">'+row.bRate.toFixed(1)+'%</span> '
+      +   '<span style="font-size:8.5px;color:var(--inkd);">'+row.bW+'W/'+row.bL+'L</span>'
+      + '</td>'
+      + '<td style="padding:5px 8px;text-align:right;">' + row.cciCell + '</td>'
+      + '</tr>';
+  }).join('');
+
+  // Aggregate verdict
+  var baseTotal = baseWins + baseLosses;
+  var baseRate  = baseTotal > 0 ? (baseWins / baseTotal * 100) : 0;
+  var cciResolved = totWins + totLosses;
+  var cciRate     = cciResolved > 0 ? (totWins / cciResolved * 100) : 0;
+  var diff = cciRate - baseRate;
+  var verdict, verdictColor;
+  if(cciResolved < 20){
+    verdict = '⏳ Insufficient data — need ≥ 20 resolved trades total for a verdict';
+    verdictColor = 'var(--inkd)';
+  } else if(diff >= 5){
+    verdict = '✓ CCI variant beats baseline by ' + diff.toFixed(1) + ' pp — candidate for deployment';
+    verdictColor = 'var(--bull)';
+  } else if(diff <= -5){
+    verdict = '✗ CCI variant underperforms baseline by ' + Math.abs(diff).toFixed(1) + ' pp — keep current rule';
+    verdictColor = 'var(--bear)';
+  } else {
+    verdict = '≈ CCI variant within ±5 pp of baseline (' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + ' pp) — not a clear win';
+    verdictColor = 'var(--gold)';
+  }
+
+  card.innerHTML =
+      '<div style="font-family:Orbitron,monospace;font-size:9px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">'
+    +   '4H trend bias (HH/HL + RSI>50) + 1H CCI(20) ±100 cross · ATR(14) × 1.5 SL / 2.0 TP · ' + (commodityKeys.length) + ' commodity pair' + (commodityKeys.length===1?'':'s')
+    + '</div>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:11px;">'
+    + '<thead><tr style="border-bottom:1px solid var(--rule);">'
+    + '<th style="padding:5px 8px;text-align:left;font-size:8.5px;color:var(--inkd);font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">Pair</th>'
+    + '<th style="padding:5px 8px;text-align:right;font-size:8.5px;color:var(--inkd);font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">Current (AUTO-EW + FIB ½)</th>'
+    + '<th style="padding:5px 8px;text-align:right;font-size:8.5px;color:var(--inkd);font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">CCI 4H+1H</th>'
+    + '</tr></thead>'
+    + '<tbody>' + rowsHTML + '</tbody>'
+    + '<tfoot><tr style="border-top:1px solid var(--rule);font-weight:700;">'
+    +   '<td style="padding:6px 8px;">Aggregate</td>'
+    +   '<td style="padding:6px 8px;text-align:right;color:var(--gold);">' + baseRate.toFixed(1) + '% · ' + baseWins + 'W/' + baseLosses + 'L</td>'
+    +   '<td style="padding:6px 8px;text-align:right;color:'+(diff>=0?'var(--bull)':'var(--bear)')+';">' + cciRate.toFixed(1) + '% · ' + totWins + 'W/' + totLosses + 'L</td>'
+    + '</tr></tfoot></table>'
+    + '<div style="margin-top:10px;padding:8px 10px;background:rgba(255,255,255,0.5);border-left:3px solid '+verdictColor+';font-size:11px;color:'+verdictColor+';font-weight:600;">'
+    +   verdict
+    + '</div>';
+  host.appendChild(card);
+}
 
 </script>
 
