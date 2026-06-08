@@ -51,14 +51,15 @@ const OANDA_PAIRS = {
   gbpaud: 'GBP_AUD',
   audnzd: 'AUD_NZD',
   eurgbp: 'EUR_GBP',
-  audchf: 'AUD_CHF',
+  // audchf removed 2026-06-08 — low win-rate drag on aggregate (was hurting
+  // overall stats). Re-add: 'audchf': 'AUD_CHF'.
   // FX additions (v5 — user requested)
   audcad:  'AUD_CAD',
   gbpcad:  'GBP_CAD',
   nzdjpy:  'NZD_JPY',
-  usdnok:  'USD_NOK',
+  // usdnok removed 2026-06-08 — low win-rate drag. Re-add: 'usdnok': 'USD_NOK'.
   gbpnzd:  'GBP_NZD',
-  eursek:  'EUR_SEK',
+  // eursek removed 2026-06-08 — low win-rate drag. Re-add: 'eursek': 'EUR_SEK'.
   // FX additions (v7 — 2026-06-03)
   nzdcad:  'NZD_CAD',
   eurnok:  'EUR_NOK',

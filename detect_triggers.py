@@ -49,10 +49,14 @@ PAIR_DISPLAY = {
     'usdcad': 'USD/CAD', 'usdchf': 'USD/CHF', 'audusd': 'AUD/USD',
     'nzdusd': 'NZD/USD', 'usdsgd': 'USD/SGD', 'cadjpy': 'CAD/JPY',
     'eurnzd': 'EUR/NZD', 'gbpaud': 'GBP/AUD', 'euraud': 'EUR/AUD',
-    'audnzd': 'AUD/NZD', 'audchf': 'AUD/CHF', 'eurgbp': 'EUR/GBP',
+    'audnzd': 'AUD/NZD', 'eurgbp': 'EUR/GBP',
+    # audchf removed 2026-06-08 — low win-rate drag on aggregate.
+    # Re-add: "'audchf': 'AUD/CHF',"
     # v5 FX additions
     'audcad': 'AUD/CAD', 'gbpcad': 'GBP/CAD', 'nzdjpy': 'NZD/JPY',
-    'usdnok': 'USD/NOK', 'gbpnzd': 'GBP/NZD', 'eursek': 'EUR/SEK',
+    'gbpnzd': 'GBP/NZD',
+    # usdnok / eursek removed 2026-06-08 — low win-rate drag.
+    # Re-add: "'usdnok': 'USD/NOK', 'eursek': 'EUR/SEK',"
     # Commodities / indices
     'xauusd': 'XAU/USD', 'xagusd': 'XAG/USD', 'usoil': 'BRENT',
     'de40':   'DAX 30',  'ftse100': 'FTSE 100',
@@ -152,6 +156,39 @@ def calc_independent_dir(bars, lookback=8):
                     return 'bear'
         return 'neutral'
     return last_break_dir
+
+
+def calc_rsi(closes, period=14):
+    """Wilder RSI — byte-for-byte port of _rsiSeries(closes, 14) in the
+    dashboard (lines ~14566). Returns the LAST RSI value or None if the
+    series is shorter than period+1. Used by the A1 hard gate
+    (RULES_VERSION 2026-06-09d) to block setups whose 1H RSI is at the
+    80/20 extreme.
+    """
+    if not closes:
+        return None
+    n = len(closes)
+    if n < period + 1:
+        return None
+    gain = 0.0
+    loss = 0.0
+    for i in range(1, period + 1):
+        d = closes[i] - closes[i - 1]
+        if d >= 0:
+            gain += d
+        else:
+            loss -= d
+    avg_gain = gain / period
+    avg_loss = loss / period
+    rsi = 100.0 if avg_loss == 0 else (100.0 - 100.0 / (1.0 + avg_gain / avg_loss))
+    for i in range(period + 1, n):
+        d = closes[i] - closes[i - 1]
+        g = d if d > 0 else 0.0
+        l = -d if d < 0 else 0.0
+        avg_gain = (avg_gain * (period - 1) + g) / period
+        avg_loss = (avg_loss * (period - 1) + l) / period
+        rsi = 100.0 if avg_loss == 0 else (100.0 - 100.0 / (1.0 + avg_gain / avg_loss))
+    return rsi
 
 
 def _bos_min_prominence(px):
@@ -361,10 +398,18 @@ def detect_consecutive_counter_bars(bars, current_idx, setup_dir, min_prominence
     return -1
 
 
-def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry_bars=8):
+def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16,
+                           expiry_bars=8, h1_rsi=None):
     """Port of the essential parts of detectIntradaySignal from
     dashboard.html (~L9290). Detects the state of the 1:1-RR intraday
     signal for a 4/4-aligned pair on the 15m timeframe.
+
+    `h1_rsi` is the most recent 1H RSI(14) for this pair (or None when
+    h1 history is too short to compute). Drives the A1 hard gate
+    (RULES_VERSION 2026-06-09d) — bull setups with rsi ≥ 80 / bear with
+    ≤ 20 are flagged invalidated with reason 'rsi-extreme' so the
+    Telegram alert pipeline skips the setup, matching the dashboard's
+    `rsiBlocked` collapse.
 
     Returns dict with:
       state: 'armed' | 'triggered' | 'expired' | None
@@ -480,11 +525,26 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry
     invalidation_reason = None
     invalidation_bar_idx = -1
 
+    # A1 hard gate (RULES_VERSION 2026-06-09d) — 1H RSI 80/20 extreme.
+    # Block before the wick-walk so the trigger search short-circuits.
+    # h1_rsi is None during the h1 warm-up window (<16 bars) — fall
+    # through and let the alignment / wick logic decide; matches the
+    # dashboard's behaviour when STATE.rsi1H is null.
+    if h1_rsi is not None and isinstance(h1_rsi, (int, float)):
+        if aligned_dir == 'bull' and h1_rsi >= 80:
+            invalidated_pre_trigger = True
+            invalidation_reason = 'rsi-extreme'
+            invalidation_bar_idx = creator_idx
+        elif aligned_dir == 'bear' and h1_rsi <= 20:
+            invalidated_pre_trigger = True
+            invalidation_reason = 'rsi-extreme'
+            invalidation_bar_idx = creator_idx
+
     # min_prominence for the invalidation helpers — reuse the BoS
     # prominence floor so the chochProm guard matches the dashboard.
     _inval_prom = _bos_min_prominence(px_for_prom)
 
-    if entry is not None and stop is not None:
+    if entry is not None and stop is not None and not invalidated_pre_trigger:
         lift_reached = False
         for j in range(creator_idx + 1, n):
             b = bars[j]
@@ -1398,7 +1458,12 @@ def scan_pairs(intraday_data, historical_data):
         # detectIntradaySignal so we can alert when a setup triggers.
         sig = None
         if aligned_dir is not None:
-            sig = detect_intraday_signal(m15, aligned_dir)
+            # Compute the most recent 1H RSI(14) so detect_intraday_signal
+            # can apply the A1 hard gate. None during warm-up (<15
+            # h1 closes) — detector falls through.
+            h1_closes = [b.get('c') for b in h1 if b.get('c') is not None]
+            h1_rsi = calc_rsi(h1_closes, 14) if len(h1_closes) >= 15 else None
+            sig = detect_intraday_signal(m15, aligned_dir, h1_rsi=h1_rsi)
 
         out[pair] = {
             'ew': ew,

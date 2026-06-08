@@ -54,15 +54,16 @@ PAIRS = {
     "euraud":  {"oanda": "EUR_AUD"},
     "usdsgd":  {"oanda": "USD_SGD"},
     "audnzd":  {"oanda": "AUD_NZD"},
-    "audchf":  {"oanda": "AUD_CHF"},
+    # audchf removed 2026-06-08 — low win-rate drag on aggregate.
+    # Re-add: '"audchf": {"oanda": "AUD_CHF"},'
     "eurgbp":  {"oanda": "EUR_GBP"},
     # FX additions (v5)
     "audcad":  {"oanda": "AUD_CAD"},
     "gbpcad":  {"oanda": "GBP_CAD"},
     "nzdjpy":  {"oanda": "NZD_JPY"},
-    "usdnok":  {"oanda": "USD_NOK"},
+    # usdnok removed 2026-06-08 — low win-rate drag. Re-add: '"usdnok": {"oanda": "USD_NOK"},'
     "gbpnzd":  {"oanda": "GBP_NZD"},
-    "eursek":  {"oanda": "EUR_SEK"},
+    # eursek removed 2026-06-08 — low win-rate drag. Re-add: '"eursek": {"oanda": "EUR_SEK"},'
     # v7 additions (2026-06-03 — minors)
     "nzdcad":  {"oanda": "NZD_CAD"},
     "eurnok":  {"oanda": "EUR_NOK"},

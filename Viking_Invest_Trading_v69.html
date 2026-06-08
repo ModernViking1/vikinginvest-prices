@@ -970,17 +970,12 @@ var MKTS = {
     // W2 zone 0.870-0.878 — already in bear leg. TP1 0.85 (Wave 3 target), TP2 0.83 (Wave 5).
     wr:59.6,g:'C',bw:11,bl:7,brr:0.5,
     entry:'0.8700&#8211;0.8800 SELL ZONE (W2 retest)',stop:'Above 0.8900',tgt:'0.85 Wave 3 / 0.83 Wave 5',inv:'Close&gt;0.8900',rr:'1:3.0'},
-  audchf:{sym:'AUD/CHF',t:'minor',px:'0.56110',p:0.5611,d:5,sc:0.003,up:false,chg:'-0.11%',
-    ew:'bull',tl:'neutral',nw:'neutral',
-    // AUTO-DETECTED (28 Apr 2026, no Wickator chart): Trendoscope+LuxAlgo port
-    // identified completed 5-wave bull impulse 0.5170 → 0.5645 at degree 3
-    // (1.5% pivot threshold), 100% confidence, sub-degree at 4% confirms.
-    // Now expecting ABC corrective pullback into 0.5351-0.5463 BUY ZONE
-    // (38.2-61.8% Fib retrace of impulse), then continuation to 0.59 / 0.61.
-    // CAUTION: 'source: auto' — algorithm-only, no human chart validation.
-    // Watch for confirming CHoCH on 1H/15m before entering.
-    wr:58.0,g:'C',bw:10,bl:8,brr:0.4,
-    entry:'0.5351&#8211;0.5463 BUY ZONE (ABC pullback)',stop:'Below 0.5170',tgt:'0.59 W3 / 0.61 W5',inv:'Close&lt;0.5170',rr:'1:2.9'},
+  // audchf removed 2026-06-08 — low win-rate (58%) dragging on aggregate.
+  // Restore by re-pasting the prior block (was here, sym:'AUD/CHF', auto-EW
+  // bull, 0.5351-0.5463 buy zone). Also remove from VIKING_SRC_MAP, MARKET_TYPE_MAP,
+  // WICKATOR_EW, SETUP_LABELS, SIM, PAIR_CURRENCIES, parseERA/parseFawaz synth,
+  // getBakedOverrides, and the priceOverrideModal order list before the dashboard
+  // will fully wire it back in.
   btcusd:{sym:'BTC/USD',t:'crypto',px:'77,501',p:77501.38,d:0,sc:500,up:true,chg:'+0.48%',
     ew:'bear',tl:'bear',nw:'neutral',
     // WICKATOR METHOD (chart-validated 25 Apr 2026): Wickator 2D/12H both show
@@ -1009,18 +1004,12 @@ var MKTS = {
     ew:'neutral',tl:'neutral',nw:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
     entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
-  usdnok:{sym:'USD/NOK',t:'minor',px:'10.500',p:10.5,d:4,sc:0.02,up:true,chg:'+0.00%',
-    ew:'neutral',tl:'neutral',nw:'neutral',
-    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
-    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  // usdnok removed 2026-06-08 — low win-rate drag on aggregate.
   gbpnzd:{sym:'GBP/NZD',t:'minor',px:'2.30000',p:2.3,d:5,sc:0.006,up:true,chg:'+0.00%',
     ew:'neutral',tl:'neutral',nw:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
     entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
-  eursek:{sym:'EUR/SEK',t:'minor',px:'11.000',p:11.0,d:4,sc:0.02,up:true,chg:'+0.00%',
-    ew:'neutral',tl:'neutral',nw:'neutral',
-    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
-    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  // eursek removed 2026-06-08 — low win-rate drag on aggregate.
   ftse100:{sym:'FTSE 100',t:'index',px:'8,000',p:8000,d:1,sc:20,up:true,chg:'+0.00%',
     ew:'neutral',tl:'neutral',nw:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
@@ -1275,7 +1264,7 @@ var WICKATOR_EW = {
   euraud:{dir:'bear', invalid:1.7150, anchor:1.5600, pivot:1.7150, w2Zone:[1.6600,1.6900], phase:'AUD outperforming EUR on DXY weakness', source:'inferred', tp1Override:1.60, tp2Override:1.56},
   audnzd:{dir:'bull', invalid:1.1850, anchor:1.1500, pivot:1.2200, w2Zone:[1.1950,1.2100], phase:'AUD outperforming NZD — pullback retest expected', source:'inferred', tp1Override:1.25, tp2Override:1.28},
   eurgbp:{dir:'bear', invalid:0.8900, anchor:0.8300, pivot:0.8900, w2Zone:[0.8700,0.8800], phase:'Continuation down active per multiple sources', source:'inferred', tp1Override:0.85, tp2Override:0.83},
-  audchf:{dir:'bull', invalid:0.5170, anchor:0.5170, pivot:0.5645, w2Zone:[0.5351,0.5463], phase:'5-wave bull impulse 0.517→0.5645 complete — wait for ABC pullback into BUY ZONE 0.5351-0.5463 (38.2-61.8% Fib retrace), then continuation higher (auto-detected, 100% conf, no Wickator chart)', source:'auto', tp1Override:0.59, tp2Override:0.61},
+  // audchf removed 2026-06-08 — low win-rate drag on aggregate.
   cadjpy:{dir:'bear', invalid:117.20, anchor:109.0, pivot:117.20, w2Zone:[115.80,116.50], phase:'Wave B retest of broken structure — Wave C target 109-112', source:'inferred', tp1Override:112.0, tp2Override:109.0},
   // ─── CDS / COMMODITIES ───────────────────────────────────────────────
   usoil: {dir:'bull', invalid:58.00,  anchor:58.00,  pivot:106.00, w2Zone:[100.00,95.00], phase:'Extension leg — peak forecast $115 (EIA Q2 2026)', source:'wickator', tp1Override:115, tp2Override:130},
@@ -1697,7 +1686,9 @@ function isTriggered(k){
   if(typeof detectIntradaySignal !== 'function') return false;
   try {
     var sig = detectIntradaySignal(k);
-    return !!(sig && (sig.state === 'triggered' || sig.fib_state === 'triggered'));
+    if(!sig) return false;
+    if(sig.rsiBlocked) return false;  // A1 — RSI extreme blocks the trade
+    return !!(sig.state === 'triggered' || sig.fib_state === 'triggered');
   } catch(e){ return false; }
 }
 // True if the intraday signal has armed (creator CHoCH found, levels
@@ -1723,6 +1714,7 @@ function isArmed(k){
   try {
     var sig = detectIntradaySignal(k);
     if(!sig || sig.alignmentBroken) return false;
+    if(sig.rsiBlocked) return false;  // A1 — RSI extreme blocks the trade
     return !!(sig.state === 'armed' || (sig.fib && sig.fib.state === 'armed'));
   } catch(e){ return false; }
 }
@@ -1761,7 +1753,8 @@ var USD_CORRELATION = {
   // FX crosses (no direct USD leg)
   eurnzd:'cross', gbpaud:'cross',
   euraud:'cross', audnzd:'cross', eurgbp:'cross',
-  audchf:'cross', cadjpy:'cross',
+  // audchf removed 2026-06-08 — low win-rate drag.
+  cadjpy:'cross',
   nzdcad:'cross', eurnok:'cross', nzdchf:'cross', gbpchf:'cross', eursgd:'cross',
   // CDS commodities (not USD-correlated directly)
   usoil:'cross', de40:'cross', jp225:'cross', fra40:'cross',
@@ -1843,7 +1836,7 @@ var USE_DERIVED_SETUP = false;
 var SETUP_LABELS = {
   // Each entry: { zoneNote, tp1Label, tp2Label }
   // Defaults if absent: zoneNote='', tp1Label='Wave 3', tp2Label='Wave 5'
-  audchf: { zoneNote: 'ABC pullback', tp1Label: 'W3', tp2Label: 'W5' },
+  // audchf removed 2026-06-08 — low win-rate drag.
   cadjpy: { zoneNote: 'Wave B' },
   audnzd: { zoneNote: 'Wave 4 pullback' },
   eurusd: { zoneNote: 'buy zone' },
@@ -2053,10 +2046,12 @@ var VIKING_SRC_MAP = {
   usdchf:'OND', audusd:'OND', euraud:'OND',
   // Crosses
   nzdusd:'OND', usdsgd:'OND', cadjpy:'OND', eurnzd:'OND',
-  gbpaud:'OND', audnzd:'OND', eurgbp:'OND', audchf:'OND',
+  gbpaud:'OND', audnzd:'OND', eurgbp:'OND',
+  // audchf removed 2026-06-08 — low win-rate drag.
   // v5 FX additions
-  audcad:'OND', gbpcad:'OND', nzdjpy:'OND', usdnok:'OND',
-  gbpnzd:'OND', eursek:'OND',
+  audcad:'OND', gbpcad:'OND', nzdjpy:'OND',
+  gbpnzd:'OND',
+  // usdnok / eursek removed 2026-06-08 — low win-rate drag.
   // v7 FX additions (minors)
   nzdcad:'OND', eurnok:'OND', nzdchf:'OND', gbpchf:'OND',
   usdzar:'OND', usdcnh:'OND', eursgd:'OND',
@@ -2580,9 +2575,13 @@ function updateOV(k){
           // would silently disappear, leaving the user no cue.
           iColor = 'var(--bear)'; iAnim = '';
           iIcon = '⊘';
-          iTip = iSig.alignmentBroken
-            ? 'Intraday 1:1 CANCELLED — 15m structure flipped vs macro; setup no longer valid'
-            : 'Intraday 1:1 CANCELLED — opposing CHoCH printed before retest, setup no longer valid';
+          if(iSig.rsiBlocked){
+            iTip = 'Intraday 1:1 BLOCKED — 1H RSI ' + (iSig.rsi1H != null ? iSig.rsi1H.toFixed(0) : '?') + ' at ' + (iSig.dir === 'bull' ? 'overbought (≥80)' : 'oversold (≤20)') + ' extreme; A1 hard gate';
+          } else if(iSig.alignmentBroken){
+            iTip = 'Intraday 1:1 CANCELLED — 15m structure flipped vs macro; setup no longer valid';
+          } else {
+            iTip = 'Intraday 1:1 CANCELLED — opposing CHoCH printed before retest, setup no longer valid';
+          }
         } else if(iSig.state === 'armed'){
           iColor = 'var(--gold)'; iAnim = '';
           iIcon = '⏳';
@@ -2598,9 +2597,13 @@ function updateOV(k){
         } else if(iSig.outcome === 'choch-invalidated'){
           iColor = 'var(--bear)'; iAnim = '';
           iIcon = '⊘';
-          iTip = iSig.alignmentBroken
-            ? 'Intraday 1:1 INVALIDATED — 15m structure flipped vs macro, exit at CHoCH flip'
-            : 'Intraday 1:1 INVALIDATED — opposing CHoCH printed, structure flipped';
+          if(iSig.rsiBlocked){
+            iTip = 'Intraday 1:1 INVALIDATED — 1H RSI ' + (iSig.rsi1H != null ? iSig.rsi1H.toFixed(0) : '?') + ' hit ' + (iSig.dir === 'bull' ? 'overbought (≥80)' : 'oversold (≤20)') + ' extreme; A1 hard gate';
+          } else if(iSig.alignmentBroken){
+            iTip = 'Intraday 1:1 INVALIDATED — 15m structure flipped vs macro, exit at CHoCH flip';
+          } else {
+            iTip = 'Intraday 1:1 INVALIDATED — opposing CHoCH printed, structure flipped';
+          }
         } else if(iSig.outcome === 'stale-expired'){
           iColor = 'var(--inkd)'; iAnim = '';
           iIcon = '⌛';
@@ -2950,7 +2953,9 @@ function getLayerDet(k,layer,sig){
             // mysteriously cancelled when only 2 small green candles
             // had formed).
             var reasonLabel;
-            if(iSig.alignmentBroken){
+            if(iSig.invalidationReason === 'rsi-extreme'){
+              reasonLabel = '1H RSI ' + (iSig.rsi1H != null ? iSig.rsi1H.toFixed(0) : '?') + ' ' + (iSig.dir === 'bull' ? '(overbought ≥80)' : '(oversold ≤20)') + ' — A1 gate';
+            } else if(iSig.alignmentBroken){
               reasonLabel = '15m flipped vs macro';
             } else if(iSig.invalidationReason === 'counter-bars'){
               reasonLabel = '2 counter-bars (momentum reversal)';
@@ -2973,7 +2978,9 @@ function getLayerDet(k,layer,sig){
             else if(iSig.outcome === 'stop-hit'){ stateLabel = 'TRIGGERED &middot; stop hit ✗'; stateColor = 'var(--bear)'; stateIcon = '⚡'; }
             else if(iSig.outcome === 'choch-invalidated'){
               var postReason;
-              if(iSig.alignmentBroken){
+              if(iSig.invalidationReason === 'rsi-extreme'){
+                postReason = '1H RSI ' + (iSig.rsi1H != null ? iSig.rsi1H.toFixed(0) : '?') + ' ' + (iSig.dir === 'bull' ? '(overbought ≥80)' : '(oversold ≤20)') + ' — A1 gate';
+              } else if(iSig.alignmentBroken){
                 postReason = '15m flipped vs macro';
               } else if(iSig.invalidationReason === 'counter-bars'){
                 postReason = '2 counter-bars (momentum reversal)';
@@ -4399,7 +4406,7 @@ var SIM={
   suiusd:[{ew:'bear',tl:'bear',nw:'neutral'},{ew:'bear',tl:'bear',nw:'bear'},{ew:'bear',tl:'neutral',nw:'neutral'}],
   audnzd:[{ew:'bull',tl:'bear',nw:'neutral'},{ew:'bull',tl:'bull',nw:'bull'},{ew:'bull',tl:'neutral',nw:'neutral'}],
   eurgbp:[{ew:'neutral',tl:'bull',nw:'neutral'},{ew:'bull',tl:'bull',nw:'bull'},{ew:'neutral',tl:'neutral',nw:'neutral'}],
-  audchf:[{ew:'bull',tl:'neutral',nw:'neutral'},{ew:'bull',tl:'bull',nw:'bull'},{ew:'bull',tl:'bull',nw:'neutral'}],
+  // audchf removed 2026-06-08 — low win-rate drag.
   btcusd:[{ew:'neutral',tl:'neutral',nw:'neutral'},{ew:'bull',tl:'bull',nw:'bull'},{ew:'neutral',tl:'bear',nw:'bear'}]
 };
 
@@ -4622,7 +4629,8 @@ var PAIR_CURRENCIES = {
   usoil: ['USD'],
   de40:  ['EUR'],
   suiusd:[], audnzd:['AUD','NZD'], eurgbp:['EUR','GBP'],
-  audchf:['AUD','CHF'], btcusd:[],
+  // audchf removed 2026-06-08 — low win-rate drag.
+  btcusd:[],
   // v7 additions (2026-06-03)
   nzdcad:['NZD','CAD'], eurnok:['EUR','NOK'], nzdchf:['NZD','CHF'],
   gbpchf:['GBP','CHF'], usdzar:['USD','ZAR'], usdcnh:['USD','CNH'],
@@ -8091,7 +8099,7 @@ function fetchERA() {
       if(r.AUD&&r.GBP) out.gbpaud=p(r.AUD/r.GBP);
       if(r.AUD&&r.EUR) out.euraud=p(r.AUD/r.EUR);
       if(r.GBP&&r.EUR) out.eurgbp=p(r.GBP/r.EUR);
-      if(r.CHF&&r.AUD) out.audchf=p(r.CHF/r.AUD);
+      // audchf removed 2026-06-08 — low win-rate drag. Restore: if(r.CHF&&r.AUD) out.audchf=p(r.CHF/r.AUD);
       if(r.NZD&&r.AUD) out.audnzd=p(r.NZD/r.AUD);
       // ERA also publishes XAU, XAG, BTC as currency rates (uppercase keys)
       // d.rates.XAU = troy oz of gold per 1 USD → invert = USD per troy oz
@@ -8117,7 +8125,7 @@ function parseFawaz(d) {
   if(r.aud&&r.gbp) out.gbpaud=p(r.aud/r.gbp);
   if(r.aud&&r.eur) out.euraud=p(r.aud/r.eur);
   if(r.gbp&&r.eur) out.eurgbp=p(r.gbp/r.eur);
-  if(r.chf&&r.aud) out.audchf=p(r.chf/r.aud);
+  // audchf removed 2026-06-08 — low win-rate drag. Restore: if(r.chf&&r.aud) out.audchf=p(r.chf/r.aud);
   if(r.nzd&&r.aud) out.audnzd=p(r.nzd/r.aud);
   // Precious metals + BTC — Fawaz includes these as currency pairs!
   // d.usd.xau = troy oz of gold per 1 USD → invert = USD per troy oz
@@ -8230,7 +8238,8 @@ function openPriceOverride() {
   var rows = '';
   var order = ['dxy','eurusd','gbpusd','usdjpy','usdcad','usdchf','nzdusd','audusd','usdsgd',
                'cadjpy','eurnzd','gbpaud','euraud','audnzd',
-               'eurgbp','audchf',
+               'eurgbp',
+               // audchf removed 2026-06-08 — low win-rate drag.
                'xauusd','xagusd','usoil','de40','btcusd','suiusd'];
   order.forEach(function(k){
     if(!MKTS[k]) return;
@@ -8328,7 +8337,8 @@ function getBakedOverrides() {
     usdchf: 0.78445, audusd: 0.71518, euraud: 1.63893, xauusd: 4707.26,
     // FX crosses (OANDA)
     nzdusd: 0.58790, usdsgd: 1.27645, cadjpy: 116.581, eurnzd: 1.99322,
-    gbpaud: 1.89276, audnzd: 1.21585, eurgbp: 0.86620, audchf: 0.56110,
+    gbpaud: 1.89276, audnzd: 1.21585, eurgbp: 0.86620,
+    // audchf removed 2026-06-08 — low win-rate drag.
     xagusd: 75.694, usoil: 106.28, de40: 24314.80, usdsek: 9.22510,
     // Crypto (Coinbase)
     btcusd: 77501.38, suiusd: 0.936,
@@ -8480,7 +8490,7 @@ function fetchFawazPrimary() {
       if(r.gbp && r.eur) out.eurgbp = p(r.gbp/r.eur);
       
       // CHF crosses
-      if(r.chf && r.aud) out.audchf = p(r.chf/r.aud);
+      // audchf removed 2026-06-08 — low win-rate drag. Restore: if(r.chf && r.aud) out.audchf = p(r.chf/r.aud);
       // Metals and crypto (Fawaz publishes these as currencies too)
       // XAU = troy oz of gold per 1 USD, so USD per troy oz = 1/r.xau
       if(r.xau && r.xau>0) out.xauusd = p(1/r.xau);
@@ -10230,8 +10240,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-09c';
+var RULES_VERSION = '2026-06-09d';
 var RULES_VERSION_NOTES = [
+  '2026-06-09d — A1 hard gate enabled: 1H RSI ≥ 80 blocks bull setups, ≤ 20 blocks bear. Treated like an alignment break — signal still computes entry/stop/target for display, but state collapses to invalidated/choch-invalidated with reason rsi-extreme. isArmed / isTriggered return false when blocked so the pair drops out of the filter pills. AUDCHF / EURSEK / USDNOK also dropped from the pair universe (low-win-rate drag). RULES_FINGERPRINT gets a rsiHardGate flag so backtests re-run on next load.',
   '2026-06-09c — calcIndependentDir: added staleness decay (drop last-break direction if older than 2× lookback bars) and widened slope-fallback deadband from 5 bps to 15 bps. Fixes the sticky-bull readings on GBPAUD + USDCHF where a structural breakout 19-21 hours earlier kept showing tl=bull even though the most recent 8 hours were chopping inside the prior swing range. calc_4h_cloud_dir also gets a price-through-cloud guard (bull stack + price below both EMAs → neutral). Mirrored byte-for-byte to detect_triggers.py so dashboard, alerts and signal log stay in lockstep.',
   '2026-06-09b — Counter-bar nowick ratio REVERTED to pre-2026-06-04 (no body/range check, two-day forward results: 0.70 → 63.2%, 0.55 → 58.4%, both worse than the no-ratio baseline of 69.7%). The BTC false-cancel case the ratio was meant to fix is accepted as a known edge for now. Rule is back to: 2 consecutive opposite-body candles with a 25%-noise-floor body minimum and rising/falling closes. counterBarsNoWick set to 0 in fingerprint to flag the ratio is disabled.',
   '2026-06-09 — (superseded by 06-09b) Nowick threshold tried at 0.55 to thread BTC fix vs loss exposure. Outcome: aggregate 58.4%, worse than both prior states. Suggests the 4-day market the backtest is reading favours the over-cancel behaviour. See detectConsecutiveCounterBars for the win-rate trail.',
@@ -10255,6 +10266,7 @@ function RULES_FINGERPRINT(){
     counterBarsThresh: 2,
     counterBarsNoWick: 0,  // 0 = ratio check disabled (pre-2026-06-04 behaviour)
     minRAtrMult: 0.5,
+    rsiHardGate: 1,  // A1 — 1H RSI 80/20 blocks setups (added 2026-06-09d)
     fibPairs: ['xauusd','xagusd','usoil','de40','nas100','dj30','ftse100','spx500','jp225','fra40'].sort().join(',')
   });
 }
@@ -10723,6 +10735,23 @@ function calcRecentBacktest(k, mode){
     return arr;
   })();
 
+  // Pre-compute 1H RSI(14) at every h1 bar — backs the A1 hard gate
+  // (RULES_VERSION 2026-06-09d). Each candidate creator m15 bar looks up
+  // RSI at h1Idx and is skipped when:
+  //   bull setup AND rsi >= 80   (overbought entry; mean-reversion risk)
+  //   bear setup AND rsi <= 20   (oversold entry; same in reverse)
+  // Stored next to clDirAtH1Idx so the hot loop can read O(1) without
+  // re-walking the h1 buffer. _rsiSeries returns nulls for the warm-up
+  // period — we treat null as "no gate signal" (don't block on missing
+  // data), matching the live detector which falls through when rsi1H is
+  // null.
+  var h1RsiAtH1Idx = (function(){
+    if(typeof _rsiSeries !== 'function') return null;
+    var closes = new Array(h1Bars.length);
+    for(var ri = 0; ri < h1Bars.length; ri++) closes[ri] = h1Bars[ri].c;
+    return _rsiSeries(closes, 14);
+  })();
+
   // Pre-compute h1 swing-high/swing-low rolling windows so we can update
   // tlBreakDir whenever a new h1 bar comes into view.
   var updateTLDir = function(h1Idx){
@@ -10788,6 +10817,18 @@ function calcRecentBacktest(k, mode){
     if(!ewDir || !tlDir || !nwDir || !clDir){ i++; continue; }
     if(ewDir !== tlDir || tlDir !== nwDir || nwDir !== clDir){ i++; continue; }
     if(ewDir !== 'bull' && ewDir !== 'bear'){ i++; continue; }
+
+    // A1 hard gate (RULES_VERSION 2026-06-09d) — 1H RSI 80/20 extreme
+    // blocks the setup. Mirror of detectIntradaySignal so the recent
+    // backtest reflects the live filter. Null RSI (warm-up) falls
+    // through.
+    if(h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length){
+      var rsiAt = h1RsiAtH1Idx[h1Idx];
+      if(rsiAt != null && isFinite(rsiAt)){
+        if(ewDir === 'bull' && rsiAt >= 80){ i++; continue; }
+        if(ewDir === 'bear' && rsiAt <= 20){ i++; continue; }
+      }
+    }
 
     // Optional 4H 50/200 EMA regime filter (auto-ew-regime mode only).
     // Only count signals where the slow trend filter agrees with the
@@ -12224,6 +12265,22 @@ function detectIntradaySignal(k){
   // instead of silently hiding the intraday signal.
   var alignmentBroken = (ewDir !== tlDir || tlDir !== nwDir || nwDir !== clDir);
 
+  // A1 hard gate (2026-06-08, RULES_VERSION 2026-06-09d) — 1H RSI 80/20.
+  // A bull setup with hourly RSI ≥ 80 is hitting the buy zone at an
+  // overbought extreme (mean-reversion risk pre-fill). Mirror for bear
+  // setups at ≤ 20. The failure-mode panel surfaced this as a candidate
+  // hard filter; the user opted in to measure it on the next 20+ live
+  // signals. Treated like an alignment break: signal still computes
+  // levels for display, but state collapses to 'invalidated' if armed /
+  // 'choch-invalidated' if triggered, so the dashboard renders a
+  // visible "RSI BLOCKED" pill rather than silently dropping the setup.
+  var rsi1H = STATE[k] && STATE[k].rsi1H;
+  var rsiBlocked = false;
+  if(typeof rsi1H === 'number' && isFinite(rsi1H)){
+    if(dir === 'bull' && rsi1H >= 80) rsiBlocked = true;
+    else if(dir === 'bear' && rsi1H <= 20) rsiBlocked = true;
+  }
+
   // Engine takes priority over seed (2026-05-29 decision). The
   // previous seed/engine conflict guard that returned null here when
   // WICKATOR_EW[k].dir disagreed with the live engine is gone —
@@ -12751,6 +12808,19 @@ function detectIntradaySignal(k){
       if(!invalidationReason) invalidationReason = 'alignment-broken';
     }
   }
+  // A1 — RSI 80/20 collapse. Same semantics as alignmentBroken: armed →
+  // invalidated, triggered (no outcome yet) → choch-invalidated. Uses
+  // its own invalidation reason so the signal log + dashboard can
+  // distinguish "alignment broke" from "RSI hit extreme".
+  if(rsiBlocked){
+    if(state === 'armed'){
+      state = 'invalidated';
+      if(!invalidationReason) invalidationReason = 'rsi-extreme';
+    } else if(state === 'triggered' && !outcome){
+      outcome = 'choch-invalidated';
+      if(!invalidationReason) invalidationReason = 'rsi-extreme';
+    }
+  }
 
   return {
     state: state,
@@ -12774,6 +12844,8 @@ function detectIntradaySignal(k){
     chochDiag: chochDiag,
     ohlcSource: hasNative ? 'native' : 'approximated',
     alignmentBroken: alignmentBroken,
+    rsiBlocked: rsiBlocked,
+    rsi1H: (typeof rsi1H === 'number') ? rsi1H : null,
     // Fib-zone variant — 38% retrace entry, half size, same stop as wick.
     // Independent of the wick state above; both can fire from one setup
     // (fib first, wick later if price keeps retracing).
