@@ -5724,6 +5724,15 @@ function renderFailureModeAnalysis(){
   };
   var stopPlus25Success = variantSuccessRate(v.stopPlus25);
   var midpointSuccess = variantSuccessRate(v.midpointEntry);
+  // RSI 80/20 gate: a different metric — what fraction of non-win
+  // trades would have been BLOCKED by an hourly RSI > 80 (bull) /
+  // < 20 (bear) pre-entry filter. Higher = more losses avoided
+  // (rather than higher = more losses rescued like the other two).
+  var rsiGateStats = v.rsiGate80_20 || {filtered:0, wouldStillFire:0, unresolved:0};
+  var rsiGateConsidered = rsiGateStats.filtered + rsiGateStats.wouldStillFire;
+  var rsiGateBlockRate = rsiGateConsidered > 0
+                          ? (rsiGateStats.filtered / rsiGateConsidered) * 100
+                          : null;
 
   // Sort classifications by count, descending
   var classEntries = Object.keys(c).map(function(k){return {label:k, count:c[k]};})
@@ -5769,6 +5778,13 @@ function renderFailureModeAnalysis(){
     // wick-primary pairs (FX majors / minors / crypto / AUD/USD).
     if(midpointSuccess !== null && midpointSuccess > 50 && (c['never-retested']||0) >= 3){
       recs.push('<strong>Fib 38% entry</strong> (half size) rescued ' + Math.round(midpointSuccess) + '% of expired-no-retest signals on <strong>wick-primary pairs only</strong> (n=' + (v.midpointEntry.wins+v.midpointEntry.losses) + '). Commodities &amp; indices already use Fib half-size as production rule, so they\'re excluded from this rescue stat.');
+    }
+    // RSI 80/20 gate: surface only when it would have caught a
+    // meaningful fraction of losses AND we have enough sample to
+    // trust the number. 80 / 20 are extreme thresholds — the gate
+    // is rare-by-design, so even 10% catch rate is interesting.
+    if(rsiGateBlockRate !== null && rsiGateBlockRate >= 10 && rsiGateConsidered >= 10){
+      recs.push('<strong>1H RSI 80/20 gate</strong> would have blocked ' + Math.round(rsiGateBlockRate) + '% of losing trades pre-entry (n=' + rsiGateConsidered + '). Adding this as a hard filter (no signal if hourly RSI &gt; 80 on bull setups or &lt; 20 on bear) trades off some winners for fewer losses — measure on the next 20+ live signals before adopting.');
     }
 
     // Diagnostic-driven hints (separate from variant rescues). Surface the
@@ -5894,7 +5910,7 @@ function renderFailureModeAnalysis(){
   // Variants section
   var variantHTML = '<div style="margin-top:10px;padding-top:8px;border-top:1px dashed rgba(0,0,0,0.08);">'
     + '<div style="font-size:8.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-bottom:5px;">Rule variant tests (only on non-wins)</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">'
     + '  <div style="background:rgba(0,0,0,0.02);padding:6px 8px;border-radius:2px;">'
     + '    <div style="font-size:8px;color:var(--inkm);font-weight:700;">+25% wider stop</div>'
     + '    <div style="font-size:9px;color:'+(stopPlus25Success > 50 ? 'var(--bull)' : 'var(--inkd)')+';font-weight:700;">'
@@ -5908,6 +5924,16 @@ function renderFailureModeAnalysis(){
     +       (midpointSuccess === null ? 'no data' : Math.round(midpointSuccess) + '% rescue rate')
     + '    </div>'
     + '    <div style="font-size:7.5px;color:var(--inkd);">'+v.midpointEntry.wins+'W / '+v.midpointEntry.losses+'L</div>'
+    + '  </div>'
+    + '  <div style="background:rgba(0,0,0,0.02);padding:6px 8px;border-radius:2px;" title="Different metric — this is a pre-entry FILTER, not a post-loss rescue. Counts what fraction of non-win trades would have been blocked entirely by an hourly RSI > 80 (bull) / < 20 (bear) gate. Higher % = more losses avoided.">'
+    + '    <div style="font-size:8px;color:var(--inkm);font-weight:700;">1H RSI 80/20 gate <span style="color:var(--inkd);font-weight:400;font-style:italic;">· pre-entry filter</span></div>'
+    + '    <div style="font-size:9px;color:'+(rsiGateBlockRate !== null && rsiGateBlockRate >= 10 ? 'var(--bull)' : 'var(--inkd)')+';font-weight:700;">'
+    +       (rsiGateBlockRate === null ? 'no data' : Math.round(rsiGateBlockRate) + '% would be blocked')
+    + '    </div>'
+    + '    <div style="font-size:7.5px;color:var(--inkd);">'
+    +       rsiGateStats.filtered + ' blocked / ' + rsiGateStats.wouldStillFire + ' still fire'
+    +       (rsiGateStats.unresolved > 0 ? ' &middot; ' + rsiGateStats.unresolved + ' no-data' : '')
+    + '    </div>'
     + '  </div>'
     + '</div>'
     + '<div style="margin-top:8px;font-size:8.5px;line-height:1.5;">' + recommendation + '</div>'
@@ -13204,7 +13230,11 @@ function classifySimulatedTrades(k){
       outcome: stdResult.outcome,
       classification: classification,
       reachToTarget: stdResult.reachToTarget,
-      variants: variants
+      variants: variants,
+      // Signal-bar timestamp so downstream analyses (e.g. the
+      // hourly-RSI-gate hypothesis in analyseIntradayFailures) can
+      // correlate each trade back to the contemporary 1H bar.
+      signalTs: (ticks[i] && ticks[i].t) ? ticks[i].t : null
     });
 
     i = i + 9;
@@ -13221,7 +13251,19 @@ function classifySimulatedTrades(k){
 function analyseIntradayFailures(){
   var perPair = {};
   var aggClassification = {};
-  var aggVariants = { stopPlus25: {wins:0, losses:0, unresolved:0}, midpointEntry: {wins:0, losses:0, unresolved:0} };
+  var aggVariants = {
+    stopPlus25:    {wins:0, losses:0, unresolved:0},
+    midpointEntry: {wins:0, losses:0, unresolved:0},
+    // RSI 80/20 gate hypothesis (2026-06-04). For each NON-WIN trade,
+    // compute the contemporary 1H RSI(14). If it would have crossed
+    // the extreme threshold at signal time (bull setup with RSI > 80
+    // or bear setup with RSI < 20), the trade would have been blocked
+    // by the gate and the loss avoided. `filtered` counts those;
+    // `wouldStillFire` counts non-wins that the gate doesn't catch.
+    // The metric to read is filtered / (filtered + wouldStillFire) —
+    // the fraction of losing trades the gate WOULD have prevented.
+    rsiGate80_20:  {filtered:0, wouldStillFire:0, unresolved:0}
+  };
   var aggTotals = {wins:0, losses:0, expired:0, invalidated:0, all:0};
   var pairCounts = { totalPairs: 0, alignedPairs: 0, alignedWithSignals: 0 };
   var alignedPairKeys = [];
@@ -13315,7 +13357,41 @@ function analyseIntradayFailures(){
     if(!trades || trades.length === 0) return;
     pairCounts.alignedWithSignals++;
 
-    var pair = { trades: trades.length, classification: {}, variants: {stopPlus25: {wins:0, losses:0}, midpointEntry: {wins:0, losses:0}} };
+    // ── 1H RSI series for the RSI 80/20 gate hypothesis ──
+    // Pre-compute once per pair so each trade's signal-time RSI is an
+    // O(log n) lookup rather than a fresh walk. Bars without numeric
+    // closes are dropped; if the buffer is too short we just leave
+    // rsiGate stats as "unresolved".
+    var h1Closes = [], h1Times = [];
+    if(HISTORY[k] && HISTORY[k].h1){
+      HISTORY[k].h1.forEach(function(b){
+        var c = b.c != null ? b.c : b.p;
+        if(c != null && isFinite(c)){
+          h1Closes.push(c);
+          h1Times.push(b.t || null);
+        }
+      });
+    }
+    var h1Rsi = (h1Closes.length >= 16 && typeof _rsiSeries === 'function')
+                  ? _rsiSeries(h1Closes, 14) : null;
+    function _rsiAtSignal(signalTs){
+      if(!h1Rsi || !signalTs) return null;
+      var ts = new Date(signalTs).getTime();
+      if(!isFinite(ts)) return null;
+      // Find the latest h1 idx whose timestamp is at-or-before signal.
+      // Linear scan is fine — the m15 buffer rarely exceeds ~960 bars
+      // and the h1 buffer is bounded by the workflow's retention.
+      var idx = -1;
+      for(var i = 0; i < h1Times.length; i++){
+        var hi = new Date(h1Times[i]).getTime();
+        if(!isFinite(hi)) continue;
+        if(hi <= ts) idx = i; else break;
+      }
+      if(idx < 0) return null;
+      return h1Rsi[idx];
+    }
+
+    var pair = { trades: trades.length, classification: {}, variants: {stopPlus25: {wins:0, losses:0}, midpointEntry: {wins:0, losses:0}, rsiGate80_20: {filtered:0, wouldStillFire:0}} };
     trades.forEach(function(t){
       pair.classification[t.classification] = (pair.classification[t.classification]||0) + 1;
       aggClassification[t.classification] = (aggClassification[t.classification]||0) + 1;
@@ -13350,6 +13426,26 @@ function analyseIntradayFailures(){
             if(t.variants.midpointEntry === 'win'){ pair.variants.midpointEntry.wins++; aggVariants.midpointEntry.wins++; }
             else if(t.variants.midpointEntry === 'loss'){ pair.variants.midpointEntry.losses++; aggVariants.midpointEntry.losses++; }
             else aggVariants.midpointEntry.unresolved++;
+          }
+        }
+        // RSI 80/20 gate hypothesis. Apply to every non-win trade
+        // regardless of pair class — the gate is a pre-entry filter,
+        // not a rescue rule, so it's class-agnostic. A trade would
+        // have been BLOCKED (loss avoided) if:
+        //   - bull setup AND 1H RSI > 80
+        //   - bear setup AND 1H RSI < 20
+        var rsiAtSignal = _rsiAtSignal(t.signalTs);
+        if(rsiAtSignal == null){
+          aggVariants.rsiGate80_20.unresolved++;
+        } else {
+          var blocked = (t.dir === 'bull' && rsiAtSignal > 80) ||
+                        (t.dir === 'bear' && rsiAtSignal < 20);
+          if(blocked){
+            pair.variants.rsiGate80_20.filtered++;
+            aggVariants.rsiGate80_20.filtered++;
+          } else {
+            pair.variants.rsiGate80_20.wouldStillFire++;
+            aggVariants.rsiGate80_20.wouldStillFire++;
           }
         }
       }
