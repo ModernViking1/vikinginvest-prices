@@ -576,8 +576,16 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
           <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;align-items:center;">
             <button class="logbtn" onclick="refreshBacktestWR()" style="background:var(--purplet);color:var(--purple);border-color:var(--purple);font-weight:700;">📊 Backtest</button>
             <button class="logbtn" onclick="clearLog()">Clear</button>
-            <button class="logbtn" onclick="showTDDiag()" style="opacity:.6;">Status</button>
-            <button class="logbtn" onclick="runSourceDiag()" style="opacity:.6;">Test</button>
+            <!-- Status + Test diagnostic buttons removed from the
+                 public UI 2026-06-08 — they enumerate every data
+                 source by name (Viking15min, Fawaz, etc) and ping
+                 each endpoint, which both reveals infrastructure to
+                 anyone clicking around and amplifies any rate-limit
+                 issue on the upstream APIs. The underlying
+                 functions (showTDDiag, runSourceDiag) are still in
+                 the code; run them from the browser DevTools
+                 console (window.showTDDiag(), window.runSourceDiag()) if
+                 you need them during a support session. -->
           </div>
         </div>
         <div class="loglist" id="logListMain"></div>
@@ -2064,20 +2072,40 @@ var VIKING_SRC_MAP = {
   // Synthesised
   dxy:'SY'
 };
+// Public source label — buckets the provider into one of three
+// user-facing categories so the chip stays informative ("is this a
+// live tick or a stale cache?") without revealing the underlying
+// vendor. Hides which broker / API the dashboard depends on, which
+// removes a minor attack-surface signal for anyone scoping the
+// stack. Internal routing still uses VIKING_SRC_MAP directly via
+// srcBadgeInternal — only this rendering function changed.
 function srcBadge(k){
-  // Returns the source code currently active for a pair ('TD'/'OND'/'CB'/'SY'/'FZ'/'BK'/'SS'/'SD'/'UR').
-  // Falls back through tiers based on what the dashboard knows.
+  var m = MKTS[k];
+  var raw = (m && m._priceSrc) || VIKING_SRC_MAP[k] || '?';
+  // Live providers (real-time tick + synthesised DXY)
+  if(raw === 'TD' || raw === 'OND' || raw === 'CB' || raw === 'SY') return 'LIVE';
+  // Slower / daily-only sources
+  if(raw === 'UR' || raw === 'FZ') return 'DAILY';
+  // Cached / seed / baked fallbacks
+  if(raw === 'BK' || raw === 'SS' || raw === 'SD') return 'CACHED';
+  return '?';
+}
+function srcBadgeColor(src){
+  // src is now one of LIVE / DAILY / CACHED / '?' (post-2026-06-08
+  // provider hide). Colours map to freshness, not provider.
+  if(src === 'LIVE')   return 'var(--bull)';
+  if(src === 'DAILY')  return 'var(--gold)';
+  if(src === 'CACHED') return 'var(--inkd)';
+  return 'var(--bear)';
+}
+// Returns the raw provider code for internal use only (data
+// routing, debug logs). Never displayed in the public UI — see
+// srcBadge for the user-facing version that buckets into LIVE /
+// DAILY / CACHED instead of naming the provider.
+function srcBadgeInternal(k){
   var m = MKTS[k];
   if(m && m._priceSrc) return m._priceSrc;
   return VIKING_SRC_MAP[k] || '?';
-}
-function srcBadgeColor(src){
-  // Live/real sources: green. Static/baked: muted gold. Unknown: red.
-  if(src==='TD'||src==='OND'||src==='CB') return 'var(--bull)';
-  if(src==='SY') return 'var(--bull)';        // synthesized is still real-time
-  if(src==='UR'||src==='FZ') return 'var(--gold)'; // user-override or fawaz daily
-  if(src==='BK'||src==='SS'||src==='SD') return 'var(--inkd)'; // baked/sessstore/seed
-  return 'var(--bear)';
 }
 
 // ── WIN-RATE LABEL with sample-size disclosure ─────────────────

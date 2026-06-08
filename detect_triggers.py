@@ -181,6 +181,153 @@ def _find_structural_low(bars_slice, min_prom):
     return min(lows) if lows else None
 
 
+# ── Invalidation helpers (port of detectOpposingCHoCH +
+# detectConsecutiveCounterBars from the dashboard, 2026-06-08).
+#
+# Until this port landed, detect_triggers.py only knew about
+# create-then-retest detection — it could not see that the trade
+# had been invalidated between the creator and the retest. Symptom:
+# Telegram alerts fired for setups the dashboard had already
+# CANCELLED. These helpers close that gap so the Telegram pipeline
+# and the dashboard converge on the same answer.
+#
+# Both functions return the bar index where the invalidation fired
+# (so the caller can compare against trigger_bar_idx to discriminate
+# pre- vs post-trigger), or -1 if no invalidation.
+
+def detect_opposing_choch(bars, creator_idx, current_idx, setup_dir, min_prominence):
+    """Multi-bar swing-flip detection. For a BEAR setup, fires when:
+       1. A post-creator low forms
+       2. Price bounces to a swing peak (high with lower next-high)
+          AND the bounce is at least `chochProm` above the low
+       3. A subsequent bar's close exceeds that swing peak
+    Mirror logic for BULL setups (high -> swing trough -> close below).
+    """
+    if not bars or creator_idx < 0 or current_idx <= creator_idx + 2:
+        return -1
+    if current_idx >= len(bars):
+        current_idx = len(bars) - 1
+    if current_idx - creator_idx < 3:
+        return -1
+
+    choch_prom = (min_prominence or 0) * 0.3
+
+    if setup_dir == 'bear':
+        low_idx, low_val = -1, float('inf')
+        for i in range(creator_idx + 1, current_idx - 1):
+            l = bars[i].get('l')
+            if l is None:
+                continue
+            if l < low_val:
+                low_val = l
+                low_idx = i
+        if low_idx == -1:
+            return -1
+        swing_peak = None
+        swing_peak_idx = -1
+        for i in range(low_idx + 1, current_idx + 1):
+            this_h = bars[i].get('h')
+            this_c = bars[i].get('c')
+            next_h = bars[i + 1].get('h') if (i + 1) < len(bars) else None
+            if this_h is None or this_c is None:
+                continue
+            if swing_peak is None and next_h is not None and this_h > next_h:
+                if (this_h - low_val) >= choch_prom:
+                    swing_peak = this_h
+                    swing_peak_idx = i
+            if swing_peak is not None and i > swing_peak_idx:
+                if this_c > swing_peak:
+                    return i
+                if (next_h is not None and this_h > next_h
+                    and (this_h - low_val) >= choch_prom
+                    and this_h > swing_peak):
+                    swing_peak = this_h
+                    swing_peak_idx = i
+        return -1
+
+    if setup_dir == 'bull':
+        high_idx, high_val = -1, float('-inf')
+        for i in range(creator_idx + 1, current_idx - 1):
+            h = bars[i].get('h')
+            if h is None:
+                continue
+            if h > high_val:
+                high_val = h
+                high_idx = i
+        if high_idx == -1:
+            return -1
+        swing_trough = None
+        swing_trough_idx = -1
+        for i in range(high_idx + 1, current_idx + 1):
+            this_l = bars[i].get('l')
+            this_c = bars[i].get('c')
+            next_l = bars[i + 1].get('l') if (i + 1) < len(bars) else None
+            if this_l is None or this_c is None:
+                continue
+            if swing_trough is None and next_l is not None and this_l < next_l:
+                if (high_val - this_l) >= choch_prom:
+                    swing_trough = this_l
+                    swing_trough_idx = i
+            if swing_trough is not None and i > swing_trough_idx:
+                if this_c < swing_trough:
+                    return i
+                if (next_l is not None and this_l < next_l
+                    and (high_val - this_l) >= choch_prom
+                    and this_l < swing_trough):
+                    swing_trough = this_l
+                    swing_trough_idx = i
+        return -1
+
+    return -1
+
+
+def detect_consecutive_counter_bars(bars, current_idx, setup_dir, min_prominence):
+    """Two consecutive NOWICK candles flipping direction. Bear setup:
+    two bullish-body bars with rising closes, each body >= 70% of
+    the bar's total range AND >= 25% of the noise floor. Mirror for
+    bull. Returns current_idx when the pair forms at
+    (current_idx-1, current_idx), else -1.
+
+    Matches the JS detectConsecutiveCounterBars (2026-06-04 nowick
+    tightening). Caller is expected to walk current_idx bar-by-bar
+    upward — this is O(1) per call by design.
+    """
+    if not bars or current_idx < 1 or current_idx >= len(bars):
+        return -1
+    prev = bars[current_idx - 1]
+    curr = bars[current_idx]
+    min_body = (min_prominence or 0) * 0.25
+    nowick_ratio = 0.70
+
+    def is_nowick_counter(b):
+        o, c, h, l = b.get('o'), b.get('c'), b.get('h'), b.get('l')
+        if o is None or c is None or h is None or l is None:
+            return False
+        if setup_dir == 'bear' and not (c > o):
+            return False
+        if setup_dir == 'bull' and not (c < o):
+            return False
+        body = abs(c - o)
+        if body < min_body:
+            return False
+        rng = h - l
+        if rng <= 0:
+            return False
+        return (body / rng) >= nowick_ratio
+
+    if not is_nowick_counter(prev) or not is_nowick_counter(curr):
+        return -1
+
+    pc, cc = prev.get('c'), curr.get('c')
+    if pc is None or cc is None:
+        return -1
+    if setup_dir == 'bear' and cc > pc:
+        return current_idx
+    if setup_dir == 'bull' and cc < pc:
+        return current_idx
+    return -1
+
+
 def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry_bars=8):
     """Port of the essential parts of detectIntradaySignal from
     dashboard.html (~L9290). Detects the state of the 1:1-RR intraday
@@ -283,15 +430,68 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry
     # variants share the same round-trip lift gate — neither fires until
     # price has displaced past the creator's far edge on a strictly earlier
     # bar (prevents false triggers on consecutive trend candles).
+    #
+    # Three invalidation paths are checked PRE-trigger on every bar
+    # (mirror of detectIntradaySignal in the dashboard):
+    #   1. close beyond the stop level (stop-breached pre-trigger)
+    #   2. opposing CHoCH — multi-bar swing flip
+    #   3. two consecutive NOWICK counter-bars heading away from us
+    # If any of these fires before the wick/fib retest, the setup is
+    # invalidated and BOTH triggers are suppressed. This is the
+    # critical gap the JS dashboard handles but detect_triggers.py
+    # didn't until 2026-06-08 — symptom was Telegram alerts on
+    # setups the dashboard had already CANCELLED.
     trigger_bar_idx = -1
     fib_trigger_bar_idx = -1
-    if entry is not None:
+    invalidated_pre_trigger = False
+    invalidation_reason = None
+    invalidation_bar_idx = -1
+
+    # min_prominence for the invalidation helpers — reuse the BoS
+    # prominence floor so the chochProm guard matches the dashboard.
+    _inval_prom = _bos_min_prominence(px_for_prom)
+
+    if entry is not None and stop is not None:
         lift_reached = False
         for j in range(creator_idx + 1, n):
             b = bars[j]
-            bh, bl = b.get('h'), b.get('l')
+            bh, bl, bc = b.get('h'), b.get('l'), b.get('c')
             if bh is None or bl is None:
                 continue
+            # ── PRE-TRIGGER INVALIDATIONS ──────────────────────
+            # Skip once either entry has fired — the live detector
+            # handles post-trigger invalidations as the exit
+            # mechanic, but the Telegram pipeline only needs to
+            # decide whether to fire at all.
+            if trigger_bar_idx < 0 and fib_trigger_bar_idx < 0:
+                # 1. Close beyond stop
+                if bc is not None:
+                    if aligned_dir == 'bear' and bc > stop:
+                        invalidated_pre_trigger = True
+                        invalidation_reason = 'stop-breached'
+                        invalidation_bar_idx = j
+                        break
+                    if aligned_dir == 'bull' and bc < stop:
+                        invalidated_pre_trigger = True
+                        invalidation_reason = 'stop-breached'
+                        invalidation_bar_idx = j
+                        break
+                # 2. Opposing CHoCH
+                opp_idx = detect_opposing_choch(bars, creator_idx, j,
+                                                aligned_dir, _inval_prom)
+                if opp_idx >= 0:
+                    invalidated_pre_trigger = True
+                    invalidation_reason = 'opposing-choch'
+                    invalidation_bar_idx = opp_idx
+                    break
+                # 3. Two consecutive nowick counter-bars
+                cb_idx = detect_consecutive_counter_bars(bars, j,
+                                                         aligned_dir, _inval_prom)
+                if cb_idx >= 0:
+                    invalidated_pre_trigger = True
+                    invalidation_reason = 'counter-bars'
+                    invalidation_bar_idx = cb_idx
+                    break
             # Fib-zone trigger — shallower retrace, fires earlier than wick.
             if lift_reached and fib_trigger_bar_idx < 0 and fib_entry is not None:
                 fib_reached = (
@@ -318,8 +518,14 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry
                 elif aligned_dir == 'bear' and creator_low is not None and bl <= creator_low:
                     lift_reached = True
 
-    state = 'triggered' if trigger_bar_idx >= 0 else 'armed'
-    fib_state = 'triggered' if fib_trigger_bar_idx >= 0 else 'armed'
+    # If we invalidated pre-trigger, BOTH triggers are nullified so
+    # the Telegram pipeline doesn't fire on the setup at all.
+    if invalidated_pre_trigger:
+        state = 'invalidated'
+        fib_state = 'invalidated'
+    else:
+        state = 'triggered' if trigger_bar_idx >= 0 else 'armed'
+        fib_state = 'triggered' if fib_trigger_bar_idx >= 0 else 'armed'
     return {
         'state': state,
         'creator_idx': creator_idx,
@@ -337,6 +543,18 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16, expiry
         'fib_target': fib_target,
         'fib_trigger_bar_idx': fib_trigger_bar_idx,
         'fib_trigger_ts': bars[fib_trigger_bar_idx].get('t') if fib_trigger_bar_idx >= 0 else None,
+        # Invalidation metadata (added 2026-06-08). state == 'invalidated'
+        # means the setup was killed pre-trigger by one of the three
+        # invalidation paths checked above; the alert pipeline must NOT
+        # send Telegram messages for these. reason is one of
+        # stop-breached / opposing-choch / counter-bars / None.
+        'invalidation_reason': invalidation_reason,
+        'invalidation_bar_idx': invalidation_bar_idx,
+        'invalidation_ts': (
+            bars[invalidation_bar_idx].get('t')
+            if invalidation_bar_idx >= 0 and invalidation_bar_idx < len(bars)
+            else None
+        ),
     }
 
 
@@ -1155,6 +1373,12 @@ def scan_pairs(intraday_data, historical_data):
             'sig_fib_entry': sig.get('fib_entry') if sig else None,
             'sig_fib_target': sig.get('fib_target') if sig else None,
             'sig_fib_trigger_ts': sig.get('fib_trigger_ts') if sig else None,
+            # Invalidation metadata — passed through to directions.json
+            # so the dashboard can render a tooltip on cancelled setups
+            # and so alert-state debugging is possible without a code
+            # change. None when the setup is still armed / triggered.
+            'sig_invalidation_reason': sig.get('invalidation_reason') if sig else None,
+            'sig_invalidation_ts': sig.get('invalidation_ts') if sig else None,
         }
     return out
 
