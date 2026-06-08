@@ -84,7 +84,8 @@ PAIRS = {
     # v7 additions (2026-06-03 — indices)
     "jp225":   {"oanda": "JP225_USD"},
     "fra40":   {"oanda": "FR40_EUR"},
-    "esp35":   {"oanda": "ESP35_EUR"},   # IBEX 35 (OANDA: ESP35_EUR)
+    # esp35 (IBEX 35) removed 2026-06-08 — OANDA practice endpoint
+    # rejected both ES35_EUR and ESP35_EUR.
     # Crypto
     "btcusd":  {"coinbase": "BTC-USD"},
     "suiusd":  {"coinbase": "SUI-USD"},

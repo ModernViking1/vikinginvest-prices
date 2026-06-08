@@ -80,7 +80,13 @@ const OANDA_PAIRS = {
   // Equity index additions (v7)
   jp225:   'JP225_USD',  // Nikkei 225 (note: index level is 225, not 250)
   fra40:   'FR40_EUR',   // CAC 40 (France)
-  esp35:   'ESP35_EUR',  // IBEX 35 (Spain) — OANDA uses ESP35_EUR (not ES35_EUR)
+  // IBEX 35 removed 2026-06-08 — neither ES35_EUR nor ESP35_EUR returned
+  // valid candles on OANDA's practice endpoint, so the instrument was
+  // dropped rather than block the rest of the v7 batch. To re-add: try
+  // alternate tickers (ESPIX_EUR is another option some accounts have)
+  // and restore the row to MKTS, fetch-prices.js, fetch_historical_ohlc.py,
+  // publish_intraday_ohlc.py, detect_triggers.py FIB_ENTRY_PAIRS +
+  // PAIR_DISPLAY, and RULES_FINGERPRINT().fibPairs.
   // Helper: USD/SEK needed for synthetic DXY computation in the dashboard,
   // even though it doesn't have a tradeable MKTS entry of its own.
   usdsek: 'USD_SEK',

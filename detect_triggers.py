@@ -62,7 +62,7 @@ PAIR_DISPLAY = {
     'gbpchf': 'GBP/CHF', 'usdzar': 'USD/ZAR', 'usdcnh': 'USD/CNH',
     'eursgd': 'EUR/SGD',
     # v7 indices (2026-06-03)
-    'jp225':  'Nikkei 225', 'fra40':  'CAC 40', 'esp35':  'IBEX 35',
+    'jp225':  'Nikkei 225', 'fra40':  'CAC 40',
     # Crypto
     'btcusd': 'BTC/USD', 'suiusd': 'SUI/USD',
     'ethusd': 'ETH/USD', 'solusd': 'SOL/USD',
@@ -498,7 +498,9 @@ FIB_ENTRY_PAIRS = {
     # silently fell through to no-fib-class on those two pairs).
     'de40', 'nas100', 'dj30', 'ftse100', 'spx500',
     # v7 additions (2026-06-03)
-    'jp225', 'fra40', 'esp35',
+    'jp225', 'fra40',
+    # IBEX 35 (esp35) was added then removed 2026-06-08 — OANDA ticker
+    # never validated. See removal notes in fetch-prices.js.
 }
 
 def uses_fib_entry(pair):

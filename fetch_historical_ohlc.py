@@ -109,7 +109,9 @@ PAIRS: Dict[str, Dict[str, str]] = {
     # v7 additions (2026-06-03 — indices)
     "jp225":   {"oanda": "JP225_USD"},   # Nikkei 225
     "fra40":   {"oanda": "FR40_EUR"},    # CAC 40
-    "esp35":   {"oanda": "ESP35_EUR"},   # IBEX 35 (OANDA: ESP35_EUR, not ES35_EUR)
+    # IBEX 35 (esp35) removed 2026-06-08 — OANDA practice endpoint
+    # rejected both ES35_EUR and ESP35_EUR. Re-add when the correct
+    # ticker is confirmed (ESPIX_EUR is a candidate).
     # Crypto
     "btcusd":  {"coinbase": "BTC-USD"},
     "suiusd":  {"coinbase": "SUI-USD"},

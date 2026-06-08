@@ -1115,10 +1115,6 @@ var MKTS = {
     ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
     entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
-  esp35:{sym:'IBEX 35',t:'index',px:'11,700',p:11700,d:1,sc:60,up:true,chg:'+0.00%',
-    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
-    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
-    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
 
   // ── DXY MACRO ANCHOR ──────────────────────────────────────────────
   // The Dollar Index is the regime gate for every USD pair below.
@@ -1760,7 +1756,7 @@ var USD_CORRELATION = {
   audchf:'cross', cadjpy:'cross',
   nzdcad:'cross', eurnok:'cross', nzdchf:'cross', gbpchf:'cross', eursgd:'cross',
   // CDS commodities (not USD-correlated directly)
-  usoil:'cross', de40:'cross', jp225:'cross', fra40:'cross', esp35:'cross',
+  usoil:'cross', de40:'cross', jp225:'cross', fra40:'cross',
   // The index itself
   dxy:'index'
 };
@@ -2060,7 +2056,7 @@ var VIKING_SRC_MAP = {
   xauusd:'OND', xagusd:'OND', usoil:'OND',
   // Equity indices
   de40:'OND', ftse100:'OND', dj30:'OND', nas100:'OND', spx500:'OND',
-  jp225:'OND', fra40:'OND', esp35:'OND',
+  jp225:'OND', fra40:'OND',
   // Coinbase (crypto)
   btcusd:'CB', suiusd:'CB', ethusd:'CB', solusd:'CB',
   xrpusd:'CB', taousd:'CB',
@@ -4604,7 +4600,7 @@ var PAIR_CURRENCIES = {
   gbpchf:['GBP','CHF'], usdzar:['USD','ZAR'], usdcnh:['USD','CNH'],
   eursgd:['EUR','SGD'],
   ltcusd:[],
-  jp225:['JPY'], fra40:['EUR'], esp35:['EUR'],
+  jp225:['JPY'], fra40:['EUR'],
   dxy:   ['USD','EUR','JPY','GBP','CAD','SEK','CHF']
 };
 
@@ -10180,8 +10176,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-04';
+var RULES_VERSION = '2026-06-08';
 var RULES_VERSION_NOTES = [
+  '2026-06-08 — IBEX 35 (esp35) removed — OANDA ticker never validated. Backfill workflow now caps m15 layer to 30 days (was 365) so historical-ohlc.json stays under GitHub\'s 100MB push limit. Minimum 15m R distance now enforced — setups where stop is closer than 0.5 × recent ATR are rejected (was producing 6-pip stops on NZD/USD).',
   '2026-06-04 — Counter-bar invalidation now requires NOWICK candles (body ≥ 70% of total range). Previous rule fired on any opposite-body pair with rising/falling closes, false-flagging thin-body retracement bars with long wicks as momentum reversals (BTC/USD setup invalidated mid-pullback, user-reported)',
   '2026-06-03e — Added 7 FX minors (NZDCAD, EURNOK, NZDCHF, GBPCHF, USDZAR, USDCNH, EURSGD), LTC/USD, and 3 indices (Nikkei 225 / CAC 40 / IBEX 35). Indices use Fib half-size entry. Cache auto-invalidates on the FIB_ENTRY_PAIRS expansion',
   '2026-06-03d — Reverted 2026-06-03c target change (didn\'t backtest cleanly). Targets restored to 1:1 R:R; TV Auto Fib Retracement levels (1.272 / 1.618 / 2.618) surfaced as advisory text in the 15m intraday box only',
@@ -10200,7 +10197,8 @@ function RULES_FINGERPRINT(){
     autoEwMinConf: (typeof AUTO_EW_MIN_CONFIDENCE !== 'undefined') ? AUTO_EW_MIN_CONFIDENCE : null,
     counterBarsThresh: 2,
     counterBarsNoWick: 0.70,
-    fibPairs: ['xauusd','xagusd','usoil','de40','nas100','dj30','ftse100','spx500','jp225','fra40','esp35'].sort().join(',')
+    minRAtrMult: 0.5,
+    fibPairs: ['xauusd','xagusd','usoil','de40','nas100','dj30','ftse100','spx500','jp225','fra40'].sort().join(',')
   });
 }
 function _cacheKeyForMode(mode){
@@ -10775,6 +10773,24 @@ function calcRecentBacktest(k, mode){
       target = entry + R;
     }
     if(R <= 0){ i++; continue; }
+    // Min-R floor (2026-06-08 — mirrors detectIntradaySignal). Compute
+    // a quick 20-bar ATR on the bars BEFORE the setup and reject when
+    // R is less than half the noise floor. Same threshold as the live
+    // detector so the backtest and live signal pick the same setups.
+    var _atrStart = Math.max(1, i - 20);
+    var _atrSum = 0, _atrCnt = 0;
+    for(var _ai = _atrStart; _ai < i; _ai++){
+      var _b = m15Bars[_ai], _pb = m15Bars[_ai - 1];
+      if(!_b || !_pb) continue;
+      var _tr = Math.max(
+        _b.h - _b.l,
+        Math.abs(_b.h - _pb.c),
+        Math.abs(_b.l - _pb.c)
+      );
+      _atrSum += _tr; _atrCnt++;
+    }
+    var _atr20 = _atrCnt > 0 ? _atrSum / _atrCnt : 0;
+    if(_atr20 > 0 && R < 0.5 * _atr20){ i++; continue; }
 
     // ── HYBRID RULE: 38% Fib retrace entry (HALF SIZE) ──
     // Matches the live rule: a parallel half-size trade triggered when
@@ -12394,6 +12410,20 @@ function detectIntradaySignal(k){
   // Sanity: stop must be on the correct side of entry. If it's not
   // (data quirk), the signal isn't valid.
   if(R <= 0) return null;
+  // ── MINIMUM R FLOOR (2026-06-08, NZD/USD 6-pip case) ────────────
+  // When the creator wick prints right next to the swept BoS level,
+  // R can be tiny (NZD/USD 2026-06-08 showed a 6-pip stop). Targets
+  // that small are inside spread for some retail brokers and almost
+  // always whipsaw before reaching the 1:1 target. Reject the
+  // signal entirely if R < 0.5 × ATR(20) — the creator and BoS are
+  // structurally too close for a tradeable setup.
+  //
+  // Why 0.5 × ATR: minProminence already uses 0.25 × ATR as the
+  // BoS-significance floor, so 0.5 × ATR for R is the next natural
+  // tier — "the structural break has to be at least twice as far
+  // away as the noise floor". Empirically this kills the 6-pip
+  // setups but keeps normal-volatility wicks intact.
+  if(atr20 > 0 && R < 0.5 * atr20) return null;
   // Advisory Auto Fib levels — display only, never alters target. The
   // wick trade still resolves on the 1:1 R:R target above; the Fib
   // figures from autoFibTarget are surfaced as reference levels in

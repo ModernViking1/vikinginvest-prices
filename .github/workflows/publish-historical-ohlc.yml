@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       days:
-        description: 'History window in days (default 365)'
+        description: 'History window in days for daily + 1H (default 365). m15 layer is always capped to 30 days — needed to keep the JSON file under GitHub''s 100 MB push limit. Crypto deep-fetch uses the same cap.'
         required: false
         default: '365'
       pairs:
@@ -78,6 +78,7 @@ jobs:
           fi
           python fetch_historical_ohlc.py \
             --days ${{ inputs.days }} \
+            --m15-days 30 \
             --output historical-ohlc.json \
             $PAIRS_ARG $MERGE_ARG
           ls -lh historical-ohlc.json
