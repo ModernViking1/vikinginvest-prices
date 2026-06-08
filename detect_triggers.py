@@ -97,6 +97,7 @@ def calc_independent_dir(bars, lookback=8):
         min_prom = 0.0005
 
     last_break_dir = None
+    last_break_idx = -1
     for i in range(lookback, n):
         slc = bars[max(0, i - lookback):i]
         if len(slc) < 5:
@@ -109,19 +110,45 @@ def calc_independent_dir(bars, lookback=8):
             continue
         if c > swing_hi and (c - swing_hi) >= min_prom:
             last_break_dir = 'bull'
+            last_break_idx = i
         elif c < swing_lo and (swing_lo - c) >= min_prom:
             last_break_dir = 'bear'
+            last_break_idx = i
+
+    # Staleness decay: if the most recent break is older than 2× lookback
+    # bars (i.e., price has stopped printing new highs/lows in that
+    # direction for 16+ hours on 1H), the structural trend has lost
+    # momentum. Fall through to the slope check / neutral rather than
+    # reporting a sticky last-known direction.
+    #
+    # Without this decay GBPAUD + USDCHF (2026-06-08) reported tl=bull
+    # from a breakout 19-21 hours earlier, while the last 8 hourly closes
+    # were chopping inside the prior swing range — exactly the
+    # disagreement-with-TradingView the user flagged. A sustained trend
+    # keeps refreshing last_break_idx on each new HH/LL, so this only
+    # bites range-bound consolidations after a truly old break. 2× was
+    # chosen over 1× because the latter clobbered legitimate trend reads
+    # on pairs that had broken structure 8-15 bars ago and were still
+    # trending (NZD/USD, USD/JPY, EUR/USD).
+    if last_break_dir is not None and last_break_idx >= 0:
+        bars_since_break = (n - 1) - last_break_idx
+        if bars_since_break >= 2 * lookback:
+            last_break_dir = None
 
     if last_break_dir is None:
-        # Fall back to recent slope
+        # Fall back to recent slope (widened deadband — 0.0005 was too
+        # tight: USDCHF showed +6 pips drift over 8 hours and read as
+        # 'bull' despite the broader TradingView chart being clearly
+        # bearish. 0.0015 (15 bps over the lookback window) needs a
+        # clearer net move before claiming a direction.)
         if n >= lookback:
             first_c = bars[-lookback].get('c')
             last_c = bars[-1].get('c')
             if first_c and last_c:
                 change = (last_c - first_c) / first_c
-                if change > 0.0005:
+                if change > 0.0015:
                     return 'bull'
-                if change < -0.0005:
+                if change < -0.0015:
                     return 'bear'
         return 'neutral'
     return last_break_dir
@@ -1190,11 +1217,18 @@ def calc_4h_cloud_dir(h1_bars, fast=21, slow=55):
     """4H EMA cloud direction (21/55 by default).
 
     Aggregates h1 → 4H, computes EMA(fast) and EMA(slow) on closes:
-      'bull'    if EMA(fast) > EMA(slow)
-      'bear'    if EMA(fast) < EMA(slow)
-      'neutral' if equal / insufficient data
+      'bull'    if EMA(fast) > EMA(slow) AND price is not below both EMAs
+      'bear'    if EMA(fast) < EMA(slow) AND price is not above both EMAs
+      'neutral' if equal / insufficient data / price has crossed the cloud
 
-    Ported byte-identically to dashboard.html's calc4HCloudDir(k).
+    Price-through-cloud guard: a bull-stacked cloud (e21>e55) with the
+    current price below BOTH EMAs means price has broken down through
+    the cloud — the stack is lagging, the move has already happened.
+    Report neutral in that mid-flip state instead of stale bull. Mirror
+    for bear-stacked clouds with price above. (Added 2026-06-08 after
+    GBPAUD/USDCHF showed cl=bull while TradingView's recent price
+    action was clearly bearish — price had punched down through both
+    EMAs but the stack hadn't crossed yet.)
     """
     h4 = aggregate_h1_to_h4(h1_bars)
     closes = [b['c'] for b in h4 if b.get('c') is not None]
@@ -1204,9 +1238,14 @@ def calc_4h_cloud_dir(h1_bars, fast=21, slow=55):
     e_slow = ema(closes, slow)
     if e_fast is None or e_slow is None:
         return 'neutral'
+    last_c = closes[-1]
     if e_fast > e_slow:
+        if last_c < e_fast and last_c < e_slow:
+            return 'neutral'
         return 'bull'
     if e_fast < e_slow:
+        if last_c > e_fast and last_c > e_slow:
+            return 'neutral'
         return 'bear'
     return 'neutral'
 
