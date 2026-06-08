@@ -10204,10 +10204,11 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-08';
+var RULES_VERSION = '2026-06-09';
 var RULES_VERSION_NOTES = [
-  '2026-06-08 — IBEX 35 (esp35) removed — OANDA ticker never validated. Backfill workflow now caps m15 layer to 30 days (was 365) so historical-ohlc.json stays under GitHub\'s 100MB push limit. Minimum 15m R distance now enforced — setups where stop is closer than 0.5 × recent ATR are rejected (was producing 6-pip stops on NZD/USD).',
-  '2026-06-04 — Counter-bar invalidation now requires NOWICK candles (body ≥ 70% of total range). Previous rule fired on any opposite-body pair with rising/falling closes, false-flagging thin-body retracement bars with long wicks as momentum reversals (BTC/USD setup invalidated mid-pullback, user-reported)',
+  '2026-06-09 — Nowick counter-bar threshold loosened from 0.70 → 0.55 body/range ratio. Threading the BTC false-cancel fix (which needed the nowick check) against the over-exposure of real losses the 0.70 ratio produced (aggregate win rate 69.7% → 63.2%). Target: aggregate sits between the two extremes. Revert path documented in the detectConsecutiveCounterBars header comment.',
+  '2026-06-08 — IBEX 35 (esp35) removed — OANDA ticker never validated. Backfill workflow caps m15 layer (initially to 30 days, then to 90 days from 2026-06-08+) so historical-ohlc.json stays under GitHub\'s 100MB push limit. Minimum 15m R distance now enforced — setups where stop is closer than 0.5 × recent ATR are rejected (was producing 6-pip stops on NZD/USD).',
+  '2026-06-04 — Counter-bar invalidation tightened to require NOWICK candles (body ≥ 70% of total range). Aggregate win rate dropped 69.7% → 63.2% over the next 4 days as real losses (previously hidden as "invalidated") showed through. Loosened to 0.55 on 2026-06-09 — see that note.',
   '2026-06-03e — Added 7 FX minors (NZDCAD, EURNOK, NZDCHF, GBPCHF, USDZAR, USDCNH, EURSGD), LTC/USD, and 3 indices (Nikkei 225 / CAC 40 / IBEX 35). Indices use Fib half-size entry. Cache auto-invalidates on the FIB_ENTRY_PAIRS expansion',
   '2026-06-03d — Reverted 2026-06-03c target change (didn\'t backtest cleanly). Targets restored to 1:1 R:R; TV Auto Fib Retracement levels (1.272 / 1.618 / 2.618) surfaced as advisory text in the 15m intraday box only',
   '2026-06-03b — Fast momentum-reversal invalidation: 2 consecutive counter-bars heading toward EMA cloud invalidate (1 counter-bar still valid)',
@@ -10224,7 +10225,7 @@ function RULES_FINGERPRINT(){
     ewMin: (typeof EW_MIN !== 'undefined') ? EW_MIN : null,
     autoEwMinConf: (typeof AUTO_EW_MIN_CONFIDENCE !== 'undefined') ? AUTO_EW_MIN_CONFIDENCE : null,
     counterBarsThresh: 2,
-    counterBarsNoWick: 0.70,
+    counterBarsNoWick: 0.55,
     minRAtrMult: 0.5,
     fibPairs: ['xauusd','xagusd','usoil','de40','nas100','dj30','ftse100','spx500','jp225','fra40'].sort().join(',')
   });
@@ -11920,19 +11921,39 @@ function detectConsecutiveCounterBars(bars, fromIdx, currentIdx, setupDir, minPr
   // upward, so the first qualifying pair is always returned at the
   // bar it forms on.
   //
-  // Definition tightened 2026-06-04 (BTC/USD false-invalidation case):
-  // the original rule fired on ANY pair of consecutive opposite-body
-  // candles with rising/falling closes, including thin-body candles
-  // with long wicks that traders read as indecision / liquidity grabs
-  // rather than momentum reversals. The new check requires NOWICK
-  // candles — body must be at least NOWICK_BODY_RATIO of the total
-  // range — so a "two-bar reversal" needs to actually look like a
-  // reversal on the chart. Long upper wicks on bearish setups, long
-  // lower wicks on bullish setups, no longer false-flag the signal.
+  // Definition tightened 2026-06-04 (BTC/USD false-invalidation case),
+  // then loosened 2026-06-08 — see baselines below. The rule requires
+  // NOWICK candles: body must be at least NOWICK_BODY_RATIO of the
+  // total range. So a "two-bar reversal" needs to actually look like
+  // a reversal on the chart.
+  //
+  // ── HISTORICAL BASELINES (for revert path) ──────────────────────
+  //
+  //   Pre-2026-06-04 (any-body counter-bars, no ratio check):
+  //     aggregate win rate ≈ 69.7%  ← peak, but over-invalidated
+  //                                    (BTC false-cancel case)
+  //   2026-06-04 → 2026-06-08 (NOWICK_BODY_RATIO = 0.70, strict):
+  //     aggregate win rate ≈ 63.2%  ← too lax on invalidation,
+  //                                    real losses showed through
+  //   2026-06-09+ (NOWICK_BODY_RATIO = 0.55, middle ground):
+  //     aggregate win rate = TBD    ← if it lands materially below
+  //                                    63.2% we have a worse rule
+  //                                    and should revert to 0.70;
+  //                                    if it lands between 63.2 and
+  //                                    69.7 it's threading the
+  //                                    BTC-style false-cancel without
+  //                                    over-hiding losses.
+  //
+  // To revert to 0.70: change NOWICK_BODY_RATIO below to 0.70 AND
+  // mirror in detect_triggers.py line 300 (counterBarsNoWick in
+  // RULES_FINGERPRINT also tracks this — bump it so caches roll).
+  // To go fully back to pre-2026-06-04: replace the
+  // `(body / range) >= NOWICK_BODY_RATIO` line below with
+  // `(body >= minBody)` to drop the ratio check entirely.
   var prev = bars[currentIdx - 1];
   var curr = bars[currentIdx];
   var minBody = (minProminence || 0) * 0.25;
-  var NOWICK_BODY_RATIO = 0.70;
+  var NOWICK_BODY_RATIO = 0.55;
   var isNoWickCounter = function(b){
     if(setupDir === 'bear' && !(b.c > b.o)) return false;
     if(setupDir === 'bull' && !(b.c < b.o)) return false;
