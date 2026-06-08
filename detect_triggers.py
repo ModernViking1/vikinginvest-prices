@@ -62,7 +62,8 @@ PAIR_DISPLAY = {
     'de40':   'DAX 30',  'ftse100': 'FTSE 100',
     'dj30':   'DJ 30',   'nas100':  'NAS 100', 'spx500':  'S&P 500',
     # v7 FX minors (2026-06-03)
-    'nzdcad': 'NZD/CAD', 'eurnok': 'EUR/NOK', 'nzdchf': 'NZD/CHF',
+    # nzdcad removed 2026-06-10 — low win-rate drag.
+    'eurnok': 'EUR/NOK', 'nzdchf': 'NZD/CHF',
     # gbpchf / usdcnh removed 2026-06-10 — low win-rate drag.
     # Re-add: "'gbpchf': 'GBP/CHF', 'usdcnh': 'USD/CNH',"
     'usdzar': 'USD/ZAR',
@@ -96,7 +97,8 @@ PAIR_CLASS = {
     'cadjpy': 'minor', 'eurnzd': 'minor', 'gbpaud': 'minor',
     'euraud': 'minor', 'usdsgd': 'minor', 'audnzd': 'minor',
     'eurgbp': 'minor', 'audcad': 'minor', 'gbpcad': 'minor',
-    'nzdjpy': 'minor', 'gbpnzd': 'minor', 'nzdcad': 'minor',
+    'nzdjpy': 'minor', 'gbpnzd': 'minor',
+    # nzdcad removed 2026-06-10 — low win-rate drag.
     'eurnok': 'minor', 'nzdchf': 'minor',
     # gbpchf / usdcnh removed 2026-06-10 — low win-rate drag.
     'usdzar': 'minor', 'eursgd': 'minor',

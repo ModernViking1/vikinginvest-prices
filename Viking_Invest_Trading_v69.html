@@ -1072,10 +1072,7 @@ var MKTS = {
   // tick. If the dashboard slows down materially after these land,
   // they can be removed without touching the rest of the codebase
   // (each addition lives entirely under its pair key).
-  nzdcad:{sym:'NZD/CAD',t:'minor',px:'0.8200',p:0.82,d:5,sc:0.004,up:true,chg:'+0.00%',
-    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
-    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
-    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  // nzdcad removed 2026-06-10 — low win-rate drag on aggregate.
   eurnok:{sym:'EUR/NOK',t:'minor',px:'11.500',p:11.5,d:4,sc:0.05,up:true,chg:'+0.00%',
     ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
@@ -1745,7 +1742,8 @@ var USD_CORRELATION = {
   euraud:'cross', audnzd:'cross', eurgbp:'cross',
   // audchf removed 2026-06-08 — low win-rate drag.
   cadjpy:'cross',
-  nzdcad:'cross', eurnok:'cross', nzdchf:'cross', eursgd:'cross',
+  eurnok:'cross', nzdchf:'cross', eursgd:'cross',
+  // nzdcad removed 2026-06-10 — low win-rate drag.
   // gbpchf removed 2026-06-10 — low win-rate drag.
   // CDS commodities (not USD-correlated directly)
   usoil:'cross', de40:'cross', jp225:'cross',
@@ -2045,7 +2043,8 @@ var VIKING_SRC_MAP = {
   gbpnzd:'OND',
   // usdnok / eursek removed 2026-06-08 — low win-rate drag.
   // v7 FX additions (minors)
-  nzdcad:'OND', eurnok:'OND', nzdchf:'OND',
+  eurnok:'OND', nzdchf:'OND',
+  // nzdcad removed 2026-06-10 — low win-rate drag.
   usdzar:'OND', eursgd:'OND',
   // gbpchf / usdcnh removed 2026-06-10 — low win-rate drag.
   // Commodities
@@ -4627,7 +4626,8 @@ var PAIR_CURRENCIES = {
   // audchf removed 2026-06-08 — low win-rate drag.
   btcusd:[],
   // v7 additions (2026-06-03)
-  nzdcad:['NZD','CAD'], eurnok:['EUR','NOK'], nzdchf:['NZD','CHF'],
+  eurnok:['EUR','NOK'], nzdchf:['NZD','CHF'],
+  // nzdcad removed 2026-06-10 — low win-rate drag.
   usdzar:['USD','ZAR'],
   // gbpchf / usdcnh removed 2026-06-10 — low win-rate drag.
   eursgd:['EUR','SGD'],
@@ -5936,6 +5936,39 @@ function renderFailureModeAnalysis(){
       + '</div>';
   }).join('');
 
+  // ── Per-asset-class WR breakdown (RULES_VERSION 2026-06-10b) ────────
+  // Surfaces the per-class win rate so the user can verify forward-going
+  // whether the deployed A1 per-class RSI thresholds are producing the
+  // pattern the backtest sweep predicted. Hidden when sample size is
+  // too small (<10 decided per class) to avoid noise; pairs/classes with
+  // zero trades silently drop out.
+  var perClass = report.perClass || {};
+  var classOrder = ['major','minor','comm','index','crypto'];
+  var classDisplayName = { major:'FX majors', minor:'FX minors', comm:'Commodities', index:'Indices', crypto:'Crypto' };
+  var classGateLabel = { major:'90/10', minor:'70/30', comm:'70/30', index:'70/30', crypto:'75/25' };
+  var perClassCells = classOrder.map(function(cls){
+    var p = perClass[cls];
+    if(!p || p.all === 0) return '';
+    var decided = p.wins + p.losses;
+    var wr = decided > 0 ? (p.wins / decided * 100) : null;
+    var wrColor = wr === null ? 'var(--inkd)' : (wr >= 65 ? 'var(--bull)' : wr >= 50 ? 'var(--gold)' : 'var(--bear)');
+    var wrText = wr === null ? '—' : Math.round(wr) + '%';
+    var gateLabel = classGateLabel[cls] || '80/20';
+    return '<div style="background:rgba(0,0,0,0.02);padding:6px 8px;border-radius:2px;" title="' + classDisplayName[cls] + ' — ' + p.all + ' simulated trades. A1 gate: 1H RSI ' + gateLabel + '. ' + p.wins + 'W / ' + p.losses + 'L of ' + decided + ' decided · ' + (p.expired||0) + ' expired · ' + (p.invalidated||0) + ' invalidated.">'
+      + '<div style="font-size:8px;color:var(--inkm);font-weight:700;letter-spacing:0.4px;text-transform:uppercase;">' + classDisplayName[cls] + '</div>'
+      + '<div style="font-size:11px;color:' + wrColor + ';font-weight:700;">' + wrText + '</div>'
+      + '<div style="font-size:7.5px;color:var(--inkd);">' + p.wins + 'W/' + p.losses + 'L · gate ' + gateLabel + '</div>'
+      + '</div>';
+  }).filter(function(s){ return s; }).join('');
+  var perClassHTML = perClassCells
+    ? '<div style="margin-top:10px;padding-top:8px;border-top:1px dashed rgba(0,0,0,0.08);">'
+        + '<div style="font-size:8.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-bottom:5px;" title="Per-asset-class WR — verifies whether the deployed A1 per-class RSI thresholds (RULES_VERSION 2026-06-10a) are producing the pattern the sweep predicted: minors/commodities/indices at 70/30, majors at 90/10, crypto at 75/25.">WR by asset class <span style="color:var(--inkd);font-weight:400;font-style:italic;">· post-A1 per-class gate</span></div>'
+        + '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));gap:8px;">'
+        + perClassCells
+        + '</div>'
+      + '</div>'
+    : '';
+
   // Variants section
   var variantHTML = '<div style="margin-top:10px;padding-top:8px;border-top:1px dashed rgba(0,0,0,0.08);">'
     + '<div style="font-size:8.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-bottom:5px;">Rule variant tests (only on non-wins)</div>'
@@ -6005,7 +6038,7 @@ function renderFailureModeAnalysis(){
       + '</details>';
   }
 
-  host.innerHTML = aggHTML + classBars + variantHTML + perPairHTML;
+  host.innerHTML = aggHTML + classBars + perClassHTML + variantHTML + perPairHTML;
   host.style.display = 'block';
 }
 
@@ -10263,8 +10296,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-10b';
+var RULES_VERSION = '2026-06-10c';
 var RULES_VERSION_NOTES = [
+  '2026-06-10c — Failure-mode panel now shows a "WR by asset class" row (major / minor / comm / index / crypto), so forward-going we can verify whether the deployed per-class A1 RSI thresholds (2026-06-10a) are producing the pattern the sweep predicted. analyseIntradayFailures now returns perClass alongside the existing classification / variants / perPair structures. NZD/CAD also dropped from the pair universe (low win-rate drag, same pattern as the 2026-06-10b removals). Active universe: 41 → 40 tradeable instruments.',
   '2026-06-10b — Dropped 4 more pairs from the universe: LTC/USD (crypto), GBP/CHF (FX minor), USD/CNH (FX minor), CAC 40 (index). All were running well below class median WR and dragging on aggregate. Same removal pattern as the 2026-06-08 AUDCHF/EURSEK/USDNOK drop: pulled from fetch-prices.js, fetch_historical_ohlc.py, publish_intraday_ohlc.py, crypto-deep-fetch.yml, detect_triggers.py (PAIR_DISPLAY + PAIR_CLASS + FIB_ENTRY_PAIRS), and the dashboard (MKTS, USD_CORRELATION, VIKING_SRC_MAP, PAIR_CURRENCIES). RULES_FINGERPRINT.fibPairs no longer includes fra40 so caches invalidate. Active universe now: 7 FX majors + 16 FX minors + 3 commodities + 6 indices + 9 crypto = 41 instruments.',
   '2026-06-10a — A1 per-class RSI thresholds. Backtest sweep across {no-gate, 70/30, 75/25, 80/20, 85/15, 90/10} showed FX minors / commodities / indices all preferred a TIGHTER 70/30 gate (+2.7 to +5.6pp WR over the prior 80/20 default), while FX majors and crypto were threshold-insensitive (trend persistently through textbook overbought). Wired RSI_GATE_BY_CLASS = {major: 90/10, minor: 70/30, comm: 70/30, index: 70/30, crypto: 75/25}; _rsiGateFor(k) reads MKTS[k].t. Same map used by detectIntradaySignal, the recent backtest engine, and detect_triggers.py so dashboard, alerts and backtest stay in lockstep. Aggregate impact in the simplified sweep: +1.56pp vs flat 80/20.',
   '2026-06-09d — A1 hard gate enabled: 1H RSI ≥ 80 blocks bull setups, ≤ 20 blocks bear. Treated like an alignment break — signal still computes entry/stop/target for display, but state collapses to invalidated/choch-invalidated with reason rsi-extreme. isArmed / isTriggered return false when blocked so the pair drops out of the filter pills. AUDCHF / EURSEK / USDNOK also dropped from the pair universe (low-win-rate drag). RULES_FINGERPRINT gets a rsiHardGate flag so backtests re-run on next load.',
@@ -13465,6 +13499,20 @@ function analyseIntradayFailures(){
     rsiGate80_20:  {filtered:0, wouldStillFire:0, unresolved:0}
   };
   var aggTotals = {wins:0, losses:0, expired:0, invalidated:0, all:0};
+  // Per-class win/loss tally — populated alongside aggTotals so the panel
+  // can render a "WR by asset class" row. Driven by the user request
+  // (2026-06-10) to verify forward-going whether the per-class A1 RSI
+  // gate is producing the per-class WR pattern the sweep predicted.
+  var perClassTotals = {};
+  var _classOf = function(k){ return (MKTS[k] && MKTS[k].t) || 'unknown'; };
+  var _bumpClass = function(cls, outcome){
+    perClassTotals[cls] = perClassTotals[cls] || {wins:0, losses:0, expired:0, invalidated:0, all:0};
+    perClassTotals[cls].all++;
+    if(outcome === 'win') perClassTotals[cls].wins++;
+    else if(outcome === 'loss') perClassTotals[cls].losses++;
+    else if(outcome === 'expired') perClassTotals[cls].expired++;
+    else if(outcome === 'invalidated') perClassTotals[cls].invalidated++;
+  };
   var pairCounts = { totalPairs: 0, alignedPairs: 0, alignedWithSignals: 0 };
   var alignedPairKeys = [];
   var dataSource = 'sim';  // 'deep' (12-month) or 'sim' (buffered ~10-15 days)
@@ -13530,6 +13578,7 @@ function analyseIntradayFailures(){
       var deepTrades = allDeep[k].trades;
       pairCounts.alignedWithSignals++;
       var pair = { trades: deepTrades.length, classification: {}, variants: {stopPlus25: {wins:0, losses:0}, midpointEntry: {wins:0, losses:0}} };
+      var _kClass = _classOf(k);
       deepTrades.forEach(function(dt){
         var cls = mapFailureMode(dt.failureMode, dt.outcome);
         pair.classification[cls] = (pair.classification[cls]||0) + 1;
@@ -13539,6 +13588,7 @@ function analyseIntradayFailures(){
         else if(dt.outcome === 'loss') aggTotals.losses++;
         else if(dt.outcome === 'expired') aggTotals.expired++;
         else if(dt.outcome === 'invalidated') aggTotals.invalidated++;
+        _bumpClass(_kClass, dt.outcome);
         // Note: deep backtest doesn't currently track variant rescues; that
         // would require running each trade through variant rule too. The
         // variant column shows '0' in deep mode — could add later if useful.
@@ -13592,6 +13642,7 @@ function analyseIntradayFailures(){
     }
 
     var pair = { trades: trades.length, classification: {}, variants: {stopPlus25: {wins:0, losses:0}, midpointEntry: {wins:0, losses:0}, rsiGate80_20: {filtered:0, wouldStillFire:0}} };
+    var _kClassSim = _classOf(k);
     trades.forEach(function(t){
       pair.classification[t.classification] = (pair.classification[t.classification]||0) + 1;
       aggClassification[t.classification] = (aggClassification[t.classification]||0) + 1;
@@ -13600,6 +13651,7 @@ function analyseIntradayFailures(){
       else if(t.outcome === 'loss') aggTotals.losses++;
       else if(t.outcome === 'expired') aggTotals.expired++;
       else if(t.outcome === 'invalidated') aggTotals.invalidated++;
+      _bumpClass(_kClassSim, t.outcome);
 
       // Variants only meaningful for non-wins
       if(t.classification !== 'win'){
@@ -13658,6 +13710,7 @@ function analyseIntradayFailures(){
     classification: aggClassification,
     variants: aggVariants,
     perPair: perPair,
+    perClass: perClassTotals,  // {major:{wins,losses,…}, minor:…, …}
     pairCounts: pairCounts,
     alignedPairKeys: alignedPairKeys,
     dataSource: dataSource  // 'deep' or 'sim' — UI shows this in the header

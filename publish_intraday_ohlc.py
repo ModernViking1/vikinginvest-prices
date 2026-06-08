@@ -65,7 +65,7 @@ PAIRS = {
     "gbpnzd":  {"oanda": "GBP_NZD"},
     # eursek removed 2026-06-08 — low win-rate drag. Re-add: '"eursek": {"oanda": "EUR_SEK"},'
     # v7 additions (2026-06-03 — minors)
-    "nzdcad":  {"oanda": "NZD_CAD"},
+    # nzdcad removed 2026-06-10 — low win-rate drag. Re-add: '"nzdcad": {"oanda": "NZD_CAD"},'
     "eurnok":  {"oanda": "EUR_NOK"},
     "nzdchf":  {"oanda": "NZD_CHF"},
     # gbpchf removed 2026-06-10 — low win-rate drag. Re-add: '"gbpchf": {"oanda": "GBP_CHF"},'
