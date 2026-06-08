@@ -64,9 +64,9 @@ const OANDA_PAIRS = {
   nzdcad:  'NZD_CAD',
   eurnok:  'EUR_NOK',
   nzdchf:  'NZD_CHF',
-  gbpchf:  'GBP_CHF',
+  // gbpchf removed 2026-06-10 — low win-rate drag. Re-add: 'gbpchf': 'GBP_CHF'.
   usdzar:  'USD_ZAR',
-  usdcnh:  'USD_CNH',
+  // usdcnh removed 2026-06-10 — low win-rate drag. Re-add: 'usdcnh': 'USD_CNH'.
   eursgd:  'EUR_SGD',
   // Commodities
   xauusd: 'XAU_USD',     // gold
@@ -80,7 +80,7 @@ const OANDA_PAIRS = {
   spx500:  'SPX500_USD', // S&P 500
   // Equity index additions (v7)
   jp225:   'JP225_USD',  // Nikkei 225 (note: index level is 225, not 250)
-  fra40:   'FR40_EUR',   // CAC 40 (France)
+  // fra40 (CAC 40) removed 2026-06-10 — low win-rate drag. Re-add: 'fra40': 'FR40_EUR'.
   // IBEX 35 removed 2026-06-08 — neither ES35_EUR nor ESP35_EUR returned
   // valid candles on OANDA's practice endpoint, so the instrument was
   // dropped rather than block the rest of the v7 batch. To re-add: try
@@ -106,8 +106,7 @@ const COINBASE_PAIRS = {
   nearusd: 'NEAR-USD',
   hypeusd: 'HYPE-USD',
   ondousd: 'ONDO-USD',
-  // v7 additions (2026-06-03)
-  ltcusd:  'LTC-USD',
+  // ltcusd removed 2026-06-10 — low win-rate drag. Re-add: 'ltcusd': 'LTC-USD'.
 };
 
 // ── HTTP helpers ─────────────────────────────────────────────

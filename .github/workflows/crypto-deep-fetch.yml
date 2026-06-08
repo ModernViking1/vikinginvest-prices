@@ -58,7 +58,7 @@ jobs:
           # plenty of headroom without making the JSON file enormous.
           # --merge preserves every non-crypto pair already in the file.
           python fetch_historical_ohlc.py \
-            --pairs btcusd,suiusd,ethusd,solusd,xrpusd,taousd,nearusd,hypeusd,ondousd,ltcusd \
+            --pairs btcusd,suiusd,ethusd,solusd,xrpusd,taousd,nearusd,hypeusd,ondousd \
             --days 730 \
             --m15-days 30 \
             --merge \
@@ -70,7 +70,7 @@ jobs:
           import json
           with open('historical-ohlc.json') as f:
               d = json.load(f)
-          crypto = ['btcusd','suiusd','ethusd','solusd','xrpusd','taousd','nearusd','hypeusd','ondousd','ltcusd']
+          crypto = ['btcusd','suiusd','ethusd','solusd','xrpusd','taousd','nearusd','hypeusd','ondousd']
           print('Crypto pair bar counts after fetch:')
           for k in crypto:
               p = d.get('pairs', {}).get(k, {})

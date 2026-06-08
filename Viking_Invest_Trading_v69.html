@@ -1084,34 +1084,22 @@ var MKTS = {
     ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
     entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
-  gbpchf:{sym:'GBP/CHF',t:'minor',px:'1.1000',p:1.1,d:5,sc:0.003,up:true,chg:'+0.00%',
-    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
-    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
-    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  // gbpchf removed 2026-06-10 — low win-rate drag on aggregate.
   usdzar:{sym:'USD/ZAR',t:'minor',px:'18.500',p:18.5,d:4,sc:0.08,up:true,chg:'+0.00%',
     ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
     entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
-  usdcnh:{sym:'USD/CNH',t:'minor',px:'7.2000',p:7.2,d:4,sc:0.02,up:true,chg:'+0.00%',
-    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
-    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
-    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  // usdcnh removed 2026-06-10 — low win-rate drag on aggregate.
   eursgd:{sym:'EUR/SGD',t:'minor',px:'1.4500',p:1.45,d:5,sc:0.004,up:true,chg:'+0.00%',
     ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
     entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
-  ltcusd:{sym:'LTC/USD',t:'crypto',px:'75.00',p:75,d:2,sc:1.2,up:true,chg:'+0.00%',
-    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
-    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
-    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  // ltcusd removed 2026-06-10 — low win-rate drag on aggregate.
   jp225:{sym:'Nikkei 225',t:'index',px:'38,000',p:38000,d:0,sc:200,up:true,chg:'+0.00%',
     ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
     entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
-  fra40:{sym:'CAC 40',t:'index',px:'7,700',p:7700,d:1,sc:40,up:true,chg:'+0.00%',
-    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
-    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
-    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  // fra40 (CAC 40) removed 2026-06-10 — low win-rate drag on aggregate.
 
   // ── DXY MACRO ANCHOR ──────────────────────────────────────────────
   // The Dollar Index is the regime gate for every USD pair below.
@@ -1746,18 +1734,22 @@ var USD_CORRELATION = {
   // Crypto — DXY correlation is WEAK/EPISODIC. Own cycle dominates. Treat as 'cross'.
   btcusd:'cross', suiusd:'cross',
   ethusd:'cross', solusd:'cross', xrpusd:'cross', taousd:'cross',
-  nearusd:'cross', hypeusd:'cross', ondousd:'cross', ltcusd:'cross',
+  nearusd:'cross', hypeusd:'cross', ondousd:'cross',
+  // ltcusd removed 2026-06-10 — low win-rate drag.
   // USDxxx (USD is base) — bear when DXY bear, bull when DXY bull
   usdjpy:'USDxxx', usdcad:'USDxxx', usdchf:'USDxxx', usdsgd:'USDxxx',
-  usdzar:'USDxxx', usdcnh:'USDxxx',
+  usdzar:'USDxxx',
+  // usdcnh removed 2026-06-10 — low win-rate drag.
   // FX crosses (no direct USD leg)
   eurnzd:'cross', gbpaud:'cross',
   euraud:'cross', audnzd:'cross', eurgbp:'cross',
   // audchf removed 2026-06-08 — low win-rate drag.
   cadjpy:'cross',
-  nzdcad:'cross', eurnok:'cross', nzdchf:'cross', gbpchf:'cross', eursgd:'cross',
+  nzdcad:'cross', eurnok:'cross', nzdchf:'cross', eursgd:'cross',
+  // gbpchf removed 2026-06-10 — low win-rate drag.
   // CDS commodities (not USD-correlated directly)
-  usoil:'cross', de40:'cross', jp225:'cross', fra40:'cross',
+  usoil:'cross', de40:'cross', jp225:'cross',
+  // fra40 (CAC 40) removed 2026-06-10 — low win-rate drag.
   // The index itself
   dxy:'index'
 };
@@ -2053,17 +2045,20 @@ var VIKING_SRC_MAP = {
   gbpnzd:'OND',
   // usdnok / eursek removed 2026-06-08 — low win-rate drag.
   // v7 FX additions (minors)
-  nzdcad:'OND', eurnok:'OND', nzdchf:'OND', gbpchf:'OND',
-  usdzar:'OND', usdcnh:'OND', eursgd:'OND',
+  nzdcad:'OND', eurnok:'OND', nzdchf:'OND',
+  usdzar:'OND', eursgd:'OND',
+  // gbpchf / usdcnh removed 2026-06-10 — low win-rate drag.
   // Commodities
   xauusd:'OND', xagusd:'OND', usoil:'OND',
   // Equity indices
   de40:'OND', ftse100:'OND', dj30:'OND', nas100:'OND', spx500:'OND',
-  jp225:'OND', fra40:'OND',
+  jp225:'OND',
+  // fra40 removed 2026-06-10 — low win-rate drag.
   // Coinbase (crypto)
   btcusd:'CB', suiusd:'CB', ethusd:'CB', solusd:'CB',
   xrpusd:'CB', taousd:'CB',
-  nearusd:'CB', hypeusd:'CB', ondousd:'CB', ltcusd:'CB',
+  nearusd:'CB', hypeusd:'CB', ondousd:'CB',
+  // ltcusd removed 2026-06-10 — low win-rate drag.
   // Synthesised
   dxy:'SY'
 };
@@ -4633,10 +4628,12 @@ var PAIR_CURRENCIES = {
   btcusd:[],
   // v7 additions (2026-06-03)
   nzdcad:['NZD','CAD'], eurnok:['EUR','NOK'], nzdchf:['NZD','CHF'],
-  gbpchf:['GBP','CHF'], usdzar:['USD','ZAR'], usdcnh:['USD','CNH'],
+  usdzar:['USD','ZAR'],
+  // gbpchf / usdcnh removed 2026-06-10 — low win-rate drag.
   eursgd:['EUR','SGD'],
-  ltcusd:[],
-  jp225:['JPY'], fra40:['EUR'],
+  // ltcusd removed 2026-06-10 — low win-rate drag.
+  jp225:['JPY'],
+  // fra40 removed 2026-06-10 — low win-rate drag.
   dxy:   ['USD','EUR','JPY','GBP','CAD','SEK','CHF']
 };
 
@@ -10266,8 +10263,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-10a';
+var RULES_VERSION = '2026-06-10b';
 var RULES_VERSION_NOTES = [
+  '2026-06-10b — Dropped 4 more pairs from the universe: LTC/USD (crypto), GBP/CHF (FX minor), USD/CNH (FX minor), CAC 40 (index). All were running well below class median WR and dragging on aggregate. Same removal pattern as the 2026-06-08 AUDCHF/EURSEK/USDNOK drop: pulled from fetch-prices.js, fetch_historical_ohlc.py, publish_intraday_ohlc.py, crypto-deep-fetch.yml, detect_triggers.py (PAIR_DISPLAY + PAIR_CLASS + FIB_ENTRY_PAIRS), and the dashboard (MKTS, USD_CORRELATION, VIKING_SRC_MAP, PAIR_CURRENCIES). RULES_FINGERPRINT.fibPairs no longer includes fra40 so caches invalidate. Active universe now: 7 FX majors + 16 FX minors + 3 commodities + 6 indices + 9 crypto = 41 instruments.',
   '2026-06-10a — A1 per-class RSI thresholds. Backtest sweep across {no-gate, 70/30, 75/25, 80/20, 85/15, 90/10} showed FX minors / commodities / indices all preferred a TIGHTER 70/30 gate (+2.7 to +5.6pp WR over the prior 80/20 default), while FX majors and crypto were threshold-insensitive (trend persistently through textbook overbought). Wired RSI_GATE_BY_CLASS = {major: 90/10, minor: 70/30, comm: 70/30, index: 70/30, crypto: 75/25}; _rsiGateFor(k) reads MKTS[k].t. Same map used by detectIntradaySignal, the recent backtest engine, and detect_triggers.py so dashboard, alerts and backtest stay in lockstep. Aggregate impact in the simplified sweep: +1.56pp vs flat 80/20.',
   '2026-06-09d — A1 hard gate enabled: 1H RSI ≥ 80 blocks bull setups, ≤ 20 blocks bear. Treated like an alignment break — signal still computes entry/stop/target for display, but state collapses to invalidated/choch-invalidated with reason rsi-extreme. isArmed / isTriggered return false when blocked so the pair drops out of the filter pills. AUDCHF / EURSEK / USDNOK also dropped from the pair universe (low-win-rate drag). RULES_FINGERPRINT gets a rsiHardGate flag so backtests re-run on next load.',
   '2026-06-09c — calcIndependentDir: added staleness decay (drop last-break direction if older than 2× lookback bars) and widened slope-fallback deadband from 5 bps to 15 bps. Fixes the sticky-bull readings on GBPAUD + USDCHF where a structural breakout 19-21 hours earlier kept showing tl=bull even though the most recent 8 hours were chopping inside the prior swing range. calc_4h_cloud_dir also gets a price-through-cloud guard (bull stack + price below both EMAs → neutral). Mirrored byte-for-byte to detect_triggers.py so dashboard, alerts and signal log stay in lockstep.',
@@ -10300,7 +10298,7 @@ function RULES_FINGERPRINT(){
           return c + ':' + RSI_GATE_BY_CLASS[c].hi + '/' + RSI_GATE_BY_CLASS[c].lo;
         }).join(',')
       : '80/20',
-    fibPairs: ['xauusd','xagusd','usoil','de40','nas100','dj30','ftse100','spx500','jp225','fra40'].sort().join(',')
+    fibPairs: ['xauusd','xagusd','usoil','de40','nas100','dj30','ftse100','spx500','jp225'].sort().join(',')
   });
 }
 function _cacheKeyForMode(mode){

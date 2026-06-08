@@ -63,17 +63,21 @@ PAIR_DISPLAY = {
     'dj30':   'DJ 30',   'nas100':  'NAS 100', 'spx500':  'S&P 500',
     # v7 FX minors (2026-06-03)
     'nzdcad': 'NZD/CAD', 'eurnok': 'EUR/NOK', 'nzdchf': 'NZD/CHF',
-    'gbpchf': 'GBP/CHF', 'usdzar': 'USD/ZAR', 'usdcnh': 'USD/CNH',
+    # gbpchf / usdcnh removed 2026-06-10 — low win-rate drag.
+    # Re-add: "'gbpchf': 'GBP/CHF', 'usdcnh': 'USD/CNH',"
+    'usdzar': 'USD/ZAR',
     'eursgd': 'EUR/SGD',
     # v7 indices (2026-06-03)
-    'jp225':  'Nikkei 225', 'fra40':  'CAC 40',
+    'jp225':  'Nikkei 225',
+    # fra40 (CAC 40) removed 2026-06-10 — low win-rate drag.
+    # Re-add: "'fra40': 'CAC 40',"
     # Crypto
     'btcusd': 'BTC/USD', 'suiusd': 'SUI/USD',
     'ethusd': 'ETH/USD', 'solusd': 'SOL/USD',
     'xrpusd': 'XRP/USD', 'taousd': 'TAO/USD',
     'nearusd': 'NEAR/USD', 'hypeusd': 'HYPE/USD', 'ondousd': 'ONDO/USD',
-    # v7 crypto
-    'ltcusd': 'LTC/USD',
+    # ltcusd removed 2026-06-10 — low win-rate drag.
+    # Re-add: "'ltcusd': 'LTC/USD',"
     'dxy':    'DXY',
 }
 
@@ -93,8 +97,9 @@ PAIR_CLASS = {
     'euraud': 'minor', 'usdsgd': 'minor', 'audnzd': 'minor',
     'eurgbp': 'minor', 'audcad': 'minor', 'gbpcad': 'minor',
     'nzdjpy': 'minor', 'gbpnzd': 'minor', 'nzdcad': 'minor',
-    'eurnok': 'minor', 'nzdchf': 'minor', 'gbpchf': 'minor',
-    'usdzar': 'minor', 'usdcnh': 'minor', 'eursgd': 'minor',
+    'eurnok': 'minor', 'nzdchf': 'minor',
+    # gbpchf / usdcnh removed 2026-06-10 — low win-rate drag.
+    'usdzar': 'minor', 'eursgd': 'minor',
     # Commodities
     'xauusd': 'comm', 'xagusd': 'comm', 'usoil': 'comm',
     # Indices (incl. DXY — confluence reference, not tradeable but
@@ -102,10 +107,12 @@ PAIR_CLASS = {
     # answer instead of falling back to 80/20).
     'de40': 'index', 'ftse100': 'index', 'dj30': 'index',
     'nas100': 'index', 'spx500': 'index', 'jp225': 'index',
-    'fra40': 'index', 'dxy': 'index',
+    # fra40 removed 2026-06-10 — low win-rate drag.
+    'dxy': 'index',
     # Crypto
     'btcusd': 'crypto', 'ethusd': 'crypto', 'solusd': 'crypto',
-    'xrpusd': 'crypto', 'suiusd': 'crypto', 'ltcusd': 'crypto',
+    'xrpusd': 'crypto', 'suiusd': 'crypto',
+    # ltcusd removed 2026-06-10 — low win-rate drag.
     'taousd': 'crypto', 'nearusd': 'crypto', 'hypeusd': 'crypto',
     'ondousd': 'crypto',
 }
@@ -871,7 +878,8 @@ FIB_ENTRY_PAIRS = {
     # silently fell through to no-fib-class on those two pairs).
     'de40', 'nas100', 'dj30', 'ftse100', 'spx500',
     # v7 additions (2026-06-03)
-    'jp225', 'fra40',
+    'jp225',
+    # fra40 (CAC 40) removed 2026-06-10 — low win-rate drag.
     # IBEX 35 (esp35) was added then removed 2026-06-08 — OANDA ticker
     # never validated. See removal notes in fetch-prices.js.
 }

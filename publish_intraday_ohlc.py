@@ -68,9 +68,9 @@ PAIRS = {
     "nzdcad":  {"oanda": "NZD_CAD"},
     "eurnok":  {"oanda": "EUR_NOK"},
     "nzdchf":  {"oanda": "NZD_CHF"},
-    "gbpchf":  {"oanda": "GBP_CHF"},
+    # gbpchf removed 2026-06-10 — low win-rate drag. Re-add: '"gbpchf": {"oanda": "GBP_CHF"},'
     "usdzar":  {"oanda": "USD_ZAR"},
-    "usdcnh":  {"oanda": "USD_CNH"},
+    # usdcnh removed 2026-06-10 — low win-rate drag. Re-add: '"usdcnh": {"oanda": "USD_CNH"},'
     "eursgd":  {"oanda": "EUR_SGD"},
     # Commodities
     "xauusd":  {"oanda": "XAU_USD"},
@@ -84,7 +84,8 @@ PAIRS = {
     "spx500":  {"oanda": "SPX500_USD"},  # was missing — present in MKTS, fetch-prices.js, fetch_historical_ohlc.py
     # v7 additions (2026-06-03 — indices)
     "jp225":   {"oanda": "JP225_USD"},
-    "fra40":   {"oanda": "FR40_EUR"},
+    # fra40 (CAC 40) removed 2026-06-10 — low win-rate drag.
+    # Re-add: '"fra40": {"oanda": "FR40_EUR"},'
     # esp35 (IBEX 35) removed 2026-06-08 — OANDA practice endpoint
     # rejected both ES35_EUR and ESP35_EUR.
     # Crypto
@@ -97,8 +98,8 @@ PAIRS = {
     "nearusd": {"coinbase": "NEAR-USD"},
     "hypeusd": {"coinbase": "HYPE-USD"},
     "ondousd": {"coinbase": "ONDO-USD"},
-    # v7 crypto addition
-    "ltcusd":  {"coinbase": "LTC-USD"},
+    # ltcusd removed 2026-06-10 — low win-rate drag.
+    # Re-add: '"ltcusd": {"coinbase": "LTC-USD"},'
 }
 
 WINDOW_MINUTES = 15

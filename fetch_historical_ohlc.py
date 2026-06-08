@@ -93,9 +93,9 @@ PAIRS: Dict[str, Dict[str, str]] = {
     "nzdcad":  {"oanda": "NZD_CAD"},
     "eurnok":  {"oanda": "EUR_NOK"},
     "nzdchf":  {"oanda": "NZD_CHF"},
-    "gbpchf":  {"oanda": "GBP_CHF"},
+    # gbpchf removed 2026-06-10 — low win-rate drag. Re-add: '"gbpchf": {"oanda": "GBP_CHF"},'
     "usdzar":  {"oanda": "USD_ZAR"},
-    "usdcnh":  {"oanda": "USD_CNH"},
+    # usdcnh removed 2026-06-10 — low win-rate drag. Re-add: '"usdcnh": {"oanda": "USD_CNH"},'
     "eursgd":  {"oanda": "EUR_SGD"},
     # Commodities
     "xauusd":  {"oanda": "XAU_USD"},
@@ -109,7 +109,8 @@ PAIRS: Dict[str, Dict[str, str]] = {
     "spx500":  {"oanda": "SPX500_USD"},
     # v7 additions (2026-06-03 — indices)
     "jp225":   {"oanda": "JP225_USD"},   # Nikkei 225
-    "fra40":   {"oanda": "FR40_EUR"},    # CAC 40
+    # fra40 (CAC 40) removed 2026-06-10 — low win-rate drag.
+    # Re-add: '"fra40": {"oanda": "FR40_EUR"},'
     # IBEX 35 (esp35) removed 2026-06-08 — OANDA practice endpoint
     # rejected both ES35_EUR and ESP35_EUR. Re-add when the correct
     # ticker is confirmed (ESPIX_EUR is a candidate).
@@ -123,8 +124,8 @@ PAIRS: Dict[str, Dict[str, str]] = {
     "nearusd": {"coinbase": "NEAR-USD"},
     "hypeusd": {"coinbase": "HYPE-USD"},
     "ondousd": {"coinbase": "ONDO-USD"},
-    # v7 crypto addition
-    "ltcusd":  {"coinbase": "LTC-USD"},
+    # ltcusd removed 2026-06-10 — low win-rate drag.
+    # Re-add: '"ltcusd": {"coinbase": "LTC-USD"},'
 }
 
 # OANDA granularity codes

@@ -43,18 +43,22 @@ PAIR_CLASS = {
     'euraud': 'minor', 'usdsgd': 'minor', 'audnzd': 'minor',
     'eurgbp': 'minor', 'audcad': 'minor', 'gbpcad': 'minor',
     'nzdjpy': 'minor', 'gbpnzd': 'minor', 'nzdcad': 'minor',
-    'eurnok': 'minor', 'nzdchf': 'minor', 'gbpchf': 'minor',
-    'usdzar': 'minor', 'usdcnh': 'minor', 'eursgd': 'minor',
+    'eurnok': 'minor', 'nzdchf': 'minor',
+    # gbpchf / usdcnh removed 2026-06-10 — low win-rate drag.
+    'usdzar': 'minor', 'eursgd': 'minor',
     'xauusd': 'comm', 'xagusd': 'comm', 'usoil': 'comm',
     'de40': 'index', 'ftse100': 'index', 'dj30': 'index',
     'nas100': 'index', 'spx500': 'index', 'jp225': 'index',
-    'fra40': 'index',
+    # fra40 removed 2026-06-10 — low win-rate drag.
     'btcusd': 'crypto', 'ethusd': 'crypto', 'solusd': 'crypto',
-    'xrpusd': 'crypto', 'suiusd': 'crypto', 'ltcusd': 'crypto',
+    'xrpusd': 'crypto', 'suiusd': 'crypto',
+    # ltcusd removed 2026-06-10 — low win-rate drag.
     'taousd': 'crypto', 'nearusd': 'crypto', 'hypeusd': 'crypto',
     'ondousd': 'crypto',
 }
-DROPPED = {'audchf', 'eursek', 'usdnok'}
+DROPPED = {'audchf', 'eursek', 'usdnok',
+           # 2026-06-10 round
+           'ltcusd', 'gbpchf', 'usdcnh', 'fra40'}
 
 THRESHOLDS = [
     (None, None),    # no gate (baseline)
