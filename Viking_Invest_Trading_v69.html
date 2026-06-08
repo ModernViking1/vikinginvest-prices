@@ -2576,7 +2576,7 @@ function updateOV(k){
           iColor = 'var(--bear)'; iAnim = '';
           iIcon = '⊘';
           if(iSig.rsiBlocked){
-            iTip = 'Intraday 1:1 BLOCKED — 1H RSI ' + (iSig.rsi1H != null ? iSig.rsi1H.toFixed(0) : '?') + ' at ' + (iSig.dir === 'bull' ? 'overbought (≥80)' : 'oversold (≤20)') + ' extreme; A1 hard gate';
+            iTip = 'Intraday 1:1 BLOCKED — 1H RSI ' + (iSig.rsi1H != null ? iSig.rsi1H.toFixed(0) : '?') + ' at ' + (iSig.dir === 'bull' ? 'overbought (≥' + iSig.rsiGateHi + ')' : 'oversold (≤' + iSig.rsiGateLo + ')') + ' extreme; A1 per-class gate';
           } else if(iSig.alignmentBroken){
             iTip = 'Intraday 1:1 CANCELLED — 15m structure flipped vs macro; setup no longer valid';
           } else {
@@ -2598,7 +2598,7 @@ function updateOV(k){
           iColor = 'var(--bear)'; iAnim = '';
           iIcon = '⊘';
           if(iSig.rsiBlocked){
-            iTip = 'Intraday 1:1 INVALIDATED — 1H RSI ' + (iSig.rsi1H != null ? iSig.rsi1H.toFixed(0) : '?') + ' hit ' + (iSig.dir === 'bull' ? 'overbought (≥80)' : 'oversold (≤20)') + ' extreme; A1 hard gate';
+            iTip = 'Intraday 1:1 INVALIDATED — 1H RSI ' + (iSig.rsi1H != null ? iSig.rsi1H.toFixed(0) : '?') + ' hit ' + (iSig.dir === 'bull' ? 'overbought (≥' + iSig.rsiGateHi + ')' : 'oversold (≤' + iSig.rsiGateLo + ')') + ' extreme; A1 per-class gate';
           } else if(iSig.alignmentBroken){
             iTip = 'Intraday 1:1 INVALIDATED — 15m structure flipped vs macro, exit at CHoCH flip';
           } else {
@@ -2954,7 +2954,7 @@ function getLayerDet(k,layer,sig){
             // had formed).
             var reasonLabel;
             if(iSig.invalidationReason === 'rsi-extreme'){
-              reasonLabel = '1H RSI ' + (iSig.rsi1H != null ? iSig.rsi1H.toFixed(0) : '?') + ' ' + (iSig.dir === 'bull' ? '(overbought ≥80)' : '(oversold ≤20)') + ' — A1 gate';
+              reasonLabel = '1H RSI ' + (iSig.rsi1H != null ? iSig.rsi1H.toFixed(0) : '?') + ' ' + (iSig.dir === 'bull' ? '(overbought ≥' + iSig.rsiGateHi + ')' : '(oversold ≤' + iSig.rsiGateLo + ')') + ' — A1 per-class gate';
             } else if(iSig.alignmentBroken){
               reasonLabel = '15m flipped vs macro';
             } else if(iSig.invalidationReason === 'counter-bars'){
@@ -2979,7 +2979,7 @@ function getLayerDet(k,layer,sig){
             else if(iSig.outcome === 'choch-invalidated'){
               var postReason;
               if(iSig.invalidationReason === 'rsi-extreme'){
-                postReason = '1H RSI ' + (iSig.rsi1H != null ? iSig.rsi1H.toFixed(0) : '?') + ' ' + (iSig.dir === 'bull' ? '(overbought ≥80)' : '(oversold ≤20)') + ' — A1 gate';
+                postReason = '1H RSI ' + (iSig.rsi1H != null ? iSig.rsi1H.toFixed(0) : '?') + ' ' + (iSig.dir === 'bull' ? '(overbought ≥' + iSig.rsiGateHi + ')' : '(oversold ≤' + iSig.rsiGateLo + ')') + ' — A1 per-class gate';
               } else if(iSig.alignmentBroken){
                 postReason = '15m flipped vs macro';
               } else if(iSig.invalidationReason === 'counter-bars'){
@@ -9544,6 +9544,32 @@ function autoDetectEW(k, candlesOverride){
 // degrees × N pivots and is too heavy to run on every refresh).
 var AUTO_EW_CACHE = {};
 var AUTO_EW_MIN_CONFIDENCE = 0.70;
+
+// ── A1 RSI hard gate — per-asset-class thresholds (2026-06-10) ──────
+// Threshold sweep on the historical-ohlc.json backtest showed FX
+// minors, commodities and indices all preferred a TIGHTER gate
+// (70/30) — RSI 70 marks the exhaustion turn on these well-defined
+// ranges, and the previous 80/20 default let late-trend chases through.
+// FX majors and crypto were threshold-insensitive — they trend
+// persistently through textbook overbought, so a tight gate would
+// block real continuation entries. 90/10 effectively disables the gate
+// for majors (RSI rarely > 90 on FX); 75/25 keeps a mild crypto guard.
+// See backtest_rsi_per_class.py for the sweep that produced this.
+//
+// Defaults to 80/20 if MKTS[k].t is missing or unknown — preserves the
+// pre-deployment behaviour for any new pair added before the class is
+// classified.
+var RSI_GATE_BY_CLASS = {
+  major:  {hi: 90, lo: 10},
+  minor:  {hi: 70, lo: 30},
+  comm:   {hi: 70, lo: 30},
+  index:  {hi: 70, lo: 30},
+  crypto: {hi: 75, lo: 25}
+};
+function _rsiGateFor(k){
+  var cls = (typeof MKTS !== 'undefined' && MKTS[k] && MKTS[k].t) || null;
+  return RSI_GATE_BY_CLASS[cls] || {hi: 80, lo: 20};
+}
 var AUTO_EW_VALID_PATTERNS = {
   '5-wave-impulse-complete': true,
   '5-wave-diagonal-complete': true,
@@ -10240,8 +10266,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-09d';
+var RULES_VERSION = '2026-06-10a';
 var RULES_VERSION_NOTES = [
+  '2026-06-10a — A1 per-class RSI thresholds. Backtest sweep across {no-gate, 70/30, 75/25, 80/20, 85/15, 90/10} showed FX minors / commodities / indices all preferred a TIGHTER 70/30 gate (+2.7 to +5.6pp WR over the prior 80/20 default), while FX majors and crypto were threshold-insensitive (trend persistently through textbook overbought). Wired RSI_GATE_BY_CLASS = {major: 90/10, minor: 70/30, comm: 70/30, index: 70/30, crypto: 75/25}; _rsiGateFor(k) reads MKTS[k].t. Same map used by detectIntradaySignal, the recent backtest engine, and detect_triggers.py so dashboard, alerts and backtest stay in lockstep. Aggregate impact in the simplified sweep: +1.56pp vs flat 80/20.',
   '2026-06-09d — A1 hard gate enabled: 1H RSI ≥ 80 blocks bull setups, ≤ 20 blocks bear. Treated like an alignment break — signal still computes entry/stop/target for display, but state collapses to invalidated/choch-invalidated with reason rsi-extreme. isArmed / isTriggered return false when blocked so the pair drops out of the filter pills. AUDCHF / EURSEK / USDNOK also dropped from the pair universe (low-win-rate drag). RULES_FINGERPRINT gets a rsiHardGate flag so backtests re-run on next load.',
   '2026-06-09c — calcIndependentDir: added staleness decay (drop last-break direction if older than 2× lookback bars) and widened slope-fallback deadband from 5 bps to 15 bps. Fixes the sticky-bull readings on GBPAUD + USDCHF where a structural breakout 19-21 hours earlier kept showing tl=bull even though the most recent 8 hours were chopping inside the prior swing range. calc_4h_cloud_dir also gets a price-through-cloud guard (bull stack + price below both EMAs → neutral). Mirrored byte-for-byte to detect_triggers.py so dashboard, alerts and signal log stay in lockstep.',
   '2026-06-09b — Counter-bar nowick ratio REVERTED to pre-2026-06-04 (no body/range check, two-day forward results: 0.70 → 63.2%, 0.55 → 58.4%, both worse than the no-ratio baseline of 69.7%). The BTC false-cancel case the ratio was meant to fix is accepted as a known edge for now. Rule is back to: 2 consecutive opposite-body candles with a 25%-noise-floor body minimum and rising/falling closes. counterBarsNoWick set to 0 in fingerprint to flag the ratio is disabled.',
@@ -10266,7 +10293,13 @@ function RULES_FINGERPRINT(){
     counterBarsThresh: 2,
     counterBarsNoWick: 0,  // 0 = ratio check disabled (pre-2026-06-04 behaviour)
     minRAtrMult: 0.5,
-    rsiHardGate: 1,  // A1 — 1H RSI 80/20 blocks setups (added 2026-06-09d)
+    // A1 — per-class RSI thresholds (refined 2026-06-10a). Stringified
+    // so any future tweak to the map auto-invalidates the cache.
+    rsiHardGate: (typeof RSI_GATE_BY_CLASS !== 'undefined')
+      ? Object.keys(RSI_GATE_BY_CLASS).sort().map(function(c){
+          return c + ':' + RSI_GATE_BY_CLASS[c].hi + '/' + RSI_GATE_BY_CLASS[c].lo;
+        }).join(',')
+      : '80/20',
     fibPairs: ['xauusd','xagusd','usoil','de40','nas100','dj30','ftse100','spx500','jp225','fra40'].sort().join(',')
   });
 }
@@ -10818,15 +10851,16 @@ function calcRecentBacktest(k, mode){
     if(ewDir !== tlDir || tlDir !== nwDir || nwDir !== clDir){ i++; continue; }
     if(ewDir !== 'bull' && ewDir !== 'bear'){ i++; continue; }
 
-    // A1 hard gate (RULES_VERSION 2026-06-09d) — 1H RSI 80/20 extreme
+    // A1 hard gate (refined per-class 2026-06-10) — 1H RSI extreme
     // blocks the setup. Mirror of detectIntradaySignal so the recent
-    // backtest reflects the live filter. Null RSI (warm-up) falls
-    // through.
+    // backtest reflects the live filter. Thresholds vary by asset
+    // class — see RSI_GATE_BY_CLASS. Null RSI (warm-up) falls through.
     if(h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length){
       var rsiAt = h1RsiAtH1Idx[h1Idx];
       if(rsiAt != null && isFinite(rsiAt)){
-        if(ewDir === 'bull' && rsiAt >= 80){ i++; continue; }
-        if(ewDir === 'bear' && rsiAt <= 20){ i++; continue; }
+        var _btGate = _rsiGateFor(k);
+        if(ewDir === 'bull' && rsiAt >= _btGate.hi){ i++; continue; }
+        if(ewDir === 'bear' && rsiAt <= _btGate.lo){ i++; continue; }
       }
     }
 
@@ -12265,20 +12299,21 @@ function detectIntradaySignal(k){
   // instead of silently hiding the intraday signal.
   var alignmentBroken = (ewDir !== tlDir || tlDir !== nwDir || nwDir !== clDir);
 
-  // A1 hard gate (2026-06-08, RULES_VERSION 2026-06-09d) — 1H RSI 80/20.
-  // A bull setup with hourly RSI ≥ 80 is hitting the buy zone at an
-  // overbought extreme (mean-reversion risk pre-fill). Mirror for bear
-  // setups at ≤ 20. The failure-mode panel surfaced this as a candidate
-  // hard filter; the user opted in to measure it on the next 20+ live
-  // signals. Treated like an alignment break: signal still computes
-  // levels for display, but state collapses to 'invalidated' if armed /
-  // 'choch-invalidated' if triggered, so the dashboard renders a
-  // visible "RSI BLOCKED" pill rather than silently dropping the setup.
+  // A1 hard gate (2026-06-08, refined per-class 2026-06-10) — 1H RSI
+  // extremes. A bull setup with hourly RSI ≥ gate.hi is hitting the buy
+  // zone at an overbought extreme (mean-reversion risk pre-fill).
+  // Mirror for bear setups at ≤ gate.lo. Thresholds vary by asset
+  // class — see RSI_GATE_BY_CLASS. Treated like an alignment break:
+  // signal still computes levels for display, but state collapses to
+  // 'invalidated' if armed / 'choch-invalidated' if triggered, so the
+  // dashboard renders a visible "RSI BLOCKED" pill rather than silently
+  // dropping the setup.
   var rsi1H = STATE[k] && STATE[k].rsi1H;
+  var rsiGate = _rsiGateFor(k);
   var rsiBlocked = false;
   if(typeof rsi1H === 'number' && isFinite(rsi1H)){
-    if(dir === 'bull' && rsi1H >= 80) rsiBlocked = true;
-    else if(dir === 'bear' && rsi1H <= 20) rsiBlocked = true;
+    if(dir === 'bull' && rsi1H >= rsiGate.hi) rsiBlocked = true;
+    else if(dir === 'bear' && rsi1H <= rsiGate.lo) rsiBlocked = true;
   }
 
   // Engine takes priority over seed (2026-05-29 decision). The
@@ -12846,6 +12881,8 @@ function detectIntradaySignal(k){
     alignmentBroken: alignmentBroken,
     rsiBlocked: rsiBlocked,
     rsi1H: (typeof rsi1H === 'number') ? rsi1H : null,
+    rsiGateHi: rsiGate.hi,
+    rsiGateLo: rsiGate.lo,
     // Fib-zone variant — 38% retrace entry, half size, same stop as wick.
     // Independent of the wick state above; both can fire from one setup
     // (fib first, wick later if price keeps retracing).

@@ -78,6 +78,63 @@ PAIR_DISPLAY = {
 }
 
 
+# Pair → asset class. Mirrors MKTS[k].t in the dashboard
+# (Viking_Invest_Trading_v69.html). Used by the A1 RSI hard gate to look
+# up the per-class threshold from RSI_GATE_BY_CLASS. If a pair is added
+# without a class entry, the gate falls back to 80/20 — same default the
+# JS _rsiGateFor(k) uses.
+PAIR_CLASS = {
+    # FX majors
+    'eurusd': 'major', 'gbpusd': 'major', 'usdjpy': 'major',
+    'usdcad': 'major', 'usdchf': 'major', 'nzdusd': 'major',
+    'audusd': 'major',
+    # FX minors / crosses
+    'cadjpy': 'minor', 'eurnzd': 'minor', 'gbpaud': 'minor',
+    'euraud': 'minor', 'usdsgd': 'minor', 'audnzd': 'minor',
+    'eurgbp': 'minor', 'audcad': 'minor', 'gbpcad': 'minor',
+    'nzdjpy': 'minor', 'gbpnzd': 'minor', 'nzdcad': 'minor',
+    'eurnok': 'minor', 'nzdchf': 'minor', 'gbpchf': 'minor',
+    'usdzar': 'minor', 'usdcnh': 'minor', 'eursgd': 'minor',
+    # Commodities
+    'xauusd': 'comm', 'xagusd': 'comm', 'usoil': 'comm',
+    # Indices (incl. DXY — confluence reference, not tradeable but
+    # classified for completeness so any lookup gets a deterministic
+    # answer instead of falling back to 80/20).
+    'de40': 'index', 'ftse100': 'index', 'dj30': 'index',
+    'nas100': 'index', 'spx500': 'index', 'jp225': 'index',
+    'fra40': 'index', 'dxy': 'index',
+    # Crypto
+    'btcusd': 'crypto', 'ethusd': 'crypto', 'solusd': 'crypto',
+    'xrpusd': 'crypto', 'suiusd': 'crypto', 'ltcusd': 'crypto',
+    'taousd': 'crypto', 'nearusd': 'crypto', 'hypeusd': 'crypto',
+    'ondousd': 'crypto',
+}
+
+
+# A1 per-class RSI hard-gate thresholds (RULES_VERSION 2026-06-10a).
+# Sweep results: minors/commodities/indices preferred a tighter 70/30
+# gate over the previous 80/20 default (+2.7 to +5.6pp WR each). Majors
+# and crypto were threshold-insensitive — they trend persistently
+# through textbook overbought, so a tight gate would block real
+# continuation entries. 90/10 effectively disables the gate for majors;
+# 75/25 keeps a mild crypto guard. See backtest_rsi_per_class.py.
+RSI_GATE_BY_CLASS = {
+    'major':  {'hi': 90, 'lo': 10},
+    'minor':  {'hi': 70, 'lo': 30},
+    'comm':   {'hi': 70, 'lo': 30},
+    'index':  {'hi': 70, 'lo': 30},
+    'crypto': {'hi': 75, 'lo': 25},
+}
+
+
+def rsi_gate_for(pair):
+    """Return {'hi': N, 'lo': M} for a pair. Falls back to 80/20 when
+    the class is unknown — same default _rsiGateFor in the JS uses."""
+    cls = PAIR_CLASS.get(pair)
+    return RSI_GATE_BY_CLASS.get(cls, {'hi': 80, 'lo': 20})
+
+
+
 # ── Direction detection (ports calcIndependentDir from dashboard.html) ──
 
 def calc_independent_dir(bars, lookback=8):
@@ -399,17 +456,22 @@ def detect_consecutive_counter_bars(bars, current_idx, setup_dir, min_prominence
 
 
 def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16,
-                           expiry_bars=8, h1_rsi=None):
+                           expiry_bars=8, h1_rsi=None,
+                           rsi_hi=80, rsi_lo=20):
     """Port of the essential parts of detectIntradaySignal from
     dashboard.html (~L9290). Detects the state of the 1:1-RR intraday
     signal for a 4/4-aligned pair on the 15m timeframe.
 
     `h1_rsi` is the most recent 1H RSI(14) for this pair (or None when
     h1 history is too short to compute). Drives the A1 hard gate
-    (RULES_VERSION 2026-06-09d) — bull setups with rsi ≥ 80 / bear with
-    ≤ 20 are flagged invalidated with reason 'rsi-extreme' so the
-    Telegram alert pipeline skips the setup, matching the dashboard's
-    `rsiBlocked` collapse.
+    (RULES_VERSION 2026-06-10a, per-class refined) — bull setups with
+    rsi ≥ rsi_hi / bear with ≤ rsi_lo are flagged invalidated with
+    reason 'rsi-extreme' so the Telegram alert pipeline skips the
+    setup, matching the dashboard's `rsiBlocked` collapse.
+
+    Thresholds default to 80/20 (the pre-2026-06-10a behaviour). Caller
+    should resolve the per-class values via rsi_gate_for(pair) and pass
+    them in.
 
     Returns dict with:
       state: 'armed' | 'triggered' | 'expired' | None
@@ -525,17 +587,17 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16,
     invalidation_reason = None
     invalidation_bar_idx = -1
 
-    # A1 hard gate (RULES_VERSION 2026-06-09d) — 1H RSI 80/20 extreme.
-    # Block before the wick-walk so the trigger search short-circuits.
-    # h1_rsi is None during the h1 warm-up window (<16 bars) — fall
-    # through and let the alignment / wick logic decide; matches the
-    # dashboard's behaviour when STATE.rsi1H is null.
+    # A1 hard gate (RULES_VERSION 2026-06-10a) — 1H RSI extreme, per
+    # asset class. Block before the wick-walk so the trigger search
+    # short-circuits. h1_rsi is None during the h1 warm-up window
+    # (<16 bars) — fall through and let the alignment / wick logic
+    # decide; matches the dashboard's behaviour when STATE.rsi1H is null.
     if h1_rsi is not None and isinstance(h1_rsi, (int, float)):
-        if aligned_dir == 'bull' and h1_rsi >= 80:
+        if aligned_dir == 'bull' and h1_rsi >= rsi_hi:
             invalidated_pre_trigger = True
             invalidation_reason = 'rsi-extreme'
             invalidation_bar_idx = creator_idx
-        elif aligned_dir == 'bear' and h1_rsi <= 20:
+        elif aligned_dir == 'bear' and h1_rsi <= rsi_lo:
             invalidated_pre_trigger = True
             invalidation_reason = 'rsi-extreme'
             invalidation_bar_idx = creator_idx
@@ -1460,10 +1522,15 @@ def scan_pairs(intraday_data, historical_data):
         if aligned_dir is not None:
             # Compute the most recent 1H RSI(14) so detect_intraday_signal
             # can apply the A1 hard gate. None during warm-up (<15
-            # h1 closes) — detector falls through.
+            # h1 closes) — detector falls through. Per-class threshold
+            # (RULES_VERSION 2026-06-10a) resolved here so the gate
+            # config lives next to PAIR_CLASS rather than inside the
+            # signal walker.
             h1_closes = [b.get('c') for b in h1 if b.get('c') is not None]
             h1_rsi = calc_rsi(h1_closes, 14) if len(h1_closes) >= 15 else None
-            sig = detect_intraday_signal(m15, aligned_dir, h1_rsi=h1_rsi)
+            gate = rsi_gate_for(pair)
+            sig = detect_intraday_signal(m15, aligned_dir, h1_rsi=h1_rsi,
+                                         rsi_hi=gate['hi'], rsi_lo=gate['lo'])
 
         out[pair] = {
             'ew': ew,
