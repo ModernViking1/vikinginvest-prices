@@ -207,6 +207,9 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
     <div id="profileFieldGrid" style="margin-top:14px;display:none;">
       <div class="profile-field-grid"></div>
     </div>
+    <div id="profileClassGrid" style="margin-top:10px;display:none;">
+      <div class="profile-field-grid" id="profileClassGridInner" data-purpose="alert-classes"></div>
+    </div>
     <div class="note" id="profileNote" style="display:none;"></div>
     <div class="note">
       Each number is unique browsers (one per device, ever). This page is
@@ -485,6 +488,36 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
         });
         grid.innerHTML = html;
         gridHost.style.display = total > 0 ? '' : 'none';
+      }
+      // Alert-class subscriptions panel — each label shows the count
+      // of profiles currently subscribed to that class. Counts can
+      // exceed `total` if users subscribe to multiple classes (which
+      // is the normal case since checkboxes default all-checked).
+      var classHost = document.getElementById('profileClassGrid');
+      var classGrid = document.getElementById('profileClassGridInner');
+      if(classGrid && d.alert_classes){
+        var classLabels = {
+          major: 'FX Majors', minor: 'FX Minors', comm: 'Commodities',
+          index: 'Indices',   crypto: 'Crypto'
+        };
+        var classHtml =
+          '<div class="pfg-row" style="grid-column:1 / -1;border-bottom:1px solid var(--rule);padding-bottom:6px;margin-bottom:2px;font-weight:700;color:var(--ink);">'
+          + '<span class="pfg-label">Telegram alert categories</span>'
+          + '<span class="pfg-pct" style="margin-left:0;font-style:italic;">(profiles subscribed per class)</span>'
+          + '</div>';
+        Object.keys(classLabels).forEach(function(k){
+          var v = d.alert_classes[k] || 0;
+          var pct = total > 0 ? Math.round(v / total * 100) : 0;
+          classHtml += '<div class="pfg-row">'
+                  + '<span class="pfg-label">' + classLabels[k] + '</span>'
+                  + '<span class="pfg-val">' + v.toLocaleString()
+                  +   '<span class="pfg-pct">(' + pct + '%)</span></span>'
+                  + '</div>';
+        });
+        classGrid.innerHTML = classHtml;
+        if(classHost) classHost.style.display = total > 0 ? '' : 'none';
+      } else if(classHost){
+        classHost.style.display = 'none';
       }
     }).catch(function(err){
       if(totalEl) totalEl.textContent = '—';

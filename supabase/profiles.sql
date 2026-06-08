@@ -45,12 +45,29 @@ create table if not exists public.profiles (
                       'beginner','intermediate','advanced','professional')),
   telegram_handle   text,
   newsletter_opt_in boolean not null default false,
+  -- Instrument-class Telegram alert subscriptions. Valid values: any
+  -- subset of ('major','minor','comm','index','crypto'). The default
+  -- inserts all five so newly-created rows match the legacy "send
+  -- everything" behaviour. An EMPTY array (user explicitly unchecked
+  -- all five in the profile modal) is also a valid state and means
+  -- "do not send me Telegram alerts" — the future per-user routing
+  -- code will treat `array_length(alert_classes, 1) IS NULL` as
+  -- "user opted out" and skip them, even though their telegram_handle
+  -- is still on file.
+  alert_classes     text[] not null default array['major','minor','comm','index','crypto'],
   consent_version   text,
   consent_at        timestamptz,
   dismissed_at      timestamptz,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );
+
+-- Forward-compatible: add the column on an existing table too, so
+-- re-running this script against a schema created before 2026-06-04
+-- backfills the column without recreating the table.
+alter table public.profiles
+  add column if not exists alert_classes text[] not null
+  default array['major','minor','comm','index','crypto'];
 
 alter table public.profiles enable row level security;
 
@@ -118,6 +135,11 @@ declare
   v_experience      bigint;
   v_telegram        bigint;
   v_newsletter      bigint;
+  v_cls_major       bigint;
+  v_cls_minor       bigint;
+  v_cls_comm        bigint;
+  v_cls_index       bigint;
+  v_cls_crypto      bigint;
 begin
   caller_email := lower(coalesce((auth.jwt() ->> 'email'), ''));
   if caller_email not in ('kmma@vikinginvest.org') then
@@ -134,6 +156,14 @@ begin
   select count(*) into v_experience from public.profiles where experience is not null;
   select count(*) into v_telegram   from public.profiles where telegram_handle is not null;
   select count(*) into v_newsletter from public.profiles where newsletter_opt_in = true;
+  -- Alert-class subscription counts. Each profile is counted in every
+  -- class it subscribes to, so the five numbers sum to >= total
+  -- (anyone subscribed to >1 class is counted multiple times).
+  select count(*) into v_cls_major  from public.profiles where 'major'  = any(alert_classes);
+  select count(*) into v_cls_minor  from public.profiles where 'minor'  = any(alert_classes);
+  select count(*) into v_cls_comm   from public.profiles where 'comm'   = any(alert_classes);
+  select count(*) into v_cls_index  from public.profiles where 'index'  = any(alert_classes);
+  select count(*) into v_cls_crypto from public.profiles where 'crypto' = any(alert_classes);
 
   -- "Completed" = the four fields a sales person would actually use
   -- to qualify a lead. Adjust this definition if the modal's
@@ -157,6 +187,13 @@ begin
       'experience',  v_experience,
       'telegram',    v_telegram,
       'newsletter',  v_newsletter
+    ),
+    'alert_classes', json_build_object(
+      'major',  v_cls_major,
+      'minor',  v_cls_minor,
+      'comm',   v_cls_comm,
+      'index',  v_cls_index,
+      'crypto', v_cls_crypto
     ),
     'updated',         now()
   );

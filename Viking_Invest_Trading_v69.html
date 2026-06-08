@@ -368,6 +368,21 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   font-weight:400;font-size:12px;color:#4a4640;line-height:1.45;
 }
 .vipro-check input{width:auto;margin-top:1px;flex-shrink:0;}
+.vipro-classes{
+  background:rgba(77,162,255,0.05);padding:11px 13px;border-radius:7px;
+  border:1px solid rgba(77,162,255,0.18);
+}
+.vipro-classes-hd{
+  font-size:12px;font-weight:600;color:#1c1a17;margin-bottom:8px;letter-spacing:0.1px;
+}
+.vipro-classes-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;
+}
+@media(max-width:520px){ .vipro-classes-grid{grid-template-columns:1fr;} }
+.vipro-class-check{
+  background:transparent;padding:3px 0;font-size:12.5px;color:#1c1a17;
+  font-weight:500;border-radius:0;flex-direction:row;
+}
 .vipro-privacy{
   font-size:10.5px;color:#7a7268;line-height:1.55;background:rgba(0,0,0,0.025);
   padding:10px 12px;border-radius:6px;border:1px solid #e8e2d8;
@@ -461,6 +476,16 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
         </select>
       </label>
       <label>Telegram handle <span class="vipro-opt">(optional &mdash; for real-time alerts)</span><input type="text" id="vipro-telegram" placeholder="e.g. 123456789 or @yourhandle" autocomplete="off" maxlength="60"></label>
+      <div class="vipro-classes">
+        <div class="vipro-classes-hd">Telegram alert categories <span class="vipro-opt">(uncheck any you don't want)</span></div>
+        <div class="vipro-classes-grid">
+          <label class="vipro-check vipro-class-check"><input type="checkbox" id="vipro-cls-major"  checked><span>FX Majors</span></label>
+          <label class="vipro-check vipro-class-check"><input type="checkbox" id="vipro-cls-minor"  checked><span>FX Minors</span></label>
+          <label class="vipro-check vipro-class-check"><input type="checkbox" id="vipro-cls-comm"   checked><span>Commodities</span></label>
+          <label class="vipro-check vipro-class-check"><input type="checkbox" id="vipro-cls-index"  checked><span>Indices</span></label>
+          <label class="vipro-check vipro-class-check"><input type="checkbox" id="vipro-cls-crypto" checked><span>Crypto</span></label>
+        </div>
+      </div>
       <label class="vipro-check">
         <input type="checkbox" id="vipro-newsletter">
         <span>I'd like occasional newsletters about the dashboard, methodology updates, and AI consulting work.</span>
@@ -10123,8 +10148,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-03e';
+var RULES_VERSION = '2026-06-04';
 var RULES_VERSION_NOTES = [
+  '2026-06-04 — Counter-bar invalidation now requires NOWICK candles (body ≥ 70% of total range). Previous rule fired on any opposite-body pair with rising/falling closes, false-flagging thin-body retracement bars with long wicks as momentum reversals (BTC/USD setup invalidated mid-pullback, user-reported)',
   '2026-06-03e — Added 7 FX minors (NZDCAD, EURNOK, NZDCHF, GBPCHF, USDZAR, USDCNH, EURSGD), LTC/USD, and 3 indices (Nikkei 225 / CAC 40 / IBEX 35). Indices use Fib half-size entry. Cache auto-invalidates on the FIB_ENTRY_PAIRS expansion',
   '2026-06-03d — Reverted 2026-06-03c target change (didn\'t backtest cleanly). Targets restored to 1:1 R:R; TV Auto Fib Retracement levels (1.272 / 1.618 / 2.618) surfaced as advisory text in the 15m intraday box only',
   '2026-06-03b — Fast momentum-reversal invalidation: 2 consecutive counter-bars heading toward EMA cloud invalidate (1 counter-bar still valid)',
@@ -10141,6 +10167,7 @@ function RULES_FINGERPRINT(){
     ewMin: (typeof EW_MIN !== 'undefined') ? EW_MIN : null,
     autoEwMinConf: (typeof AUTO_EW_MIN_CONFIDENCE !== 'undefined') ? AUTO_EW_MIN_CONFIDENCE : null,
     counterBarsThresh: 2,
+    counterBarsNoWick: 0.70,
     fibPairs: ['xauusd','xagusd','usoil','de40','nas100','dj30','ftse100','spx500','jp225','fra40','esp35'].sort().join(',')
   });
 }
@@ -11811,17 +11838,31 @@ function detectConsecutiveCounterBars(bars, fromIdx, currentIdx, setupDir, minPr
   // window would already have been detected on previous bar-by-bar
   // calls — every caller iterates `currentIdx` from `fromIdx + 1`
   // upward, so the first qualifying pair is always returned at the
-  // bar it forms on. Original O(n) walk was the dominant cost in the
-  // deep backtest after the 2026-06-03b addition.
+  // bar it forms on.
+  //
+  // Definition tightened 2026-06-04 (BTC/USD false-invalidation case):
+  // the original rule fired on ANY pair of consecutive opposite-body
+  // candles with rising/falling closes, including thin-body candles
+  // with long wicks that traders read as indecision / liquidity grabs
+  // rather than momentum reversals. The new check requires NOWICK
+  // candles — body must be at least NOWICK_BODY_RATIO of the total
+  // range — so a "two-bar reversal" needs to actually look like a
+  // reversal on the chart. Long upper wicks on bearish setups, long
+  // lower wicks on bullish setups, no longer false-flag the signal.
   var prev = bars[currentIdx - 1];
   var curr = bars[currentIdx];
   var minBody = (minProminence || 0) * 0.25;
-  var isCounter = function(b){
-    if(setupDir === 'bear') return (b.c > b.o) && ((b.c - b.o) >= minBody);
-    if(setupDir === 'bull') return (b.c < b.o) && ((b.o - b.c) >= minBody);
-    return false;
+  var NOWICK_BODY_RATIO = 0.70;
+  var isNoWickCounter = function(b){
+    if(setupDir === 'bear' && !(b.c > b.o)) return false;
+    if(setupDir === 'bull' && !(b.c < b.o)) return false;
+    var body = Math.abs(b.c - b.o);
+    if(body < minBody) return false;
+    var range = b.h - b.l;
+    if(range <= 0) return false;
+    return (body / range) >= NOWICK_BODY_RATIO;
   };
-  if(!isCounter(prev) || !isCounter(curr)) return -1;
+  if(!isNoWickCounter(prev) || !isNoWickCounter(curr)) return -1;
   if(setupDir === 'bear' && curr.c > prev.c) return currentIdx;
   if(setupDir === 'bull' && curr.c < prev.c) return currentIdx;
   return -1;
@@ -14291,7 +14332,17 @@ startLiveEngine();
   var _viProShownThisSession = false;
   var _viProSubmitting = false;
 
+  // Alert-class checkbox IDs map 1:1 with the values stored in
+  // profiles.alert_classes — see the supabase/profiles.sql migration.
+  var VIPRO_CLASS_KEYS = ['major','minor','comm','index','crypto'];
+  function _viProClassEl(cls){ return document.getElementById('vipro-cls-' + cls); }
+
   function _viProGetForm(){
+    var alertClasses = [];
+    VIPRO_CLASS_KEYS.forEach(function(cls){
+      var el = _viProClassEl(cls);
+      if(el && el.checked) alertClasses.push(cls);
+    });
     return {
       first_name:        (document.getElementById('vipro-firstname')||{}).value,
       last_name:         (document.getElementById('vipro-lastname')||{}).value,
@@ -14300,7 +14351,8 @@ startLiveEngine();
       role:              (document.getElementById('vipro-role')||{}).value,
       experience:        (document.getElementById('vipro-experience')||{}).value,
       telegram_handle:   (document.getElementById('vipro-telegram')||{}).value,
-      newsletter_opt_in: !!(document.getElementById('vipro-newsletter')||{}).checked
+      newsletter_opt_in: !!(document.getElementById('vipro-newsletter')||{}).checked,
+      alert_classes:     alertClasses
     };
   }
   function _viProFillForm(p){
@@ -14318,6 +14370,16 @@ startLiveEngine();
     set('vipro-telegram',  p.telegram_handle);
     var nl = document.getElementById('vipro-newsletter');
     if(nl) nl.checked = !!p.newsletter_opt_in;
+    // Alert-class checkboxes — default all-checked when the profile
+    // has no explicit array (matches the SQL default and preserves
+    // the legacy "send everything" behaviour for users who joined
+    // before this field existed).
+    var stored = Array.isArray(p.alert_classes) ? p.alert_classes : null;
+    VIPRO_CLASS_KEYS.forEach(function(cls){
+      var el = _viProClassEl(cls);
+      if(!el) return;
+      el.checked = stored ? (stored.indexOf(cls) !== -1) : true;
+    });
   }
   function _viProIsComplete(p){
     if(!p) return false;
@@ -14422,6 +14484,13 @@ startLiveEngine();
         experience:        nullIfBlank(data.experience),
         telegram_handle:   nullIfBlank(data.telegram_handle),
         newsletter_opt_in: data.newsletter_opt_in,
+        // alert_classes stores the user's explicit selection. An empty
+        // array IS a valid choice ("don't send me any Telegram alerts")
+        // and the future per-user routing code will respect it. The
+        // default-all-checked behaviour at form-load means a user
+        // who blindly submits gets every class — they have to
+        // actively uncheck to opt out.
+        alert_classes:     Array.isArray(data.alert_classes) ? data.alert_classes : [],
         consent_version:   VIPRO_CONSENT_VERSION,
         consent_at:        new Date().toISOString(),
         dismissed_at:      null
