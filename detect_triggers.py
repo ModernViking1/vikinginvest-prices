@@ -297,31 +297,31 @@ def detect_consecutive_counter_bars(bars, current_idx, setup_dir, min_prominence
     prev = bars[current_idx - 1]
     curr = bars[current_idx]
     min_body = (min_prominence or 0) * 0.25
-    # Must stay in sync with NOWICK_BODY_RATIO in
-    # Viking_Invest_Trading_v69.html (~L11963) and with
-    # counterBarsNoWick in RULES_FINGERPRINT(). See that file for the
-    # baseline-vs-threshold revert table. 2026-06-08: loosened from
-    # 0.70 → 0.55 after the strict ratio over-exposed losses on
-    # range-bound pairs.
-    nowick_ratio = 0.55
 
-    def is_nowick_counter(b):
-        o, c, h, l = b.get('o'), b.get('c'), b.get('h'), b.get('l')
-        if o is None or c is None or h is None or l is None:
-            return False
-        if setup_dir == 'bear' and not (c > o):
-            return False
-        if setup_dir == 'bull' and not (c < o):
-            return False
-        body = abs(c - o)
-        if body < min_body:
-            return False
-        rng = h - l
-        if rng <= 0:
-            return False
-        return (body / rng) >= nowick_ratio
+    # Mirror of detectConsecutiveCounterBars in
+    # Viking_Invest_Trading_v69.html (see the body-ratio history in
+    # that function's header for the win-rate trail). 2026-06-09:
+    # reverted to the pre-nowick definition after 0.55 and 0.70
+    # ratios both produced worse aggregate WR (58.4% and 63.2%) than
+    # the no-ratio version (69.7%).
 
-    if not is_nowick_counter(prev) or not is_nowick_counter(curr):
+    def is_counter(b):
+        o, c = b.get('o'), b.get('c')
+        if o is None or c is None:
+            return False
+        if setup_dir == 'bear':
+            if not (c > o):
+                return False
+            body = c - o
+        elif setup_dir == 'bull':
+            if not (c < o):
+                return False
+            body = o - c
+        else:
+            return False
+        return body >= min_body
+
+    if not is_counter(prev) or not is_counter(curr):
         return -1
 
     pc, cc = prev.get('c'), curr.get('c')

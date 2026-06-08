@@ -10204,9 +10204,10 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-09';
+var RULES_VERSION = '2026-06-09b';
 var RULES_VERSION_NOTES = [
-  '2026-06-09 — Nowick counter-bar threshold loosened from 0.70 → 0.55 body/range ratio. Threading the BTC false-cancel fix (which needed the nowick check) against the over-exposure of real losses the 0.70 ratio produced (aggregate win rate 69.7% → 63.2%). Target: aggregate sits between the two extremes. Revert path documented in the detectConsecutiveCounterBars header comment.',
+  '2026-06-09b — Counter-bar nowick ratio REVERTED to pre-2026-06-04 (no body/range check, two-day forward results: 0.70 → 63.2%, 0.55 → 58.4%, both worse than the no-ratio baseline of 69.7%). The BTC false-cancel case the ratio was meant to fix is accepted as a known edge for now. Rule is back to: 2 consecutive opposite-body candles with a 25%-noise-floor body minimum and rising/falling closes. counterBarsNoWick set to 0 in fingerprint to flag the ratio is disabled.',
+  '2026-06-09 — (superseded by 06-09b) Nowick threshold tried at 0.55 to thread BTC fix vs loss exposure. Outcome: aggregate 58.4%, worse than both prior states. Suggests the 4-day market the backtest is reading favours the over-cancel behaviour. See detectConsecutiveCounterBars for the win-rate trail.',
   '2026-06-08 — IBEX 35 (esp35) removed — OANDA ticker never validated. Backfill workflow caps m15 layer (initially to 30 days, then to 90 days from 2026-06-08+) so historical-ohlc.json stays under GitHub\'s 100MB push limit. Minimum 15m R distance now enforced — setups where stop is closer than 0.5 × recent ATR are rejected (was producing 6-pip stops on NZD/USD).',
   '2026-06-04 — Counter-bar invalidation tightened to require NOWICK candles (body ≥ 70% of total range). Aggregate win rate dropped 69.7% → 63.2% over the next 4 days as real losses (previously hidden as "invalidated") showed through. Loosened to 0.55 on 2026-06-09 — see that note.',
   '2026-06-03e — Added 7 FX minors (NZDCAD, EURNOK, NZDCHF, GBPCHF, USDZAR, USDCNH, EURSGD), LTC/USD, and 3 indices (Nikkei 225 / CAC 40 / IBEX 35). Indices use Fib half-size entry. Cache auto-invalidates on the FIB_ENTRY_PAIRS expansion',
@@ -10225,7 +10226,7 @@ function RULES_FINGERPRINT(){
     ewMin: (typeof EW_MIN !== 'undefined') ? EW_MIN : null,
     autoEwMinConf: (typeof AUTO_EW_MIN_CONFIDENCE !== 'undefined') ? AUTO_EW_MIN_CONFIDENCE : null,
     counterBarsThresh: 2,
-    counterBarsNoWick: 0.55,
+    counterBarsNoWick: 0,  // 0 = ratio check disabled (pre-2026-06-04 behaviour)
     minRAtrMult: 0.5,
     fibPairs: ['xauusd','xagusd','usoil','de40','nas100','dj30','ftse100','spx500','jp225','fra40'].sort().join(',')
   });
@@ -11921,49 +11922,35 @@ function detectConsecutiveCounterBars(bars, fromIdx, currentIdx, setupDir, minPr
   // upward, so the first qualifying pair is always returned at the
   // bar it forms on.
   //
-  // Definition tightened 2026-06-04 (BTC/USD false-invalidation case),
-  // then loosened 2026-06-08 — see baselines below. The rule requires
-  // NOWICK candles: body must be at least NOWICK_BODY_RATIO of the
-  // total range. So a "two-bar reversal" needs to actually look like
-  // a reversal on the chart.
+  // ── BODY-RATIO HISTORY (for the revert path) ────────────────────
   //
-  // ── HISTORICAL BASELINES (for revert path) ──────────────────────
+  //   pre-2026-06-04 (any-body, no ratio):    aggregate WR ≈ 69.7%
+  //   2026-06-04 (NOWICK_BODY_RATIO = 0.70):  aggregate WR ≈ 63.2%
+  //   2026-06-09 (NOWICK_BODY_RATIO = 0.55):  aggregate WR ≈ 58.4%
+  //   2026-06-09 (reverted — current):       targeting ≈ 69.7%
   //
-  //   Pre-2026-06-04 (any-body counter-bars, no ratio check):
-  //     aggregate win rate ≈ 69.7%  ← peak, but over-invalidated
-  //                                    (BTC false-cancel case)
-  //   2026-06-04 → 2026-06-08 (NOWICK_BODY_RATIO = 0.70, strict):
-  //     aggregate win rate ≈ 63.2%  ← too lax on invalidation,
-  //                                    real losses showed through
-  //   2026-06-09+ (NOWICK_BODY_RATIO = 0.55, middle ground):
-  //     aggregate win rate = TBD    ← if it lands materially below
-  //                                    63.2% we have a worse rule
-  //                                    and should revert to 0.70;
-  //                                    if it lands between 63.2 and
-  //                                    69.7 it's threading the
-  //                                    BTC-style false-cancel without
-  //                                    over-hiding losses.
-  //
-  // To revert to 0.70: change NOWICK_BODY_RATIO below to 0.70 AND
-  // mirror in detect_triggers.py line 300 (counterBarsNoWick in
-  // RULES_FINGERPRINT also tracks this — bump it so caches roll).
-  // To go fully back to pre-2026-06-04: replace the
-  // `(body / range) >= NOWICK_BODY_RATIO` line below with
-  // `(body >= minBody)` to drop the ratio check entirely.
+  // Loosening the ratio made it WORSE (58.4%), confirming that this
+  // 4-day price action ALSO favours the old over-cancel behaviour —
+  // the "hidden invalidations" before 06-04 were apparently doing
+  // useful work on the average pair. Reverted to the pre-nowick
+  // definition: two consecutive opposite-body candles with a
+  // minimum-body noise floor and rising/falling closes, regardless
+  // of body-to-range ratio. The BTC false-cancellation case the
+  // nowick rule was meant to fix is now back as a known edge —
+  // accept it as the cost of the better aggregate. If we ever want
+  // to retry a body-ratio filter, the parametrised pattern is
+  //   `(body / range) >= NOWICK_BODY_RATIO` with the ratio between
+  //   0.55 and 0.70. Don't go above 0.70 — that's marubozu-only and
+  //   effectively disables the rule.
   var prev = bars[currentIdx - 1];
   var curr = bars[currentIdx];
   var minBody = (minProminence || 0) * 0.25;
-  var NOWICK_BODY_RATIO = 0.55;
-  var isNoWickCounter = function(b){
-    if(setupDir === 'bear' && !(b.c > b.o)) return false;
-    if(setupDir === 'bull' && !(b.c < b.o)) return false;
-    var body = Math.abs(b.c - b.o);
-    if(body < minBody) return false;
-    var range = b.h - b.l;
-    if(range <= 0) return false;
-    return (body / range) >= NOWICK_BODY_RATIO;
+  var isCounter = function(b){
+    if(setupDir === 'bear') return (b.c > b.o) && ((b.c - b.o) >= minBody);
+    if(setupDir === 'bull') return (b.c < b.o) && ((b.o - b.c) >= minBody);
+    return false;
   };
-  if(!isNoWickCounter(prev) || !isNoWickCounter(curr)) return -1;
+  if(!isCounter(prev) || !isCounter(curr)) return -1;
   if(setupDir === 'bear' && curr.c > prev.c) return currentIdx;
   if(setupDir === 'bull' && curr.c < prev.c) return currentIdx;
   return -1;
