@@ -1497,6 +1497,8 @@ def scan_pairs(intraday_data, historical_data):
         # the user can't see on the dashboard.
         ew = ew_structural
         auto_ew_used = False
+        ew_pattern = None       # which auto-EW pattern carried the dir
+        ew_confidence = None    # the auto-EW conf at this scan, if used
         try:
             auto = auto_detect_ew(daily)
             ewp = auto.get('ew') if auto.get('ok') else None
@@ -1505,8 +1507,17 @@ def scan_pairs(intraday_data, historical_data):
                     and ewp.get('pattern') in AUTO_EW_VALID_PATTERNS:
                 ew = ewp['dir']
                 auto_ew_used = True
+                ew_pattern = ewp.get('pattern')
+                ew_confidence = ewp.get('confidence')
         except Exception:
             pass  # defensive — never let auto-EW break the scan
+
+        # ew_source mirrors the dashboard's ewSource so directions.json
+        # consumers (Telegram messages, the upcoming /track-record page,
+        # any external tooling) can show the same "EW carrier" badge the
+        # dashboard does. Priority: auto-EW > structural (Python detector
+        # has no WICKATOR_EW seeds — those are browser-side only).
+        ew_source = 'auto-EW' if auto_ew_used else 'structural'
 
         macro_setup = calc_macro_auto_setup(daily, ew)
 
@@ -1566,6 +1577,13 @@ def scan_pairs(intraday_data, historical_data):
             # change. None when the setup is still armed / triggered.
             'sig_invalidation_reason': sig.get('invalidation_reason') if sig else None,
             'sig_invalidation_ts': sig.get('invalidation_ts') if sig else None,
+            # EW carrier — surfaces which mechanism supplied the macro
+            # direction so the dashboard + Telegram message can show
+            # the same "EW carrier" badge (per-pattern WR documented
+            # in RULES_VERSION_NOTES 2026-06-10d).
+            'ew_source': ew_source,
+            'ew_pattern': ew_pattern,
+            'ew_confidence': ew_confidence,
         }
     return out
 

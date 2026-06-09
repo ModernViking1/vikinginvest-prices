@@ -1986,6 +1986,46 @@ function getAutoSetup(k){
   return out;
 }
 
+// Macro-target source-confidence pill — surfaces which mechanism is
+// supplying the TP1/TP2 levels (and therefore how much to trust them).
+// Mirrors the source-priority ladder inside calcWickatorTPs:
+//   🟢 auto-EW  — pattern-grounded, high confidence
+//   🟡 wickator — manually verified at seed-time, decays over time
+//   🟡 inferred — reasoned from correlated pairs, no direct chart verify
+//   🟠 auto     — getAutoSetup mechanical Fib of recent swing, low conf
+//
+// Returns small inline HTML; called by buildPanel for the Target cell.
+function macroSourceBadge(k){
+  // Same priority order as calcWickatorTPs so the pill always agrees
+  // with the TP numbers actually rendered on the chart overlay.
+  var engineDir = (typeof STATE !== 'undefined' && STATE[k] && STATE[k].ew) || null;
+  var auto = (typeof getAutoEWShape === 'function') ? getAutoEWShape(k) : null;
+  if(auto && (auto.dir === 'bull' || auto.dir === 'bear')
+     && (engineDir !== 'bull' && engineDir !== 'bear' || auto.dir === engineDir)){
+    return '<span title="Macro TPs come from the auto-EW '
+      + auto.pattern + ' pattern at ' + Math.round(auto.confidence * 100)
+      + '% confidence. Pattern-grounded — high-confidence target.">🟢 auto-EW '
+      + auto.pattern.replace(/-/g, '‑') + '</span>';
+  }
+  var seed = (typeof WICKATOR_EW !== 'undefined') ? WICKATOR_EW[k] : null;
+  if(seed && (engineDir !== 'bull' && engineDir !== 'bear' || seed.dir === engineDir)){
+    if(seed.source === 'inferred'){
+      return '<span title="Macro TPs come from an inferred WICKATOR_EW seed (reasoned from correlated pairs, not directly chart-verified). Medium-low confidence — stale-risk grows over time.">🟡 inferred seed</span>';
+    }
+    return '<span title="Macro TPs come from a manually-verified WickatorFX seed (source: wickator). High confidence at seed-time; stale-risk grows with each day of price action without a refresh.">🟡 wickator seed</span>';
+  }
+  // Fall back to the server-detected auto-EW when the in-browser cache
+  // hasn't warmed up yet (first refresh of the session, mobile, etc.).
+  var srv = (typeof SERVER_DIR !== 'undefined') ? SERVER_DIR[k] : null;
+  if(srv && srv.ew_source === 'auto-EW' && srv.ew_pattern){
+    return '<span title="Macro TPs come from the server-detected auto-EW '
+      + srv.ew_pattern + ' pattern at ' + Math.round((srv.ew_confidence || 0) * 100)
+      + '% confidence (via directions.json). Pattern-grounded.">🟢 auto-EW '
+      + srv.ew_pattern.replace(/-/g, '‑') + ' (server)</span>';
+  }
+  return '<span title="Macro TPs come from getAutoSetup — mechanical 60-day swing high/low ± Fib retrace. No Elliott Wave structure detected. Low-confidence; treat as rough range markers, not measured targets.">🟠 auto-derived</span>';
+}
+
 // Convenience read accessor that respects USE_DERIVED_SETUP toggle.
 // Display code calls setupField(k, 'entry') instead of m.entry.
 function setupField(k, field){
@@ -2710,7 +2750,7 @@ function buildPanel(k){
   frag.appendChild(ab);
   // Nowick Setup
   var ns=document.createElement('div');ns.className='nsetup';
-  ns.innerHTML='<div><div class="nslbl">Watch Zone</div><div class="nsval" id="ns-entry-'+k+'" style="color:var(--gold);">'+setupField(k,'entry')+'</div><div class="nssub">Daily macro zone — refine on 15m</div></div><div><div class="nslbl">Stop Reference</div><div class="nsval" id="ns-stop-'+k+'" style="color:var(--bear);">'+setupField(k,'stop')+'</div><div class="nssub">Daily structural extreme</div></div><div><div class="nslbl">Target</div><div class="nsval" id="ns-tgt-'+k+'" style="color:var(--bull);">'+setupField(k,'tgt')+'</div><div class="nssub">Next liquidity target</div></div><div><div class="nslbl">Inv / Reward</div><div class="nsval" id="ns-inv-'+k+'" style="font-size:8px;color:var(--neu);">'+setupField(k,'inv')+'</div><div class="nssub" id="ns-rr-'+k+'">'+formatRR(setupField(k,'rr'))+'</div></div>';
+  ns.innerHTML='<div><div class="nslbl">Watch Zone</div><div class="nsval" id="ns-entry-'+k+'" style="color:var(--gold);">'+setupField(k,'entry')+'</div><div class="nssub">Daily macro zone — refine on 15m</div></div><div><div class="nslbl">Stop Reference</div><div class="nsval" id="ns-stop-'+k+'" style="color:var(--bear);">'+setupField(k,'stop')+'</div><div class="nssub">Daily structural extreme</div></div><div><div class="nslbl">Target</div><div class="nsval" id="ns-tgt-'+k+'" style="color:var(--bull);">'+setupField(k,'tgt')+'</div><div class="nssub" id="ns-tgt-src-'+k+'">'+macroSourceBadge(k)+'</div></div><div><div class="nslbl">Inv / Reward</div><div class="nsval" id="ns-inv-'+k+'" style="font-size:8px;color:var(--neu);">'+setupField(k,'inv')+'</div><div class="nssub" id="ns-rr-'+k+'">'+formatRR(setupField(k,'rr'))+'</div></div>';
   frag.appendChild(ns);
   // Workflow how-to (collapsible, tucked inside per-pair detail panel)
   var wf=document.createElement('details');
@@ -2938,6 +2978,44 @@ function getLayerDet(k,layer,sig){
           var pipsTarget = (pipsR * pipMult).toFixed(1) + ' pips';
           var actionVerb = iDir === 'bull' ? 'BUY' : 'SELL';
           var entryDescriptor = iDir === 'bull' ? 'creator low / wick' : 'creator high / wick';
+          // EW-carrier badge — per-pattern backtest WRs documented in
+          // RULES_VERSION_NOTES 2026-06-10d. The "structural" control bar
+          // (55.9% over n_decided=463) is the baseline; auto-EW patterns
+          // beat it by +7 to +11pp on the 3 well-sampled patterns.
+          var _ewCarrierBadge = (function(){
+            var patternWR = {
+              '5-wave-impulse-complete':   { wr: 66.7, delta: '+10.7pp', n: 114, sample: 'large' },
+              'ABC-correction-complete':   { wr: 63.0, delta: '+7.0pp',  n: 81,  sample: 'large' },
+              '5-wave-impulse-truncated':  { wr: 63.3, delta: '+7.4pp',  n: 30,  sample: 'large' },
+              'WXY-double-zigzag-complete':{ wr: 45.5, delta: '-10.4pp', n: 11,  sample: 'small' },
+              '5-wave-diagonal-complete':  { wr: 87.5, delta: '+31.6pp', n: 8,   sample: 'small' }
+            };
+            var src = iSig.ewSource;
+            var pat = iSig.ewPattern;
+            if(src === 'auto-EW' && pat && patternWR[pat]){
+              var p = patternWR[pat];
+              var dot = p.sample === 'small' ? '🟡' : '🟢';
+              var lbl = pat.replace(/-/g, '‑');  // non-breaking hyphens for layout
+              var tt = 'EW carrier: ' + pat + ' (auto-EW pattern). Historic WR: '
+                     + p.wr + '% over n=' + p.n + ' decided trades, '
+                     + p.delta + ' vs structural control. '
+                     + (p.sample === 'small' ? 'Small sample — treat as indicative only.' : 'Sample large enough for confidence.');
+              return ' <span style="font-size:7.5px;color:var(--inkm);font-weight:600;" title="' + tt + '">'
+                + dot + ' ' + lbl + ' &middot; ' + p.wr.toFixed(1) + '%'
+                + '</span>';
+            }
+            if(src === 'wickator' || src === 'inferred'){
+              var seedDot = '🟡';
+              var seedLbl = src === 'inferred' ? 'inferred seed' : 'wickator seed';
+              return ' <span style="font-size:7.5px;color:var(--inkm);font-weight:600;" title="EW carrier: WICKATOR_EW manual seed (source: ' + src + '). Verified at seed-time from WickatorFX charts; stale-risk grows with each day of price action. No backtest WR breakdown.">'
+                + seedDot + ' ' + seedLbl
+                + '</span>';
+            }
+            // structural / unknown
+            return ' <span style="font-size:7.5px;color:var(--inkd);font-weight:600;" title="EW carrier: structural break (8-bar daily swing). Historic WR: 55.9% over n=463 decided. Auto-EW didn\'t produce a high-confidence pattern at this bar, so the engine fell back to structural direction.">'
+              + '⚪ structural &middot; 55.9%'
+              + '</span>';
+          })();
           var stateLabel, stateColor, stateIcon;
           if(iSig.state === 'invalidated'){
             // Pre-trigger invalidation — pick the specific reason so the
@@ -3070,7 +3148,7 @@ function getLayerDet(k,layer,sig){
           }
           intraMsg = '<br><div style="margin-top:6px;padding:6px 8px;background:rgba(200,134,10,0.06);border-left:2px solid var(--gold);border-radius:2px;font-size:9px;line-height:1.5;">'
             + '<div style="font-weight:700;color:'+stateColor+';letter-spacing:0.5px;text-transform:uppercase;font-size:8px;">'
-            +   stateIcon + ' INTRADAY SIGNAL (1:1 R:R) &middot; '+stateLabel + armedAtTxt
+            +   stateIcon + ' INTRADAY SIGNAL (1:1 R:R) &middot; '+stateLabel + armedAtTxt + _ewCarrierBadge
             + '</div>'
             + '<div style="margin-top:3px;color:var(--ink);">'
             +   '<strong>'+actionVerb+'</strong> @ '+fmt(iSig.entry)+' ('+entryDescriptor+', '+iSig.barsAgo+' bars ago)'
@@ -3233,6 +3311,11 @@ function refreshAlert(k){
   if(nsi) nsi.innerHTML = setupField(k,'inv');
   var nsr = document.getElementById('ns-rr-'+k);
   if(nsr) nsr.innerHTML = formatRR(setupField(k,'rr'));
+  // Refresh the macro-target source-confidence pill so the pip flips
+  // from 🟡 wickator seed to 🟢 auto-EW as soon as the pattern detector
+  // confirms a high-confidence shape mid-session.
+  var nsTgtSrc = document.getElementById('ns-tgt-src-'+k);
+  if(nsTgtSrc) nsTgtSrc.innerHTML = macroSourceBadge(k);
   ab.className='abanner';sco.className='scc';sco.textContent=score.tot+'/4';
   var wb='<span style="font-family:Orbitron,monospace;font-size:7px;font-weight:700;padding:1px 5px;border-radius:2px;margin-left:4px;vertical-align:middle;background:'+(m.wr>=75?'rgba(26,122,74,.15)':'rgba(200,134,10,.12)')+';color:'+(m.wr>=75?'var(--bull)':'var(--gold)');wb+=';border:1px solid '+(m.wr>=75?'rgba(26,122,74,.3)':'rgba(200,134,10,.3)')+';"> '+wrLabel(m,'short')+'</span>';
 
@@ -4712,7 +4795,14 @@ function fetchServerDirections(){
         SERVER_DIR[k] = {
           ew: row.ew, tl: row.tl, nw: row.nw, cl: row.cl,
           aligned_dir: row.aligned_dir,
-          macro: row.macro || null
+          macro: row.macro || null,
+          // EW carrier fields — let the dashboard fall back to the
+          // server-computed pattern/source when the in-browser auto-EW
+          // cache hasn't warmed up yet (first refresh of the session,
+          // or mobile with limited localStorage).
+          ew_source: row.ew_source || null,
+          ew_pattern: row.ew_pattern || null,
+          ew_confidence: row.ew_confidence || null
         };
         n++;
       }
@@ -10296,8 +10386,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-10c';
+var RULES_VERSION = '2026-06-10d';
 var RULES_VERSION_NOTES = [
+  '2026-06-10d — EW-carrier transparency. Every intraday signal now surfaces WHICH mechanism supplied the macro direction (in-browser auto-EW > WICKATOR seed > server-detected auto-EW > structural), stamped onto the sig as ewPattern + ewSource. Three display surfaces: the signal log header gets a compact 🟢/🟡/⚪ pill with the carrying pattern and its historic WR (5-wave-impulse 66.7% / ABC 63.0% / 5-wave-truncated 63.3% / structural 55.9%); the macro-card Target cell gets a source-confidence pill (🟢 auto-EW / 🟡 wickator seed / 🟠 auto-derived) that refreshes when the engine re-evaluates so it flips mid-session when auto-EW kicks in; detect_triggers.py now writes ew_source / ew_pattern / ew_confidence into directions.json so external tooling and the Telegram alerts can render the same badge. Per-pattern WR sourced from backtest_autoew_patterns.py — no engine logic change.',
   '2026-06-10c — Failure-mode panel now shows a "WR by asset class" row (major / minor / comm / index / crypto), so forward-going we can verify whether the deployed per-class A1 RSI thresholds (2026-06-10a) are producing the pattern the sweep predicted. analyseIntradayFailures now returns perClass alongside the existing classification / variants / perPair structures. NZD/CAD also dropped from the pair universe (low win-rate drag, same pattern as the 2026-06-10b removals). Active universe: 41 → 40 tradeable instruments.',
   '2026-06-10b — Dropped 4 more pairs from the universe: LTC/USD (crypto), GBP/CHF (FX minor), USD/CNH (FX minor), CAC 40 (index). All were running well below class median WR and dragging on aggregate. Same removal pattern as the 2026-06-08 AUDCHF/EURSEK/USDNOK drop: pulled from fetch-prices.js, fetch_historical_ohlc.py, publish_intraday_ohlc.py, crypto-deep-fetch.yml, detect_triggers.py (PAIR_DISPLAY + PAIR_CLASS + FIB_ENTRY_PAIRS), and the dashboard (MKTS, USD_CORRELATION, VIKING_SRC_MAP, PAIR_CURRENCIES). RULES_FINGERPRINT.fibPairs no longer includes fra40 so caches invalidate. Active universe now: 7 FX majors + 16 FX minors + 3 commodities + 6 indices + 9 crypto = 41 instruments.',
   '2026-06-10a — A1 per-class RSI thresholds. Backtest sweep across {no-gate, 70/30, 75/25, 80/20, 85/15, 90/10} showed FX minors / commodities / indices all preferred a TIGHTER 70/30 gate (+2.7 to +5.6pp WR over the prior 80/20 default), while FX majors and crypto were threshold-insensitive (trend persistently through textbook overbought). Wired RSI_GATE_BY_CLASS = {major: 90/10, minor: 70/30, comm: 70/30, index: 70/30, crypto: 75/25}; _rsiGateFor(k) reads MKTS[k].t. Same map used by detectIntradaySignal, the recent backtest engine, and detect_triggers.py so dashboard, alerts and backtest stay in lockstep. Aggregate impact in the simplified sweep: +1.56pp vs flat 80/20.',
@@ -12915,6 +13006,29 @@ function detectIntradaySignal(k){
     rsi1H: (typeof rsi1H === 'number') ? rsi1H : null,
     rsiGateHi: rsiGate.hi,
     rsiGateLo: rsiGate.lo,
+    // EW carrier (RULES_VERSION 2026-06-10d) — surfaces which mechanism
+    // supplied the macro direction at signal time so the user can
+    // weight conviction by pattern-specific WR (the 5-wave-impulse
+    // pattern back-tests at +10.7pp WR over the structural fallback).
+    // Priority mirrors calcWickatorTPs: in-browser auto-EW > WICKATOR
+    // seed > server-supplied auto-EW (when the local cache hasn't
+    // warmed up yet) > structural.
+    ewPattern: (function(){
+      var s = (typeof getAutoEWShape === 'function') ? getAutoEWShape(k) : null;
+      if(s && s.dir === dir && s.pattern) return s.pattern;
+      var srv = (typeof SERVER_DIR !== 'undefined') ? SERVER_DIR[k] : null;
+      if(srv && srv.ew_source === 'auto-EW' && srv.ew_pattern) return srv.ew_pattern;
+      return null;
+    })(),
+    ewSource: (function(){
+      var s = (typeof getAutoEWShape === 'function') ? getAutoEWShape(k) : null;
+      if(s && s.dir === dir && s.pattern) return 'auto-EW';
+      var seed = (typeof WICKATOR_EW !== 'undefined') ? WICKATOR_EW[k] : null;
+      if(seed && seed.dir === dir) return seed.source || 'wickator';
+      var srv = (typeof SERVER_DIR !== 'undefined') ? SERVER_DIR[k] : null;
+      if(srv && srv.ew_source) return srv.ew_source;
+      return 'structural';
+    })(),
     // Fib-zone variant — 38% retrace entry, half size, same stop as wick.
     // Independent of the wick state above; both can fire from one setup
     // (fib first, wick later if price keeps retracing).
