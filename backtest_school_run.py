@@ -63,7 +63,9 @@ PAIR_REF_CANDLE = {
     },
 }
 
-WINDOW_BARS = 8  # 8 × 15m = 2 hours after ref candle close
+WINDOW_BARS = 8  # 8 × 15m = 2 hours after ref candle close (default).
+                 # main() sweeps {8, 16, 24} = {2h, 4h, 6h} for comparison
+                 # so we can see whether widening preserves the SR signal.
 
 
 def find_reference_candles(m15, pair):
@@ -129,7 +131,7 @@ def compute_sr_state(m15, ref, current_idx):
     return state
 
 
-def find_setups_with_sr(pair_data, pair_key):
+def find_setups_with_sr(pair_data, pair_key, window_bars=WINDOW_BARS):
     """Walk 4/4 engine + tag each setup with SR context. Tracks BOTH
     fib outcomes (production methodology for indices) and wick outcomes
     (for reference)."""
@@ -241,7 +243,7 @@ def find_setups_with_sr(pair_data, pair_key):
         last_resolved = last_j
 
         # SR context for this setup
-        active_ref = get_active_ref(i, ref_bars)
+        active_ref = get_active_ref(i, ref_bars, window_bars=window_bars)
         sr_state = None
         sr_aligned = False
         sr_anti_aligned = False
@@ -279,156 +281,155 @@ def tally(setups):
             'decided': decided, 'wr': (w / decided * 100) if decided else None}
 
 
+def run_variants(setups, label, v0_baseline_wr=None):
+    """Tally V0/V1/V2/V3a/V3b for a given setup list. Returns dict."""
+    v0 = tally(setups)
+    v1 = tally([s for s in setups if s['in_window'] and s['sr_aligned']])
+    v2 = tally([s for s in setups if s['in_window'] and s['sr_anti_aligned']])
+    v3a = tally([s for s in setups if not (s['in_window'] and s['sr_aligned'])])
+    v3b = tally([s for s in setups if s['in_window'] and s['sr_aligned']])
+    return {'V0': v0, 'V1': v1, 'V2': v2, 'V3a': v3a, 'V3b': v3b, 'label': label}
+
+
 def main():
     with open(HIST_PATH) as f:
         d = json.load(f)
     pairs = d.get('pairs', {})
 
-    print('Running School Run backtest for DE40 and DJ30...', file=sys.stderr)
+    # Path 2 window sweep — re-run the backtest at 3 window widths to see
+    # whether widening preserves the SR signal AND gets us closer to the
+    # n_decided >= 30 deploy threshold.
+    WINDOWS = [(8, '2h'), (16, '4h'), (24, '6h')]
+
+    print(f'Running School Run sweep on {", ".join(f"{w[1]}" for w in WINDOWS)} windows...',
+          file=sys.stderr)
     t0 = time.time()
 
-    full_report = {}
+    # All-windows-by-pair: {pair: {window_bars: setups}}
+    all_runs = {}
     for pair in ['de40', 'dj30']:
         p = pairs.get(pair)
         if not p:
-            print(f'  {pair}: no data', file=sys.stderr)
-            continue
-        setups, ref_bars = find_setups_with_sr(p, pair)
-        if setups is None:
-            print(f'  {pair}: insufficient data', file=sys.stderr)
-            continue
-        full_report[pair] = {'setups': setups, 'ref_bars': ref_bars}
+            print(f'  {pair}: no data', file=sys.stderr); continue
+        all_runs[pair] = {}
+        for w_bars, w_lbl in WINDOWS:
+            setups, ref_bars = find_setups_with_sr(p, pair, window_bars=w_bars)
+            if setups is None: continue
+            all_runs[pair][w_bars] = {'setups': setups, 'ref_bars': ref_bars, 'label': w_lbl}
+            v1 = tally([s for s in setups if s['in_window'] and s['sr_aligned']])
+            print(f'  {pair} {w_lbl}: SR-aligned cohort n_set={v1["n"]} n_dec={v1["decided"]} '
+                  f'W={v1["w"]} L={v1["l"]}', file=sys.stderr)
+    print(f'Sweep completed in {time.time() - t0:.1f}s', file=sys.stderr)
 
-    print(f'Walk completed in {time.time() - t0:.1f}s', file=sys.stderr)
-
-    # ─── Sanity check: ref candle detection ───
+    # ─── Sanity check (ref candles — invariant across windows, show once) ───
     print()
     print('=' * 100)
-    print('REFERENCE-CANDLE SANITY CHECK (first 6 detected per pair)')
+    print('REFERENCE-CANDLE SANITY CHECK (first 4 detected per pair)')
     print('=' * 100)
-    for pair, rep in full_report.items():
+    for pair, runs in all_runs.items():
+        baseline_run = runs.get(WINDOWS[0][0], {})
+        ref_bars = baseline_run.get('ref_bars', [])
         label = PAIR_REF_CANDLE[pair]['session_label']
         print(f'\n{pair.upper()} — {label}')
-        for ref in rep['ref_bars'][:6]:
-            print(f'  {ref["date"]} {ref["open_time"]}Z  ref_high={ref["ref_high"]:.2f}  ref_low={ref["ref_low"]:.2f}')
-        print(f'  ... total ref candles in sample: {len(rep["ref_bars"])}')
+        for ref in ref_bars[:4]:
+            print(f'  {ref["date"]} {ref["open_time"]}Z  ref_high={ref["ref_high"]:.2f}  '
+                  f'ref_low={ref["ref_low"]:.2f}')
+        print(f'  ... total ref candles in sample: {len(ref_bars)}')
 
-    # ─── Variant tallies ───
+    # ─── Per-pair × per-window table ───
     print()
-    print('=' * 100)
-    print('VARIANT RESULTS — fib 38% half-size methodology (production for indices)')
-    print('=' * 100)
-    print()
-    print(f'{"pair":<5} {"variant":<22} {"n_set":>5} {"n_dec":>5} {"W":>3} {"L":>3} {"E":>3}  {"WR":>7}  {"vs V0":>9}')
-    print('-' * 100)
+    print('=' * 105)
+    print('WINDOW-WIDTH SWEEP — does widening preserve the V1 SR-aligned edge AND lift n above 30?')
+    print('=' * 105)
+    print(f'{"pair":<5} {"window":<7} {"variant":<22} {"n_set":>5} {"n_dec":>5} {"W":>3} {"L":>3} {"E":>3}  {"WR":>7}  {"vs V0":>9}')
+    print('-' * 105)
 
-    deploy_candidates = []
-    for pair, rep in full_report.items():
-        setups = rep['setups']
+    deploy_per_pair = []
+    for pair, runs in all_runs.items():
+        for w_bars, w_lbl in WINDOWS:
+            run = runs.get(w_bars)
+            if not run: continue
+            r = run_variants(run['setups'], w_lbl)
+            v0_wr = r['V0']['wr']
+            for vk, vlabel in [
+                ('V0', 'V0 baseline'),
+                ('V1', 'V1 SR-aligned filter'),
+                ('V2', 'V2 Anti-SR filter'),
+                ('V3a', 'V3a 4/4 (non-SR)'),
+                ('V3b', 'V3b 5/5 (SR-aligned)'),
+            ]:
+                t = r[vk]
+                wr_s = f'{t["wr"]:.1f}%' if t['wr'] is not None else '—'
+                delta_s = '—'
+                if t['wr'] is not None and v0_wr is not None and vk != 'V0':
+                    delta_s = f'{t["wr"] - v0_wr:+.2f}pp'
+                print(f'{pair:<5} {w_lbl:<7} {vlabel:<22} {t["n"]:>5} {t["decided"]:>5} '
+                      f'{t["w"]:>3} {t["l"]:>3} {t["e"]:>3}  {wr_s:>7}  {delta_s:>9}')
+                if vk in ('V1', 'V3b') and t['wr'] is not None and v0_wr is not None:
+                    delta = t['wr'] - v0_wr
+                    if delta >= 5 and t['decided'] >= 30:
+                        deploy_per_pair.append((pair, w_lbl, vk, t, delta))
+            print()
 
-        # V0 — baseline (all setups)
-        v0 = tally(setups)
-        v0_wr = v0['wr']
+    # ─── Aggregate across both pairs, per window ───
+    print('=' * 105)
+    print('AGGREGATE (DE40 + DJ30 combined) — per window')
+    print('=' * 105)
+    print(f'{"window":<7} {"variant":<22} {"n_set":>5} {"n_dec":>5} {"W":>3} {"L":>3}  {"WR":>7}  {"vs V0":>9}')
+    print('-' * 105)
 
-        # V1 — SR-aligned filter
-        v1_setups = [s for s in setups if s['in_window'] and s['sr_aligned']]
-        v1 = tally(v1_setups)
-
-        # V2 — Anti-SR filter
-        v2_setups = [s for s in setups if s['in_window'] and s['sr_anti_aligned']]
-        v2 = tally(v2_setups)
-
-        # V3a — 4/4 only (NOT SR-aligned during window, or outside window)
-        v3a_setups = [s for s in setups if not (s['in_window'] and s['sr_aligned'])]
-        v3a = tally(v3a_setups)
-
-        # V3b — 5/5 (SR-aligned cohort)
-        v3b_setups = [s for s in setups if s['in_window'] and s['sr_aligned']]
-        v3b = tally(v3b_setups)
-
-        for label, t in [
-            ('V0 baseline', v0),
-            ('V1 SR-aligned filter', v1),
-            ('V2 Anti-SR filter', v2),
-            ('V3a 4/4 (non-SR)', v3a),
-            ('V3b 5/5 (SR-aligned)', v3b),
+    deploy_agg = []
+    for w_bars, w_lbl in WINDOWS:
+        merged_setups = []
+        for pair in all_runs:
+            run = all_runs[pair].get(w_bars)
+            if not run: continue
+            merged_setups.extend(run['setups'])
+        if not merged_setups: continue
+        r = run_variants(merged_setups, w_lbl)
+        v0_wr = r['V0']['wr']
+        for vk, vlabel in [
+            ('V0', 'V0 baseline'),
+            ('V1', 'V1 SR-aligned filter'),
+            ('V2', 'V2 Anti-SR filter'),
+            ('V3a', 'V3a 4/4 (non-SR)'),
+            ('V3b', 'V3b 5/5 (SR-aligned)'),
         ]:
-            wr_s = f'{t["wr"]:.1f}%' if t["wr"] is not None else '—'
+            t = r[vk]
+            wr_s = f'{t["wr"]:.1f}%' if t['wr'] is not None else '—'
             delta_s = '—'
-            if t['wr'] is not None and v0_wr is not None and label != 'V0 baseline':
+            if t['wr'] is not None and v0_wr is not None and vk != 'V0':
                 delta_s = f'{t["wr"] - v0_wr:+.2f}pp'
-            print(f'{pair:<5} {label:<22} {t["n"]:>5} {t["decided"]:>5} {t["w"]:>3} {t["l"]:>3} {t["e"]:>3}  {wr_s:>7}  {delta_s:>9}')
-
-            # Decision rule check
-            if label == 'V0 baseline':
-                continue
-            if t['wr'] is None or v0_wr is None:
-                continue
-            delta = t['wr'] - v0_wr
-            if delta >= 5 and t['decided'] >= 30:
-                deploy_candidates.append((pair, label, t, delta))
-
+            print(f'{w_lbl:<7} {vlabel:<22} {t["n"]:>5} {t["decided"]:>5} '
+                  f'{t["w"]:>3} {t["l"]:>3}  {wr_s:>7}  {delta_s:>9}')
+            if vk in ('V1', 'V3b') and t['wr'] is not None and v0_wr is not None:
+                delta = t['wr'] - v0_wr
+                if delta >= 5 and t['decided'] >= 30:
+                    deploy_agg.append((w_lbl, vk, t, delta))
         print()
 
-    # ─── Aggregate across both pairs ───
-    print('=' * 100)
-    print('AGGREGATE (DE40 + DJ30 combined)')
-    print('=' * 100)
-    print(f'{"variant":<22} {"n_set":>5} {"n_dec":>5} {"W":>3} {"L":>3}  {"WR":>7}  {"vs V0":>9}')
-    print('-' * 100)
-
-    def merge_all(filter_fn):
-        merged = []
-        for rep in full_report.values():
-            merged.extend([s for s in rep['setups'] if filter_fn(s)])
-        return tally(merged)
-
-    agg_v0 = merge_all(lambda s: True)
-    agg_v1 = merge_all(lambda s: s['in_window'] and s['sr_aligned'])
-    agg_v2 = merge_all(lambda s: s['in_window'] and s['sr_anti_aligned'])
-    agg_v3a = merge_all(lambda s: not (s['in_window'] and s['sr_aligned']))
-    agg_v3b = merge_all(lambda s: s['in_window'] and s['sr_aligned'])
-
-    for label, t in [
-        ('V0 baseline', agg_v0),
-        ('V1 SR-aligned filter', agg_v1),
-        ('V2 Anti-SR filter', agg_v2),
-        ('V3a 4/4 (non-SR)', agg_v3a),
-        ('V3b 5/5 (SR-aligned)', agg_v3b),
-    ]:
-        wr_s = f'{t["wr"]:.1f}%' if t["wr"] is not None else '—'
-        delta_s = '—'
-        if t['wr'] is not None and agg_v0['wr'] is not None and label != 'V0 baseline':
-            delta_s = f'{t["wr"] - agg_v0["wr"]:+.2f}pp'
-        print(f'{label:<22} {t["n"]:>5} {t["decided"]:>5} {t["w"]:>3} {t["l"]:>3}  {wr_s:>7}  {delta_s:>9}')
-
-    # ─── Decision ───
-    print()
-    print('=' * 100)
-    print('DEPLOY DECISION (rule: WR uplift >= +5pp AND n_decided >= 30 per variant)')
-    print('=' * 100)
-    if deploy_candidates:
-        print('CANDIDATES PASSING THE DECISION RULE:')
-        for pair, label, t, delta in deploy_candidates:
-            print(f'  {pair} · {label}: WR={t["wr"]:.1f}% (n={t["decided"]}) — {delta:+.1f}pp vs baseline')
-        print()
-        print('Recommendation: deploy the passing variant(s) on the listed pair(s).')
+    # ─── Decision summary ───
+    print('=' * 105)
+    print('DEPLOY DECISION — rule: WR uplift >= +5pp AND n_decided >= 30')
+    print('=' * 105)
+    if deploy_per_pair:
+        print('CANDIDATES PASSING ON A SINGLE-PAIR BASIS:')
+        for pair, w_lbl, vk, t, delta in deploy_per_pair:
+            print(f'  {pair} · {w_lbl} window · {vk}: WR={t["wr"]:.1f}% '
+                  f'(n_dec={t["decided"]}) — {delta:+.1f}pp vs V0')
     else:
-        print('NO variants pass the decision rule on a single-pair basis.')
-        # Check aggregate
-        for label, t in [
-            ('V1 SR-aligned filter', agg_v1),
-            ('V2 Anti-SR filter', agg_v2),
-            ('V3b 5/5 (SR-aligned)', agg_v3b),
-        ]:
-            if t['wr'] is None or agg_v0['wr'] is None:
-                continue
-            delta = t['wr'] - agg_v0['wr']
-            if delta >= 5 and t['decided'] >= 30:
-                print(f'AGGREGATE {label} DOES pass: WR={t["wr"]:.1f}% (n={t["decided"]}) — {delta:+.1f}pp')
-                print('Recommendation: consider deploying as an aggregate-level UI hint.')
-                return
-        print('No aggregate-level pass either. Document negative result; do not deploy.')
+        print('No single-pair candidates pass.')
+    print()
+    if deploy_agg:
+        print('CANDIDATES PASSING ON AGGREGATE (DE40 + DJ30 combined):')
+        for w_lbl, vk, t, delta in deploy_agg:
+            print(f'  {w_lbl} window · {vk}: WR={t["wr"]:.1f}% '
+                  f'(n_dec={t["decided"]}) — {delta:+.1f}pp vs V0')
+        print()
+        print('Recommendation: deploy the widest window that passes (more data = more robust).')
+    else:
+        print('No aggregate candidates pass either.')
+        print('Decision: stay with Path 1 (non-gating UI badge) and accumulate forward data.')
 
 
 if __name__ == '__main__':
