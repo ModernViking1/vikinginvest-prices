@@ -730,7 +730,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     </div>
     <div id="releaseNotes" style="padding:12px 14px;font-size:11px;line-height:1.7;color:var(--inkm);font-family:'Mukta',sans-serif;">
       <div style="font-family:'Orbitron',monospace;font-size:10px;letter-spacing:0.5px;color:var(--ink);"><strong>4/4 Confluence strategy</strong> (EW &middot; TL &middot; NW &middot; 4H EMA Cloud) &middot; <span id="vi-mkt-count">Markets</span> &middot; v69 &middot; Build <span id="buildStamp">BUILD_TIMESTAMP_UTC</span></div>
-      <div style="margin-top:8px;">DE40 + DJ30 moved from FIB half-size → WICK full-size methodology (2026-06-10i). AUD/CAD dropped from the universe (chronic low WR drag). DXY correlation sanity-check confirmed working as expected across xxxUSD / USDxxx / commodities / crypto.</div>
+      <div style="margin-top:8px;">DE40 + DJ30 reverted to FIB half-size methodology (2026-06-10j) — the 10i wick switch was based on a small-sample backtest; production WR (50% / 47.8%) showed no real edge. Auto-EW-integrated backtest in progress. AUD/CAD remains dropped from the universe (chronic low WR drag).</div>
     </div>
   </div>
   <div class="logsect">
@@ -1158,15 +1158,14 @@ var MKTS = {
 // pick up the correct methodology if they're given the right t:.
 // Per-pair methodology overrides — pairs in this set use the WICK
 // methodology even when their class would otherwise default to FIB
-// (commodities + indices). Drill-down on the index cohort
-// 2026-06-10i showed DE40 wick +9.2pp over fib (62.5% vs 53.3%)
-// and DJ30 +12.1pp (66.7% vs 54.5%); both are now on the wick
-// path. NAS100 stays on fib (wick regressed -3.0pp). SPX500 /
-// FTSE100 / JP225 also showed wick wins but await explicit
-// go-ahead before flipping. Must stay in sync with FIB_ENTRY_PAIRS
-// in detect_triggers.py — _btMethodFor and the Python detector
-// have to agree on which side fires for a given pair.
-var WICK_METHODOLOGY_OVERRIDES = {de40: 1, dj30: 1};
+// (commodities + indices). 2026-06-10i tried DE40 + DJ30 here based
+// on a simplified backtest showing +9-12pp wick lift (n=6-8); 10j
+// reverted both after production realised 50% / 47.8% — small-sample
+// noise, not a real edge. Auto-EW-integrated backtest (option C in
+// the chat) will determine whether to retry; for now we're back on
+// fib for indices. Must stay in sync with FIB_ENTRY_PAIRS in
+// detect_triggers.py.
+var WICK_METHODOLOGY_OVERRIDES = {};
 function _btMethodFor(k){
   var m = (typeof MKTS !== 'undefined') ? MKTS[k] : null;
   if(!m) return 'wick';
@@ -10478,8 +10477,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-10i';
+var RULES_VERSION = '2026-06-10j';
 var RULES_VERSION_NOTES = [
+  '2026-06-10j — REVERTED the 10i DE40/DJ30 wick switch back to FIB half-size. The 10i decision was based on the simplified backtest in backtest_rsi_per_class.py which uses STRUCTURAL EW direction only and reported wick +9.2pp on DE40 (n=8) and +12.1pp on DJ30 (n=6). Production realised 50% (DE40) and 47.8% (DJ30) on the larger setup population that includes auto-EW-driven entries — small-sample noise on the simplified backtest, not a real edge. WICK_METHODOLOGY_OVERRIDES now empty. fibPairs fingerprint restored to include de40 + dj30 so cached backtests re-invalidate on next load. Auto-EW-integrated backtest queued (option C in chat) to determine whether to retry the switch with a proper sample.',
   '2026-06-10i — DE40 and DJ30 moved from FIB half-size methodology to WICK full-size. Broader index sweep confirmed wick beat fib by +9.2pp on DE40 (62.5% vs 53.3%, n=8 / 22) and +12.1pp on DJ30 (66.7% vs 54.5%, n=10 / 19). Per-pair override sits in WICK_METHODOLOGY_OVERRIDES so _btMethodFor can flip these two without changing the class default. NAS100 stays on fib (wick regressed -3.0pp). SPX500 / FTSE100 / JP225 also showed wick wins (+16.2 / +8.3 / +3.1pp) but were not flipped this round — pending explicit go-ahead. AUD/CAD also dropped from the universe (chronic low WR drag, same pattern as the prior removals). Active universe is now 6 majors + 13 minors + 6 commodities + 6 indices + 8 crypto = 39 tradeable instruments.',
   '2026-06-10h — A1 minor RSI gate tightened 70/30 → 65/35 (commodities + indices stay at 70/30 — they regress at 65/35). Per-pair drill-down on GBP minors showed 78% of GBP/AUD setups already had RSI in the upper tier, indicating the 70/30 gate was too permissive for the minor class. Tightening lifted GBP/CAD wick WR from 46.7% → 85.7% (n=18) and GBP/NZD from 50.0% → 71.4% (n=49) at the cost of ~30-50% fewer minor signals. GBP/AUD itself stayed at 50% WR under both gates with no improvement available, so it was dropped from the universe as a chronic underperformer (same removal pattern as the prior drop rounds; structural noise not filterable by RSI). Active universe is now 6 majors + 14 minors + 6 commodities + 6 indices + 8 crypto = 40 tradeable instruments + DXY anchor + WTI / Nat Gas / Platinum added in 10g.',
   '2026-06-10g — Added 3 new commodity instruments: WTI Crude (wtiusd → OANDA WTICO_USD), Natural Gas (natgas → OANDA NATGAS_USD), Platinum (xptusd → OANDA XPT_USD). User reported a $3 gap between our Brent (BCO_USD ~ $95) and ICM Global "Brent" ($91.67); that gap is the textbook Brent-WTI spread, so adding WTI as a separate ticker lets users pick the contract their broker actually quotes. All three new pairs join FIB_ENTRY_PAIRS (commodity class uses Fib half-size entry as production methodology). HYPE/USD removed from the universe — low win-rate drag, same removal pattern as the prior rounds. Active universe is now 7 majors + 15 minors + 6 commodities + 6 indices + 8 crypto = 42 tradeable instruments.',
@@ -10520,7 +10520,7 @@ function RULES_FINGERPRINT(){
           return c + ':' + RSI_GATE_BY_CLASS[c].hi + '/' + RSI_GATE_BY_CLASS[c].lo;
         }).join(',')
       : '80/20',
-    fibPairs: ['xauusd','xagusd','usoil','wtiusd','natgas','xptusd','nas100','ftse100','spx500','jp225'].sort().join(','),
+    fibPairs: ['xauusd','xagusd','usoil','wtiusd','natgas','xptusd','de40','nas100','dj30','ftse100','spx500','jp225'].sort().join(','),
     // Active pair universe (hash of sorted MKTS keys) — bump on any
     // add/remove so dropped pairs are flushed from localStorage caches
     // on the next page load, not the next TTL expiry. Without this the

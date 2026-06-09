@@ -890,13 +890,12 @@ FIB_ENTRY_PAIRS = {
     # versions used 'us30'/'uk100' which never matched the actual
     # dj30/ftse100 keys used everywhere else, so server-side gating
     # silently fell through to no-fib-class on those two pairs).
-    # de40, dj30 moved to WICK methodology 2026-06-10i — broader-index
-    # comparison showed wick beat fib by +9.2pp on DE40 (62.5% vs 53.3%)
-    # and +12.1pp on DJ30 (66.7% vs 54.5%). NAS100 stays on fib (wick
-    # regressed -3.0pp); the others (spx500, ftse100, jp225) also showed
-    # wick wins (+16.2 / +8.3 / +3.1pp) but the user only requested
-    # DE40 and DJ30 — keeping the rest as-is pending explicit go-ahead.
-    'nas100', 'ftse100', 'spx500',
+    # de40, dj30 briefly moved to wick methodology in 2026-06-10i based
+    # on a simplified backtest showing +9-12pp wick lift (n=6-8). 10j
+    # reverted both after production realised 50% / 47.8% on the larger
+    # auto-EW-driven sample. Awaiting auto-EW-integrated backtest before
+    # any further methodology change.
+    'de40', 'nas100', 'dj30', 'ftse100', 'spx500',
     # v7 additions (2026-06-03)
     'jp225',
     # fra40 (CAC 40) removed 2026-06-10 — low win-rate drag.
