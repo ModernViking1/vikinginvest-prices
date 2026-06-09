@@ -1725,6 +1725,201 @@ function refreshChartData(k){
     CD[k]._meta[tf] = { synthetic: res.synthetic, source: res.source };
   });
 }
+// ── School Run (SR) detection — Tom Hougaard's opening-range strategy
+// adapted as a 5th confluence layer for DE40 and DJ30 only.
+// (RULES_VERSION 2026-06-10k, scope discussed in chat.)
+//
+// Reference candle = first 15m bar of the cash session. Both DST
+// offsets per pair are accepted so the state machine works year-round
+// without explicit DST math.
+//
+// State transitions (per session, walking m15 bars):
+//   pending → bull_broken | bear_broken (first close beyond ref H/L)
+//   bull_broken → bull_failed (close back inside the range)
+//   bear_broken → bear_failed (close back inside)
+//
+// SR-aligned tier = confluence score (sc.tot) + SR break aligned with
+// engine direction:
+//   tot==4 + aligned → 5/5  (full 4/4 + SR)
+//   tot==3 + aligned → 4/5  (partial confluence + SR)
+//   tot==2 + aligned → 3/5  (weak confluence + SR — speculative)
+//   In-window but not aligned → SR_WINDOW pill (informational)
+//
+// Backtest (12-month, n=14 across both pairs combined):
+//   5/5 = 100% WR (n=5)  — but small sample; deploy as visual tier only.
+//   At n_decided >= 30 per tier, revisit gating.
+var SR_REF_TIMES = {
+  // DAX cash session opens 09:00 CET = 07:00 UTC (CEST summer) or
+  // 08:00 UTC (CET winter). 2-hour window = next 8 m15 bars.
+  de40: { openTimes: ['07:00', '08:00'], sessionLabel: 'DAX 09:00 CET', windowBars: 8 },
+  // NYSE cash session opens 09:30 ET = 13:30 UTC (EDT summer) or
+  // 14:30 UTC (EST winter).
+  dj30: { openTimes: ['13:30', '14:30'], sessionLabel: 'DJ30 09:30 ET', windowBars: 8 }
+};
+function _findRefCandle(k){
+  // Find the most recent reference candle whose 2h window contains
+  // the latest m15 bar. Returns {idx, refHigh, refLow, openTime, date}
+  // or null if no active session.
+  var spec = SR_REF_TIMES[k];
+  if(!spec) return null;
+  var src = (typeof INTRADAY !== 'undefined' && INTRADAY[k] && INTRADAY[k].length >= 8)
+    ? INTRADAY[k]
+    : (HISTORY[k] && HISTORY[k].m15) || null;
+  if(!src || src.length === 0) return null;
+  // Walk backwards from the latest bar, looking for the most recent ref
+  // candle that's within windowBars of the latest bar.
+  var latestIdx = src.length - 1;
+  for(var i = latestIdx; i >= 0 && (latestIdx - i) <= (spec.windowBars + 2); i--){
+    var b = src[i];
+    var ts = b && b.t;
+    if(!ts || ts.length < 16) continue;
+    var hhmm = ts.substr(11, 5);
+    if(spec.openTimes.indexOf(hhmm) === -1) continue;
+    return {
+      idx: i,
+      refHigh: b.h != null ? b.h : b.p,
+      refLow:  b.l != null ? b.l : b.p,
+      openTime: hhmm,
+      date: ts.substr(0, 10),
+      barsSince: latestIdx - i
+    };
+  }
+  return null;
+}
+function _computeSRState(k, ref){
+  // Walk bars after ref.idx and return the latest state. Same machine
+  // as backtest_school_run.py — kept lockstep so dashboard and detector
+  // agree on tier classification.
+  var src = (typeof INTRADAY !== 'undefined' && INTRADAY[k] && INTRADAY[k].length >= 8)
+    ? INTRADAY[k]
+    : (HISTORY[k] && HISTORY[k].m15) || null;
+  if(!src || !ref) return 'pending';
+  var state = 'pending';
+  var lo = Math.min(ref.refLow, ref.refHigh);
+  var hi = Math.max(ref.refLow, ref.refHigh);
+  for(var j = ref.idx + 1; j < src.length; j++){
+    var b = src[j];
+    var c = b && (b.c != null ? b.c : b.p);
+    if(c == null) continue;
+    if(state === 'pending'){
+      if(c > hi) state = 'bull_broken';
+      else if(c < lo) state = 'bear_broken';
+    } else if(state === 'bull_broken'){
+      if(c <= hi) state = 'bull_failed';
+    } else if(state === 'bear_broken'){
+      if(c >= lo) state = 'bear_failed';
+    }
+  }
+  return state;
+}
+function getSRTier(k){
+  // Public accessor — returns null when SR isn't active for this pair
+  // (not DE40/DJ30, outside window, insufficient data) or {tier,
+  // state, refHigh, refLow, dir, sessionLabel, barsSince} when active.
+  // tier is one of '5/5' | '4/5' | '3/5' | 'SR_WINDOW' (in window but
+  // no alignment or speculative tier filtered out).
+  if(!SR_REF_TIMES[k]) return null;
+  var ref = _findRefCandle(k);
+  if(!ref){
+    // Fall back to server-computed SR (directions.json sr field) — covers
+    // first page load before the local INTRADAY[k] buffer has accumulated
+    // the ref candle. Schema matches getSRTier's return shape.
+    var srv = (typeof SERVER_DIR !== 'undefined' && SERVER_DIR[k] && SERVER_DIR[k].sr) || null;
+    if(srv && srv.tier){
+      return {
+        tier: srv.tier,
+        state: srv.state || 'pending',
+        refHigh: srv.ref_high,
+        refLow: srv.ref_low,
+        dir: srv.engine_dir,
+        confluence: srv.confluence,
+        sessionLabel: srv.session_label,
+        barsSince: srv.bars_since_ref || 0
+      };
+    }
+    return null;
+  }
+  // In-window check: must be within windowBars of the ref candle.
+  var spec = SR_REF_TIMES[k];
+  if(ref.barsSince > spec.windowBars) return null;
+  var st = _computeSRState(k, ref);
+  var score = sc(k);
+  var dir = (STATE[k] && STATE[k].ew) || null;
+  // Default for "in window but no alignment yet"
+  var info = {
+    tier: 'SR_WINDOW',
+    state: st,
+    refHigh: ref.refHigh,
+    refLow: ref.refLow,
+    dir: dir,
+    confluence: score.tot,
+    sessionLabel: spec.sessionLabel,
+    barsSince: ref.barsSince
+  };
+  // Aligned if state matches the engine direction
+  var aligned = (st === 'bull_broken' && dir === 'bull') ||
+                (st === 'bear_broken' && dir === 'bear');
+  if(!aligned) return info;
+  // Map confluence tot → tier label
+  if(score.tot === 4)      info.tier = '5/5';
+  else if(score.tot === 3) info.tier = '4/5';
+  else if(score.tot === 2) info.tier = '3/5';
+  else return info;  // 0/4 or 1/4 with SR — keep as SR_WINDOW (too noisy)
+  return info;
+}
+
+// Render the SR pill on the card. Compact emoji + tier + state +
+// expected behaviour. Tooltip carries the ref candle levels and the
+// tier WR (will populate once forward-tracked sample crosses 30).
+function renderSRPill(k){
+  var host = document.getElementById('sr-pill-' + k);
+  if(!host) return;
+  var info = getSRTier(k);
+  if(!info){
+    host.style.display = 'none';
+    host.innerHTML = '';
+    return;
+  }
+  // Tier visuals
+  var spec = {
+    '5/5':       { color: 'var(--bull)',  bg: 'rgba(26,122,74,0.12)',   icon: '⭐', label: '5/5 SR-CONFIRMED' },
+    '4/5':       { color: 'var(--gold)',  bg: 'rgba(200,134,10,0.12)',  icon: '🟡', label: '4/5 partial · SR-aligned' },
+    '3/5':       { color: '#c98a3a',      bg: 'rgba(201,138,58,0.12)',  icon: '🟠', label: '3/5 speculative · SR-aligned' },
+    'SR_WINDOW': { color: 'var(--inkm)',  bg: 'rgba(0,0,0,0.03)',       icon: '🔵', label: 'SR window' }
+  }[info.tier];
+  if(!spec){ host.style.display = 'none'; return; }
+  // Build a description of state for tooltip + sub-text
+  var stateDesc;
+  if(info.state === 'bull_broken') stateDesc = 'BULL break above ' + info.refHigh.toFixed(2);
+  else if(info.state === 'bear_broken') stateDesc = 'BEAR break below ' + info.refLow.toFixed(2);
+  else if(info.state === 'bull_failed') stateDesc = 'failed bull break — re-entered range';
+  else if(info.state === 'bear_failed') stateDesc = 'failed bear break — re-entered range';
+  else stateDesc = 'awaiting break · range ' + info.refLow.toFixed(2) + '–' + info.refHigh.toFixed(2);
+  // Per-tier WR placeholder. Populated by the failure-mode aggregator
+  // once samples exist; until then it reads "tracking — sample <30".
+  var tierWR = (window._srTierWR && window._srTierWR[k] && window._srTierWR[k][info.tier]) || null;
+  var wrSub = tierWR
+    ? 'historic ' + tierWR.wr.toFixed(0) + '% (n=' + tierWR.n + ')'
+    : 'tracking — sample <30';
+  // Tooltip body
+  var tip = info.sessionLabel + ' open · ' + stateDesc
+          + ' · ' + info.barsSince + ' bars since ref candle · '
+          + 'engine dir: ' + (info.dir || 'neutral')
+          + ' · ' + (info.tier === 'SR_WINDOW'
+              ? 'no SR-alignment yet — informational pill'
+              : 'School Run ' + info.tier + ': partial confluence (' + info.confluence + '/4) + SR break aligned. ' + wrSub);
+  host.style.display = '';
+  host.innerHTML = '<div title="' + tip + '" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:'
+    + spec.bg + ';border-left:3px solid ' + spec.color + ';border-radius:3px;font-size:10px;line-height:1.4;">'
+    + '<span style="font-size:13px;">' + spec.icon + '</span>'
+    + '<div style="flex:1;">'
+    +   '<div style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:0.7px;text-transform:uppercase;color:'
+    +     spec.color + ';font-weight:700;">' + spec.label + '</div>'
+    +   '<div style="font-size:8.5px;color:var(--inkm);margin-top:1px;">' + stateDesc + ' &middot; ' + wrSub + '</div>'
+    + '</div>'
+    + '</div>';
+}
+
 // v6 — 4/4 confluence: macro (EW), hourly (TL), 15m (NW), 4H EMA cloud (CL).
 function sc(k){var s=STATE[k],layers=[s.ew,s.tl,s.nw,s.cl],b=layers.filter(function(v){return v==='bear';}).length,g=layers.filter(function(v){return v==='bull';}).length,t=Math.max(b,g);return{tot:t,dir:b>g?'bear':g>b?'bull':'neutral'};}
 function isFire(k){return sc(k).tot>=4;}
@@ -2820,6 +3015,17 @@ function buildPanel(k){
   var ab=document.createElement('div');ab.className='abanner ns';ab.id='alert-'+k;
   ab.innerHTML='<div class="aico" id="ico-'+k+'">&#8987;</div><div class="atxt"><h2 id="atit-'+k+'">Scanning...</h2><p id="adsc-'+k+'">Checking 4/4 confluence...</p></div><div class="scwrap"><div class="scc s0" id="sco-'+k+'">0/4</div><div class="sclbl">CONFLUENCE</div></div>';
   frag.appendChild(ab);
+  // School Run pill — only rendered for DE40 / DJ30 (the only pairs
+  // with an SR_REF_TIMES entry). Hidden by default and only shown when
+  // the SR window is active (2h post cash-session open). Updated by
+  // refreshAlert via renderSRPill() so it tracks state changes
+  // (pending → bull_broken → bull_failed, etc).
+  if(SR_REF_TIMES[k]){
+    var sr = document.createElement('div');
+    sr.id = 'sr-pill-' + k;
+    sr.style.cssText = 'display:none;margin:0 0 6px 0;';
+    frag.appendChild(sr);
+  }
   // Nowick Setup
   var ns=document.createElement('div');ns.className='nsetup';
   ns.innerHTML='<div><div class="nslbl">Watch Zone</div><div class="nsval" id="ns-entry-'+k+'" style="color:var(--gold);">'+setupField(k,'entry')+'</div><div class="nssub">Daily macro zone — refine on 15m</div></div><div><div class="nslbl">Stop Reference</div><div class="nsval" id="ns-stop-'+k+'" style="color:var(--bear);">'+setupField(k,'stop')+'</div><div class="nssub">Daily structural extreme</div></div><div><div class="nslbl">Target</div><div class="nsval" id="ns-tgt-'+k+'" style="color:var(--bull);">'+setupField(k,'tgt')+'</div><div class="nssub" id="ns-tgt-src-'+k+'">'+macroSourceBadge(k)+'</div></div><div><div class="nslbl">Inv / Reward</div><div class="nsval" id="ns-inv-'+k+'" style="font-size:8px;color:var(--neu);">'+setupField(k,'inv')+'</div><div class="nssub" id="ns-rr-'+k+'">'+formatRR(setupField(k,'rr'))+'</div></div>';
@@ -3221,6 +3427,31 @@ function getLayerDet(k,layer,sig){
           intraMsg = '<br><div style="margin-top:6px;padding:6px 8px;background:rgba(200,134,10,0.06);border-left:2px solid var(--gold);border-radius:2px;font-size:9px;line-height:1.5;">'
             + '<div style="font-weight:700;color:'+stateColor+';letter-spacing:0.5px;text-transform:uppercase;font-size:8px;">'
             +   stateIcon + ' INTRADAY SIGNAL (1:1 R:R) &middot; '+stateLabel + armedAtTxt + _ewCarrierBadge
+            +   (function(){
+                  // School Run tier badge — adds ⭐/🟡/🟠 prefix when an
+                  // intraday signal on DE40 or DJ30 fires inside the
+                  // 2h post-open window AND aligns with the SR break.
+                  // Strongest tier (5/5) gets the gold ⭐; partial tiers
+                  // get a smaller color-coded label so the user can
+                  // tell at a glance.
+                  if(typeof getSRTier !== 'function') return '';
+                  var srInfo = null;
+                  try { srInfo = getSRTier(k); } catch(_){}
+                  if(!srInfo || !srInfo.tier) return '';
+                  if(srInfo.tier === 'SR_WINDOW') return '';  // no alignment yet — pill on the card is enough
+                  var spec = {
+                    '5/5': { color: 'var(--bull)', icon: '⭐', text: '5/5 SR-CONFIRMED' },
+                    '4/5': { color: 'var(--gold)', icon: '🟡', text: '4/5 SR partial' },
+                    '3/5': { color: '#c98a3a',     icon: '🟠', text: '3/5 SR speculative' }
+                  }[srInfo.tier];
+                  if(!spec) return '';
+                  return ' <span style="margin-left:5px;font-size:8.5px;font-weight:700;color:'
+                    + spec.color + ';letter-spacing:0.4px;" title="School Run tier '
+                    + srInfo.tier + ' — confluence ' + srInfo.confluence
+                    + '/4 + SR ' + (srInfo.state === 'bull_broken' ? 'BULL' : 'BEAR')
+                    + ' break aligned. Tooltip on the SR pill above the alert banner has full state.">'
+                    + spec.icon + ' ' + spec.text + '</span>';
+                })()
             + '</div>'
             + '<div style="margin-top:3px;color:var(--ink);">'
             +   '<strong>'+actionVerb+'</strong> @ '+fmt(iSig.entry)+' ('+entryDescriptor+', '+iSig.barsAgo+' bars ago)'
@@ -3436,6 +3667,9 @@ function refreshAlert(k){
   // Records resolved trades (target-hit or stop-hit) once each.
   try { if(typeof recordIntradayOutcome === 'function') recordIntradayOutcome(k); }
   catch(e){ /* don't break refresh on tracker error */ }
+  // School Run tier pill (DE40 / DJ30 only — others no-op).
+  try { if(typeof renderSRPill === 'function') renderSRPill(k); }
+  catch(e){ /* SR is informational; don't break refresh on render error */ }
 }
 
 // Refresh the per-pair detail panel's price row when live ticks arrive.
@@ -4879,7 +5113,12 @@ function fetchServerDirections(){
           // or mobile with limited localStorage).
           ew_source: row.ew_source || null,
           ew_pattern: row.ew_pattern || null,
-          ew_confidence: row.ew_confidence || null
+          ew_confidence: row.ew_confidence || null,
+          // School Run tier — DE40 / DJ30 only. Null elsewhere.
+          // detect_triggers.py writes this when the cash session is
+          // active; lets the dashboard render the SR pill on first
+          // load before INTRADAY[k] has filled in-browser.
+          sr: row.sr || null
         };
         n++;
       }
@@ -10477,8 +10716,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-10j';
+var RULES_VERSION = '2026-06-10k';
 var RULES_VERSION_NOTES = [
+  '2026-06-10k — School Run (SR) tier surfacing for DE40 / DJ30 — Path 1 of the chat scope. New SR_REF_TIMES constant defines DAX (07:00Z / 08:00Z) and DJ30 (13:30Z / 14:30Z) cash-session reference candles. getSRTier(k) walks INTRADAY[k] (or SERVER_DIR fallback on first load) to compute the SR state machine (pending → bull_broken | bear_broken → bull_failed | bear_failed) within the 2h post-open window. Tier classification: 4/4 + SR-aligned = 5/5, 3/4 + SR-aligned = 4/5, 2/4 + SR-aligned = 3/5. Render surfaces: (1) coloured pill on the card above the 4-layer grid (only visible during the 2h window for DE40/DJ30), (2) tier badge appended to the intraday signal log row (5/5 ⭐, 4/5 🟡, 3/5 🟠). detect_triggers.py mirrors the JS state machine and writes the sr dict into directions.json so the badge shows on first load before INTRADAY buffer fills. ZERO gating change — every 4/4 still fires; SR is informational pending forward-data accumulation. Sample-size deploy rule (n_decided ≥ 30 per tier AND ≥ +5pp uplift over baseline 50%) holds until ~12-18 months of data lets us revisit hard-filter deployment.',
   '2026-06-10j — REVERTED the 10i DE40/DJ30 wick switch back to FIB half-size. The 10i decision was based on the simplified backtest in backtest_rsi_per_class.py which uses STRUCTURAL EW direction only and reported wick +9.2pp on DE40 (n=8) and +12.1pp on DJ30 (n=6). Production realised 50% (DE40) and 47.8% (DJ30) on the larger setup population that includes auto-EW-driven entries — small-sample noise on the simplified backtest, not a real edge. WICK_METHODOLOGY_OVERRIDES now empty. fibPairs fingerprint restored to include de40 + dj30 so cached backtests re-invalidate on next load. Auto-EW-integrated backtest queued (option C in chat) to determine whether to retry the switch with a proper sample.',
   '2026-06-10i — DE40 and DJ30 moved from FIB half-size methodology to WICK full-size. Broader index sweep confirmed wick beat fib by +9.2pp on DE40 (62.5% vs 53.3%, n=8 / 22) and +12.1pp on DJ30 (66.7% vs 54.5%, n=10 / 19). Per-pair override sits in WICK_METHODOLOGY_OVERRIDES so _btMethodFor can flip these two without changing the class default. NAS100 stays on fib (wick regressed -3.0pp). SPX500 / FTSE100 / JP225 also showed wick wins (+16.2 / +8.3 / +3.1pp) but were not flipped this round — pending explicit go-ahead. AUD/CAD also dropped from the universe (chronic low WR drag, same pattern as the prior removals). Active universe is now 6 majors + 13 minors + 6 commodities + 6 indices + 8 crypto = 39 tradeable instruments.',
   '2026-06-10h — A1 minor RSI gate tightened 70/30 → 65/35 (commodities + indices stay at 70/30 — they regress at 65/35). Per-pair drill-down on GBP minors showed 78% of GBP/AUD setups already had RSI in the upper tier, indicating the 70/30 gate was too permissive for the minor class. Tightening lifted GBP/CAD wick WR from 46.7% → 85.7% (n=18) and GBP/NZD from 50.0% → 71.4% (n=49) at the cost of ~30-50% fewer minor signals. GBP/AUD itself stayed at 50% WR under both gates with no improvement available, so it was dropped from the universe as a chronic underperformer (same removal pattern as the prior drop rounds; structural noise not filterable by RSI). Active universe is now 6 majors + 14 minors + 6 commodities + 6 indices + 8 crypto = 40 tradeable instruments + DXY anchor + WTI / Nat Gas / Platinum added in 10g.',

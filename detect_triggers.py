@@ -155,6 +155,112 @@ def rsi_gate_for(pair):
     return RSI_GATE_BY_CLASS.get(cls, {'hi': 80, 'lo': 20})
 
 
+# ── School Run (SR) — Tom Hougaard's opening-range pattern adapted as
+# a 5th confluence layer for DE40 and DJ30 only. (RULES_VERSION
+# 2026-06-10k.) Mirror of getSRTier / _findRefCandle / _computeSRState
+# in Viking_Invest_Trading_v69.html — kept lockstep so the Telegram
+# alert tier (written to directions.json) matches the dashboard pill
+# the user sees.
+SR_REF_TIMES = {
+    'de40': {'open_times': ('07:00', '08:00'), 'session_label': 'DAX 09:00 CET',  'window_bars': 8},
+    'dj30': {'open_times': ('13:30', '14:30'), 'session_label': 'DJ30 09:30 ET', 'window_bars': 8},
+}
+
+
+def _find_sr_ref_candle(pair, m15):
+    """Most recent reference candle within window_bars of the latest
+    m15 bar for this pair. Returns {idx, ref_high, ref_low, open_time,
+    date, bars_since} or None."""
+    spec = SR_REF_TIMES.get(pair)
+    if not spec or not m15:
+        return None
+    latest = len(m15) - 1
+    for i in range(latest, -1, -1):
+        if (latest - i) > (spec['window_bars'] + 2):
+            break
+        b = m15[i]
+        ts = b.get('t') if b else None
+        if not ts or len(ts) < 16:
+            continue
+        if ts[11:16] not in spec['open_times']:
+            continue
+        return {
+            'idx': i,
+            'ref_high': b.get('h', b.get('c')),
+            'ref_low':  b.get('l', b.get('c')),
+            'open_time': ts[11:16],
+            'date': ts[:10],
+            'bars_since': latest - i,
+        }
+    return None
+
+
+def _compute_sr_state(m15, ref):
+    """Walk bars after ref.idx and return the SR state."""
+    if not ref or not m15:
+        return 'pending'
+    lo = min(ref['ref_low'], ref['ref_high'])
+    hi = max(ref['ref_low'], ref['ref_high'])
+    state = 'pending'
+    for j in range(ref['idx'] + 1, len(m15)):
+        b = m15[j]
+        c = b.get('c') if b else None
+        if c is None:
+            continue
+        if state == 'pending':
+            if c > hi:
+                state = 'bull_broken'
+            elif c < lo:
+                state = 'bear_broken'
+        elif state == 'bull_broken' and c <= hi:
+            state = 'bull_failed'
+        elif state == 'bear_broken' and c >= lo:
+            state = 'bear_failed'
+    return state
+
+
+def get_sr_tier(pair, m15, ew_dir, confluence_score):
+    """Return SR info dict or None.
+
+    confluence_score is the tot from the 4-layer scorer (0-4); ew_dir is
+    the macro engine direction. Tiers:
+      5/5 = 4/4 confluence + SR aligned
+      4/5 = 3/4 confluence + SR aligned
+      3/5 = 2/4 confluence + SR aligned
+      SR_WINDOW = in window but no alignment (informational)
+    Returns None when the pair isn't an SR pair or no active session.
+    """
+    if pair not in SR_REF_TIMES:
+        return None
+    ref = _find_sr_ref_candle(pair, m15)
+    if not ref:
+        return None
+    spec = SR_REF_TIMES[pair]
+    if ref['bars_since'] > spec['window_bars']:
+        return None
+    state = _compute_sr_state(m15, ref)
+    info = {
+        'tier': 'SR_WINDOW',
+        'state': state,
+        'ref_high': ref['ref_high'],
+        'ref_low': ref['ref_low'],
+        'engine_dir': ew_dir,
+        'confluence': confluence_score,
+        'session_label': spec['session_label'],
+        'bars_since_ref': ref['bars_since'],
+    }
+    aligned = ((state == 'bull_broken' and ew_dir == 'bull') or
+               (state == 'bear_broken' and ew_dir == 'bear'))
+    if not aligned:
+        return info
+    if confluence_score == 4:
+        info['tier'] = '5/5'
+    elif confluence_score == 3:
+        info['tier'] = '4/5'
+    elif confluence_score == 2:
+        info['tier'] = '3/5'
+    return info
+
 
 # ── Direction detection (ports calcIndependentDir from dashboard.html) ──
 
@@ -1593,6 +1699,23 @@ def scan_pairs(intraday_data, historical_data):
             sig = detect_intraday_signal(m15, aligned_dir, h1_rsi=h1_rsi,
                                          rsi_hi=gate['hi'], rsi_lo=gate['lo'])
 
+        # School Run tier — only computed for DE40 and DJ30 (the only
+        # pairs in SR_REF_TIMES); for other pairs sr_info stays None
+        # and the dashboard won't render the pill. Confluence score
+        # mirrors sc(k) in the JS: max count of bull-or-bear across
+        # the four layers. Engine direction = whichever wins.
+        sr_info = None
+        if pair in SR_REF_TIMES:
+            layers = [ew, tl, nw, cl]
+            bear_n = sum(1 for v in layers if v == 'bear')
+            bull_n = sum(1 for v in layers if v == 'bull')
+            score = max(bear_n, bull_n)
+            engine_dir = 'bear' if bear_n > bull_n else 'bull' if bull_n > bear_n else None
+            try:
+                sr_info = get_sr_tier(pair, m15, engine_dir, score)
+            except Exception:
+                sr_info = None
+
         out[pair] = {
             'ew': ew,
             'tl': tl,
@@ -1624,6 +1747,20 @@ def scan_pairs(intraday_data, historical_data):
             'ew_source': ew_source,
             'ew_pattern': ew_pattern,
             'ew_confidence': ew_confidence,
+            # School Run tier (DE40 / DJ30 only — null elsewhere).
+            # Schema matches getSRTier() in the dashboard so the
+            # downstream Telegram alert tier label is consistent with
+            # the SR pill the user sees on the card.
+            'sr': {
+                'tier': sr_info.get('tier'),
+                'state': sr_info.get('state'),
+                'ref_high': sr_info.get('ref_high'),
+                'ref_low': sr_info.get('ref_low'),
+                'confluence': sr_info.get('confluence'),
+                'engine_dir': sr_info.get('engine_dir'),
+                'session_label': sr_info.get('session_label'),
+                'bars_since_ref': sr_info.get('bars_since_ref'),
+            } if sr_info else None,
         }
     return out
 
