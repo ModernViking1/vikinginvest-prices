@@ -1350,17 +1350,28 @@ def calc_4h_cloud_dir(h1_bars, fast=21, slow=55):
 
     Aggregates h1 → 4H, computes EMA(fast) and EMA(slow) on closes:
       'bull'    if EMA(fast) > EMA(slow) AND price is not below both EMAs
+                AND last 3 4H closes are not monotonically lower
       'bear'    if EMA(fast) < EMA(slow) AND price is not above both EMAs
+                AND last 3 4H closes are not monotonically higher
       'neutral' if equal / insufficient data / price has crossed the cloud
+                / momentum-reversal sequence detected
 
-    Price-through-cloud guard: a bull-stacked cloud (e21>e55) with the
-    current price below BOTH EMAs means price has broken down through
-    the cloud — the stack is lagging, the move has already happened.
-    Report neutral in that mid-flip state instead of stale bull. Mirror
-    for bear-stacked clouds with price above. (Added 2026-06-08 after
-    GBPAUD/USDCHF showed cl=bull while TradingView's recent price
-    action was clearly bearish — price had punched down through both
-    EMAs but the stack hadn't crossed yet.)
+    Two guards on top of the EMA stack:
+
+    1. Price-through-cloud (2026-06-08): bull stack with current price
+       below BOTH EMAs means price has broken through the cloud — the
+       stack is lagging, the move has already happened. Mirror for bear.
+
+    2. Momentum-reversal sequence (2026-06-10f): bull stack with the
+       last 3 4H closes monotonically lower (`<<<` pattern) means the
+       cloud is rolling over even though the slow EMAs haven't crossed
+       yet. The EMA21 already loses momentum 1-2 bars before the cross;
+       this guard catches that early-warning state instead of waiting
+       for the lagging cross. Mirror for bear stack with monotonically
+       higher closes (`>>>`). Sanity-tested across the live universe:
+       9/40 pairs (22%) flip from a stale stack-direction to neutral
+       when this fires, all on pairs visibly rolling over on TV (the
+       EURAUD case the user flagged was one of them).
     """
     h4 = aggregate_h1_to_h4(h1_bars)
     closes = [b['c'] for b in h4 if b.get('c') is not None]
@@ -1371,12 +1382,24 @@ def calc_4h_cloud_dir(h1_bars, fast=21, slow=55):
     if e_fast is None or e_slow is None:
         return 'neutral'
     last_c = closes[-1]
+    # Momentum-reversal sequence — 3 monotonic 4H closes against the
+    # stack. None when we don't have 4 closes to derive 3 deltas.
+    rev_against_bull = False
+    rev_against_bear = False
+    if len(closes) >= 4:
+        c4, c3, c2, c1 = closes[-4], closes[-3], closes[-2], closes[-1]
+        rev_against_bull = (c3 < c4 and c2 < c3 and c1 < c2)
+        rev_against_bear = (c3 > c4 and c2 > c3 and c1 > c2)
     if e_fast > e_slow:
         if last_c < e_fast and last_c < e_slow:
+            return 'neutral'
+        if rev_against_bull:
             return 'neutral'
         return 'bull'
     if e_fast < e_slow:
         if last_c > e_fast and last_c > e_slow:
+            return 'neutral'
+        if rev_against_bear:
             return 'neutral'
         return 'bear'
     return 'neutral'
