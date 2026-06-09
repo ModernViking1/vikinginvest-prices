@@ -75,7 +75,8 @@ PAIRS: Dict[str, Dict[str, str]] = {
     "nzdusd":  {"oanda": "NZD_USD"},
     "cadjpy":  {"oanda": "CAD_JPY"},
     "eurnzd":  {"oanda": "EUR_NZD"},
-    "gbpaud":  {"oanda": "GBP_AUD"},
+    # gbpaud removed 2026-06-10h — chronic ~50% WR (see backtest drill-down).
+    # Re-add: '"gbpaud": {"oanda": "GBP_AUD"},'
     "euraud":  {"oanda": "EUR_AUD"},
     "usdsgd":  {"oanda": "USD_SGD"},
     "audnzd":  {"oanda": "AUD_NZD"},

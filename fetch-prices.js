@@ -48,7 +48,8 @@ const OANDA_PAIRS = {
   usdsgd: 'USD_SGD',
   cadjpy: 'CAD_JPY',
   eurnzd: 'EUR_NZD',
-  gbpaud: 'GBP_AUD',
+  // gbpaud removed 2026-06-10h — chronic ~50% win rate, no improvement
+  // from tighter RSI gate. Re-add: 'gbpaud': 'GBP_AUD'.
   audnzd: 'AUD_NZD',
   eurgbp: 'EUR_GBP',
   // audchf removed 2026-06-08 — low win-rate drag on aggregate (was hurting

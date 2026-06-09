@@ -48,7 +48,8 @@ PAIR_DISPLAY = {
     'eurusd': 'EUR/USD', 'gbpusd': 'GBP/USD', 'usdjpy': 'USD/JPY',
     'usdcad': 'USD/CAD', 'usdchf': 'USD/CHF', 'audusd': 'AUD/USD',
     'nzdusd': 'NZD/USD', 'usdsgd': 'USD/SGD', 'cadjpy': 'CAD/JPY',
-    'eurnzd': 'EUR/NZD', 'gbpaud': 'GBP/AUD', 'euraud': 'EUR/AUD',
+    'eurnzd': 'EUR/NZD', 'euraud': 'EUR/AUD',
+    # gbpaud removed 2026-06-10h — chronic ~50% WR.
     'audnzd': 'AUD/NZD', 'eurgbp': 'EUR/GBP',
     # audchf removed 2026-06-08 — low win-rate drag on aggregate.
     # Re-add: "'audchf': 'AUD/CHF',"
@@ -96,7 +97,8 @@ PAIR_CLASS = {
     'usdcad': 'major', 'usdchf': 'major', 'nzdusd': 'major',
     'audusd': 'major',
     # FX minors / crosses
-    'cadjpy': 'minor', 'eurnzd': 'minor', 'gbpaud': 'minor',
+    'cadjpy': 'minor', 'eurnzd': 'minor',
+    # gbpaud removed 2026-06-10h — chronic ~50% WR.
     'euraud': 'minor', 'usdsgd': 'minor', 'audnzd': 'minor',
     'eurgbp': 'minor', 'audcad': 'minor', 'gbpcad': 'minor',
     'nzdjpy': 'minor', 'gbpnzd': 'minor',
@@ -124,16 +126,20 @@ PAIR_CLASS = {
 }
 
 
-# A1 per-class RSI hard-gate thresholds (RULES_VERSION 2026-06-10a).
+# A1 per-class RSI hard-gate thresholds (RULES_VERSION 2026-06-10a,
+# minors tightened 2026-06-10h after per-pair drill-down on GBP minors
+# showed 70/30 wasn't filtering aggressively enough).
+#
 # Sweep results: minors/commodities/indices preferred a tighter 70/30
-# gate over the previous 80/20 default (+2.7 to +5.6pp WR each). Majors
-# and crypto were threshold-insensitive — they trend persistently
-# through textbook overbought, so a tight gate would block real
-# continuation entries. 90/10 effectively disables the gate for majors;
-# 75/25 keeps a mild crypto guard. See backtest_rsi_per_class.py.
+# gate over the previous 80/20 default. Drill-down then showed minors
+# benefited from going further to 65/35 — GBP/CAD wick WR 46.7→85.7%,
+# GBP/NZD 50.0→71.4% on the next round. Majors and crypto remain
+# threshold-insensitive (90/10 effectively disables for majors; 75/25
+# keeps a mild crypto guard). Commodities and indices regress at
+# 65/35 so they stay at 70/30. See backtest_rsi_per_class.py.
 RSI_GATE_BY_CLASS = {
     'major':  {'hi': 90, 'lo': 10},
-    'minor':  {'hi': 70, 'lo': 30},
+    'minor':  {'hi': 65, 'lo': 35},
     'comm':   {'hi': 70, 'lo': 30},
     'index':  {'hi': 70, 'lo': 30},
     'crypto': {'hi': 75, 'lo': 25},

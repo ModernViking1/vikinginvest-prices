@@ -877,14 +877,10 @@ var MKTS = {
     // Invalidation level: 2.04. Sell Zone: 2.02-2.04. 4/4 BEAR.
     wr:74.5,g:'A',bw:13,bl:5,brr:2.3,
     entry:'2.0100&#8211;2.0200 OB (Sell Zone)',stop:'Above 2.0400',tgt:'1.9200&#8211;1.8800 Wave C',inv:'Close&gt;2.0400',rr:'1:2.2'},
-  gbpaud:{sym:'GBP/AUD',t:'minor',px:'1.89276',p:1.89276,d:5,sc:0.005,up:true,chg:'+0.23%',
-    ew:'bear',tl:'bear',nw:'bear',
-    // WICKATOR METHOD: 5-wave corrective complete at 2.014 (Wave C/5 top).
-    // Now in ABC correction DOWN. Wave A down forming. LH/LL structure begun.
-    // Wave A target: 1.870. Wave C/B target: 1.800-1.820 (0.618 fib of prior rise).
-    // Bearish cloud descending confirms. 4/4 BEAR.
-    wr:58.0,g:'C',bw:10,bl:8,brr:1.0,
-    entry:'1.9200&#8211;1.9500 OB (Wave B)',stop:'Above 1.9700',tgt:'1.85 Wave A / 1.82 Wave C',inv:'Close&gt;1.9700',rr:'1:5.0'},
+  // gbpaud removed 2026-06-10h — chronic ~50% wick WR (drill-down
+  // showed no improvement from tighter RSI gate; 78% of setups
+  // already in upper RSI tier, suggesting structural noise rather
+  // than a filterable problem).
   euraud:{sym:'EUR/AUD',t:'minor',px:'1.63893',p:1.63893,d:5,sc:0.005,up:true,chg:'+0.28%',
     ew:'bear',tl:'bear',nw:'bear',
     // WICKATOR METHOD: Grand bull impulse complete at 1.746 (Wave 5/C top Feb 2025).
@@ -1204,7 +1200,8 @@ var DROPPED_PAIRS = new Set([
   'audchf', 'eursek', 'usdnok',                  // 2026-06-08
   'ltcusd', 'gbpchf', 'usdcnh', 'fra40',         // 2026-06-10b
   'nzdcad',                                      // 2026-06-10c
-  'hypeusd'                                      // 2026-06-10g
+  'hypeusd',                                     // 2026-06-10g
+  'gbpaud'                                       // 2026-06-10h
 ]);
 function _filterDroppedPairs(obj){
   if(!obj || typeof obj !== 'object') return obj;
@@ -1292,7 +1289,7 @@ var WICKATOR_EW = {
   usdsgd:{dir:'bear', invalid:1.2950, anchor:1.2500, pivot:1.2950, w2Zone:[1.2700,1.2850], phase:'Bounce zone → target 1.25 / 1.22', source:'wickator', tp1Override:1.25, tp2Override:1.22},
   // ─── CROSS EUR/xxx — partial DXY decoupling ─────────────────────────
   eurnzd:{dir:'bear', invalid:2.0400, anchor:1.9500, pivot:2.0400, w2Zone:[2.0000,2.0200], phase:'Bounce — sell zone for target 1.92, extension 1.88', source:'wickator', tp1Override:1.92, tp2Override:1.88},
-  gbpaud:{dir:'bear', invalid:1.9700, anchor:1.8200, pivot:1.9700, w2Zone:[1.9200,1.9500], phase:'AUD outperforming GBP on DXY weakness', source:'inferred', tp1Override:1.85, tp2Override:1.82},
+  // gbpaud removed 2026-06-10h — chronic ~50% WR.
   euraud:{dir:'bear', invalid:1.7150, anchor:1.5600, pivot:1.7150, w2Zone:[1.6600,1.6900], phase:'AUD outperforming EUR on DXY weakness', source:'inferred', tp1Override:1.60, tp2Override:1.56},
   audnzd:{dir:'bull', invalid:1.1850, anchor:1.1500, pivot:1.2200, w2Zone:[1.1950,1.2100], phase:'AUD outperforming NZD — pullback retest expected', source:'inferred', tp1Override:1.25, tp2Override:1.28},
   eurgbp:{dir:'bear', invalid:0.8900, anchor:0.8300, pivot:0.8900, w2Zone:[0.8700,0.8800], phase:'Continuation down active per multiple sources', source:'inferred', tp1Override:0.85, tp2Override:0.83},
@@ -1786,7 +1783,8 @@ var USD_CORRELATION = {
   usdzar:'USDxxx',
   // usdcnh removed 2026-06-10 — low win-rate drag.
   // FX crosses (no direct USD leg)
-  eurnzd:'cross', gbpaud:'cross',
+  eurnzd:'cross',
+  // gbpaud removed 2026-06-10h.
   euraud:'cross', audnzd:'cross', eurgbp:'cross',
   // audchf removed 2026-06-08 — low win-rate drag.
   cadjpy:'cross',
@@ -1889,7 +1887,7 @@ var SETUP_LABELS = {
   usdchf: { zoneNote: 'W2 retest' },
   usdsgd: { zoneNote: 'W2 retest' },
   eurnzd: { zoneNote: 'W2 retest' },
-  gbpaud: { zoneNote: 'Wave B' },
+  // gbpaud removed 2026-06-10h.
   euraud: { zoneNote: 'Wave B' },
   eurgbp: { zoneNote: 'W2 retest' },
   btcusd: { zoneNote: 'sell zone' },
@@ -2125,7 +2123,8 @@ var VIKING_SRC_MAP = {
   usdchf:'OND', audusd:'OND', euraud:'OND',
   // Crosses
   nzdusd:'OND', usdsgd:'OND', cadjpy:'OND', eurnzd:'OND',
-  gbpaud:'OND', audnzd:'OND', eurgbp:'OND',
+  audnzd:'OND', eurgbp:'OND',
+  // gbpaud removed 2026-06-10h.
   // audchf removed 2026-06-08 — low win-rate drag.
   // v5 FX additions
   audcad:'OND', gbpcad:'OND', nzdjpy:'OND',
@@ -4523,7 +4522,7 @@ var SIM={
   audusd:[{ew:'bear',tl:'bear',nw:'bear'},{ew:'bear',tl:'neutral',nw:'bear'},{ew:'bear',tl:'bear',nw:'bear'}],
   cadjpy:[{ew:'neutral',tl:'bear',nw:'neutral'},{ew:'bear',tl:'bear',nw:'bear'},{ew:'neutral',tl:'neutral',nw:'neutral'}],
   eurnzd:[{ew:'bull',tl:'bull',nw:'bull'},{ew:'bull',tl:'bull',nw:'neutral'},{ew:'bull',tl:'bull',nw:'bull'}],
-  gbpaud:[{ew:'bear',tl:'bear',nw:'bear'},{ew:'bear',tl:'bear',nw:'neutral'},{ew:'bear',tl:'bear',nw:'bear'}],
+  // gbpaud removed 2026-06-10h.
   euraud:[{ew:'bear',tl:'bear',nw:'bear'},{ew:'bear',tl:'neutral',nw:'bear'},{ew:'bear',tl:'bear',nw:'bear'}],
   usdsgd:[{ew:'bull',tl:'bull',nw:'bull'},{ew:'bull',tl:'bull',nw:'neutral'},{ew:'bull',tl:'bull',nw:'bull'}],
   xauusd:[{ew:'bear',tl:'bear',nw:'bear'},{ew:'bear',tl:'bear',nw:'neutral'},{ew:'bear',tl:'bear',nw:'bear'}],
@@ -4751,7 +4750,8 @@ var PAIR_CURRENCIES = {
   eurusd:['EUR','USD'], gbpusd:['GBP','USD'], usdjpy:['USD','JPY'],
   usdcad:['USD','CAD'], usdchf:['USD','CHF'], nzdusd:['NZD','USD'],
   audusd:['AUD','USD'], cadjpy:['CAD','JPY'], eurnzd:['EUR','NZD'],
-  gbpaud:['GBP','AUD'], euraud:['EUR','AUD'], usdsgd:['USD','SGD'],
+  euraud:['EUR','AUD'], usdsgd:['USD','SGD'],
+  // gbpaud removed 2026-06-10h.
   xauusd:['USD'], xagusd:['USD'],
   xptusd:['USD'],
   usoil: ['USD'], wtiusd:['USD'], natgas:['USD'],
@@ -7805,12 +7805,12 @@ function seedLog(){logItems=[
   {k:'usoil', dir:'bull',msg:'&#128994; BRENT BUY 4/4 &#183; Macro extension off Jan 2026 $58 low &#183; Entry:95&#8211;100 OB &#183; Stop:Below 58.00 &#183; Target:115 / 125-130 extension &#183; 1:0.6 &#183; Win:~73.5% est',t:'10:55',col:'var(--bull)',bg:'var(--bullt)',sym:'BRENT'},
   {k:'de40',  dir:'bear',msg:'&#128308; DAX 30 SELL 4/4 &#183; LH/LL/BOS bearish &#183; Cloud descending from 25,512 &#183; Entry:24,000&#8211;24,200 &#183; Stop:25,512 &#183; Target:21,863 &#183; 1:2.0 &#183; Win:~68% est',t:'10:56',col:'var(--bear)',bg:'var(--beart)',sym:'DAX 30'},
   {k:'eurnzd',dir:'bear',msg:'&#128308; EUR/NZD SELL 4/4 &#183; Macro: top complete at 2.035 &#183; correction in progress &#183; Sell Zone 2.01-2.04 &#183; Stop:2.04 &#183; Target:1.92-1.88 &#183; 1:2.2 &#183; Win:66.7%',t:'10:57',col:'var(--bear)',bg:'var(--beart)',sym:'EUR/NZD'},
-  {k:'gbpaud',dir:'bear',msg:'&#128308; GBP/AUD SELL 4/4 &#183; Heavy bear cloud &#183; LH/LL/CHoCH &#183; Entry:1.9300&#8211;1.9350 &#183; Stop:2.0145 &#183; Target:1.8695 &#183; 1:2.0 &#183; Win:63.6%',t:'10:53',col:'var(--bear)',bg:'var(--beart)',sym:'GBP/AUD'},
+  // gbpaud demo signal removed 2026-06-10h.
   {k:'euraud',dir:'bear',msg:'&#128308; EUR/AUD SELL 4/4 &#183; Bear cloud throughout &#183; LH/LL/BOS &#183; Entry:1.6700&#8211;1.6750 &#183; Stop:1.7468 &#183; Target:1.6128 &#183; 1:2.1 &#183; Win:72.7%',t:'10:52',col:'var(--bear)',bg:'var(--beart)',sym:'EUR/AUD'},
   {k:'usdjpy',dir:'note',msg:'&#9888; USD/JPY PARTIAL 2/4 &#183; Macro bull + Hourly bull &#10003; &#183; 15m CHoCH pending &#8722; RSI Bear div caution. Watch 157.00&#8211;157.50 OB.',t:'10:54',col:'var(--gold)',bg:'var(--goldt)',sym:'USD/JPY'},
   {k:'gbpusd',dir:'note',msg:'&#9888; GBP/USD PARTIAL 2/4 &#183; Macro bear &#10003; &#183; Hourly mid-channel &#8722; RSI Bull label complicates. Await 15m CHoCH below 1.3400.',t:'10:56',col:'var(--gold)',bg:'var(--goldt)',sym:'GBP/USD'},
   {k:'btcusd',dir:'bear',msg:'&#128308; BTC/USD SELL 4/4 &#183; Macro chart 25 Apr: SELL ZONE 77-83k &#183; Entry:77-83k OB &#183; Stop:Above 90k &#183; Target:50k BUY ZONE / 42k extension &#183; 1:2.0',t:'10:49',col:'var(--bear)',bg:'var(--beart)',sym:'BTC/USD'},
-  {k:'audnzd',dir:'note',msg:'&#9888; AUD/NZD PARTIAL 2/4 &#183; Macro bull cloud rising &#10003; &#183; RSI bear divergence at HH &#8722; Await Hourly rejection and 15m CHoCH.',t:'10:52',col:'var(--gold)',bg:'var(--goldt)',sym:'AUD/NZD'}];loggedSess={'eurusd-bull':true,'audusd-bull':true,'nzdusd-bull':true,'usdchf-bear':true,'usdsgd-bear':true,'xauusd-bull':true,'xagusd-bull':true,'usoil-bull':true,'de40-bear':true,'eurnzd-bear':true,'gbpaud-bear':true,'euraud-bear':true};renderLog();}
+  {k:'audnzd',dir:'note',msg:'&#9888; AUD/NZD PARTIAL 2/4 &#183; Macro bull cloud rising &#10003; &#183; RSI bear divergence at HH &#8722; Await Hourly rejection and 15m CHoCH.',t:'10:52',col:'var(--gold)',bg:'var(--goldt)',sym:'AUD/NZD'}];loggedSess={'eurusd-bull':true,'audusd-bull':true,'nzdusd-bull':true,'usdchf-bear':true,'usdsgd-bear':true,'xauusd-bull':true,'xagusd-bull':true,'usoil-bull':true,'de40-bear':true,'eurnzd-bear':true,'euraud-bear':true};renderLog();}
 
 // ── Status Bar ────────────────────────────────────────────────
 function updateStatusBar(){
@@ -8274,7 +8274,7 @@ function fetchERA() {
       if(r.AUD) out.audusd=p(1/r.AUD); if(r.NZD) out.nzdusd=p(1/r.NZD);
       if(r.JPY&&r.CAD) out.cadjpy=p(r.JPY/r.CAD);
       if(r.NZD&&r.EUR) out.eurnzd=p(r.NZD/r.EUR);
-      if(r.AUD&&r.GBP) out.gbpaud=p(r.AUD/r.GBP);
+      // gbpaud removed 2026-06-10h. Restore: if(r.AUD&&r.GBP) out.gbpaud=p(r.AUD/r.GBP);
       if(r.AUD&&r.EUR) out.euraud=p(r.AUD/r.EUR);
       if(r.GBP&&r.EUR) out.eurgbp=p(r.GBP/r.EUR);
       // audchf removed 2026-06-08 — low win-rate drag. Restore: if(r.CHF&&r.AUD) out.audchf=p(r.CHF/r.AUD);
@@ -8300,7 +8300,7 @@ function parseFawaz(d) {
   if(r.aud) out.audusd=p(1/r.aud); if(r.nzd) out.nzdusd=p(1/r.nzd);
   if(r.jpy&&r.cad) out.cadjpy=p(r.jpy/r.cad);
   if(r.nzd&&r.eur) out.eurnzd=p(r.nzd/r.eur);
-  if(r.aud&&r.gbp) out.gbpaud=p(r.aud/r.gbp);
+  // gbpaud removed 2026-06-10h. Restore: if(r.aud&&r.gbp) out.gbpaud=p(r.aud/r.gbp);
   if(r.aud&&r.eur) out.euraud=p(r.aud/r.eur);
   if(r.gbp&&r.eur) out.eurgbp=p(r.gbp/r.eur);
   // audchf removed 2026-06-08 — low win-rate drag. Restore: if(r.chf&&r.aud) out.audchf=p(r.chf/r.aud);
@@ -8415,7 +8415,8 @@ function openPriceOverride() {
   
   var rows = '';
   var order = ['dxy','eurusd','gbpusd','usdjpy','usdcad','usdchf','nzdusd','audusd','usdsgd',
-               'cadjpy','eurnzd','gbpaud','euraud','audnzd',
+               'cadjpy','eurnzd','euraud','audnzd',
+               // gbpaud removed 2026-06-10h.
                'eurgbp',
                // audchf removed 2026-06-08 — low win-rate drag.
                'xauusd','xagusd','usoil','de40','btcusd','suiusd'];
@@ -8515,7 +8516,8 @@ function getBakedOverrides() {
     usdchf: 0.78445, audusd: 0.71518, euraud: 1.63893, xauusd: 4707.26,
     // FX crosses (OANDA)
     nzdusd: 0.58790, usdsgd: 1.27645, cadjpy: 116.581, eurnzd: 1.99322,
-    gbpaud: 1.89276, audnzd: 1.21585, eurgbp: 0.86620,
+    audnzd: 1.21585, eurgbp: 0.86620,
+    // gbpaud removed 2026-06-10h.
     // audchf removed 2026-06-08 — low win-rate drag.
     xagusd: 75.694, usoil: 106.28, de40: 24314.80, usdsek: 9.22510,
     // Crypto (Coinbase)
@@ -8662,7 +8664,7 @@ function fetchFawazPrimary() {
       
       // NZD/AUD/EUR/GBP crosses
       if(r.nzd && r.eur) out.eurnzd = p(r.nzd/r.eur);
-      if(r.aud && r.gbp) out.gbpaud = p(r.aud/r.gbp);
+      // gbpaud removed 2026-06-10h.
       if(r.aud && r.eur) out.euraud = p(r.aud/r.eur);
       if(r.nzd && r.aud) out.audnzd = p(r.nzd/r.aud);
       if(r.gbp && r.eur) out.eurgbp = p(r.gbp/r.eur);
@@ -9734,12 +9736,20 @@ var AUTO_EW_MIN_CONFIDENCE = 0.70;
 // for majors (RSI rarely > 90 on FX); 75/25 keeps a mild crypto guard.
 // See backtest_rsi_per_class.py for the sweep that produced this.
 //
+// 2026-06-10h refinement — minors moved 70/30 → 65/35 after a per-pair
+// drill-down showed GBP/CAD and GBP/NZD specifically were producing
+// 47-50% WR despite the 70/30 gate, with too many setups firing in
+// the upper RSI tier. Tightening to 65/35 lifted GBP/CAD wick WR
+// from 46.7% → 85.7% (n=18) and GBP/NZD from 50.0% → 71.4% (n=49)
+// at the cost of ~30-50% fewer minor signals. Other minors held
+// neutral. Documented as the rsi-65-35-minors line in the notes.
+//
 // Defaults to 80/20 if MKTS[k].t is missing or unknown — preserves the
 // pre-deployment behaviour for any new pair added before the class is
 // classified.
 var RSI_GATE_BY_CLASS = {
   major:  {hi: 90, lo: 10},
-  minor:  {hi: 70, lo: 30},
+  minor:  {hi: 65, lo: 35},
   comm:   {hi: 70, lo: 30},
   index:  {hi: 70, lo: 30},
   crypto: {hi: 75, lo: 25}
@@ -10444,8 +10454,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-10g';
+var RULES_VERSION = '2026-06-10h';
 var RULES_VERSION_NOTES = [
+  '2026-06-10h — A1 minor RSI gate tightened 70/30 → 65/35 (commodities + indices stay at 70/30 — they regress at 65/35). Per-pair drill-down on GBP minors showed 78% of GBP/AUD setups already had RSI in the upper tier, indicating the 70/30 gate was too permissive for the minor class. Tightening lifted GBP/CAD wick WR from 46.7% → 85.7% (n=18) and GBP/NZD from 50.0% → 71.4% (n=49) at the cost of ~30-50% fewer minor signals. GBP/AUD itself stayed at 50% WR under both gates with no improvement available, so it was dropped from the universe as a chronic underperformer (same removal pattern as the prior drop rounds; structural noise not filterable by RSI). Active universe is now 6 majors + 14 minors + 6 commodities + 6 indices + 8 crypto = 40 tradeable instruments + DXY anchor + WTI / Nat Gas / Platinum added in 10g.',
   '2026-06-10g — Added 3 new commodity instruments: WTI Crude (wtiusd → OANDA WTICO_USD), Natural Gas (natgas → OANDA NATGAS_USD), Platinum (xptusd → OANDA XPT_USD). User reported a $3 gap between our Brent (BCO_USD ~ $95) and ICM Global "Brent" ($91.67); that gap is the textbook Brent-WTI spread, so adding WTI as a separate ticker lets users pick the contract their broker actually quotes. All three new pairs join FIB_ENTRY_PAIRS (commodity class uses Fib half-size entry as production methodology). HYPE/USD removed from the universe — low win-rate drag, same removal pattern as the prior rounds. Active universe is now 7 majors + 15 minors + 6 commodities + 6 indices + 8 crypto = 42 tradeable instruments.',
   '2026-06-10f — 4H EMA cloud momentum-reversal guard. User flagged EUR/AUD reading cl=bull while TradingView visibly rolling over: EMA21/55 still stacked bull (+28 pips separation) and price still above EMA21 (+21 pips), but the last 3 4H closes were monotonically lower (1.6358 → 1.6340 → 1.6328). The pre-existing price-through-cloud guard only fires when price punches below BOTH EMAs — too late for early reversals. New guard: 3 consecutive 4H closes against the EMA stack (<<< against bull, >>> against bear) → return neutral instead of the stale stack direction. Sanity-tested across the live 40-pair universe: 9 pairs flip from stale stack to neutral (22%), all on pairs visibly rolling over (EURAUD/EURNZD/GBPAUD/GBPNZD/USDSGD/AUDCAD/JP225/NZDCHF/SPX500). The remaining 31 pairs keep their current reading. Mirrored byte-for-byte in calc_4h_cloud_dir (Python) and clDirAtH1Idx (JS backtest engine) so dashboard, alerts and backtest stay in lockstep.',
   '2026-06-10e — Defensive cleanup for dropped pairs. NZD/CAD was still rendering as a CACHED backtest card on mobile after the 2026-06-10c MKTS removal because (a) the localStorage backtest cache outlived the source-of-truth and (b) historical-ohlc.json had not yet been regenerated by the workflow. Added an explicit DROPPED_PAIRS Set + _filterDroppedPairs() helper that strips zombie pairs at every entry point: _loadRecentBtCache, _saveRecentBtCache, the DEEP_HIST loader, and the SERVER_DIR loader. Also added pairUniverse to RULES_FINGERPRINT so any future add/remove auto-invalidates the cache on the next page load instead of waiting for the 24h TTL.',
