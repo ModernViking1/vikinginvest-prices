@@ -55,7 +55,7 @@ const OANDA_PAIRS = {
   // audchf removed 2026-06-08 — low win-rate drag on aggregate (was hurting
   // overall stats). Re-add: 'audchf': 'AUD_CHF'.
   // FX additions (v5 — user requested)
-  audcad:  'AUD_CAD',
+  // audcad removed 2026-06-10i — low win-rate drag. Re-add: 'audcad': 'AUD_CAD'.
   gbpcad:  'GBP_CAD',
   nzdjpy:  'NZD_JPY',
   // usdnok removed 2026-06-08 — low win-rate drag. Re-add: 'usdnok': 'USD_NOK'.

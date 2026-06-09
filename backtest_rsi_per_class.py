@@ -42,7 +42,8 @@ PAIR_CLASS = {
     'cadjpy': 'minor', 'eurnzd': 'minor',
     # gbpaud removed 2026-06-10h — chronic ~50% WR.
     'euraud': 'minor', 'usdsgd': 'minor', 'audnzd': 'minor',
-    'eurgbp': 'minor', 'audcad': 'minor', 'gbpcad': 'minor',
+    'eurgbp': 'minor', 'gbpcad': 'minor',
+    # audcad removed 2026-06-10i — low WR.
     'nzdjpy': 'minor', 'gbpnzd': 'minor',
     # nzdcad removed 2026-06-10 — low win-rate drag.
     'eurnok': 'minor', 'nzdchf': 'minor',
@@ -68,7 +69,9 @@ DROPPED = {'audchf', 'eursek', 'usdnok',
            # 2026-06-10g
            'hypeusd',
            # 2026-06-10h
-           'gbpaud'}
+           'gbpaud',
+           # 2026-06-10i
+           'audcad'}
 
 THRESHOLDS = [
     (None, None),    # no gate (baseline)

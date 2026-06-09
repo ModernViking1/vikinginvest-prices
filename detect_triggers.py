@@ -54,7 +54,8 @@ PAIR_DISPLAY = {
     # audchf removed 2026-06-08 — low win-rate drag on aggregate.
     # Re-add: "'audchf': 'AUD/CHF',"
     # v5 FX additions
-    'audcad': 'AUD/CAD', 'gbpcad': 'GBP/CAD', 'nzdjpy': 'NZD/JPY',
+    'gbpcad': 'GBP/CAD', 'nzdjpy': 'NZD/JPY',
+    # audcad removed 2026-06-10i — low win-rate drag.
     'gbpnzd': 'GBP/NZD',
     # usdnok / eursek removed 2026-06-08 — low win-rate drag.
     # Re-add: "'usdnok': 'USD/NOK', 'eursek': 'EUR/SEK',"
@@ -100,7 +101,8 @@ PAIR_CLASS = {
     'cadjpy': 'minor', 'eurnzd': 'minor',
     # gbpaud removed 2026-06-10h — chronic ~50% WR.
     'euraud': 'minor', 'usdsgd': 'minor', 'audnzd': 'minor',
-    'eurgbp': 'minor', 'audcad': 'minor', 'gbpcad': 'minor',
+    'eurgbp': 'minor', 'gbpcad': 'minor',
+    # audcad removed 2026-06-10i — low win-rate drag.
     'nzdjpy': 'minor', 'gbpnzd': 'minor',
     # nzdcad removed 2026-06-10 — low win-rate drag.
     'eurnok': 'minor', 'nzdchf': 'minor',
@@ -888,7 +890,13 @@ FIB_ENTRY_PAIRS = {
     # versions used 'us30'/'uk100' which never matched the actual
     # dj30/ftse100 keys used everywhere else, so server-side gating
     # silently fell through to no-fib-class on those two pairs).
-    'de40', 'nas100', 'dj30', 'ftse100', 'spx500',
+    # de40, dj30 moved to WICK methodology 2026-06-10i — broader-index
+    # comparison showed wick beat fib by +9.2pp on DE40 (62.5% vs 53.3%)
+    # and +12.1pp on DJ30 (66.7% vs 54.5%). NAS100 stays on fib (wick
+    # regressed -3.0pp); the others (spx500, ftse100, jp225) also showed
+    # wick wins (+16.2 / +8.3 / +3.1pp) but the user only requested
+    # DE40 and DJ30 — keeping the rest as-is pending explicit go-ahead.
+    'nas100', 'ftse100', 'spx500',
     # v7 additions (2026-06-03)
     'jp225',
     # fra40 (CAC 40) removed 2026-06-10 — low win-rate drag.

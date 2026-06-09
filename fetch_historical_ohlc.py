@@ -84,7 +84,8 @@ PAIRS: Dict[str, Dict[str, str]] = {
     # Re-add: '"audchf": {"oanda": "AUD_CHF"},'
     "eurgbp":  {"oanda": "EUR_GBP"},
     # v5 additions
-    "audcad":  {"oanda": "AUD_CAD"},
+    # audcad removed 2026-06-10i — low win-rate drag.
+    # Re-add: '"audcad": {"oanda": "AUD_CAD"},'
     "gbpcad":  {"oanda": "GBP_CAD"},
     "nzdjpy":  {"oanda": "NZD_JPY"},
     # usdnok removed 2026-06-08 — low win-rate drag. Re-add: '"usdnok": {"oanda": "USD_NOK"},'

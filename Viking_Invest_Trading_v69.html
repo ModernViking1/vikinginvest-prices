@@ -1023,10 +1023,7 @@ var MKTS = {
   // be overwritten on the first prices.json fetch. Win-rate stats are
   // generic defaults; the dashboard's deep backtest engine will compute
   // real numbers once historical-ohlc.json includes these pairs.
-  audcad:{sym:'AUD/CAD',t:'minor',px:'0.90000',p:0.9,d:5,sc:0.003,up:true,chg:'+0.00%',
-    ew:'neutral',tl:'neutral',nw:'neutral',
-    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
-    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  // audcad removed 2026-06-10i — low win-rate drag on aggregate.
   gbpcad:{sym:'GBP/CAD',t:'minor',px:'1.89000',p:1.89,d:5,sc:0.005,up:true,chg:'+0.00%',
     ew:'neutral',tl:'neutral',nw:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
@@ -1159,9 +1156,21 @@ var MKTS = {
 // Driven by the existing m.t classification ('major', 'minor',
 // 'crypto', 'comm', 'index'). New pairs added later automatically
 // pick up the correct methodology if they're given the right t:.
+// Per-pair methodology overrides — pairs in this set use the WICK
+// methodology even when their class would otherwise default to FIB
+// (commodities + indices). Drill-down on the index cohort
+// 2026-06-10i showed DE40 wick +9.2pp over fib (62.5% vs 53.3%)
+// and DJ30 +12.1pp (66.7% vs 54.5%); both are now on the wick
+// path. NAS100 stays on fib (wick regressed -3.0pp). SPX500 /
+// FTSE100 / JP225 also showed wick wins but await explicit
+// go-ahead before flipping. Must stay in sync with FIB_ENTRY_PAIRS
+// in detect_triggers.py — _btMethodFor and the Python detector
+// have to agree on which side fires for a given pair.
+var WICK_METHODOLOGY_OVERRIDES = {de40: 1, dj30: 1};
 function _btMethodFor(k){
   var m = (typeof MKTS !== 'undefined') ? MKTS[k] : null;
   if(!m) return 'wick';
+  if(WICK_METHODOLOGY_OVERRIDES[k]) return 'wick';
   return (m.t === 'comm' || m.t === 'index') ? 'fib' : 'wick';
 }
 
@@ -1214,7 +1223,8 @@ var DROPPED_PAIRS = new Set([
   'ltcusd', 'gbpchf', 'usdcnh', 'fra40',         // 2026-06-10b
   'nzdcad',                                      // 2026-06-10c
   'hypeusd',                                     // 2026-06-10g
-  'gbpaud'                                       // 2026-06-10h
+  'gbpaud',                                      // 2026-06-10h
+  'audcad'                                       // 2026-06-10i
 ]);
 function _filterDroppedPairs(obj){
   if(!obj || typeof obj !== 'object') return obj;
@@ -2140,7 +2150,8 @@ var VIKING_SRC_MAP = {
   // gbpaud removed 2026-06-10h.
   // audchf removed 2026-06-08 — low win-rate drag.
   // v5 FX additions
-  audcad:'OND', gbpcad:'OND', nzdjpy:'OND',
+  gbpcad:'OND', nzdjpy:'OND',
+  // audcad removed 2026-06-10i.
   gbpnzd:'OND',
   // usdnok / eursek removed 2026-06-08 — low win-rate drag.
   // v7 FX additions (minors)
@@ -10467,8 +10478,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-10h';
+var RULES_VERSION = '2026-06-10i';
 var RULES_VERSION_NOTES = [
+  '2026-06-10i — DE40 and DJ30 moved from FIB half-size methodology to WICK full-size. Broader index sweep confirmed wick beat fib by +9.2pp on DE40 (62.5% vs 53.3%, n=8 / 22) and +12.1pp on DJ30 (66.7% vs 54.5%, n=10 / 19). Per-pair override sits in WICK_METHODOLOGY_OVERRIDES so _btMethodFor can flip these two without changing the class default. NAS100 stays on fib (wick regressed -3.0pp). SPX500 / FTSE100 / JP225 also showed wick wins (+16.2 / +8.3 / +3.1pp) but were not flipped this round — pending explicit go-ahead. AUD/CAD also dropped from the universe (chronic low WR drag, same pattern as the prior removals). Active universe is now 6 majors + 13 minors + 6 commodities + 6 indices + 8 crypto = 39 tradeable instruments.',
   '2026-06-10h — A1 minor RSI gate tightened 70/30 → 65/35 (commodities + indices stay at 70/30 — they regress at 65/35). Per-pair drill-down on GBP minors showed 78% of GBP/AUD setups already had RSI in the upper tier, indicating the 70/30 gate was too permissive for the minor class. Tightening lifted GBP/CAD wick WR from 46.7% → 85.7% (n=18) and GBP/NZD from 50.0% → 71.4% (n=49) at the cost of ~30-50% fewer minor signals. GBP/AUD itself stayed at 50% WR under both gates with no improvement available, so it was dropped from the universe as a chronic underperformer (same removal pattern as the prior drop rounds; structural noise not filterable by RSI). Active universe is now 6 majors + 14 minors + 6 commodities + 6 indices + 8 crypto = 40 tradeable instruments + DXY anchor + WTI / Nat Gas / Platinum added in 10g.',
   '2026-06-10g — Added 3 new commodity instruments: WTI Crude (wtiusd → OANDA WTICO_USD), Natural Gas (natgas → OANDA NATGAS_USD), Platinum (xptusd → OANDA XPT_USD). User reported a $3 gap between our Brent (BCO_USD ~ $95) and ICM Global "Brent" ($91.67); that gap is the textbook Brent-WTI spread, so adding WTI as a separate ticker lets users pick the contract their broker actually quotes. All three new pairs join FIB_ENTRY_PAIRS (commodity class uses Fib half-size entry as production methodology). HYPE/USD removed from the universe — low win-rate drag, same removal pattern as the prior rounds. Active universe is now 7 majors + 15 minors + 6 commodities + 6 indices + 8 crypto = 42 tradeable instruments.',
   '2026-06-10f — 4H EMA cloud momentum-reversal guard. User flagged EUR/AUD reading cl=bull while TradingView visibly rolling over: EMA21/55 still stacked bull (+28 pips separation) and price still above EMA21 (+21 pips), but the last 3 4H closes were monotonically lower (1.6358 → 1.6340 → 1.6328). The pre-existing price-through-cloud guard only fires when price punches below BOTH EMAs — too late for early reversals. New guard: 3 consecutive 4H closes against the EMA stack (<<< against bull, >>> against bear) → return neutral instead of the stale stack direction. Sanity-tested across the live 40-pair universe: 9 pairs flip from stale stack to neutral (22%), all on pairs visibly rolling over (EURAUD/EURNZD/GBPAUD/GBPNZD/USDSGD/AUDCAD/JP225/NZDCHF/SPX500). The remaining 31 pairs keep their current reading. Mirrored byte-for-byte in calc_4h_cloud_dir (Python) and clDirAtH1Idx (JS backtest engine) so dashboard, alerts and backtest stay in lockstep.',
@@ -10508,7 +10520,7 @@ function RULES_FINGERPRINT(){
           return c + ':' + RSI_GATE_BY_CLASS[c].hi + '/' + RSI_GATE_BY_CLASS[c].lo;
         }).join(',')
       : '80/20',
-    fibPairs: ['xauusd','xagusd','usoil','de40','nas100','dj30','ftse100','spx500','jp225'].sort().join(','),
+    fibPairs: ['xauusd','xagusd','usoil','wtiusd','natgas','xptusd','nas100','ftse100','spx500','jp225'].sort().join(','),
     // Active pair universe (hash of sorted MKTS keys) — bump on any
     // add/remove so dropped pairs are flushed from localStorage caches
     // on the next page load, not the next TTL expiry. Without this the
