@@ -23,7 +23,11 @@ on:
       # dashboard.html is no longer tracked in the repo — deploy-time
       # derived from Viking_Invest_Trading_v*.html. Trigger on the source.
       - 'index.html'
-      - 'stats.html'
+      # Admin stats page — renamed to an obscure slug on 2026-06-10h
+      # to remove it from common reconnaissance paths (/stats.html,
+      # /admin.html, etc). Behind a Supabase magic-link gate; the
+      # rename is layered defence not the primary control.
+      - 'viking-admin-7k9p2x.html'
       - 'Viking_Invest_Trading_v*.html'
       - 'font-samples/**/*.html'
       - 'CNAME'
@@ -71,8 +75,11 @@ jobs:
           fi
           # Optional landing page if present
           cp index.html _site/ 2>/dev/null || true
-          # Private visitor-stats page (unlinked, noindex)
-          cp stats.html _site/ 2>/dev/null || true
+          # Private visitor-stats page (unlinked, noindex, obscure slug).
+          # Renamed from stats.html → viking-admin-7k9p2x.html 2026-06-10h
+          # so /stats.html is no longer a valid path (was being picked up
+          # by reconnaissance scanners looking for common admin paths).
+          cp viking-admin-7k9p2x.html _site/ 2>/dev/null || true
           # Font-sample variants of the consultancy page — unlinked from
           # the live nav; reached via /font-samples/. Existence is
           # optional so deploys still succeed once the samples are

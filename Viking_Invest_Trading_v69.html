@@ -284,7 +284,20 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 })();
 </script>
 <!-- Supabase Auth SDK (magic-link gate for Signal Log & Backtest tabs) -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!--
+  Supabase SDK — pinned to an EXACT version (was @2 floating until
+  2026-06-10h). A floating major tag means a CDN refresh can ship a new
+  patch into production silently; combined with jsDelivr being a
+  shared multi-tenant CDN, that's a known supply-chain risk.
+
+  To add SRI (Subresource Integrity — browser refuses to execute if
+  the file's SHA-384 doesn't match), run on your machine:
+      curl -sL "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.6/dist/umd/supabase.min.js" \
+        | openssl dgst -sha384 -binary | openssl base64 -A
+  then paste the result into integrity="sha384-…" and add
+  crossorigin="anonymous" on the <script> tag.
+-->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.6/dist/umd/supabase.min.js"></script>
 <style>
 /* ── AUTH MODAL ── */
 .viauth-overlay{

@@ -3,7 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="robots" content="noindex,nofollow">
+<meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
+<!--
+  Tier-1 security hardening (RULES_VERSION 2026-06-10h):
+   - CSP restricts script / style / connect origins to known good
+     hosts; frame-ancestors 'none' = X-Frame-Options DENY (clickjack
+     protection). 'unsafe-inline' is kept for the inline <script>
+     blocks below — acceptable on an admin-only page with no rendered
+     user input. Moving inline scripts out would tighten further.
+   - Referrer-Policy strict-origin-when-cross-origin = the admin URL
+     is never sent as a Referer when the user navigates away.
+  Headers that need real HTTP responses (HSTS, X-Content-Type-Options,
+  Permissions-Policy) require Cloudflare or similar — GitHub Pages
+  can't set them. Document those as Tier 2 once the domain is on a
+  proxy.
+-->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src https://fonts.gstatic.com;
+  connect-src 'self' https://abacus.jasoncameron.dev https://opwdsuusdmsaicoyqxti.supabase.co;
+  img-src 'self' data:;
+  frame-ancestors 'none';
+  base-uri 'self';
+  form-action 'self';
+">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Viking Invest — Visitor Stats</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&amp;family=Mukta:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
 <style>
@@ -78,7 +104,12 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
 }
 .pfg-row .pfg-pct{font-size:11px;color:var(--inkd);margin-left:5px;font-weight:400;}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Supabase SDK — pinned to an exact version (2026-06-10h hardening).
+     To add SRI integrity hash, run locally:
+       curl -sL "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.6/dist/umd/supabase.min.js" \
+         | openssl dgst -sha384 -binary | openssl base64 -A
+     then paste into integrity="sha384-…" and add crossorigin="anonymous". -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.6/dist/umd/supabase.min.js"></script>
 <style>
 /* ── Admin auth gate ── */
 .gate{
