@@ -929,6 +929,28 @@ var MKTS = {
     // Stop: below $58 (Jan 2026 low / impulse anchor).
     wr:58.0,g:'C',bw:10,bl:8,brr:0.6,
     entry:'95&#8211;100 OB (Wave 2 retest)',stop:'Below 58.00',tgt:'115 Wave 3 / 125-130 Wave 5',inv:'Close&lt;58.00',rr:'1:0.6'},
+  // WTI Crude (NYMEX) — separate ticker from Brent to handle brokers
+  // that quote WTI under a generic "oil" label. Added 2026-06-10 after
+  // a user reported a $3 spread vs ICM Global's "Brent" — that gap is
+  // the Brent-WTI spread; their broker was almost certainly quoting
+  // WTI under the wrong label. WTI typically trades $3-5 below Brent.
+  wtiusd:{sym:'WTI',t:'comm',px:'92.00',p:92.0,d:2,sc:1.2,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  // Natural Gas (Henry Hub) — added 2026-06-10. OANDA ticker is
+  // NATGAS_USD (not the Bloomberg/TV "XNG_USD" the user mentioned —
+  // those are different identifiers for the same instrument).
+  natgas:{sym:'NAT GAS',t:'comm',px:'3.00',p:3.0,d:3,sc:0.05,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  // Platinum — added 2026-06-10. Rounds out the precious-metals trio
+  // alongside XAU (gold) and XAG (silver).
+  xptusd:{sym:'XPT/USD',t:'comm',px:'1,000',p:1000,d:2,sc:10,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
   de40:{sym:'DAX 30',t:'index',px:'24,315',p:24315,d:0,sc:200,up:false,chg:'-1.17%',
     ew:'bear',tl:'bear',nw:'bear',
     // WICKATOR METHOD: Wave 5/(A) top at 25,512 complete. ABC correction in progress.
@@ -1056,10 +1078,7 @@ var MKTS = {
     ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
     entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
-  hypeusd:{sym:'HYPE/USD',t:'crypto',px:'30.00',p:30,d:3,sc:0.5,up:true,chg:'+0.00%',
-    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
-    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
-    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  // hypeusd removed 2026-06-10 — low win-rate drag on aggregate.
   ondousd:{sym:'ONDO/USD',t:'crypto',px:'0.85',p:0.85,d:4,sc:0.02,up:true,chg:'+0.00%',
     ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
@@ -1184,7 +1203,8 @@ function _btProfileColor(k){
 var DROPPED_PAIRS = new Set([
   'audchf', 'eursek', 'usdnok',                  // 2026-06-08
   'ltcusd', 'gbpchf', 'usdcnh', 'fra40',         // 2026-06-10b
-  'nzdcad'                                       // 2026-06-10c
+  'nzdcad',                                      // 2026-06-10c
+  'hypeusd'                                      // 2026-06-10g
 ]);
 function _filterDroppedPairs(obj){
   if(!obj || typeof obj !== 'object') return obj;
@@ -1754,11 +1774,12 @@ var USD_CORRELATION = {
   // xxxUSD FX (USD is quote) — strong inverse DXY: bull when DXY bear, bear when DXY bull
   eurusd:'xxxUSD', gbpusd:'xxxUSD', audusd:'xxxUSD', nzdusd:'xxxUSD',
   // Precious metals — inverse DXY (strong historical inverse correlation)
-  xauusd:'xxxUSD', xagusd:'xxxUSD',
+  xauusd:'xxxUSD', xagusd:'xxxUSD', xptusd:'xxxUSD',
   // Crypto — DXY correlation is WEAK/EPISODIC. Own cycle dominates. Treat as 'cross'.
   btcusd:'cross', suiusd:'cross',
   ethusd:'cross', solusd:'cross', xrpusd:'cross', taousd:'cross',
-  nearusd:'cross', hypeusd:'cross', ondousd:'cross',
+  nearusd:'cross', ondousd:'cross',
+  // hypeusd removed 2026-06-10 — low win-rate drag.
   // ltcusd removed 2026-06-10 — low win-rate drag.
   // USDxxx (USD is base) — bear when DXY bear, bull when DXY bull
   usdjpy:'USDxxx', usdcad:'USDxxx', usdchf:'USDxxx', usdsgd:'USDxxx',
@@ -1773,7 +1794,8 @@ var USD_CORRELATION = {
   // nzdcad removed 2026-06-10 — low win-rate drag.
   // gbpchf removed 2026-06-10 — low win-rate drag.
   // CDS commodities (not USD-correlated directly)
-  usoil:'cross', de40:'cross', jp225:'cross',
+  usoil:'cross', wtiusd:'cross', natgas:'cross',
+  de40:'cross', jp225:'cross',
   // fra40 (CAC 40) removed 2026-06-10 — low win-rate drag.
   // The index itself
   dxy:'index'
@@ -2123,7 +2145,8 @@ var VIKING_SRC_MAP = {
   // Coinbase (crypto)
   btcusd:'CB', suiusd:'CB', ethusd:'CB', solusd:'CB',
   xrpusd:'CB', taousd:'CB',
-  nearusd:'CB', hypeusd:'CB', ondousd:'CB',
+  nearusd:'CB', ondousd:'CB',
+  // hypeusd removed 2026-06-10 — low win-rate drag.
   // ltcusd removed 2026-06-10 — low win-rate drag.
   // Synthesised
   dxy:'SY'
@@ -4730,7 +4753,8 @@ var PAIR_CURRENCIES = {
   audusd:['AUD','USD'], cadjpy:['CAD','JPY'], eurnzd:['EUR','NZD'],
   gbpaud:['GBP','AUD'], euraud:['EUR','AUD'], usdsgd:['USD','SGD'],
   xauusd:['USD'], xagusd:['USD'],
-  usoil: ['USD'],
+  xptusd:['USD'],
+  usoil: ['USD'], wtiusd:['USD'], natgas:['USD'],
   de40:  ['EUR'],
   suiusd:[], audnzd:['AUD','NZD'], eurgbp:['EUR','GBP'],
   // audchf removed 2026-06-08 — low win-rate drag.
@@ -10420,8 +10444,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-10f';
+var RULES_VERSION = '2026-06-10g';
 var RULES_VERSION_NOTES = [
+  '2026-06-10g — Added 3 new commodity instruments: WTI Crude (wtiusd → OANDA WTICO_USD), Natural Gas (natgas → OANDA NATGAS_USD), Platinum (xptusd → OANDA XPT_USD). User reported a $3 gap between our Brent (BCO_USD ~ $95) and ICM Global "Brent" ($91.67); that gap is the textbook Brent-WTI spread, so adding WTI as a separate ticker lets users pick the contract their broker actually quotes. All three new pairs join FIB_ENTRY_PAIRS (commodity class uses Fib half-size entry as production methodology). HYPE/USD removed from the universe — low win-rate drag, same removal pattern as the prior rounds. Active universe is now 7 majors + 15 minors + 6 commodities + 6 indices + 8 crypto = 42 tradeable instruments.',
   '2026-06-10f — 4H EMA cloud momentum-reversal guard. User flagged EUR/AUD reading cl=bull while TradingView visibly rolling over: EMA21/55 still stacked bull (+28 pips separation) and price still above EMA21 (+21 pips), but the last 3 4H closes were monotonically lower (1.6358 → 1.6340 → 1.6328). The pre-existing price-through-cloud guard only fires when price punches below BOTH EMAs — too late for early reversals. New guard: 3 consecutive 4H closes against the EMA stack (<<< against bull, >>> against bear) → return neutral instead of the stale stack direction. Sanity-tested across the live 40-pair universe: 9 pairs flip from stale stack to neutral (22%), all on pairs visibly rolling over (EURAUD/EURNZD/GBPAUD/GBPNZD/USDSGD/AUDCAD/JP225/NZDCHF/SPX500). The remaining 31 pairs keep their current reading. Mirrored byte-for-byte in calc_4h_cloud_dir (Python) and clDirAtH1Idx (JS backtest engine) so dashboard, alerts and backtest stay in lockstep.',
   '2026-06-10e — Defensive cleanup for dropped pairs. NZD/CAD was still rendering as a CACHED backtest card on mobile after the 2026-06-10c MKTS removal because (a) the localStorage backtest cache outlived the source-of-truth and (b) historical-ohlc.json had not yet been regenerated by the workflow. Added an explicit DROPPED_PAIRS Set + _filterDroppedPairs() helper that strips zombie pairs at every entry point: _loadRecentBtCache, _saveRecentBtCache, the DEEP_HIST loader, and the SERVER_DIR loader. Also added pairUniverse to RULES_FINGERPRINT so any future add/remove auto-invalidates the cache on the next page load instead of waiting for the 24h TTL.',
   '2026-06-10d — EW-carrier transparency. Every intraday signal now surfaces WHICH mechanism supplied the macro direction (in-browser auto-EW > WICKATOR seed > server-detected auto-EW > structural), stamped onto the sig as ewPattern + ewSource. Three display surfaces: the signal log header gets a compact 🟢/🟡/⚪ pill with the carrying pattern and its historic WR (5-wave-impulse 66.7% / ABC 63.0% / 5-wave-truncated 63.3% / structural 55.9%); the macro-card Target cell gets a source-confidence pill (🟢 auto-EW / 🟡 wickator seed / 🟠 auto-derived) that refreshes when the engine re-evaluates so it flips mid-session when auto-EW kicks in; detect_triggers.py now writes ew_source / ew_pattern / ew_confidence into directions.json so external tooling and the Telegram alerts can render the same badge. Per-pattern WR sourced from backtest_autoew_patterns.py — no engine logic change.',

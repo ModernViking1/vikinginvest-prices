@@ -59,6 +59,7 @@ PAIR_DISPLAY = {
     # Re-add: "'usdnok': 'USD/NOK', 'eursek': 'EUR/SEK',"
     # Commodities / indices
     'xauusd': 'XAU/USD', 'xagusd': 'XAG/USD', 'usoil': 'BRENT',
+    'wtiusd': 'WTI', 'natgas': 'NAT GAS', 'xptusd': 'XPT/USD',
     'de40':   'DAX 30',  'ftse100': 'FTSE 100',
     'dj30':   'DJ 30',   'nas100':  'NAS 100', 'spx500':  'S&P 500',
     # v7 FX minors (2026-06-03)
@@ -76,7 +77,8 @@ PAIR_DISPLAY = {
     'btcusd': 'BTC/USD', 'suiusd': 'SUI/USD',
     'ethusd': 'ETH/USD', 'solusd': 'SOL/USD',
     'xrpusd': 'XRP/USD', 'taousd': 'TAO/USD',
-    'nearusd': 'NEAR/USD', 'hypeusd': 'HYPE/USD', 'ondousd': 'ONDO/USD',
+    'nearusd': 'NEAR/USD', 'ondousd': 'ONDO/USD',
+    # hypeusd removed 2026-06-10 — low win-rate drag.
     # ltcusd removed 2026-06-10 — low win-rate drag.
     # Re-add: "'ltcusd': 'LTC/USD',"
     'dxy':    'DXY',
@@ -104,6 +106,7 @@ PAIR_CLASS = {
     'usdzar': 'minor', 'eursgd': 'minor',
     # Commodities
     'xauusd': 'comm', 'xagusd': 'comm', 'usoil': 'comm',
+    'wtiusd': 'comm', 'natgas': 'comm', 'xptusd': 'comm',
     # Indices (incl. DXY — confluence reference, not tradeable but
     # classified for completeness so any lookup gets a deterministic
     # answer instead of falling back to 80/20).
@@ -115,7 +118,8 @@ PAIR_CLASS = {
     'btcusd': 'crypto', 'ethusd': 'crypto', 'solusd': 'crypto',
     'xrpusd': 'crypto', 'suiusd': 'crypto',
     # ltcusd removed 2026-06-10 — low win-rate drag.
-    'taousd': 'crypto', 'nearusd': 'crypto', 'hypeusd': 'crypto',
+    'taousd': 'crypto', 'nearusd': 'crypto',
+    # hypeusd removed 2026-06-10 — low win-rate drag.
     'ondousd': 'crypto',
 }
 
@@ -873,7 +877,7 @@ AUTO_EW_THRESHOLDS = [0.5, 0.8, 1.0, 1.5, 2.5, 4.0, 6.0, 8.0, 10.0, 12.0]
 # class (no wick alerts on Brent; no Fib alerts on EUR/USD).
 FIB_ENTRY_PAIRS = {
     # Commodities
-    'xauusd', 'xagusd', 'usoil',
+    'xauusd', 'xagusd', 'usoil', 'wtiusd', 'natgas', 'xptusd',
     # Indices (pair keys must match fetch-prices.js and MKTS — earlier
     # versions used 'us30'/'uk100' which never matched the actual
     # dj30/ftse100 keys used everywhere else, so server-side gating

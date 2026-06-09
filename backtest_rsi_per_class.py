@@ -48,20 +48,24 @@ PAIR_CLASS = {
     # gbpchf / usdcnh removed 2026-06-10 — low win-rate drag.
     'usdzar': 'minor', 'eursgd': 'minor',
     'xauusd': 'comm', 'xagusd': 'comm', 'usoil': 'comm',
+    'wtiusd': 'comm', 'natgas': 'comm', 'xptusd': 'comm',
     'de40': 'index', 'ftse100': 'index', 'dj30': 'index',
     'nas100': 'index', 'spx500': 'index', 'jp225': 'index',
     # fra40 removed 2026-06-10 — low win-rate drag.
     'btcusd': 'crypto', 'ethusd': 'crypto', 'solusd': 'crypto',
     'xrpusd': 'crypto', 'suiusd': 'crypto',
     # ltcusd removed 2026-06-10 — low win-rate drag.
-    'taousd': 'crypto', 'nearusd': 'crypto', 'hypeusd': 'crypto',
+    'taousd': 'crypto', 'nearusd': 'crypto',
+    # hypeusd removed 2026-06-10.
     'ondousd': 'crypto',
 }
 DROPPED = {'audchf', 'eursek', 'usdnok',
            # 2026-06-10 round
            'ltcusd', 'gbpchf', 'usdcnh', 'fra40',
            # 2026-06-10 follow-up
-           'nzdcad'}
+           'nzdcad',
+           # 2026-06-10g
+           'hypeusd'}
 
 THRESHOLDS = [
     (None, None),    # no gate (baseline)

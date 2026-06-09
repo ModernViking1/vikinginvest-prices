@@ -101,6 +101,9 @@ PAIRS: Dict[str, Dict[str, str]] = {
     "xauusd":  {"oanda": "XAU_USD"},
     "xagusd":  {"oanda": "XAG_USD"},
     "usoil":   {"oanda": "BCO_USD"},
+    "wtiusd":  {"oanda": "WTICO_USD"},   # WTI Crude (added 2026-06-10)
+    "natgas":  {"oanda": "NATGAS_USD"},  # Natural Gas (Henry Hub)
+    "xptusd":  {"oanda": "XPT_USD"},     # Platinum
     # Equity indices
     "de40":    {"oanda": "DE30_EUR"},
     "ftse100": {"oanda": "UK100_GBP"},
@@ -122,7 +125,8 @@ PAIRS: Dict[str, Dict[str, str]] = {
     "xrpusd":  {"coinbase": "XRP-USD"},
     "taousd":  {"coinbase": "TAO-USD"},
     "nearusd": {"coinbase": "NEAR-USD"},
-    "hypeusd": {"coinbase": "HYPE-USD"},
+    # hypeusd removed 2026-06-10 — low win-rate drag.
+    # Re-add: '"hypeusd": {"coinbase": "HYPE-USD"},'
     "ondousd": {"coinbase": "ONDO-USD"},
     # ltcusd removed 2026-06-10 — low win-rate drag.
     # Re-add: '"ltcusd": {"coinbase": "LTC-USD"},'

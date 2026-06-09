@@ -72,6 +72,11 @@ const OANDA_PAIRS = {
   xauusd: 'XAU_USD',     // gold
   xagusd: 'XAG_USD',     // silver
   usoil:  'BCO_USD',     // Brent Crude Oil (matches TradingView XBRUSD)
+  wtiusd: 'WTICO_USD',   // WTI Crude Oil (NYMEX) — added 2026-06-10
+  natgas: 'NATGAS_USD',  // Natural Gas (Henry Hub) — added 2026-06-10.
+                         // User requested "XNG_USD" — that's a Bloomberg/TV
+                         // identifier; OANDA's native ticker is NATGAS_USD.
+  xptusd: 'XPT_USD',     // Platinum — added 2026-06-10
   // Equity indices
   de40:    'DE30_EUR',   // DAX (OANDA still uses old DE30 ticker)
   ftse100: 'UK100_GBP',  // FTSE 100
@@ -104,7 +109,7 @@ const COINBASE_PAIRS = {
   taousd: 'TAO-USD',
   // v6 additions (user requested)
   nearusd: 'NEAR-USD',
-  hypeusd: 'HYPE-USD',
+  // hypeusd removed 2026-06-10 — low win-rate drag. Re-add: 'hypeusd': 'HYPE-USD'.
   ondousd: 'ONDO-USD',
   // ltcusd removed 2026-06-10 — low win-rate drag. Re-add: 'ltcusd': 'LTC-USD'.
 };
