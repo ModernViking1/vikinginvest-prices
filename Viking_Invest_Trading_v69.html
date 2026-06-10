@@ -1910,12 +1910,29 @@ function renderSRPill(k){
   else if(info.state === 'bull_failed') stateDesc = 'failed bull break — re-entered range';
   else if(info.state === 'bear_failed') stateDesc = 'failed bear break — re-entered range';
   else stateDesc = 'awaiting break · range ' + info.refLow.toFixed(2) + '–' + info.refHigh.toFixed(2);
-  // Per-tier WR placeholder. Populated by the failure-mode aggregator
-  // once samples exist; until then it reads "tracking — sample <30".
-  var tierWR = (window._srTierWR && window._srTierWR[k] && window._srTierWR[k][info.tier]) || null;
-  var wrSub = tierWR
-    ? 'historic ' + tierWR.wr.toFixed(0) + '% (n=' + tierWR.n + ')'
-    : 'tracking — sample <30';
+  // Per-tier WR — sourced from forward-tracked live trades via
+  // liveSRTierWR(k). Resolves the "tracking — sample <30" placeholder
+  // once enough resolved trades have accumulated per tier per pair.
+  // Tiered sample-size gating:
+  //   n < 5            tracking — sample <5
+  //   5 ≤ n < 30       tracking · X% (n=N) — too small for a hard gate
+  //   n ≥ 30           ★ deploy-ready · X% (n=N)  (hits the locked rule)
+  if(!window._srTierWR) window._srTierWR = {};
+  try {
+    var liveSR = (typeof liveSRTierWR === 'function') ? liveSRTierWR(k) : null;
+    if(liveSR) window._srTierWR[k] = liveSR;
+  } catch(_){}
+  var tierWR = (window._srTierWR[k] && window._srTierWR[k][info.tier]) || null;
+  var wrSub;
+  if(!tierWR || tierWR.n === 0){
+    wrSub = 'tracking — sample <5';
+  } else if(tierWR.n < 5){
+    wrSub = 'tracking · ' + tierWR.w + 'W/' + tierWR.l + 'L (n=' + tierWR.n + ')';
+  } else if(tierWR.n < 30){
+    wrSub = 'tracking · ' + tierWR.wr.toFixed(0) + '% (n=' + tierWR.n + ' — need 30)';
+  } else {
+    wrSub = '★ ' + tierWR.wr.toFixed(0) + '% (n=' + tierWR.n + ' — DEPLOY-READY)';
+  }
   // Tooltip body
   var tip = info.sessionLabel + ' open · ' + stateDesc
           + ' · ' + info.barsSince + ' bars since ref candle · '
@@ -6390,6 +6407,54 @@ function renderFailureModeAnalysis(){
       + '</div>'
     : '';
 
+  // Per-SR-tier WR row — DE40 + DJ30 forward-tracked tier samples.
+  // Surfaces progress toward n=30 (the locked-in hard-gate deploy
+  // threshold) so we can see at a glance when each tier becomes
+  // ready to promote from informational badge to engine gate.
+  var perSR = report.perSRtier || {};
+  var srPairLabel = { de40: 'DAX 30', dj30: 'DJ 30' };
+  var srTierLabels = [ ['5/5', '⭐ 5/5'], ['4/5', '🟡 4/5'], ['3/5', '🟠 3/5'] ];
+  var srCells = [];
+  Object.keys(srPairLabel).forEach(function(pairKey){
+    var bucket = perSR[pairKey];
+    if(!bucket) return;
+    srTierLabels.forEach(function(tl){
+      var tier = tl[0]; var label = tl[1];
+      var b = bucket[tier];
+      if(!b) return;
+      // Hide empty tiers to keep the row sparse — early on most cells
+      // will be n=0 and that's just noise. Show once at least one
+      // resolved trade lands per tier per pair.
+      if(b.n === 0) return;
+      var wr = b.wr;
+      var wrColor = wr === null ? 'var(--inkd)' : (wr >= 65 ? 'var(--bull)' : wr >= 50 ? 'var(--gold)' : 'var(--bear)');
+      var wrText = wr === null ? '—' : Math.round(wr) + '%';
+      var promoted = b.n >= 30 ? ' · ★ DEPLOY-READY' : (' · ' + b.n + '/30');
+      var tip = srPairLabel[pairKey] + ' · School Run ' + tier + ' tier · '
+              + b.w + 'W / ' + b.l + 'L of ' + b.n + ' decided trades. '
+              + (b.n >= 30
+                  ? 'Crossed the n=30 deploy threshold — eligible for promotion to engine gate per the locked decision rule.'
+                  : 'Need ' + (30 - b.n) + ' more decided trades before this tier is eligible for hard-gate deployment.');
+      srCells.push(
+        '<div style="background:rgba(0,0,0,0.02);padding:6px 8px;border-radius:2px;" title="' + tip + '">'
+        + '<div style="font-size:8px;color:var(--inkm);font-weight:700;letter-spacing:0.4px;text-transform:uppercase;">'
+        +   srPairLabel[pairKey] + ' · ' + label
+        + '</div>'
+        + '<div style="font-size:11px;color:' + wrColor + ';font-weight:700;">' + wrText + '</div>'
+        + '<div style="font-size:7.5px;color:var(--inkd);">' + b.w + 'W/' + b.l + 'L' + promoted + '</div>'
+        + '</div>'
+      );
+    });
+  });
+  var perSRHTML = srCells.length
+    ? '<div style="margin-top:10px;padding-top:8px;border-top:1px dashed rgba(0,0,0,0.08);">'
+        + '<div style="font-size:8.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-bottom:5px;" title="Forward-tracked School Run tier WR for DE40 and DJ30. Sample accumulates as live signals fire and resolve; the badge in each pill on the relevant card lights up DEPLOY-READY once the locked threshold (n=30 decided per tier) is crossed.">School Run tier WR <span style="color:var(--inkd);font-weight:400;font-style:italic;">· DE40 / DJ30 forward-tracked · target n=30 per tier</span></div>'
+        + '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;">'
+        + srCells.join('')
+        + '</div>'
+      + '</div>'
+    : '';
+
   // Variants section
   var variantHTML = '<div style="margin-top:10px;padding-top:8px;border-top:1px dashed rgba(0,0,0,0.08);">'
     + '<div style="font-size:8.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-bottom:5px;">Rule variant tests (only on non-wins)</div>'
@@ -6459,7 +6524,7 @@ function renderFailureModeAnalysis(){
       + '</details>';
   }
 
-  host.innerHTML = aggHTML + classBars + perClassHTML + variantHTML + perPairHTML;
+  host.innerHTML = aggHTML + classBars + perClassHTML + perSRHTML + variantHTML + perPairHTML;
   host.style.display = 'block';
 }
 
@@ -10731,8 +10796,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-10l';
+var RULES_VERSION = '2026-06-10m';
 var RULES_VERSION_NOTES = [
+  '2026-06-10m — Per-SR-tier WR forward tracking. recordIntradayOutcome now stamps the entry-time SR tier on every armed/triggered signal (preserved across pending refreshes so a 5/5→4/5 weakening doesnt overwrite the original entry tag) and carries it onto the resolved trade record. New liveSRTierWR(k) aggregates per-tier W/L from INTRADAY_RESULTS, surfaced in two places: (1) the SR pill on the DE40 / DJ30 cards now reads the live WR and replaces the static "tracking — sample <30" placeholder with a tiered display (n<5 = "sample <5", 5≤n<30 = "X% (n=N — need 30)", n≥30 = "★ DEPLOY-READY"); (2) the failure-mode panel gains a new "School Run tier WR" row showing per-pair × per-tier progress with the n=30 promotion threshold tracked inline. Honest scope note: there is no per-user Telegram routing yet — all alerts (4/4 trigger, fib, and the new sr_5_5/4_5/3_5 tiers) go to the single admin TELEGRAM_CHAT_ID. The alert_classes field on public.profiles is forward-compatible schema for a future Stripe + entitlement + fan-out build; the SR alert classes are documented there so the migration is in place when that work lands.',
   '2026-06-10l — School Run tier Telegram alerts wired up. detect_triggers.py format_alert grows three new kinds (sr_5_5 / sr_4_5 / sr_3_5) with tier-specific emoji and styling (⭐ / 🟡 / 🟠). After the existing 4/4 trigger / fib alert checks fire, the main loop now also checks the SR tier and emits a tier-classified alert with per-pair per-day rate limits (5/5: 1/day, 4/5: 2/day, 3/5: 1/day). Counters live in alerts-state.json under sr_alerts, scoped by UTC date so they reset cleanly; older date entries are pruned at save time. Baseline (first-run) cycle records existing SR state without alerting, same dedup discipline as the 4/4 alignment alerts. Profile modal grows three new alert-class checkboxes (sr_5_5 default-on; sr_4_5 + sr_3_5 default-off) with an inline explainer of the tier semantics + daily caps. VIPRO_CONSENT_VERSION bumped to 2026-06-10-v2 so existing subscribers see the modal once and can opt in. The per-user routing in notify-new-users.yml will be wired to the new alert_classes values in a follow-up.',
   '2026-06-10k — School Run (SR) tier surfacing for DE40 / DJ30 — Path 1 of the chat scope. New SR_REF_TIMES constant defines DAX (07:00Z / 08:00Z) and DJ30 (13:30Z / 14:30Z) cash-session reference candles. getSRTier(k) walks INTRADAY[k] (or SERVER_DIR fallback on first load) to compute the SR state machine (pending → bull_broken | bear_broken → bull_failed | bear_failed) within the 2h post-open window. Tier classification: 4/4 + SR-aligned = 5/5, 3/4 + SR-aligned = 4/5, 2/4 + SR-aligned = 3/5. Render surfaces: (1) coloured pill on the card above the 4-layer grid (only visible during the 2h window for DE40/DJ30), (2) tier badge appended to the intraday signal log row (5/5 ⭐, 4/5 🟡, 3/5 🟠). detect_triggers.py mirrors the JS state machine and writes the sr dict into directions.json so the badge shows on first load before INTRADAY buffer fills. ZERO gating change — every 4/4 still fires; SR is informational pending forward-data accumulation. Sample-size deploy rule (n_decided ≥ 30 per tier AND ≥ +5pp uplift over baseline 50%) holds until ~12-18 months of data lets us revisit hard-filter deployment.',
   '2026-06-10j — REVERTED the 10i DE40/DJ30 wick switch back to FIB half-size. The 10i decision was based on the simplified backtest in backtest_rsi_per_class.py which uses STRUCTURAL EW direction only and reported wick +9.2pp on DE40 (n=8) and +12.1pp on DJ30 (n=6). Production realised 50% (DE40) and 47.8% (DJ30) on the larger setup population that includes auto-EW-driven entries — small-sample noise on the simplified backtest, not a real edge. WICK_METHODOLOGY_OVERRIDES now empty. fibPairs fingerprint restored to include de40 + dj30 so cached backtests re-invalidate on next load. Auto-EW-integrated backtest queued (option C in chat) to determine whether to retry the switch with a proper sample.',
@@ -13507,14 +13573,30 @@ function recordIntradayOutcome(k){
   // Track the signal in `pending` while it's still resolving.
   // When state becomes triggered+outcome OR invalidated, move to trades and remove from pending.
   if(sig.state === 'armed' || (sig.state === 'triggered' && !sig.outcome)){
-    // In progress — keep in pending so we have a record but don't count yet
+    // Capture the SR tier AT FIRING TIME — the "entry tier". This is
+    // what the user saw when deciding to take the trade, even if the
+    // tier later weakens (e.g., 5/5 → 4/5 as confluence drops). The
+    // tier on the resolved trade should match what the dashboard
+    // surfaced at the moment of entry, not the moment of resolution.
+    // Stamped here so the entry tier survives to liveSRTierWR even
+    // when the signal resolves hours later in a separate session.
+    var srAtEntry = null;
+    try {
+      var info = (typeof getSRTier === 'function') ? getSRTier(k) : null;
+      if(info && info.tier && info.tier !== 'SR_WINDOW') srAtEntry = info.tier;
+    } catch(_){}
+    // Preserve any srTier already recorded on a prior pending check —
+    // we don't want a late 4/5 → SR_WINDOW transition to overwrite the
+    // original 5/5 tag that the user actually saw when the signal armed.
+    var existingSR = rec.pending[key] && rec.pending[key].srTier;
     rec.pending[key] = {
       ts: Date.now(),
       dir: sig.dir,
       entry: sig.entry,
       stop: sig.stop,
       target: sig.target,
-      state: sig.state
+      state: sig.state,
+      srTier: existingSR || srAtEntry
     };
     saveIntradayResults();
     return;
@@ -13538,6 +13620,9 @@ function recordIntradayOutcome(k){
     saveIntradayResults();
     return;
   }
+  // Carry the entry tier (captured when the signal armed/triggered) over to the
+  // resolved trade record so liveSRTierWR can compute per-tier WR.
+  var carriedSRTier = (rec.pending[key] && rec.pending[key].srTier) || null;
   rec.trades.push({
     key: key,
     ts: Date.now(),
@@ -13546,10 +13631,35 @@ function recordIntradayOutcome(k){
     stop: sig.stop,
     target: sig.target,
     R: sig.R,
-    outcome: outcome
+    outcome: outcome,
+    srTier: carriedSRTier
   });
   if(rec.pending[key]) delete rec.pending[key];
   saveIntradayResults();
+}
+
+// Per-SR-tier live WR — populates the placeholder in the SR pill once
+// forward-tracked sample crosses the n=30 deploy threshold. Reads the
+// same INTRADAY_RESULTS[k].trades the live WR card uses, buckets by
+// the entry-time SR tier captured in recordIntradayOutcome.
+// Returns {'5/5': {w, l, n, wr}, '4/5': {...}, '3/5': {...}}.
+function liveSRTierWR(k){
+  loadIntradayResults();
+  var rec = INTRADAY_RESULTS[k];
+  if(!rec || !rec.trades || rec.trades.length === 0) return null;
+  var buckets = { '5/5': {w:0,l:0,n:0}, '4/5': {w:0,l:0,n:0}, '3/5': {w:0,l:0,n:0} };
+  rec.trades.forEach(function(t){
+    var tier = t.srTier;
+    if(!tier || !buckets[tier]) return;
+    var b = buckets[tier];
+    if(t.outcome === 'win'){ b.w++; b.n++; }
+    else if(t.outcome === 'loss'){ b.l++; b.n++; }
+  });
+  Object.keys(buckets).forEach(function(tier){
+    var b = buckets[tier];
+    b.wr = b.n > 0 ? (b.w / b.n) * 100 : null;
+  });
+  return buckets;
 }
 
 // Compute LIVE win rate from recorded resolved trades.
@@ -14217,6 +14327,23 @@ function analyseIntradayFailures(){
     variants: aggVariants,
     perPair: perPair,
     perClass: perClassTotals,  // {major:{wins,losses,…}, minor:…, …}
+    // Per-SR-tier WR — DE40 + DJ30 only. Aggregates the same live-trade
+    // records the SR pill reads, surfaced into the failure-mode panel
+    // so the forward-tracked progress toward n=30 (the hard-gate
+    // promotion threshold) is visible in one place. Computed on
+    // demand via liveSRTierWR per pair. Pairs without SR_REF_TIMES
+    // entries are skipped silently.
+    perSRtier: (function(){
+      var out = {};
+      if(typeof liveSRTierWR !== 'function') return out;
+      Object.keys(SR_REF_TIMES || {}).forEach(function(k){
+        try {
+          var w = liveSRTierWR(k);
+          if(w) out[k] = w;
+        } catch(_){}
+      });
+      return out;
+    })(),
     pairCounts: pairCounts,
     alignedPairKeys: alignedPairKeys,
     dataSource: dataSource  // 'deep' or 'sim' — UI shows this in the header
