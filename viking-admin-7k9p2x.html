@@ -162,10 +162,10 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
     <div id="gateSignIn" class="gate">
       <div class="gate-eyebrow">Restricted</div>
       <div class="gate-h">Admin sign-in required</div>
-      <div class="gate-p">Visitor stats are admin-only. Enter your admin email and we'll send a one-tap magic link.</div>
+      <div class="gate-p">Visitor stats are admin-only. Enter your admin email and we'll send a one-tap market access link.</div>
       <form id="gateForm" class="gate-form">
         <input type="email" id="gateEmail" placeholder="admin@vikinginvest.org" required autocomplete="email">
-        <button type="submit" id="gateBtn">Send magic link</button>
+        <button type="submit" id="gateBtn">Send market access link</button>
       </form>
       <div id="gateMsg" class="gate-msg"></div>
     </div>
@@ -200,7 +200,7 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
          privileges and checks the caller's JWT email against the
          same allowlist used by the page gate above. ─────────────── -->
     <span class="eyebrow" style="margin-top:34px;">Registered users</span>
-    <h1 style="margin-bottom:18px;">Sign-ups (magic-link)</h1>
+    <h1 style="margin-bottom:18px;">Sign-ups (market access)</h1>
     <div class="cards">
       <div class="card">
         <div class="label">Total</div>
@@ -327,7 +327,7 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
       var btn = document.getElementById('gateBtn');
       var email = (emailEl.value || '').trim();
       if(!email) return;
-      msg.className = 'gate-msg'; msg.textContent = 'Sending magic link…';
+      msg.className = 'gate-msg'; msg.textContent = 'Sending market access link…';
       btn.disabled = true;
       sb.auth.signInWithOtp({
         email: email,
@@ -339,7 +339,7 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
           msg.textContent = r.error.message || 'Send failed.';
         } else {
           msg.className = 'gate-msg ok';
-          msg.textContent = '✓ Magic link sent — check your inbox.';
+          msg.textContent = '✓ Market access link sent — check your inbox.';
         }
       }).catch(function(err){
         btn.disabled = false;

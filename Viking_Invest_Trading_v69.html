@@ -446,7 +446,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       <input type="email" id="viauth-email" placeholder="you@example.com" autocomplete="email" required>
       <input type="text" id="viauth-telegram" placeholder="Telegram ID (optional)" autocomplete="off" inputmode="numeric">
       <div class="viauth-hint">For real-time alerts. Get your ID from <a href="https://t.me/userinfobot" target="_blank" rel="noopener">@userinfobot</a> on Telegram.</div>
-      <button type="submit" id="viauth-btn">Send magic link</button>
+      <button type="submit" id="viauth-btn">Send market access link</button>
     </form>
     <div id="viauth-msg" class="viauth-msg"></div>
   </div>
@@ -16017,7 +16017,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
         var msg = document.getElementById('viauth-msg');
         var btn = document.getElementById('viauth-btn');
         if(!email) return;
-        msg.className='viauth-msg'; msg.textContent='Sending magic link…';
+        msg.className='viauth-msg'; msg.textContent='Sending market access link…';
         btn.disabled = true;
         // Stash optional Telegram ID as Supabase user metadata so it's
         // visible in Authentication > Users alongside the email. New
@@ -16043,7 +16043,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
             msg.textContent = r.error.message || 'Could not send link.';
           } else {
             msg.className='viauth-msg viauth-ok';
-            msg.textContent = '✓ Magic link sent to ' + email + ' — check your inbox.';
+            msg.textContent = '✓ Market access link sent to ' + email + ' — check your inbox.';
           }
         }).catch(function(err){
           btn.disabled = false;
