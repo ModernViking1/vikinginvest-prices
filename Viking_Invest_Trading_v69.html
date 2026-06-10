@@ -13675,9 +13675,29 @@ function recordIntradayOutcome(k){
   var key = _intraSigKey(sig);
   if(!key) return;
 
+  // Pick the entry methodology that matches the pair's class — wick
+  // (full size) for FX/crypto, Fib 38% (half size) for commodities and
+  // indices. detectIntradaySignal computes BOTH outcomes side by side
+  // (sig.state/.outcome for wick, sig.fib.state/.outcome for Fib); the
+  // forward tracker has to follow whichever one actually fires in
+  // production for this pair. Before 2026-06-10y the recorder always
+  // read sig.outcome, so FIB-class pairs (DAX 30, DJ 30, oil, gold,
+  // FTSE …) silently lost every live win — the trade hit fibTarget but
+  // sig.outcome was usually null or 'invalidated' because the wick
+  // entry never tagged, and the recorder dropped the record.
+  var btMethod = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
+  var useFib = (btMethod === 'fib' && sig.fib);
+  var effState   = useFib ? sig.fib.state   : sig.state;
+  var effOutcome = useFib ? sig.fib.outcome : sig.outcome;
+  var effEntry   = useFib ? sig.fib.entry   : sig.entry;
+  var effTarget  = useFib ? sig.fib.target  : sig.target;
+  var effR       = useFib ? sig.fib.R       : sig.R;
+  // Stop is shared between the two entry types — pivot's the same.
+  var effStop    = sig.stop;
+
   // Track the signal in `pending` while it's still resolving.
   // When state becomes triggered+outcome OR invalidated, move to trades and remove from pending.
-  if(sig.state === 'armed' || (sig.state === 'triggered' && !sig.outcome)){
+  if(effState === 'armed' || (effState === 'triggered' && !effOutcome)){
     // Capture the SR tier AT FIRING TIME — the "entry tier". This is
     // what the user saw when deciding to take the trade, even if the
     // tier later weakens (e.g., 5/5 → 4/5 as confluence drops). The
@@ -13697,10 +13717,11 @@ function recordIntradayOutcome(k){
     rec.pending[key] = {
       ts: Date.now(),
       dir: sig.dir,
-      entry: sig.entry,
-      stop: sig.stop,
-      target: sig.target,
-      state: sig.state,
+      entry: effEntry,
+      stop: effStop,
+      target: effTarget,
+      state: effState,
+      method: btMethod,
       srTier: existingSR || srAtEntry
     };
     saveIntradayResults();
@@ -13711,8 +13732,8 @@ function recordIntradayOutcome(k){
   // expired are not counted (the trade never actually entered or was
   // stopped before retest — they're filtered out, not failures).
   var outcome;
-  if(sig.outcome === 'target-hit') outcome = 'win';
-  else if(sig.outcome === 'stop-hit') outcome = 'loss';
+  if(effOutcome === 'target-hit') outcome = 'win';
+  else if(effOutcome === 'stop-hit') outcome = 'loss';
   else { // invalidated / expired — clear from pending without counting
     if(rec.pending[key]) delete rec.pending[key];
     saveIntradayResults();
@@ -13732,11 +13753,12 @@ function recordIntradayOutcome(k){
     key: key,
     ts: Date.now(),
     dir: sig.dir,
-    entry: sig.entry,
-    stop: sig.stop,
-    target: sig.target,
-    R: sig.R,
+    entry: effEntry,
+    stop: effStop,
+    target: effTarget,
+    R: effR,
     outcome: outcome,
+    method: btMethod,
     srTier: carriedSRTier
   });
   if(rec.pending[key]) delete rec.pending[key];
@@ -14459,10 +14481,21 @@ function analyseIntradayFailures(){
 // {rate, total, source: 'live' | 'sim'} or null if no data.
 function intradayWinRate(k){
   var live = liveIntradayWinRate(k);
-  if(live && live.total >= INTRADAY_LIVE_THRESHOLD) return live;
+  // Prefer live whenever it has at least one resolved trade. Earlier
+  // logic only promoted live once it crossed INTRADAY_LIVE_THRESHOLD
+  // (n=5) and otherwise returned the simulator, which meant today's
+  // first 1-4 live wins were hidden behind sim's "no completed trades"
+  // text on FIB-class pairs whose recorder had just started recording
+  // fib outcomes (2026-06-10y). The intraday row caller surfaces a
+  // LIVE n=N badge that already discloses the sample size, so showing
+  // a small live sample is honest — better than implying nothing
+  // happened. INTRADAY_LIVE_THRESHOLD still gates HEADLINE promotion
+  // separately inside mainDashboardWrLabel; only the 15M INTRADAY
+  // detail row changes here.
+  if(live && live.total >= 1) return live;
   var sim = simulateIntradayWinRate(k);
   if(sim) return sim;
-  if(live) return live;  // even if below threshold, surface what we have
+  if(live) return live;  // even when 0 resolved, surface pending/sample state
   return null;
 }
 
