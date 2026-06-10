@@ -2545,15 +2545,8 @@ var _lazyFetchTriggered = false;
 
 function mainDashboardWrLabel(k, m, mode){
   mode = mode || 'short';
-  // Layer 1: prefer live tracker if we have enough samples
   var live = (typeof liveIntradayWinRate === 'function') ? liveIntradayWinRate(k) : null;
-  if(live && live.total >= INTRADAY_LIVE_THRESHOLD){
-    var rate = Math.round(live.rate * 1000) / 10;
-    return mode === 'long'
-      ? rate+'% &#183; '+live.wins+'W/'+live.losses+'L &#183; n='+live.total+' (15m live)'
-      : rate+'% win rate';
-  }
-  // Layer 2: 12-month deep backtest — strongest data-driven source.
+  // Layer 1: 12-month deep backtest — strongest data-driven source.
   // The cache + stats axes are chosen per pair class by _btProfileFor:
   //   majors except AUD/USD -> structural cache, wick stats
   //   AUD/USD, minors, crypto -> auto-EW cache, wick stats
@@ -2728,6 +2721,19 @@ function mainDashboardWrLabel(k, m, mode){
       }, 100);
     }
   } catch(e){ /* defensive */ }
+  // Layer 2: live forward tracker — only fires when the deep BT cache
+  // isn't yet populated. Demoted from primary on 2026-06-10 because n=5
+  // live samples (the previous threshold) gave a noisy headline that
+  // disagreed with the much-larger deep BT shown on the bottom row of
+  // the same card. The 15M INTRADAY row of the card still surfaces this
+  // number directly, so nothing is hidden — only the headline priority
+  // changed.
+  if(live && live.total >= INTRADAY_LIVE_THRESHOLD){
+    var rate = Math.round(live.rate * 1000) / 10;
+    return mode === 'long'
+      ? rate+'% &#183; '+live.wins+'W/'+live.losses+'L &#183; n='+live.total+' (15m live)'
+      : rate+'% win rate';
+  }
   // Layer 3: simulator on buffered data (v45 independent direction + v51 CHoCH invalidation)
   var sim = null;
   try { sim = (typeof simulateIntradayWinRate === 'function') ? simulateIntradayWinRate(k) : null; }
@@ -2746,10 +2752,7 @@ function mainDashboardWrLabel(k, m, mode){
 
 function mainDashboardWrColor(k, m){
   var live = (typeof liveIntradayWinRate === 'function') ? liveIntradayWinRate(k) : null;
-  if(live && live.total >= INTRADAY_LIVE_THRESHOLD){
-    return wrCol(live.rate * 100);
-  }
-  // Layer 2: deep backtest color — CACHE ONLY (see mainDashboardWrLabel).
+  // Layer 1: deep backtest color — CACHE ONLY (see mainDashboardWrLabel).
   // Mirrors the label-side threshold (>= 2 decided) and the per-profile
   // method routing so the badge color tracks whatever number the
   // headline label shows.
@@ -2780,6 +2783,10 @@ function mainDashboardWrColor(k, m){
       }
     }
   } catch(e){ /* defensive */ }
+  // Layer 2: live tracker (fallback when deep BT cache is missing).
+  if(live && live.total >= INTRADAY_LIVE_THRESHOLD){
+    return wrCol(live.rate * 100);
+  }
   // Layer 3: simulator color
   var sim = null;
   try { sim = (typeof simulateIntradayWinRate === 'function') ? simulateIntradayWinRate(k) : null; }

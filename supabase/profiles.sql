@@ -46,14 +46,20 @@ create table if not exists public.profiles (
   telegram_handle   text,
   newsletter_opt_in boolean not null default false,
   -- Instrument-class Telegram alert subscriptions. Valid values: any
-  -- subset of ('major','minor','comm','index','crypto'). The default
-  -- inserts all five so newly-created rows match the legacy "send
-  -- everything" behaviour. An EMPTY array (user explicitly unchecked
-  -- all five in the profile modal) is also a valid state and means
-  -- "do not send me Telegram alerts" — the future per-user routing
-  -- code will treat `array_length(alert_classes, 1) IS NULL` as
-  -- "user opted out" and skip them, even though their telegram_handle
-  -- is still on file.
+  -- subset of ('major','minor','comm','index','crypto','sr_5_5',
+  -- 'sr_4_5','sr_3_5'). The first five are the instrument-class
+  -- buckets; the last three are School Run tier opt-ins for DE40/DJ30
+  -- that route around the normal class filter when the opening-range
+  -- state machine fires. No CHECK constraint on the column — keep the
+  -- valid-value list in sync with VIPRO_CLASS_KEYS in the dashboard
+  -- HTML and SR_TIER_TO_KIND in detect_triggers.py. The default
+  -- inserts all five instrument classes so newly-created rows match
+  -- the legacy "send everything" behaviour (SR tiers are opt-in only).
+  -- An EMPTY array (user explicitly unchecked everything in the
+  -- profile modal) is also a valid state and means "do not send me
+  -- Telegram alerts" — the per-user routing code treats
+  -- `array_length(alert_classes, 1) IS NULL` as "user opted out" and
+  -- skips them, even though their telegram_handle is still on file.
   alert_classes     text[] not null default array['major','minor','comm','index','crypto'],
   consent_version   text,
   consent_at        timestamptz,
@@ -202,3 +208,10 @@ $$;
 
 grant execute on function public.admin_profile_stats() to authenticated;
 revoke execute on function public.admin_profile_stats() from anon;
+
+-- Force PostgREST to reload its schema cache so the column added above
+-- becomes visible to the dashboard's /rest/v1/profiles upsert path.
+-- Symptom this fixes: "Could not find the 'alert_classes' column of
+-- 'profiles' in the schema cache" when saving the profile modal. Safe
+-- to run on every re-execution — it's just a signal.
+notify pgrst, 'reload schema';
