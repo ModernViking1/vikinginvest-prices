@@ -2565,7 +2565,16 @@ function mainDashboardWrLabel(k, m, mode){
       cached = (typeof _loadRecentBtCache === 'function') ? _loadRecentBtCache(otherSource) : null;
       rb = cached && cached[k];
     }
-    if(rb && rb.dataSource === 'deep'){
+    if(rb && rb.totalSignals > 0){
+      // Use whatever the cache has — buffer or deep — and trust the
+      // fingerprint+TTL invalidation. Some minors (USD/SGD, NZD/JPY)
+      // don't yet have enough DEEP_HIST to qualify as 'deep' under the
+      // ≥1000 m15 / ≥200 h1 threshold in calcRecentBacktest, but their
+      // buffered cache still represents 60–80 days of accumulated
+      // runtime data and matches the bottom "4/4 BT" row of the card.
+      // Pre-fix the dataSource==='deep' guard rejected those entries,
+      // which made the headline fall through to the legacy EW label
+      // while the bottom row showed 100%.
       var pmWins, pmLosses, pmTotal, pmRate;
       if(profile.method === 'fib' && rb.hybrid){
         pmWins = rb.hybrid.midWins || 0;
@@ -2767,7 +2776,7 @@ function mainDashboardWrColor(k, m){
       cached = (typeof _loadRecentBtCache === 'function') ? _loadRecentBtCache(otherSource) : null;
       rb = cached && cached[k];
     }
-    if(rb && rb.dataSource === 'deep'){
+    if(rb && rb.totalSignals > 0){
       var cWins, cLosses, cTotal, cRate;
       if(profile.method === 'fib' && rb.hybrid){
         cWins = rb.hybrid.midWins || 0;
