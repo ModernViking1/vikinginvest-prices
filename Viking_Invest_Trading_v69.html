@@ -10796,8 +10796,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-10m';
+var RULES_VERSION = '2026-06-10n';
 var RULES_VERSION_NOTES = [
+  '2026-06-10n — Hybrid min-R floor. The 0.5×ATR(20) check from 2026-06-08 stopped catching noise-tier setups when ATR itself collapsed: NZD/USD 2026-06-10 hit ATR(20)=4.6 pips on a tight-range session, the 0.5×ATR floor evaluated to 2.3 pips, and a setup with R=8.5 pips (9-pip target) made it through to a live Telegram alert. Added an absolute FX pip floor of 12 pips on majors/minors (= 0.0012 non-JPY, = 0.12 JPY) as a hybrid second-gate; final rule is R ≥ max(0.5×ATR, FX_floor). Non-FX classes (commodities / indices / crypto) keep just the ATR check — price magnitudes and pip conventions are too varied for a single pip-unit floor and ATR scales appropriately for those. Applied to the JS dashboard live detector AND backtest engine AND detect_triggers.py (which previously had NO min-R check, breaking dashboard-vs-Telegram parity). Verified across live FX: NZD/USD 8.5-pip setup correctly rejected with reason min-R-floor; EUR/USD 12, GBP/USD 14.2, AUD/USD 14.4, DJ30 / BTC / XAU all pass through. RULES_FINGERPRINT.minRFxPips=12 added so cached backtests pre-dating this rule auto-invalidate.',
   '2026-06-10m — Per-SR-tier WR forward tracking. recordIntradayOutcome now stamps the entry-time SR tier on every armed/triggered signal (preserved across pending refreshes so a 5/5→4/5 weakening doesnt overwrite the original entry tag) and carries it onto the resolved trade record. New liveSRTierWR(k) aggregates per-tier W/L from INTRADAY_RESULTS, surfaced in two places: (1) the SR pill on the DE40 / DJ30 cards now reads the live WR and replaces the static "tracking — sample <30" placeholder with a tiered display (n<5 = "sample <5", 5≤n<30 = "X% (n=N — need 30)", n≥30 = "★ DEPLOY-READY"); (2) the failure-mode panel gains a new "School Run tier WR" row showing per-pair × per-tier progress with the n=30 promotion threshold tracked inline. Honest scope note: there is no per-user Telegram routing yet — all alerts (4/4 trigger, fib, and the new sr_5_5/4_5/3_5 tiers) go to the single admin TELEGRAM_CHAT_ID. The alert_classes field on public.profiles is forward-compatible schema for a future Stripe + entitlement + fan-out build; the SR alert classes are documented there so the migration is in place when that work lands.',
   '2026-06-10l — School Run tier Telegram alerts wired up. detect_triggers.py format_alert grows three new kinds (sr_5_5 / sr_4_5 / sr_3_5) with tier-specific emoji and styling (⭐ / 🟡 / 🟠). After the existing 4/4 trigger / fib alert checks fire, the main loop now also checks the SR tier and emits a tier-classified alert with per-pair per-day rate limits (5/5: 1/day, 4/5: 2/day, 3/5: 1/day). Counters live in alerts-state.json under sr_alerts, scoped by UTC date so they reset cleanly; older date entries are pruned at save time. Baseline (first-run) cycle records existing SR state without alerting, same dedup discipline as the 4/4 alignment alerts. Profile modal grows three new alert-class checkboxes (sr_5_5 default-on; sr_4_5 + sr_3_5 default-off) with an inline explainer of the tier semantics + daily caps. VIPRO_CONSENT_VERSION bumped to 2026-06-10-v2 so existing subscribers see the modal once and can opt in. The per-user routing in notify-new-users.yml will be wired to the new alert_classes values in a follow-up.',
   '2026-06-10k — School Run (SR) tier surfacing for DE40 / DJ30 — Path 1 of the chat scope. New SR_REF_TIMES constant defines DAX (07:00Z / 08:00Z) and DJ30 (13:30Z / 14:30Z) cash-session reference candles. getSRTier(k) walks INTRADAY[k] (or SERVER_DIR fallback on first load) to compute the SR state machine (pending → bull_broken | bear_broken → bull_failed | bear_failed) within the 2h post-open window. Tier classification: 4/4 + SR-aligned = 5/5, 3/4 + SR-aligned = 4/5, 2/4 + SR-aligned = 3/5. Render surfaces: (1) coloured pill on the card above the 4-layer grid (only visible during the 2h window for DE40/DJ30), (2) tier badge appended to the intraday signal log row (5/5 ⭐, 4/5 🟡, 3/5 🟠). detect_triggers.py mirrors the JS state machine and writes the sr dict into directions.json so the badge shows on first load before INTRADAY buffer fills. ZERO gating change — every 4/4 still fires; SR is informational pending forward-data accumulation. Sample-size deploy rule (n_decided ≥ 30 per tier AND ≥ +5pp uplift over baseline 50%) holds until ~12-18 months of data lets us revisit hard-filter deployment.',
@@ -10835,6 +10836,7 @@ function RULES_FINGERPRINT(){
     counterBarsThresh: 2,
     counterBarsNoWick: 0,  // 0 = ratio check disabled (pre-2026-06-04 behaviour)
     minRAtrMult: 0.5,
+    minRFxPips: 12,  // 2026-06-10n absolute FX pip floor — invalidates caches that pre-date the hybrid rule
     // A1 — per-class RSI thresholds (refined 2026-06-10a). Stringified
     // so any future tweak to the map auto-invalidates the cache.
     rsiHardGate: (typeof RSI_GATE_BY_CLASS !== 'undefined')
@@ -11503,7 +11505,16 @@ function calcRecentBacktest(k, mode){
       _atrSum += _tr; _atrCnt++;
     }
     var _atr20 = _atrCnt > 0 ? _atrSum / _atrCnt : 0;
-    if(_atr20 > 0 && R < 0.5 * _atr20){ i++; continue; }
+    // Hybrid min-R floor — matches detectIntradaySignal at 13162. The
+    // ATR-relative threshold catches normal-vol noise; the absolute FX
+    // pip floor catches tight-range sessions where ATR has collapsed
+    // (the NZD/USD 2026-06-10n case). Non-FX classes use the ATR rule
+    // alone — too varied to apply a single absolute floor.
+    var _pcls_bt = (MKTS[k] && MKTS[k].t) || null;
+    var _isFx_bt = (_pcls_bt === 'major' || _pcls_bt === 'minor');
+    var _fxFloor_bt = _isFx_bt ? ((Math.abs(entry) > 50) ? 0.12 : 0.0012) : 0;
+    var _minR_bt = Math.max(_atr20 > 0 ? 0.5 * _atr20 : 0, _fxFloor_bt);
+    if(_minR_bt > 0 && R < _minR_bt){ i++; continue; }
 
     // ── HYBRID RULE: 38% Fib retrace entry (HALF SIZE) ──
     // Matches the live rule: a parallel half-size trade triggered when
@@ -13148,18 +13159,28 @@ function detectIntradaySignal(k){
   if(R <= 0) return null;
   // ── MINIMUM R FLOOR (2026-06-08, NZD/USD 6-pip case) ────────────
   // When the creator wick prints right next to the swept BoS level,
-  // R can be tiny (NZD/USD 2026-06-08 showed a 6-pip stop). Targets
-  // that small are inside spread for some retail brokers and almost
-  // always whipsaw before reaching the 1:1 target. Reject the
-  // signal entirely if R < 0.5 × ATR(20) — the creator and BoS are
-  // structurally too close for a tradeable setup.
+  // R can be tiny (NZD/USD 2026-06-08 showed a 6-pip stop; same pair
+  // 2026-06-10 showed an 8.5-pip stop after ATR collapsed to 4.6 pips
+  // — the 0.5*ATR floor evaluated to 2.3 pips and let it through).
+  // HYBRID FLOOR (RULES_VERSION 2026-06-10n): R must clear BOTH the
+  // ATR-relative threshold AND an absolute FX pip floor.
   //
-  // Why 0.5 × ATR: minProminence already uses 0.25 × ATR as the
-  // BoS-significance floor, so 0.5 × ATR for R is the next natural
-  // tier — "the structural break has to be at least twice as far
-  // away as the noise floor". Empirically this kills the 6-pip
-  // setups but keeps normal-volatility wicks intact.
-  if(atr20 > 0 && R < 0.5 * atr20) return null;
+  // ATR-relative (existing): 0.5 × ATR(20). MinProminence already uses
+  //   0.25 × ATR as the BoS-significance floor, so 0.5 × ATR for R is
+  //   the next natural tier — "structural break twice as far away as
+  //   the noise floor".
+  // Absolute FX floor (new): 12 pips on any FX pair (= 0.0012 non-JPY,
+  //   = 0.12 JPY pairs at 2-decimal pricing). Catches the noise-tier
+  //   setups that pass the ATR check during tight-range sessions when
+  //   ATR(20) itself has collapsed. Non-FX classes (comm / index /
+  //   crypto) keep just the ATR floor — price magnitudes and pip
+  //   conventions are too varied for a single pip-unit floor.
+  var _pcls = (typeof MKTS !== 'undefined' && MKTS[k] && MKTS[k].t) || null;
+  var _isFx = (_pcls === 'major' || _pcls === 'minor');
+  var _atrFloor = 0.5 * atr20;
+  var _fxFloor = _isFx ? ((Math.abs(entry) > 50) ? 0.12 : 0.0012) : 0;
+  var _minR = Math.max(_atrFloor || 0, _fxFloor || 0);
+  if(_minR > 0 && R < _minR) return null;
   // Advisory Auto Fib levels — display only, never alters target. The
   // wick trade still resolves on the 1:1 R:R target above; the Fib
   // figures from autoFibTarget are surfaced as reference levels in

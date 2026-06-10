@@ -604,7 +604,7 @@ def detect_consecutive_counter_bars(bars, current_idx, setup_dir, min_prominence
 
 def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16,
                            expiry_bars=8, h1_rsi=None,
-                           rsi_hi=80, rsi_lo=20):
+                           rsi_hi=80, rsi_lo=20, pair_class=None):
     """Port of the essential parts of detectIntradaySignal from
     dashboard.html (~L9290). Detects the state of the 1:1-RR intraday
     signal for a 4/4-aligned pair on the 15m timeframe.
@@ -712,6 +712,53 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16,
                 target = entry + (entry - stop)
                 if fib_entry is not None and stop < fib_entry:
                     fib_target = fib_entry + (fib_entry - stop)
+
+    # ── Hybrid min-R floor ─────────────────────────────────────
+    # Mirror of the JS detectIntradaySignal floor (Viking_Invest_Trading_v69
+    # ~L13162). R must clear BOTH the ATR-relative threshold AND an
+    # absolute FX pip floor; non-FX classes use ATR alone. Added to the
+    # Python detector 2026-06-10n after a NZD/USD setup with R=8.5 pips
+    # made it into a Telegram alert — the JS dashboard would have
+    # rejected it via the same hybrid check, but the Python detector
+    # had no min-R check at all, breaking dashboard-vs-Telegram parity.
+    if stop is not None and entry is not None:
+        R = abs(stop - entry)
+        # Recent-range ATR (10 bars before creator) as a noise proxy.
+        # Use abs(h - l) ≈ true range; close enough for the floor.
+        atr_slice = bars[max(0, creator_idx - 10):creator_idx]
+        atr_total = sum(abs(b.get('h', 0) - b.get('l', 0)) for b in atr_slice
+                        if b.get('h') is not None and b.get('l') is not None)
+        atr20 = atr_total / len(atr_slice) if atr_slice else 0
+        atr_floor = 0.5 * atr20
+        # Absolute FX floor — 12 pips on any FX pair (= 0.0012 non-JPY,
+        # = 0.12 on JPY pairs at 2-decimal pricing). Catches the noise
+        # tier that survives the ATR check when ATR itself has collapsed.
+        is_fx = pair_class in ('major', 'minor')
+        fx_floor = 0
+        if is_fx:
+            fx_floor = 0.12 if abs(entry) > 50 else 0.0012
+        min_R = max(atr_floor, fx_floor)
+        if min_R > 0 and R < min_R:
+            return {
+                'state': 'invalidated',
+                'creator_idx': creator_idx,
+                'creator_ts': creator.get('t'),
+                'creator_high': creator_high,
+                'creator_low': creator_low,
+                'entry': None,
+                'stop': stop,
+                'target': None,
+                'trigger_bar_idx': -1,
+                'trigger_ts': None,
+                'fib_state': 'invalidated',
+                'fib_entry': None,
+                'fib_target': None,
+                'fib_trigger_bar_idx': -1,
+                'fib_trigger_ts': None,
+                'invalidation_reason': 'min-R-floor',
+                'invalidation_bar_idx': creator_idx,
+                'invalidation_ts': creator.get('t'),
+            }
 
     # Trigger walk: track BOTH wick and fib trigger bars independently. Both
     # variants share the same round-trip lift gate — neither fires until
@@ -1721,7 +1768,8 @@ def scan_pairs(intraday_data, historical_data):
             h1_rsi = calc_rsi(h1_closes, 14) if len(h1_closes) >= 15 else None
             gate = rsi_gate_for(pair)
             sig = detect_intraday_signal(m15, aligned_dir, h1_rsi=h1_rsi,
-                                         rsi_hi=gate['hi'], rsi_lo=gate['lo'])
+                                         rsi_hi=gate['hi'], rsi_lo=gate['lo'],
+                                         pair_class=PAIR_CLASS.get(pair))
 
         # School Run tier — only computed for DE40 and DJ30 (the only
         # pairs in SR_REF_TIMES); for other pairs sr_info stays None
