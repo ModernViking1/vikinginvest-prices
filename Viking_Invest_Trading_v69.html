@@ -13265,6 +13265,30 @@ function detectIntradaySignal(k){
   var _fxFloor = _isFx ? ((Math.abs(entry) > 50) ? 0.12 : 0.0012) : 0;
   var _minR = Math.max(_atrFloor || 0, _fxFloor || 0);
   if(_minR > 0 && R < _minR) return null;
+  // ── MAX R CAP (2026-06-10z, XAG/USD 226-pip case) ──────────────
+  // Cap the wick R at MAX_R_ATR_MULT × ATR(20). Without this cap a
+  // structural high that's 12 hours back on a strongly trending pair
+  // (silver 2026-06-10 night: stop 226 pips above entry on a 4-hour
+  // intraday signal) produces 1:1 targets that almost never reach
+  // inside the 16-bar (4h) max holding window. Tightens the stop to
+  // entry ± cap and rebuilds the target. Auto-scales to pair
+  // volatility via ATR(20); the FIB-zone leg below picks up the
+  // tightened `stop` for free since fibR is computed from it. The
+  // min-R floor above already rejected the truly tiny stops, so the
+  // cap can't ever shrink R below the noise floor.
+  var MAX_R_ATR_MULT = 2.5;
+  var _maxR = MAX_R_ATR_MULT * atr20;
+  if(_maxR > 0 && _minR > 0 && _maxR < _minR) _maxR = _minR;
+  if(_maxR > 0 && R > _maxR){
+    R = _maxR;
+    if(dir === 'bear'){
+      stop   = entry + R;
+      target = entry - R;
+    } else {
+      stop   = entry - R;
+      target = entry + R;
+    }
+  }
   // Advisory Auto Fib levels — display only, never alters target. The
   // wick trade still resolves on the 1:1 R:R target above; the Fib
   // figures from autoFibTarget are surfaced as reference levels in
