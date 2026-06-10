@@ -3039,7 +3039,22 @@ function updateOV(k){
       pxTimeTag = '<div style="font-size:7.5px;color:'+tagColor+';background:'+tagBg+';padding:1px 5px;border-radius:2px;margin-top:1px;display:inline-block;letter-spacing:0.3px;font-family:Orbitron,monospace;" title="Last tick: '+new Date(lastTick).toLocaleString()+'">'+ageText+'</div>';
     }
   } catch(e){ /* defensive */ }
-  el.innerHTML=fdot+'<div class="osym">'+m.sym+ovEvt+ovIntra+ttag+'</div><div class="opx" style="color:'+(m.up?'var(--bull)':'var(--bear)')+'">'+m.px+'</div>'+pxTimeTag+'<div class="osig" style="color:'+col+'">'+lbl+' '+score.tot+'/4</div>'+alignBadge+'<div class="owr" style="color:'+mainDashboardWrColor(k,m)+'">'+mainDashboardWrLabel(k,m,'short')+'</div>';
+  // Hover-tooltip on the headline WR — explains the source layering
+  // (live / sim / deep BT / EW) and, when the headline is the Layer 4
+  // EW fallback, says *why* in plain English. The compact OV card
+  // doesn't have room for inline copy, so the explanation lives on
+  // the title= attribute and surfaces on long-press / mouseover.
+  var _ovWrTxt = mainDashboardWrLabel(k, m, 'short');
+  var _ovWrTip;
+  if(_ovWrTxt && _ovWrTxt.indexOf('(EW)') !== -1){
+    _ovWrTip = 'EW est: structural simulation off the macro Elliott-Wave direction. '
+             + 'No live 15m fills or 12-month BT trades yet — the headline will switch '
+             + 'to a live or deep BT number as soon as either accumulates.';
+  } else {
+    _ovWrTip = 'Headline win rate · sourced from (in priority order) 12-month deep BT '
+             + '→ live 15m tracker → buffered simulator → EW structural estimate.';
+  }
+  el.innerHTML=fdot+'<div class="osym">'+m.sym+ovEvt+ovIntra+ttag+'</div><div class="opx" style="color:'+(m.up?'var(--bull)':'var(--bear)')+'">'+m.px+'</div>'+pxTimeTag+'<div class="osig" style="color:'+col+'">'+lbl+' '+score.tot+'/4</div>'+alignBadge+'<div class="owr" style="color:'+mainDashboardWrColor(k,m)+';cursor:help;" title="'+_ovWrTip+'">'+_ovWrTxt+'</div>';
 }
 
 // ── Scroller ──────────────────────────────────────────────────
@@ -4803,8 +4818,30 @@ function buildBacktest(){
       rrText = m.brr.toFixed(1) + 'R reward / 1R risk &#183; +' + netR + 'R net (EW est)';
     }
 
+    // EW-source explainer — shown only when the headline win-rate fell
+    // through to Layer 4 (the static Elliott-Wave estimate). Surfaces
+    // *why* this pair shows '~XX% est (EW)' instead of a deep-BT or
+    // live-tracked number, so the user can judge confidence. Promoted
+    // away automatically once Layer 1/2/3 has data, so the note
+    // disappears the moment a better source kicks in.
+    var ewNote = '';
+    if(wrTxt && wrTxt.indexOf('(EW)') !== -1){
+      var sample = (m._btSample || 0);
+      var subjectLine;
+      if(m._btSource === 'wickator-real'){
+        subjectLine = 'EW est = Wickator backtest snapshot (n=' + sample + ').';
+      } else {
+        subjectLine = 'EW est = structural simulation off the macro Elliott-Wave direction.';
+      }
+      ewNote = '<div style="font-size:7.5px;color:var(--inkd);font-style:italic;line-height:1.35;margin-top:4px;border-top:1px dashed rgba(0,0,0,0.06);padding-top:4px;" title="Layer 4 fallback in mainDashboardWrLabel — used when no live tracker, simulator, or deep backtest data is available yet for this pair.">'
+        + subjectLine
+        + ' No 4/4 trades in the deep BT cache and no live 15m fills yet '
+        + '&mdash; the headline switches to live or 12-month BT as soon as either accumulates.'
+        + '</div>';
+    }
+
     var card=document.createElement('div');card.className='mktcard';card.onclick=(function(key){return function(){switchPage('dash');switchMkt(key);};})(k);
-    card.innerHTML='<div class="ctop"><div class="csym">'+m.sym+srcTag+confDotHtml+evtDotHtml+'</div><div class="cwr-row"><div class="cwr" style="color:'+col+';font-size:11px;">'+wrTxt+'</div><span class="grade '+gc+'">'+m.g+'</span></div></div><div class="cbar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:'+(m.wr||0)+'%;background:linear-gradient(90deg,'+col+','+col+'88)"></div></div><div style="font-size:8px;color:var(--inkd);margin-top:2px;font-family:Orbitron,monospace;" title="Average reward per 1R risked">'+rrText+'</div></div><div class="cstats"><div class="cstat"><div class="csv" style="color:var(--bull)">'+statsWins+'</div><div class="csl">Wins</div></div><div class="cstat"><div class="csv" style="color:var(--bear)">'+statsLosses+'</div><div class="csl">Losses</div></div><div class="cstat"><div class="csv" style="color:var(--gold)">'+statsTrades+'</div><div class="csl">Trades</div></div></div><div style="font-size:7px;text-align:center;color:var(--inkd);margin-top:-4px;letter-spacing:0.5px;text-transform:uppercase;font-family:Orbitron,monospace;">stats: '+statsTag+'</div>'+intraRow+recentBtRow+fibRow+hintLine;
+    card.innerHTML='<div class="ctop"><div class="csym">'+m.sym+srcTag+confDotHtml+evtDotHtml+'</div><div class="cwr-row"><div class="cwr" style="color:'+col+';font-size:11px;">'+wrTxt+'</div><span class="grade '+gc+'">'+m.g+'</span></div></div><div class="cbar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:'+(m.wr||0)+'%;background:linear-gradient(90deg,'+col+','+col+'88)"></div></div><div style="font-size:8px;color:var(--inkd);margin-top:2px;font-family:Orbitron,monospace;" title="Average reward per 1R risked">'+rrText+'</div></div>'+ewNote+'<div class="cstats"><div class="cstat"><div class="csv" style="color:var(--bull)">'+statsWins+'</div><div class="csl">Wins</div></div><div class="cstat"><div class="csv" style="color:var(--bear)">'+statsLosses+'</div><div class="csl">Losses</div></div><div class="cstat"><div class="csv" style="color:var(--gold)">'+statsTrades+'</div><div class="csl">Trades</div></div></div><div style="font-size:7px;text-align:center;color:var(--inkd);margin-top:-4px;letter-spacing:0.5px;text-transform:uppercase;font-family:Orbitron,monospace;">stats: '+statsTag+'</div>'+intraRow+recentBtRow+fibRow+hintLine;
     mc.appendChild(card);
   }
 
