@@ -14565,12 +14565,33 @@ function applyPrice(k,pd) {
   }
 
   // ── LAYER 3: 15m NOWICK (Independent) ─────────────────────────
-  // Priority: directions.json → live 15m structural calc → keep last (else neutral).
+  // Priority: live 15m structural calc (when materially fresher than
+  // the server) → directions.json → live 15m fallback → neutral.
+  //
+  // 2026-06-10x — TradingView-disagreement fix:
+  // detect_triggers.py publishes directions.json on a ~5-minute
+  // cron, so SERVER_DIR.nw can lag the freshest 15m bar by up to
+  // one cycle. On EUR/USD 2026-06-10 the user watched a fresh bear
+  // CHoCH + BOS print on TradingView (auto-detect picked up the
+  // bear FVG 1 bar ago) while the card still showed "CHoCH bullish
+  // confirmed" because the previous server cycle had latched bull.
+  // When the in-browser calc has at least NW_OVERRIDE_MIN_BARS of
+  // live INTRADAY ticks AND disagrees with the server direction,
+  // trust the live read — it's tick-current. Server stays primary
+  // for first-boot / sparse-buffer cases (newly-added pairs whose
+  // local buffer hasn't filled).
   var prevNwDir = STATE[k].nw;  // capture before update for flip detection
   var nwCalc = (typeof calcIndependentNWDir === 'function') ? calcIndependentNWDir(k) : null;
-  if(srvDir && (srvDir.nw === 'bull' || srvDir.nw === 'bear')){
-    STATE[k].nw = srvDir.nw;
-  } else if(nwCalc === 'bull' || nwCalc === 'bear'){
+  var srvNw = srvDir ? srvDir.nw : null;
+  var srvNwOk = srvNw === 'bull' || srvNw === 'bear';
+  var nwCalcOk = nwCalc === 'bull' || nwCalc === 'bear';
+  var nwLiveBars = (typeof INTRADAY !== 'undefined' && INTRADAY[k]) ? INTRADAY[k].length : 0;
+  var NW_OVERRIDE_MIN_BARS = 24;  // ~6h of 15m — enough context for the lookback walk
+  if(srvNwOk && nwCalcOk && srvNw !== nwCalc && nwLiveBars >= NW_OVERRIDE_MIN_BARS){
+    STATE[k].nw = nwCalc;
+  } else if(srvNwOk){
+    STATE[k].nw = srvNw;
+  } else if(nwCalcOk){
     STATE[k].nw = nwCalc;
   } else if(!STATE[k].nw){
     STATE[k].nw = 'neutral';
