@@ -2585,11 +2585,19 @@ function mainDashboardWrLabel(k, m, mode){
         pmTotal = pmWins + pmLosses;
         pmRate = pmTotal > 0 ? (pmWins / pmTotal) * 100 : null;
       }
-      if(pmRate != null && pmTotal >= 10){
+      // Promote the deep BT rate to the headline whenever at least 2 trades
+      // resolved as wins/losses. This matches the bottom 4/4 BT row (which
+      // shows the rate whenever rb.total > 0). Previously gated at >= 10
+      // decided, which caused pairs with high invalidation rates (e.g.
+      // NZDJPY/USDSGD: 2W/0L + 20+ invalidations) to fall through to the
+      // weaker EW/sim layers even though the deep BT had a confident read.
+      // Long mode annotates low-n so the user keeps the statistical context.
+      if(pmRate != null && pmTotal >= 2){
         var dRate = Math.round(pmRate * 10) / 10;
         var dDays = rb.days || 365;
+        var lowNTag = pmTotal < 10 ? ' <span style="color:var(--inkd);">low-n</span>' : '';
         return mode === 'long'
-          ? dRate+'% &#183; '+pmWins+'W/'+pmLosses+'L &#183; n='+pmTotal+' ('+dDays+'d backtest)'
+          ? dRate+'% &#183; '+pmWins+'W/'+pmLosses+'L &#183; n='+pmTotal+' ('+dDays+'d backtest)'+lowNTag
           : dRate+'% win rate';
       }
     }
@@ -2741,12 +2749,35 @@ function mainDashboardWrColor(k, m){
   if(live && live.total >= INTRADAY_LIVE_THRESHOLD){
     return wrCol(live.rate * 100);
   }
-  // Layer 2: deep backtest color — CACHE ONLY (see mainDashboardWrLabel)
+  // Layer 2: deep backtest color — CACHE ONLY (see mainDashboardWrLabel).
+  // Mirrors the label-side threshold (>= 2 decided) and the per-profile
+  // method routing so the badge color tracks whatever number the
+  // headline label shows.
   try {
-    var cached = (typeof _loadRecentBtCache === 'function') ? _loadRecentBtCache() : null;
+    var profile = (typeof _btProfileFor === 'function')
+      ? _btProfileFor(k) : {source: 'auto-ew', method: 'wick'};
+    var cached = (typeof _loadRecentBtCache === 'function')
+      ? _loadRecentBtCache(profile.source) : null;
     var rb = cached && cached[k];
-    if(rb && rb.dataSource === 'deep' && rb.total >= 10){
-      return wrCol(rb.rate * 100);
+    if(!rb){
+      var otherSource = profile.source === 'structural' ? 'auto-ew' : 'structural';
+      cached = (typeof _loadRecentBtCache === 'function') ? _loadRecentBtCache(otherSource) : null;
+      rb = cached && cached[k];
+    }
+    if(rb && rb.dataSource === 'deep'){
+      var cWins, cLosses, cTotal, cRate;
+      if(profile.method === 'fib' && rb.hybrid){
+        cWins = rb.hybrid.midWins || 0;
+        cLosses = rb.hybrid.midLosses || 0;
+      } else {
+        cWins = rb.wins || 0;
+        cLosses = rb.losses || 0;
+      }
+      cTotal = cWins + cLosses;
+      cRate = cTotal > 0 ? cWins / cTotal : null;
+      if(cRate != null && cTotal >= 2){
+        return wrCol(cRate * 100);
+      }
     }
   } catch(e){ /* defensive */ }
   // Layer 3: simulator color
