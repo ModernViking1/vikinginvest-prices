@@ -498,6 +498,21 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
           <label class="vipro-check vipro-class-check"><input type="checkbox" id="vipro-cls-index"  checked><span>Indices</span></label>
           <label class="vipro-check vipro-class-check"><input type="checkbox" id="vipro-cls-crypto" checked><span>Crypto</span></label>
         </div>
+        <div class="vipro-classes-hd" style="margin-top:10px;">
+          School Run (DE40 / DJ30 only)
+          <span class="vipro-opt">(opening-range tier alerts &mdash; <a href="#" onclick="event.preventDefault();var el=document.getElementById('viproSRHelp');if(el)el.style.display=el.style.display==='block'?'none':'block';" style="color:var(--gold);">what's this?</a>)</span>
+        </div>
+        <div id="viproSRHelp" style="display:none;font-size:9.5px;color:var(--inkm);line-height:1.5;background:rgba(0,0,0,0.03);padding:8px 10px;border-radius:3px;margin:6px 0;">
+          5/5 = 4/4 confluence + School Run break aligned (rarest, highest quality &mdash; ~1/month per pair).
+          4/5 = 3/4 partial confluence + SR break (medium frequency, untested WR &mdash; treat as exploratory).
+          3/5 = 2/4 weak confluence + SR break (speculative &mdash; opt in only if you want the noisiest tier).
+          Per-pair daily caps: 5/5 = 1, 4/5 = 2, 3/5 = 1.
+        </div>
+        <div class="vipro-classes-grid">
+          <label class="vipro-check vipro-class-check"><input type="checkbox" id="vipro-cls-sr_5_5" checked><span>5/5 &#9733;</span></label>
+          <label class="vipro-check vipro-class-check"><input type="checkbox" id="vipro-cls-sr_4_5"><span>4/5 partial</span></label>
+          <label class="vipro-check vipro-class-check"><input type="checkbox" id="vipro-cls-sr_3_5"><span>3/5 speculative</span></label>
+        </div>
       </div>
       <label class="vipro-check">
         <input type="checkbox" id="vipro-newsletter">
@@ -10716,8 +10731,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-10k';
+var RULES_VERSION = '2026-06-10l';
 var RULES_VERSION_NOTES = [
+  '2026-06-10l — School Run tier Telegram alerts wired up. detect_triggers.py format_alert grows three new kinds (sr_5_5 / sr_4_5 / sr_3_5) with tier-specific emoji and styling (⭐ / 🟡 / 🟠). After the existing 4/4 trigger / fib alert checks fire, the main loop now also checks the SR tier and emits a tier-classified alert with per-pair per-day rate limits (5/5: 1/day, 4/5: 2/day, 3/5: 1/day). Counters live in alerts-state.json under sr_alerts, scoped by UTC date so they reset cleanly; older date entries are pruned at save time. Baseline (first-run) cycle records existing SR state without alerting, same dedup discipline as the 4/4 alignment alerts. Profile modal grows three new alert-class checkboxes (sr_5_5 default-on; sr_4_5 + sr_3_5 default-off) with an inline explainer of the tier semantics + daily caps. VIPRO_CONSENT_VERSION bumped to 2026-06-10-v2 so existing subscribers see the modal once and can opt in. The per-user routing in notify-new-users.yml will be wired to the new alert_classes values in a follow-up.',
   '2026-06-10k — School Run (SR) tier surfacing for DE40 / DJ30 — Path 1 of the chat scope. New SR_REF_TIMES constant defines DAX (07:00Z / 08:00Z) and DJ30 (13:30Z / 14:30Z) cash-session reference candles. getSRTier(k) walks INTRADAY[k] (or SERVER_DIR fallback on first load) to compute the SR state machine (pending → bull_broken | bear_broken → bull_failed | bear_failed) within the 2h post-open window. Tier classification: 4/4 + SR-aligned = 5/5, 3/4 + SR-aligned = 4/5, 2/4 + SR-aligned = 3/5. Render surfaces: (1) coloured pill on the card above the 4-layer grid (only visible during the 2h window for DE40/DJ30), (2) tier badge appended to the intraday signal log row (5/5 ⭐, 4/5 🟡, 3/5 🟠). detect_triggers.py mirrors the JS state machine and writes the sr dict into directions.json so the badge shows on first load before INTRADAY buffer fills. ZERO gating change — every 4/4 still fires; SR is informational pending forward-data accumulation. Sample-size deploy rule (n_decided ≥ 30 per tier AND ≥ +5pp uplift over baseline 50%) holds until ~12-18 months of data lets us revisit hard-filter deployment.',
   '2026-06-10j — REVERTED the 10i DE40/DJ30 wick switch back to FIB half-size. The 10i decision was based on the simplified backtest in backtest_rsi_per_class.py which uses STRUCTURAL EW direction only and reported wick +9.2pp on DE40 (n=8) and +12.1pp on DJ30 (n=6). Production realised 50% (DE40) and 47.8% (DJ30) on the larger setup population that includes auto-EW-driven entries — small-sample noise on the simplified backtest, not a real edge. WICK_METHODOLOGY_OVERRIDES now empty. fibPairs fingerprint restored to include de40 + dj30 so cached backtests re-invalidate on next load. Auto-EW-integrated backtest queued (option C in chat) to determine whether to retry the switch with a proper sample.',
   '2026-06-10i — DE40 and DJ30 moved from FIB half-size methodology to WICK full-size. Broader index sweep confirmed wick beat fib by +9.2pp on DE40 (62.5% vs 53.3%, n=8 / 22) and +12.1pp on DJ30 (66.7% vs 54.5%, n=10 / 19). Per-pair override sits in WICK_METHODOLOGY_OVERRIDES so _btMethodFor can flip these two without changing the class default. NAS100 stays on fib (wick regressed -3.0pp). SPX500 / FTSE100 / JP225 also showed wick wins (+16.2 / +8.3 / +3.1pp) but were not flipped this round — pending explicit go-ahead. AUD/CAD also dropped from the universe (chronic low WR drag, same pattern as the prior removals). Active universe is now 6 majors + 13 minors + 6 commodities + 6 indices + 8 crypto = 39 tradeable instruments.',
@@ -15540,13 +15556,28 @@ function _renderCCIVariantPanel(host, commodityKeys){
   // VIPRO_CONSENT_VERSION here whenever that copy materially changes
   // — the modal then re-prompts users whose stored consent_version
   // doesn't match (so they re-acknowledge the new terms).
-  var VIPRO_CONSENT_VERSION = '2026-06-03-v1';
+  // Bumped 2026-06-10l when sr_5_5 / sr_4_5 / sr_3_5 were added to
+  // alert_classes so existing users get re-prompted to opt in (or
+  // explicitly leave them off). Anyone with the prior consent
+  // version sees the modal once and can tick the new SR boxes.
+  var VIPRO_CONSENT_VERSION = '2026-06-10-v2';
   var _viProShownThisSession = false;
   var _viProSubmitting = false;
 
   // Alert-class checkbox IDs map 1:1 with the values stored in
   // profiles.alert_classes — see the supabase/profiles.sql migration.
-  var VIPRO_CLASS_KEYS = ['major','minor','comm','index','crypto'];
+  // The five base classes (major/minor/comm/index/crypto) are the
+  // original cohort; sr_5_5 / sr_4_5 / sr_3_5 added 2026-06-10l for
+  // the School Run tier alerts on DE40 / DJ30 (see SR_REF_TIMES in
+  // detect_triggers.py). Order matters — VIPRO_CLASS_DEFAULTS uses
+  // the same indexing to decide which boxes start checked for new
+  // subscribers.
+  var VIPRO_CLASS_KEYS = ['major','minor','comm','index','crypto','sr_5_5','sr_4_5','sr_3_5'];
+  // Default-on for the new subscriber (no prior profile row). 5/5 is
+  // on by default (rare + highest-quality); 4/5 + 3/5 are off until
+  // the user opts in via the profile modal — too noisy to push by
+  // default until live WR data confirms the cohort lift.
+  var VIPRO_CLASS_DEFAULTS = ['major','minor','comm','index','crypto','sr_5_5'];
   function _viProClassEl(cls){ return document.getElementById('vipro-cls-' + cls); }
 
   function _viProGetForm(){
@@ -15582,15 +15613,32 @@ function _renderCCIVariantPanel(host, commodityKeys){
     set('vipro-telegram',  p.telegram_handle);
     var nl = document.getElementById('vipro-newsletter');
     if(nl) nl.checked = !!p.newsletter_opt_in;
-    // Alert-class checkboxes — default all-checked when the profile
-    // has no explicit array (matches the SQL default and preserves
-    // the legacy "send everything" behaviour for users who joined
-    // before this field existed).
+    // Alert-class checkboxes. Two behaviours:
+    //   - No stored array (legacy user from before the field existed):
+    //     fall back to VIPRO_CLASS_DEFAULTS, which keeps the 5 base
+    //     categories on and only sr_5_5 from the SR tier set.
+    //   - Stored array present: respect it exactly, EXCEPT for the SR
+    //     classes added in 2026-06-10l. If the array predates the
+    //     consent version bump (so the SR keys aren't present), seed
+    //     them from the defaults so existing subscribers get the 5/5
+    //     opt-in by default (the same UX a brand-new signup sees).
     var stored = Array.isArray(p.alert_classes) ? p.alert_classes : null;
+    var prevConsent = p.consent_version || '';
+    var needsSRSeed = (prevConsent < '2026-06-10-v2');
     VIPRO_CLASS_KEYS.forEach(function(cls){
       var el = _viProClassEl(cls);
       if(!el) return;
-      el.checked = stored ? (stored.indexOf(cls) !== -1) : true;
+      if(!stored){
+        el.checked = VIPRO_CLASS_DEFAULTS.indexOf(cls) !== -1;
+        return;
+      }
+      // SR classes: pre-2026-06-10l profiles wouldn't have them stored —
+      // seed from defaults instead of treating absence as "opted out".
+      if(needsSRSeed && cls.indexOf('sr_') === 0){
+        el.checked = VIPRO_CLASS_DEFAULTS.indexOf(cls) !== -1;
+        return;
+      }
+      el.checked = (stored.indexOf(cls) !== -1);
     });
   }
   function _viProIsComplete(p){

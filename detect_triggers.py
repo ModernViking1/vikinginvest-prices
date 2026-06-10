@@ -167,6 +167,26 @@ SR_REF_TIMES = {
 }
 
 
+# Per-tier daily Telegram alert limits (per pair). 5/5 is the rarest +
+# highest quality so 1/day is a hard ceiling; 4/5 gets 2 (the noisiest
+# tier so most likely to need the limit); 3/5 stays tight at 1 because
+# it's the speculative tier we don't want spamming on choppy days.
+SR_ALERT_LIMITS = {
+    '5/5': 1,
+    '4/5': 2,
+    '3/5': 1,
+}
+
+# Map SR tier → alert kind + Supabase alert_classes value (for the
+# per-user opt-in routing in the per-user Telegram pipeline). Same
+# strings appear in the dashboard profile modal checkboxes.
+SR_TIER_TO_KIND = {
+    '5/5': 'sr_5_5',
+    '4/5': 'sr_4_5',
+    '3/5': 'sr_3_5',
+}
+
+
 def _find_sr_ref_candle(pair, m15):
     """Most recent reference candle within window_bars of the latest
     m15 bar for this pair. Returns {idx, ref_high, ref_low, open_time,
@@ -1593,12 +1613,16 @@ def load_json(path):
 
 
 def load_alerts_state(path='alerts-state.json'):
-    """Returns ({pair: {...}}, is_first_run). On first run, the file
-    doesn't exist and we treat the run as baseline (no alerts sent)."""
+    """Returns ({pair: {...}}, sr_alerts_state, is_first_run).
+
+    sr_alerts_state is {YYYY-MM-DD: {pair: {tier: count}}} tracking the
+    per-tier daily SR alert counters. Older date keys are pruned at
+    save time so the file doesn't grow unboundedly.
+    """
     state = load_json(path)
     if state is None:
-        return {}, True
-    return state.get('pairs', {}), False
+        return {}, {}, True
+    return state.get('pairs', {}), state.get('sr_alerts', {}), False
 
 
 # ── Pair scanner ──
@@ -1803,8 +1827,45 @@ def _fmt_price(p):
 
 
 def format_alert(pair, info, kind):
-    """kind: 'newly-aligned' | 'flipped' | 'currently-aligned' | 'triggered' | 'triggered-fib'."""
+    """kind: 'newly-aligned' | 'flipped' | 'currently-aligned' | 'triggered' | 'triggered-fib'
+            | 'sr_5_5' | 'sr_4_5' | 'sr_3_5'.
+
+    SR tier alerts (sr_5_5, sr_4_5, sr_3_5) fire for DE40 / DJ30 only
+    when the School Run tier becomes aligned during the 2h post-open
+    window. See SR_REF_TIMES + get_sr_tier.
+    """
     sym = PAIR_DISPLAY.get(pair, pair.upper())
+    layers = f"EW {info.get('ew')} · TL {info.get('tl')} · NW {info.get('nw')} · CL {info.get('cl') or '?'}"
+
+    # School Run tier alerts — surface the new SR cohort to subscribers
+    # who opted in via the profile modal's sr_* checkboxes. Tier-specific
+    # styling so the user can read priority from the emoji alone.
+    if kind in ('sr_5_5', 'sr_4_5', 'sr_3_5'):
+        sr = info.get('sr') or {}
+        state = sr.get('state', '')
+        engine_dir = sr.get('engine_dir')
+        action = 'BUY' if engine_dir == 'bull' else 'SELL' if engine_dir == 'bear' else '—'
+        ref_hi = _fmt_price(sr.get('ref_high'))
+        ref_lo = _fmt_price(sr.get('ref_low'))
+        break_dir = ('above ' + ref_hi) if state == 'bull_broken' else ('below ' + ref_lo) if state == 'bear_broken' else state
+        spec = {
+            'sr_5_5': ('⭐', '5/5 SR-CONFIRMED', 'full confluence + School Run break'),
+            'sr_4_5': ('🟡', '4/5 SR partial',   '3/4 partial confluence + School Run break'),
+            'sr_3_5': ('🟠', '3/5 SR speculative','2/4 weak confluence + School Run break — speculative'),
+        }[kind]
+        emoji, title, subtitle = spec
+        text = (
+            f"{emoji} <b>{title} — {action} {sym}</b>\n"
+            f"{subtitle}\n"
+            f"Session: {sr.get('session_label', 'SR window')}\n"
+            f"SR break: {break_dir} ({sr.get('bars_since_ref', '?')} bars since ref)\n"
+            f"Ref range: <code>{ref_lo}</code> – <code>{ref_hi}</code>\n"
+            f"Current px: <code>{_fmt_price(info.get('price'))}</code>\n"
+            f"{layers}\n"
+            f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
+        )
+        return text
+
     direction = info['aligned_dir']
     action = 'BUY' if direction == 'bull' else 'SELL'
     layers = f"EW {info['ew']} · TL {info['tl']} · NW {info['nw']} · CL {info.get('cl') or '?'}"
@@ -1916,7 +1977,12 @@ def main():
     write_directions_json(current)
     print(f'Scanned {len(current)} pairs')
 
-    prev_state, is_first_run = load_alerts_state('alerts-state.json')
+    prev_state, sr_state, is_first_run = load_alerts_state('alerts-state.json')
+    # Prune SR alert counters older than 7 days so the state file stays
+    # small. The per-tier daily limits only care about today; older
+    # entries are dead weight.
+    today_iso = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    sr_state = {d: v for d, v in sr_state.items() if d >= today_iso}
     if is_first_run:
         print('First run — establishing baseline, no alerts sent')
 
@@ -2074,6 +2140,41 @@ def main():
                     alerts_sent += 1
                 alerted_fib = cur_creator_ts
 
+        # ── SCHOOL RUN TIER ALERTS (DE40 / DJ30 only) ───────────────
+        # Tier-classified alerts surfacing 5/5, 4/5, and 3/5 cohorts
+        # (RULES_VERSION 2026-06-10l). Engine gating is unchanged —
+        # the regular 4/4 trigger/fib alerts above STILL fire on
+        # 4/4 + SR aligned setups; SR tier alerts are layered on top
+        # with tier-specific styling and per-tier daily rate limits.
+        # Dedup keys are date-scoped so the limits reset each UTC day.
+        sr_info = info.get('sr') if isinstance(info, dict) else None
+        if sr_info and sr_info.get('tier') in SR_ALERT_LIMITS:
+            tier = sr_info['tier']
+            today = now_iso[:10]  # YYYY-MM-DD UTC
+            # Per-tier dedup state: {today: {pair: {tier: count}}}
+            today_counts = sr_state.get(today, {}).get(pair, {}).get(tier, 0)
+            limit = SR_ALERT_LIMITS[tier]
+            kind = SR_TIER_TO_KIND[tier]
+            # Sample-size honesty: baseline run records existing tier
+            # state without alerting, mirroring the 4/4 baseline pattern
+            # above, so deploying SR alerts doesn't replay yesterday's
+            # window on every subscriber's first cycle.
+            if is_first_run:
+                print(f'  baseline(sr): {pair} tier={tier} state={sr_info.get("state")} — recorded, not alerting')
+                sr_state.setdefault(today, {}).setdefault(pair, {})[tier] = today_counts
+            elif today_counts >= limit:
+                # Quiet skip — daily ceiling reached.
+                pass
+            else:
+                action = 'BUY' if sr_info.get('engine_dir') == 'bull' else 'SELL'
+                print(f'  ALERT(sr,{tier}): {pair} {action} state={sr_info.get("state")} '
+                      f'confluence={sr_info.get("confluence")}/4 '
+                      f'(today_counts={today_counts}/{limit})')
+                text = format_alert(pair, info, kind)
+                if send_telegram(token, chat_id, text):
+                    alerts_sent += 1
+                sr_state.setdefault(today, {}).setdefault(pair, {})[tier] = today_counts + 1
+
         new_state[pair] = {
             'aligned_dir': cur_dir,
             'ew': info['ew'],
@@ -2104,6 +2205,7 @@ def main():
         json.dump({
             'updated': now_iso,
             'pairs': new_state,
+            'sr_alerts': sr_state,
         }, f, indent=2, sort_keys=True)
 
     print(f'\nSummary: {alerts_sent} alert(s) sent, {len(new_state)} pairs tracked')
