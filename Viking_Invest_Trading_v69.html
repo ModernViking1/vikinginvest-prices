@@ -3644,7 +3644,7 @@ function getLayerDet(k,layer,sig){
               : fa.swingHigh + 1.618 * fa.leg;
             intraMsg += '<div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(0,0,0,0.08);color:var(--inkd);font-size:7.5px;line-height:1.5;" title="TradingView Auto Fib Retracement levels — advisory only. The wick trade still resolves on the 1:1 R:R target above.">'
               + '<span style="font-family:Orbitron,monospace;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--purple);">🪜 TV Auto Fib (advisory):</span> '
-              + 'SH '+fmt(fa.swingHigh)+' &rarr; SL '+fmt(fa.swingLow)+' (leg '+legPips+') &middot; '
+              + 'Swing High '+fmt(fa.swingHigh)+' &rarr; Swing Low '+fmt(fa.swingLow)+' (leg '+legPips+') &middot; '
               + '<strong>1.272</strong> '+fmt(ext1272)+' ('+fibDistPips(ext1272)+') &middot; '
               + '<strong>1.618</strong> '+fmt(ext1618)+' ('+fibDistPips(ext1618)+') &middot; '
               + '<strong>2.618</strong> '+fmt(ext2618)+' ('+fibDistPips(ext2618)+')'
@@ -3681,11 +3681,19 @@ function getLayerDet(k,layer,sig){
             intraMsg += '<div style="margin-top:2px;color:var(--inkd);font-size:7.5px;font-style:italic;">' + invDescr + '</div>';
           }
           // ── CHoCH DIAGNOSTIC LINE ──
-          // Shows what the algorithm is watching for invalidation.
-          // Helps user understand why a visually-obvious CHoCH may not
-          // have fired yet (e.g. close-through pending, no swing peak
-          // identified, prominence threshold not met).
-          if(iSig.chochDiag && iSig.outcome !== 'choch-invalidated'){
+          // Shows what the algorithm is watching for pre-trigger
+          // invalidation — helps the user understand why a visually-
+          // obvious CHoCH may not have fired yet (close-through pending,
+          // no swing peak identified, prominence threshold not met).
+          //
+          // Restricted to state === 'armed' (2026-06-10aa). Once the
+          // signal is 'triggered' the user is in the trade and watches
+          // target / stop, not the CHoCH level — the diagnostic adds
+          // noise and was reported as unhelpful on a live GBP/CAD
+          // entry where it suggested an already-1-pip-away invalidation
+          // line. 'invalidated' / 'expired' / outcome states are
+          // already covered by the invalidation diagnostic above.
+          if(iSig.chochDiag && iSig.state === 'armed' && iSig.outcome !== 'choch-invalidated'){
             var d = iSig.chochDiag;
             var pxA = Math.abs(d.lastClose || iSig.entry);
             var dec = pxA > 50 ? 3 : (pxA > 5 ? 3 : 5);
