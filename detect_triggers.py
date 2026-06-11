@@ -550,44 +550,50 @@ def detect_opposing_choch(bars, creator_idx, current_idx, setup_dir, min_promine
 
 
 def detect_consecutive_counter_bars(bars, current_idx, setup_dir, min_prominence):
-    """Two consecutive NOWICK candles flipping direction. Bear setup:
-    two bullish-body bars with rising closes, each body >= 70% of
-    the bar's total range AND >= 25% of the noise floor. Mirror for
-    bull. Returns current_idx when the pair forms at
+    """Two consecutive counter-direction candles with a strict opposing-
+    wick budget. Bear setup: two bull-body bars with rising closes,
+    each body >= 25% of the noise floor AND upper_wick <= body × 0.5.
+    Mirror for bull. Returns current_idx when the pair forms at
     (current_idx-1, current_idx), else -1.
 
-    Matches the JS detectConsecutiveCounterBars (2026-06-04 nowick
-    tightening). Caller is expected to walk current_idx bar-by-bar
-    upward — this is O(1) per call by design.
+    Matches the JS detectConsecutiveCounterBars
+    (Viking_Invest_Trading_v69.html ~L12823) — see that function's
+    header for the full body-ratio history. 2026-06-11 switched from
+    a body/range ratio (which let through bars whose close sat in the
+    upper half of a wicky range and still counted as confirmed
+    bullish pressure) to a directional opposing-wick budget. A bear-
+    setup counter-bar must close in roughly the upper 2/3 of its
+    range — otherwise the bar is rejection, not confirmation, and
+    shouldn't invalidate the trade.
     """
     if not bars or current_idx < 1 or current_idx >= len(bars):
         return -1
     prev = bars[current_idx - 1]
     curr = bars[current_idx]
     min_body = (min_prominence or 0) * 0.25
-
-    # Mirror of detectConsecutiveCounterBars in
-    # Viking_Invest_Trading_v69.html (see the body-ratio history in
-    # that function's header for the win-rate trail). 2026-06-09:
-    # reverted to the pre-nowick definition after 0.55 and 0.70
-    # ratios both produced worse aggregate WR (58.4% and 63.2%) than
-    # the no-ratio version (69.7%).
+    OPPOSING_WICK_RATIO = 0.5
 
     def is_counter(b):
-        o, c = b.get('o'), b.get('c')
-        if o is None or c is None:
+        o, c, h, l = b.get('o'), b.get('c'), b.get('h'), b.get('l')
+        if None in (o, c, h, l):
             return False
         if setup_dir == 'bear':
             if not (c > o):
                 return False
             body = c - o
-        elif setup_dir == 'bull':
+            if body < min_body:
+                return False
+            upper_wick = h - max(o, c)
+            return upper_wick <= body * OPPOSING_WICK_RATIO
+        if setup_dir == 'bull':
             if not (c < o):
                 return False
             body = o - c
-        else:
-            return False
-        return body >= min_body
+            if body < min_body:
+                return False
+            lower_wick = min(o, c) - l
+            return lower_wick <= body * OPPOSING_WICK_RATIO
+        return False
 
     if not is_counter(prev) or not is_counter(curr):
         return -1
