@@ -602,6 +602,75 @@ def detect_consecutive_counter_bars(bars, current_idx, setup_dir, min_prominence
     return -1
 
 
+# ── 1.618 Fib extension helper ─────────────────────────────────
+# Mirror of autoFibTarget in Viking_Invest_Trading_v69.html (~L12676),
+# locked to the 1.618 level only. The user-facing "next major target"
+# requested in the Telegram alert (2026-06-10) — surfaces a stretch
+# target so traders can scale out in two legs (1:1 R:R then 1.618 ext).
+# Lookback 60×15m = 15h of macro context, same window the dashboard
+# uses for its TV-style Auto Fib Retracement panel.
+AUTO_FIB_LOOKBACK = 60
+
+
+def auto_fib_1618(bars, anchor_idx, entry, stop, setup_dir):
+    """Project the 1.618 Fibonacci extension beyond the second pivot.
+
+    Returns {'target', 'leg', 'sh', 'sl', 'R', 'reward', 'rr'} or None
+    when the geometry doesn't align with the trade direction (e.g.
+    a bull setup where the swing low came AFTER the swing high in the
+    lookback window — the impulse isn't pointing the right way).
+    """
+    if not bars or anchor_idx is None or anchor_idx < 5:
+        return None
+    start = max(0, anchor_idx - AUTO_FIB_LOOKBACK)
+    end = min(len(bars) - 1, anchor_idx)
+    if end - start < 10:
+        return None
+    sh = float('-inf'); sh_idx = -1
+    sl = float('inf');  sl_idx = -1
+    for i in range(start, end + 1):
+        h = bars[i].get('h')
+        l = bars[i].get('l')
+        if h is None or l is None:
+            continue
+        if h > sh:
+            sh = h; sh_idx = i
+        if l < sl:
+            sl = l; sl_idx = i
+    if sh_idx < 0 or sl_idx < 0:
+        return None
+    # Bear: leg points down → SH must come BEFORE SL in time
+    # Bull: leg points up   → SL must come BEFORE SH in time
+    if setup_dir == 'bear' and sh_idx >= sl_idx:
+        return None
+    if setup_dir == 'bull' and sl_idx >= sh_idx:
+        return None
+    leg = sh - sl
+    if leg <= 0:
+        return None
+    # Extension beyond the second pivot in the trade direction
+    if setup_dir == 'bear':
+        target_1618 = sl - 0.618 * leg
+        if target_1618 >= entry:
+            return None
+    else:
+        target_1618 = sh + 0.618 * leg
+        if target_1618 <= entry:
+            return None
+    R = abs(stop - entry) if stop is not None and entry is not None else 0
+    reward = abs(target_1618 - entry) if entry is not None else 0
+    rr = (reward / R) if R > 0 else None
+    return {
+        'target': target_1618,
+        'leg': leg,
+        'sh': sh,
+        'sl': sl,
+        'R': R,
+        'reward': reward,
+        'rr': rr,
+    }
+
+
 def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16,
                            expiry_bars=8, h1_rsi=None,
                            rsi_hi=80, rsi_lo=20, pair_class=None):
@@ -901,6 +970,17 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16,
     else:
         state = 'triggered' if trigger_bar_idx >= 0 else 'armed'
         fib_state = 'triggered' if fib_trigger_bar_idx >= 0 else 'armed'
+    # Compute the 1.618 Fib extension off the swing high / swing low
+    # found in the AUTO_FIB_LOOKBACK window ending at the creator. This
+    # is the same projection TradingView's Auto Fib Retracement
+    # indicator draws — used as a *stretch* target in the Telegram alert
+    # so traders can scale out in two legs (1:1 R:R first, then 1.618).
+    # Geometry can fail (e.g. bull setup where swing low came AFTER the
+    # high in the window) — fib_ext_target stays None and the alert
+    # line is dropped.
+    fib_ext = auto_fib_1618(bars, creator_idx, entry, stop, aligned_dir)
+    fib_ext_target = fib_ext['target'] if fib_ext else None
+    fib_ext_rr = fib_ext['rr'] if fib_ext else None
     return {
         'state': state,
         'creator_idx': creator_idx,
@@ -918,6 +998,11 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16,
         'fib_target': fib_target,
         'fib_trigger_bar_idx': fib_trigger_bar_idx,
         'fib_trigger_ts': bars[fib_trigger_bar_idx].get('t') if fib_trigger_bar_idx >= 0 else None,
+        # 1.618 Fib extension target (advisory stretch target — separate
+        # from the 1:1 R:R wick/fib targets above, which still drive
+        # invalidation/expiry logic).
+        'fib_ext_target': fib_ext_target,
+        'fib_ext_rr': fib_ext_rr,
         # Invalidation metadata (added 2026-06-08). state == 'invalidated'
         # means the setup was killed pre-trigger by one of the three
         # invalidation paths checked above; the alert pipeline must NOT
@@ -1832,6 +1917,8 @@ def scan_pairs(intraday_data, historical_data):
             'sig_fib_entry': sig.get('fib_entry') if sig else None,
             'sig_fib_target': sig.get('fib_target') if sig else None,
             'sig_fib_trigger_ts': sig.get('fib_trigger_ts') if sig else None,
+            'sig_fib_ext_target': sig.get('fib_ext_target') if sig else None,
+            'sig_fib_ext_rr': sig.get('fib_ext_rr') if sig else None,
             # Invalidation metadata — passed through to directions.json
             # so the dashboard can render a tooltip on cancelled setups
             # and so alert-state debugging is possible without a code
@@ -1944,9 +2031,30 @@ def format_alert(pair, info, kind):
     action = 'BUY' if direction == 'bull' else 'SELL'
     layers = f"EW {info['ew']} · TL {info['tl']} · NW {info['nw']} · CL {info.get('cl') or '?'}"
 
+    # Helper: format the 1.618 Fib extension line shown under the 1:1
+    # target. The R:R is computed from the alert's entry — wick for the
+    # full-size alert, fib-zone for the half-size alert — so the number
+    # reflects the actual reward per 1R risked for *this* alert kind.
+    def _fib_ext_line(entry_val):
+        ext_target = info.get('sig_fib_ext_target')
+        if ext_target is None or entry_val is None:
+            return ''
+        stop_val = info.get('sig_stop')
+        if stop_val is None or stop_val == entry_val:
+            return ''
+        R_local = abs(stop_val - entry_val)
+        reward_local = abs(ext_target - entry_val)
+        rr_local = reward_local / R_local if R_local > 0 else None
+        rr_str = f"{rr_local:.2f}:1 R:R" if rr_local is not None else ''
+        return (
+            f"Fib 1.618: <code>{_fmt_price(ext_target)}</code>"
+            f"{' (' + rr_str + ')' if rr_str else ''}\n"
+        )
+
     if kind == 'triggered':
         # Wick retest — full size, deeper retrace (current behaviour).
-        entry_str  = _fmt_price(info.get('sig_entry'))
+        entry_val = info.get('sig_entry')
+        entry_str  = _fmt_price(entry_val)
         stop_str   = _fmt_price(info.get('sig_stop'))
         target_str = _fmt_price(info.get('sig_target'))
         text = (
@@ -1954,6 +2062,7 @@ def format_alert(pair, info, kind):
             f"Entry:  <code>{entry_str}</code> (creator wick)\n"
             f"Stop:   <code>{stop_str}</code>\n"
             f"Target: <code>{target_str}</code> (1:1 R:R)\n"
+            f"{_fib_ext_line(entry_val)}"
             f"Current px: <code>{_fmt_price(info['price'])}</code>\n"
             f"{layers}\n"
             f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
@@ -1963,7 +2072,8 @@ def format_alert(pair, info, kind):
     if kind == 'triggered-fib':
         # Fib-zone entry — 38% retrace of the creator candle, HALF size.
         # Stop matches wick (structural BoS); target is 1:1 from fib entry.
-        entry_str  = _fmt_price(info.get('sig_fib_entry'))
+        entry_val = info.get('sig_fib_entry')
+        entry_str  = _fmt_price(entry_val)
         stop_str   = _fmt_price(info.get('sig_stop'))   # same stop as wick
         target_str = _fmt_price(info.get('sig_fib_target'))
         text = (
@@ -1971,6 +2081,7 @@ def format_alert(pair, info, kind):
             f"Entry:  <code>{entry_str}</code> (38% Fib of creator candle)\n"
             f"Stop:   <code>{stop_str}</code>\n"
             f"Target: <code>{target_str}</code> (1:1 R:R from fib entry)\n"
+            f"{_fib_ext_line(entry_val)}"
             f"Current px: <code>{_fmt_price(info['price'])}</code>\n"
             f"{layers}\n"
             f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
