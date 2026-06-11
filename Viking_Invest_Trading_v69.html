@@ -688,6 +688,21 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <span id="btForceRerunStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
   </div>
 
+  <!-- ── 1c. COUNTER-BAR RULE TEST — runs the dry-run comparison in-page
+       so a mobile user (no devtools console) can see whether a proposed
+       rule change keeps the dashboard above the 70% WR floor BEFORE
+       it's deployed. Calls compareCounterBarRules() and renders the
+       result in the panel below. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btCounterTestBtn"
+            onclick="runCounterBarRuleTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid var(--purple,#6a5cb8);background:rgba(106,92,184,0.08);color:var(--purple,#6a5cb8);border-radius:3px;cursor:pointer;">
+      🧪 TEST COUNTER-BAR RULE
+    </button>
+    <span id="btCounterTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btCounterTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
+
   <!-- ── 2. PER-PAIR BACKTEST CARDS (the actual content) ── -->
   <div class="mktcards" id="mktCards"></div>
 
@@ -12348,6 +12363,146 @@ function compareCounterBarRules(opts){
 }
 // Expose to window so the user can call it from devtools console
 if(typeof window !== 'undefined'){ window.compareCounterBarRules = compareCounterBarRules; }
+
+// In-page wrapper for the "🧪 TEST COUNTER-BAR RULE" button on the
+// Backtest tab. Mobile Safari has no devtools console, so the result
+// is rendered into #btCounterTestResult instead of console.table.
+// Uses the default SCOPED config (FX + crypto on wick-budget,
+// comm + index keep current rule) — matches what compareCounterBarRules
+// runs with no args.
+function runCounterBarRuleTest(opts){
+  var btn = document.getElementById('btCounterTestBtn');
+  var statusEl = document.getElementById('btCounterTestStatus');
+  var resultEl = document.getElementById('btCounterTestResult');
+  if(!resultEl) return;
+  if(typeof compareCounterBarRules !== 'function'){
+    if(statusEl) statusEl.textContent = 'Engine not loaded — reload the page.';
+    return;
+  }
+  // Deep-history gate — the function silently skips pairs without
+  // enough deep data, but on a fresh session it's worth being explicit.
+  if(typeof DEEP_HIST === 'undefined' || Object.keys(DEEP_HIST).length === 0){
+    if(statusEl) statusEl.textContent = '⏳ Deep history still loading — try again in a few seconds.';
+    return;
+  }
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '🧪 RUNNING…'; }
+  if(statusEl) statusEl.textContent = 'Running both walkers per pair…';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div style="color:var(--inkd);font-style:italic;">⏳ Computing — '
+                     + 'this runs calcRecentBacktest twice on every pair '
+                     + 'and can take 10-40 seconds depending on device. '
+                     + 'No production data is touched.</div>';
+  // Defer to next tick so the browser repaints the running state.
+  setTimeout(function(){
+    var out;
+    try { out = compareCounterBarRules(opts || {}); }
+    catch(e){
+      resultEl.innerHTML = '<div style="color:var(--bear);font-weight:700;">❌ Test errored: '
+                         + (e && e.message ? e.message : String(e)) + '</div>';
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🧪 TEST COUNTER-BAR RULE'; }
+      if(statusEl) statusEl.textContent = 'Errored — see panel.';
+      return;
+    }
+    if(!out){
+      resultEl.innerHTML = '<div style="color:var(--bear);">Test returned no data.</div>';
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🧪 TEST COUNTER-BAR RULE'; }
+      if(statusEl) statusEl.textContent = 'No data.';
+      return;
+    }
+    // Render the comparison
+    var safe = (out.newOverall >= 70);
+    var color = safe ? '#1a7a4a' : '#c0281a';
+    var verdict = safe
+      ? '✓ Projected overall ≥ 70% — safe to deploy under this scoping (still monitor after recompute).'
+      : '⚠ Projected overall below 70% — do not deploy this scoping. Try a different wickRatio or class set.';
+    var classRows = '';
+    Object.keys(out.byClass).sort().forEach(function(c){
+      var b = out.byClass[c];
+      var oldD = b.old_w + b.old_l;
+      var newD = b.new_w + b.new_l;
+      var oldWr = oldD > 0 ? (b.old_w / oldD * 100) : null;
+      var newWr = newD > 0 ? (b.new_w / newD * 100) : null;
+      var delta = (oldWr != null && newWr != null) ? (newWr - oldWr) : null;
+      var deltaStr = (delta == null) ? '—'
+                   : (delta >= 0 ? '+' : '') + delta.toFixed(1) + 'pp';
+      var deltaCol = (delta == null) ? 'var(--inkd)'
+                   : (delta >= 0 ? 'var(--bull)' : 'var(--bear)');
+      var ruleApplied = b.old_w === b.new_w && b.old_l === b.new_l
+                       ? 'OLD-kept' : 'NEW';
+      classRows += '<tr>'
+        + '<td style="padding:3px 6px;">'+c+'</td>'
+        + '<td style="padding:3px 6px;color:var(--inkd);">'+b.pairs+' pairs</td>'
+        + '<td style="padding:3px 6px;color:'+(ruleApplied==='NEW'?'var(--purple,#6a5cb8)':'var(--inkd)')+';">'+ruleApplied+'</td>'
+        + '<td style="padding:3px 6px;text-align:right;">'+b.old_w+'W/'+b.old_l+'L</td>'
+        + '<td style="padding:3px 6px;text-align:right;">'+(oldWr!=null?oldWr.toFixed(1)+'%':'—')+'</td>'
+        + '<td style="padding:3px 6px;text-align:right;">'+b.new_w+'W/'+b.new_l+'L</td>'
+        + '<td style="padding:3px 6px;text-align:right;">'+(newWr!=null?newWr.toFixed(1)+'%':'—')+'</td>'
+        + '<td style="padding:3px 6px;text-align:right;color:'+deltaCol+';font-weight:700;">'+deltaStr+'</td>'
+        + '</tr>';
+    });
+    // Spot-check rows for the index pairs the user explicitly cares about
+    var watchRows = '';
+    ['de40','dj30','xagusd','xauusd'].forEach(function(k){
+      var r = out.rows.filter(function(x){return x.pair===k;})[0];
+      if(!r) return;
+      var d = (r.delta!=null)
+            ? (r.delta>=0?'+':'')+r.delta.toFixed(1)+'pp' : '—';
+      var dCol = (r.delta==null) ? 'var(--inkd)'
+               : (r.delta>=0 ? 'var(--bull)' : 'var(--bear)');
+      watchRows += '<tr>'
+        + '<td style="padding:3px 6px;">'+r.pair+'</td>'
+        + '<td style="padding:3px 6px;color:'+(r.rule==='NEW'?'var(--purple,#6a5cb8)':'var(--inkd)')+';">'+r.rule+'</td>'
+        + '<td style="padding:3px 6px;text-align:right;">'+(r.old_wr!=null?r.old_wr.toFixed(1)+'%':'—')+' ('+r.old_w+'W/'+r.old_l+'L)</td>'
+        + '<td style="padding:3px 6px;text-align:right;">'+(r.new_wr!=null?r.new_wr.toFixed(1)+'%':'—')+' ('+r.new_w+'W/'+r.new_l+'L)</td>'
+        + '<td style="padding:3px 6px;text-align:right;color:'+dCol+';font-weight:700;">'+d+'</td>'
+        + '</tr>';
+    });
+    resultEl.innerHTML =
+      '<div style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--purple,#6a5cb8);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px;">🧪 Counter-bar rule dry-run · scoped (FX+crypto NEW, comm+index OLD-kept)</div>'
+      + '<div style="margin-bottom:6px;color:var(--inkd);font-size:8.5px;">Compares the shipped any-body rule (OLD) against the wick≤body×0.5 budget (NEW) on FX + crypto pairs only. Comm + index pairs run OLD on both passes — their WR is identical and acts as a sanity check.</div>'
+      + '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;margin-top:4px;">'
+      + '<thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);font-size:8.5px;color:var(--inkd);">'
+      + '<th style="padding:3px 6px;text-align:left;">class</th>'
+      + '<th style="padding:3px 6px;text-align:left;"></th>'
+      + '<th style="padding:3px 6px;text-align:left;">rule</th>'
+      + '<th style="padding:3px 6px;text-align:right;">OLD W/L</th>'
+      + '<th style="padding:3px 6px;text-align:right;">OLD WR</th>'
+      + '<th style="padding:3px 6px;text-align:right;">NEW W/L</th>'
+      + '<th style="padding:3px 6px;text-align:right;">NEW WR</th>'
+      + '<th style="padding:3px 6px;text-align:right;">Δ</th>'
+      + '</tr></thead><tbody>'
+      + classRows
+      + '</tbody></table></div>'
+      + '<div style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--purple,#6a5cb8);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-top:10px;margin-bottom:4px;">Watch-list pairs (DE40 / DJ30 / XAG / XAU)</div>'
+      + '<div style="color:var(--inkd);font-size:8.5px;margin-bottom:4px;">Must be marked OLD-kept on this scoping — verifies the comm + index regression doesn\'t reappear.</div>'
+      + '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">'
+      + '<thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);font-size:8.5px;color:var(--inkd);">'
+      + '<th style="padding:3px 6px;text-align:left;">pair</th>'
+      + '<th style="padding:3px 6px;text-align:left;">rule</th>'
+      + '<th style="padding:3px 6px;text-align:right;">OLD WR</th>'
+      + '<th style="padding:3px 6px;text-align:right;">NEW WR</th>'
+      + '<th style="padding:3px 6px;text-align:right;">Δ</th>'
+      + '</tr></thead><tbody>'
+      + watchRows
+      + '</tbody></table></div>'
+      + '<div style="margin-top:12px;padding:8px 10px;border-radius:3px;background:'+(safe?'rgba(26,122,74,0.07)':'rgba(192,40,26,0.07)')+';border:1px solid '+(safe?'rgba(26,122,74,0.3)':'rgba(192,40,26,0.3)')+';">'
+      + '  <div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;color:var(--inkd);margin-bottom:4px;">Projected overall</div>'
+      + '  <div style="font-size:11px;">'
+      + '    <span style="color:var(--inkd);">OLD shipped:</span> '
+      + '    <strong>'+out.oldOverall.toFixed(2)+'%</strong>'
+      + '    <span style="color:var(--inkd);margin-left:4px;">('+out.totals.old_w+'W/'+out.totals.old_l+'L)</span>'
+      + '  </div>'
+      + '  <div style="font-size:13px;color:'+color+';font-weight:700;margin-top:2px;">'
+      + '    SCOPED proposal: '+out.newOverall.toFixed(2)+'%'
+      + '    <span style="font-size:10px;margin-left:6px;">('+out.totals.new_w+'W/'+out.totals.new_l+'L &middot; Δ '+(out.delta>=0?'+':'')+out.delta.toFixed(2)+'pp)</span>'
+      + '  </div>'
+      + '  <div style="margin-top:6px;color:'+color+';font-weight:700;font-size:9.5px;">'+verdict+'</div>'
+      + '</div>';
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🧪 TEST COUNTER-BAR RULE'; }
+    if(statusEl) statusEl.textContent = safe ? 'Done — projection is ≥70%.' : 'Done — projection BELOW 70%.';
+  }, 50);
+}
+if(typeof window !== 'undefined'){ window.runCounterBarRuleTest = runCounterBarRuleTest; }
 
 // Async version with progress callback. Yields to UI between pairs so the
 // browser can repaint, preventing a frozen-tab experience during compute.
