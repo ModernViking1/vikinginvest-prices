@@ -145,7 +145,7 @@ def opposing_choch(bars, creator_idx, current_idx, setup_dir, min_prom):
         return last_c is not None and last_c < trough and (trough - last_c) >= min_prom
 
 
-def walk_setup(m15, i, n_m15, entry, stop, target, ew, counter_fn, min_prom):
+def walk_setup(m15, i, n_m15, entry, stop, target, ew, counter_fn, min_prom, pair_cls):
     """Forward walk a single setup with a pluggable counter-bar test."""
     lift_done = False
     triggered = False
@@ -158,7 +158,7 @@ def walk_setup(m15, i, n_m15, entry, stop, target, ew, counter_fn, min_prom):
         # 2-bar momentum-reversal check (the rule under test)
         if j >= 2:
             prev = m15[j - 1]; curr = b
-            if counter_fn(prev, ew, min_body) and counter_fn(curr, ew, min_body):
+            if counter_fn(prev, ew, min_body, pair_cls) and counter_fn(curr, ew, min_body, pair_cls):
                 if ew == 'bear' and curr['c'] > prev['c']:
                     outcome = 'invalidated'; break
                 if ew == 'bull' and curr['c'] < prev['c']:
@@ -305,7 +305,9 @@ def find_setups(pair_data, pair_key, auto_ew_dirs, counter_fn):
             if ew == 'bull' and rsi_at >= gate['hi']: continue
             if ew == 'bear' and rsi_at <= gate['lo']: continue
 
-        outcome = walk_setup(m15, i, n_m15, entry, stop, target, ew, counter_fn, prom)
+        pair_cls = PAIR_CLASS.get(pair_key)
+        outcome = walk_setup(m15, i, n_m15, entry, stop, target, ew,
+                             counter_fn, prom, pair_cls)
         setups.append({'pair': pair_key, 'ew': ew, 'outcome': outcome})
         last_resolved = i + EXPIRY
     return setups
@@ -331,10 +333,19 @@ def main():
 
     # Test variants:
     variants = [
-        ('OLD (any-body)', lambda b, dir, mb: is_counter_old(b, dir, mb)),
-        ('NEW wick≤body×0.5',  lambda b, dir, mb: is_counter_new(b, dir, mb, 0.5)),
-        ('NEW wick≤body×1.0',  lambda b, dir, mb: is_counter_new(b, dir, mb, 1.0)),
-        ('NEW wick≤body×1.5',  lambda b, dir, mb: is_counter_new(b, dir, mb, 1.5)),
+        ('OLD (any-body)',             lambda b, dir, mb, cls: is_counter_old(b, dir, mb)),
+        ('NEW wick≤body×0.5 (all)',    lambda b, dir, mb, cls: is_counter_new(b, dir, mb, 0.5)),
+        # 2026-06-11dd post-revert test — per-class scoping per user
+        # request: apply the wick budget only to FX (major+minor) +
+        # crypto, leave commodity + index pairs on the OLD rule.
+        # If the regression we saw under the all-pairs deploy was
+        # concentrated in the index class (DE40 −11.5pp / DJ30 −2.1pp
+        # observed in production), scoping should preserve their WR
+        # while still capturing the XAG-style fix for FX + crypto.
+        ('SCOPED (FX+crypto NEW, comm+index OLD)',
+            lambda b, dir, mb, cls: (is_counter_new(b, dir, mb, 0.5)
+                                     if cls in ('major', 'minor', 'crypto')
+                                     else is_counter_old(b, dir, mb))),
     ]
 
     # Per-pair results
