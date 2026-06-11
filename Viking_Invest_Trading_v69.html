@@ -3266,6 +3266,42 @@ function getLayerDet(k,layer,sig){
         if(rsi >= 75 && trajArrow === '↓') hint += ' · overbought + turning down (bearish setup confluence)';
         else if(rsi <= 25 && trajArrow === '↑') hint += ' · oversold + turning up (bullish setup confluence)';
         rsiTag = ' <span style="font-size:8px;color:'+zoneColor+';font-weight:700;letter-spacing:0.3px;background:rgba(0,0,0,0.04);padding:1px 5px;border-radius:2px;margin-left:6px;" title="'+hint+'">RSI '+rsi.toFixed(0)+trajArrow+' ['+zoneLabel+']</span>';
+      } else {
+        // RSI couldn't be computed — surfaces *why* so a missing badge
+        // isn't silent. Common causes (in priority order):
+        //   1. DEEP_HIST hasn't loaded yet (boot still in progress, or
+        //      CDN failed — see window._deepHistStatErr / Npm / Gh / raw)
+        //   2. DEEP_HIST loaded but no entry for this pair (CDN cache
+        //      pre-dates the pair's inclusion in historical-ohlc.json —
+        //      flagged on the GBP/CAD 2026-06-10 case)
+        //   3. INTRADAY/HISTORY h1 fallback < 16 bars (new pair or
+        //      sparse buffered data)
+        // The user can hover the badge to see the precise reason.
+        var dhLoaded = (typeof DEEP_HIST_LOADED !== 'undefined') && DEEP_HIST_LOADED;
+        var dhHasPair = (typeof DEEP_HIST !== 'undefined') && DEEP_HIST[k];
+        var dhH1Len = (dhHasPair && DEEP_HIST[k].h1) ? DEEP_HIST[k].h1.length : 0;
+        var statusLabel, statusTip;
+        if(!dhLoaded){
+          statusLabel = 'loading';
+          statusTip = '1H RSI is computed from DEEP_HIST h1 (12-month CDN payload). '
+                    + 'Boot fetch still in flight — RSI will appear within a few seconds.';
+        } else if(!dhHasPair || dhH1Len === 0){
+          statusLabel = 'no h1 data';
+          statusTip = '1H RSI unavailable: the cached historical-ohlc.json doesn\'t '
+                    + 'contain an h1 series for this pair. Likely a stale CDN cache '
+                    + 'pre-dating this pair\'s inclusion. Force a re-fetch via the '
+                    + 'devtools console: localStorage.removeItem("vit_deep_hist_v1"); location.reload();';
+        } else if(dhH1Len < 16){
+          statusLabel = 'warming up (' + dhH1Len + ' bars)';
+          statusTip = '1H RSI needs at least 16 closes to compute (14-period Wilder + 2 prior). '
+                    + 'DEEP_HIST has only ' + dhH1Len + ' h1 bars for this pair — '
+                    + 'will populate as more bars accumulate.';
+        } else {
+          statusLabel = 'pending';
+          statusTip = '1H RSI not yet stamped on STATE[k]. Wait a tick — applyPrice '
+                    + 'calls refreshHourlyRSI on every price update.';
+        }
+        rsiTag = ' <span style="font-size:8px;color:var(--inkd);font-weight:700;letter-spacing:0.3px;background:rgba(0,0,0,0.04);padding:1px 5px;border-radius:2px;margin-left:6px;font-style:italic;cursor:help;" title="'+statusTip+'">RSI: '+statusLabel+'</span>';
       }
     } catch(e){ /* defensive */ }
     if(sig==='bear'){
@@ -13266,27 +13302,35 @@ function detectIntradaySignal(k){
   var _minR = Math.max(_atrFloor || 0, _fxFloor || 0);
   if(_minR > 0 && R < _minR) return null;
   // ── MAX R CAP (2026-06-10z, XAG/USD 226-pip case) ──────────────
-  // Cap the wick R at MAX_R_ATR_MULT × ATR(20). Without this cap a
-  // structural high that's 12 hours back on a strongly trending pair
-  // (silver 2026-06-10 night: stop 226 pips above entry on a 4-hour
-  // intraday signal) produces 1:1 targets that almost never reach
-  // inside the 16-bar (4h) max holding window. Tightens the stop to
-  // entry ± cap and rebuilds the target. Auto-scales to pair
-  // volatility via ATR(20); the FIB-zone leg below picks up the
-  // tightened `stop` for free since fibR is computed from it. The
-  // min-R floor above already rejected the truly tiny stops, so the
-  // cap can't ever shrink R below the noise floor.
+  // Cap the wick R at MAX_R_ATR_MULT × ATR(20) for COMMODITIES and
+  // INDICES only. The silver 2026-06-10 case (stop 226 pips above
+  // entry on a 4-hour intraday signal) hit the FIB-class pairs whose
+  // structural highs sit hours back on strongly trending instruments.
+  //
+  // Scope decision (backtest_max_r_cap.py over 12 months):
+  //   comm  +2.2pp  ← target class
+  //   index +0.1pp
+  //   crypto +0.4pp
+  //   major  -1.0pp
+  //   minor  -5.4pp ← would erode the 70%+ FX win-rate user cares about
+  // FX/crypto structural stops are already tight enough that the cap
+  // mostly removes legitimate room for the trade to breathe — so we
+  // leave them on the original structural-stop rule. The FIB-zone leg
+  // below picks up the tightened `stop` for free since fibR is
+  // computed from it. Min-R floor above can't be undercut.
   var MAX_R_ATR_MULT = 2.5;
-  var _maxR = MAX_R_ATR_MULT * atr20;
-  if(_maxR > 0 && _minR > 0 && _maxR < _minR) _maxR = _minR;
-  if(_maxR > 0 && R > _maxR){
-    R = _maxR;
-    if(dir === 'bear'){
-      stop   = entry + R;
-      target = entry - R;
-    } else {
-      stop   = entry - R;
-      target = entry + R;
+  if(_pcls === 'comm' || _pcls === 'index'){
+    var _maxR = MAX_R_ATR_MULT * atr20;
+    if(_maxR > 0 && _minR > 0 && _maxR < _minR) _maxR = _minR;
+    if(_maxR > 0 && R > _maxR){
+      R = _maxR;
+      if(dir === 'bear'){
+        stop   = entry + R;
+        target = entry - R;
+      } else {
+        stop   = entry - R;
+        target = entry + R;
+      }
     }
   }
   // Advisory Auto Fib levels — display only, never alters target. The

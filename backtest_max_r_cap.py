@@ -42,6 +42,10 @@ HIST_PATH = '/home/user/vikinginvest-prices/historical-ohlc.json'
 AUTO_EW_MIN_CONFIDENCE = 0.70
 MAX_R_ATR_MULT = 2.5   # the cap under test
 
+# Match production: live cap only fires on commodity + index pairs after
+# the comparison run showed FX/crypto either neutral or negative.
+CAP_CLASSES = {'comm', 'index'}
+
 NW_LB = 5
 TL_LB = 8
 EW_LB = 8
@@ -275,7 +279,10 @@ def find_setups_dual(pair_data, pair_key, auto_ew_dirs):
         stop_new = stop_old
         max_R = MAX_R_ATR_MULT * atr20 if atr20 > 0 else 0
         was_capped = False
-        if max_R > 0 and R_old > max_R:
+        pair_cls = PAIR_CLASS.get(pair_key)
+        # Production only caps comm + index — match that filter so the
+        # comparison shows the actual behaviour of the deployed rule.
+        if pair_cls in CAP_CLASSES and max_R > 0 and R_old > max_R:
             R_new = max_R
             was_capped = True
             if ew == 'bear':

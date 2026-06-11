@@ -760,29 +760,31 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16,
                 'invalidation_ts': creator.get('t'),
             }
         # ── Max R cap (2026-06-10z, XAG/USD 226-pip case) ──────────
-        # Mirror of the JS detectIntradaySignal cap. Without it a
-        # structural high that's hours back on a strongly trending
-        # pair (silver 2026-06-10 night: 226-pip stop on a 4-hour
-        # intraday signal) lands in the Telegram alert and the
-        # 1:1 R:R target never gets reached inside the 16-bar
-        # holding window. Tighten the stop to entry ± cap, rebuild
-        # the target, and recompute the fib leg's target from the
-        # new stop. Auto-scales to pair volatility via ATR(20).
+        # Mirror of the JS detectIntradaySignal cap. Scoped to
+        # commodities + indices only after the comparison backtest
+        # (backtest_max_r_cap.py) showed FX would lose 5.4pp on
+        # minors with no gain elsewhere. The silver problem is
+        # specific to FIB-class instruments whose structural stops
+        # sit hours back on a strong trend — FX stops are already
+        # tight, so the cap there just clips legitimate breathing
+        # room. Auto-scales to pair volatility via ATR(20); floor
+        # cannot be undercut.
         MAX_R_ATR_MULT = 2.5
-        max_R = MAX_R_ATR_MULT * atr20
-        if max_R > 0 and min_R > 0 and max_R < min_R:
-            max_R = min_R  # never shrink below floor
-        if max_R > 0 and R > max_R:
-            if aligned_dir == 'bear':
-                stop = entry + max_R
-                target = entry - max_R
-                if fib_entry is not None and stop > fib_entry:
-                    fib_target = fib_entry - (stop - fib_entry)
-            else:
-                stop = entry - max_R
-                target = entry + max_R
-                if fib_entry is not None and stop < fib_entry:
-                    fib_target = fib_entry + (fib_entry - stop)
+        if pair_class in ('comm', 'index'):
+            max_R = MAX_R_ATR_MULT * atr20
+            if max_R > 0 and min_R > 0 and max_R < min_R:
+                max_R = min_R  # never shrink below floor
+            if max_R > 0 and R > max_R:
+                if aligned_dir == 'bear':
+                    stop = entry + max_R
+                    target = entry - max_R
+                    if fib_entry is not None and stop > fib_entry:
+                        fib_target = fib_entry - (stop - fib_entry)
+                else:
+                    stop = entry - max_R
+                    target = entry + max_R
+                    if fib_entry is not None and stop < fib_entry:
+                        fib_target = fib_entry + (fib_entry - stop)
 
     # Trigger walk: track BOTH wick and fib trigger bars independently. Both
     # variants share the same round-trip lift gate — neither fires until
