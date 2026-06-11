@@ -1053,14 +1053,12 @@ var MKTS = {
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
     entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
   // eursek removed 2026-06-08 — low win-rate drag on aggregate.
-  ftse100:{sym:'FTSE 100',t:'index',px:'8,000',p:8000,d:1,sc:20,up:true,chg:'+0.00%',
-    ew:'neutral',tl:'neutral',nw:'neutral',
-    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
-    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
-  dj30:{sym:'DJ 30',t:'index',px:'40,000',p:40000,d:0,sc:120,up:true,chg:'+0.00%',
-    ew:'neutral',tl:'neutral',nw:'neutral',
-    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
-    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  // (Stale ftse100 / dj30 stub entries at this position removed
+  // 2026-06-10bb — they were silently overwritten by the canonical
+  // entries below in JS object-literal evaluation, so they were
+  // dead code that confused MKTS count tools and the duplicate
+  // grep checks. No behaviour change — the live values came from
+  // the canonical entries the whole time.)
   nas100:{sym:'NAS 100',t:'index',px:'18,000',p:18000,d:1,sc:80,up:true,chg:'+0.00%',
     ew:'neutral',tl:'neutral',nw:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
@@ -4547,39 +4545,71 @@ function buildBacktest(){
   // "wick + midpoint" comparison stat no longer applies; each pair
   // uses exactly one entry method (wick OR fib) per its profile.
   var agg=document.getElementById('aggRow');
-  // Compute confidence breakdown: pairs with high-conf real backtest vs low-conf vs structural
-  // Confidence breakdown — counts pairs by sample size of their
-  // production-methodology backtest. Recognises both the new
-  // profile-* sources (set by refreshBacktestWR's Tier 0 after the
-  // 2026-05-29 per-class routing) AND the legacy wickator-real
-  // source (still used by tier 1 simWickatorRealBacktest).
-  // Pre-fix this only matched wickator-real, so every pair landed in
-  // confStruct → "0/38" High-Conf WR even when 200+ deep-backtest
-  // trades existed (the 2026-05-30 symptom).
+  // ── HIGH-CONF aggregate (rebuilt 2026-06-10bb) ─────────────────
+  // Before: the card showed `<count>/<total>` ("0/41") under a
+  // "High-Conf WR" label and bucketed pairs by `n >= 100` decided
+  // trades — a threshold inherited from a draft when _btSample
+  // tracked totalSignals (which included invalidated). _btSample
+  // is now the DECIDED count (wins + losses) for every tier, so
+  // n >= 100 is unreachable on 12-month data and the metric stuck
+  // at 0/41 regardless of how good the cache was. Reported as
+  // "looks like old legacy text" 2026-06-10.
+  //
+  // After:
+  //   thresholds   →  high ≥ 30, med ≥ 15, low ≥ 5, else est
+  //   value shown  →  actual aggregate WR of the high-conf pairs
+  //                   (instead of a meaningless count ratio under
+  //                   a label that said "WR")
+  //   sub-text     →  count breakdown + per-tier sample threshold
+  //                   so the user can verify what the buckets mean
+  //   color        →  follows the high-conf WR through wrCol so
+  //                   it tracks the actual quality of the cohort
+  var CONF_HIGH_N = 30;
+  var CONF_MED_N  = 15;
+  var CONF_LOW_N  = 5;
   var confHigh = 0, confMed = 0, confLow = 0, confStruct = 0;
+  var confHighW = 0, confHighL = 0;
   Object.keys(MKTS).forEach(function(k){
     var m = MKTS[k];
     var src = m._btSource || 'wickator-structure';
     var n = m._btSample || 0;
     var isProfile = src.indexOf && src.indexOf('profile-') === 0;
-    if(isProfile){
-      // Profile-* sources read from the 12-month deep backtest cache —
-      // trade counts run into the hundreds, so use larger thresholds.
-      if(n >= 100)     confHigh++;
-      else if(n >= 30) confMed++;
-      else if(n >= 3)  confLow++;
-      else             confStruct++;
-    } else if(src === 'wickator-real'){
-      // Legacy real-historical-trade counts (tier 1) — small windows.
-      if(n >= 20)      confHigh++;
-      else if(n >= 5)  confMed++;
-      else             confLow++;
+    var bucket;
+    if(isProfile || src === 'wickator-real'){
+      if(n >= CONF_HIGH_N){
+        bucket = 'high';
+        confHigh++;
+        // Accumulate W/L only for high-conf pairs so the headline
+        // WR reflects just that cohort.
+        confHighW += (m.bw || 0);
+        confHighL += (m.bl || 0);
+      } else if(n >= CONF_MED_N){
+        bucket = 'med'; confMed++;
+      } else if(n >= CONF_LOW_N){
+        bucket = 'low'; confLow++;
+      } else {
+        bucket = 'est'; confStruct++;
+      }
     } else {
-      confStruct++;
+      bucket = 'est'; confStruct++;
     }
   });
-  var confTxt = confHigh+' high · '+confMed+' med · '+confLow+' low · '+confStruct+' est';
-  var confColor = confHigh > Object.keys(MKTS).length/3 ? 'var(--bull)' : 'var(--gold)';
+  var highDecided = confHighW + confHighL;
+  var confValue, confTxt, confColor;
+  if(highDecided > 0){
+    var highWR = (confHighW / highDecided) * 100;
+    confValue = highWR.toFixed(1) + '%';
+    confColor = (typeof wrCol === 'function') ? wrCol(highWR) : 'var(--bull)';
+  } else {
+    // No pair has crossed the high-conf threshold yet — show the
+    // count instead of a misleading 0% headline.
+    confValue = confHigh + '/' + Object.keys(MKTS).length;
+    confColor = 'var(--inkd)';
+  }
+  confTxt = confHigh + ' high (n&ge;' + CONF_HIGH_N + ') · '
+          + confMed  + ' med (&ge;' + CONF_MED_N + ') · '
+          + confLow  + ' low (&ge;' + CONF_LOW_N + ') · '
+          + confStruct + ' est';
 
   // Build the stat card list. When deep data is available, show real-data
   // numbers instead of the static EW estimates. When hybrid stats exist,
