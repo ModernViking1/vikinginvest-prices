@@ -550,50 +550,40 @@ def detect_opposing_choch(bars, creator_idx, current_idx, setup_dir, min_promine
 
 
 def detect_consecutive_counter_bars(bars, current_idx, setup_dir, min_prominence):
-    """Two consecutive counter-direction candles with a strict opposing-
-    wick budget. Bear setup: two bull-body bars with rising closes,
-    each body >= 25% of the noise floor AND upper_wick <= body × 0.5.
-    Mirror for bull. Returns current_idx when the pair forms at
-    (current_idx-1, current_idx), else -1.
+    """Two consecutive opposite-body candles with rising/falling closes.
+    Bear setup: two bull-body bars with body >= 25% of the noise floor
+    AND second bar's close > first's. Mirror for bull. Returns
+    current_idx when the pair forms at (current_idx-1, current_idx),
+    else -1.
 
     Matches the JS detectConsecutiveCounterBars
-    (Viking_Invest_Trading_v69.html ~L12823) — see that function's
-    header for the full body-ratio history. 2026-06-11 switched from
-    a body/range ratio (which let through bars whose close sat in the
-    upper half of a wicky range and still counted as confirmed
-    bullish pressure) to a directional opposing-wick budget. A bear-
-    setup counter-bar must close in roughly the upper 2/3 of its
-    range — otherwise the bar is rejection, not confirmation, and
-    shouldn't invalidate the trade.
+    (Viking_Invest_Trading_v69.html ~L12823). 2026-06-11dd reverted
+    the wick-budget rule shipped in 11cc after the production
+    deep-BT recompute dropped the dashboard aggregate to 67.8% —
+    below the 70% floor — and DE40 regressed -11.5pp. The XAG case
+    that motivated the wick-budget comes back as a known edge.
     """
     if not bars or current_idx < 1 or current_idx >= len(bars):
         return -1
     prev = bars[current_idx - 1]
     curr = bars[current_idx]
     min_body = (min_prominence or 0) * 0.25
-    OPPOSING_WICK_RATIO = 0.5
 
     def is_counter(b):
-        o, c, h, l = b.get('o'), b.get('c'), b.get('h'), b.get('l')
-        if None in (o, c, h, l):
+        o, c = b.get('o'), b.get('c')
+        if o is None or c is None:
             return False
         if setup_dir == 'bear':
             if not (c > o):
                 return False
             body = c - o
-            if body < min_body:
-                return False
-            upper_wick = h - max(o, c)
-            return upper_wick <= body * OPPOSING_WICK_RATIO
-        if setup_dir == 'bull':
+        elif setup_dir == 'bull':
             if not (c < o):
                 return False
             body = o - c
-            if body < min_body:
-                return False
-            lower_wick = min(o, c) - l
-            return lower_wick <= body * OPPOSING_WICK_RATIO
-        return False
+        else:
+            return False
+        return body >= min_body
 
     if not is_counter(prev) or not is_counter(curr):
         return -1

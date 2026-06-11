@@ -10987,9 +10987,10 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-11cc';
+var RULES_VERSION = '2026-06-11dd';
 var RULES_VERSION_NOTES = [
-  '2026-06-11cc — Counter-bar rule replaced. Old: any opposing-body bar ≥ noise floor + rising/falling closes (aggregate WR 69.7%). New: opposing wick must be ≤ body × 0.5, so the bar closes in roughly the upper 2/3 of its range for a bear setup (lower 2/3 for bull). Reported by user on XAG/USD 2026-06-11 — idx 95 (upper_wick 0.15 / body 0.17 = 88% rejection wick) was triggering the 2-counter-bar momentum-reversal cancellation even though the close sat well below the bar high. backtest_counter_bar_wick.py confirmed wick≤body×0.5 lifts aggregate WR from 65.96% → 69.53% on the standalone walker (+3.6pp) and roughly doubles the decided sample. Per class: minor +6.1pp (preserves the 70%+ FX cohort), major +5.2pp, index +8.2pp (silver-case category), crypto +4.4pp. Commodity WR appears to drop 83.3% → 65.0% but the OLD comm sample was selection-biased (xagusd n=1!) — net R-multiple is higher on the new rule (+8R → +12R). Mirrored in JS detectConsecutiveCounterBars + Python detect_consecutive_counter_bars. RULES_FINGERPRINT.counterOpposingWickRatio = 0.5 added so cached deep backtests invalidate and re-run under the new rule on next page load.',
+  '2026-06-11dd — REVERTED 11cc back to the pre-nowick counter-bar rule (any opposing-body bar ≥ noise floor + rising/falling closes). Production recompute under the wick-budget rule dropped the aggregate from 71.3% to 67.8% — below the 70% floor — and DE40 regressed -11.5pp / DJ30 -2.1pp. Standalone walker (backtest_counter_bar_wick.py) had predicted +3.6pp aggregate and +8.2pp on indices, so the simplified script materially mispredicted production behaviour, likely because it doesn\'t fully mirror the production walker\'s fib half-size / opposing-CHoCH / lift-gate semantics. XAG-style wicky cancellations come back as a known edge. Lesson logged: rule changes need a production-walker dry-run before shipping, not just the standalone backtest. RULES_FINGERPRINT.counterBarsNoWick restored to 0 so caches re-invalidate.',
+  '2026-06-11cc — (REVERTED 11dd) Counter-bar rule replaced. Switched from any-body to opposing wick ≤ body × 0.5, predicted aggregate +3.6pp on the standalone walker but production recompute landed at 67.8% (-3.5pp). See 11dd.',
   '2026-06-10n — Hybrid min-R floor. The 0.5×ATR(20) check from 2026-06-08 stopped catching noise-tier setups when ATR itself collapsed: NZD/USD 2026-06-10 hit ATR(20)=4.6 pips on a tight-range session, the 0.5×ATR floor evaluated to 2.3 pips, and a setup with R=8.5 pips (9-pip target) made it through to a live Telegram alert. Added an absolute FX pip floor of 12 pips on majors/minors (= 0.0012 non-JPY, = 0.12 JPY) as a hybrid second-gate; final rule is R ≥ max(0.5×ATR, FX_floor). Non-FX classes (commodities / indices / crypto) keep just the ATR check — price magnitudes and pip conventions are too varied for a single pip-unit floor and ATR scales appropriately for those. Applied to the JS dashboard live detector AND backtest engine AND detect_triggers.py (which previously had NO min-R check, breaking dashboard-vs-Telegram parity). Verified across live FX: NZD/USD 8.5-pip setup correctly rejected with reason min-R-floor; EUR/USD 12, GBP/USD 14.2, AUD/USD 14.4, DJ30 / BTC / XAU all pass through. RULES_FINGERPRINT.minRFxPips=12 added so cached backtests pre-dating this rule auto-invalidate.',
   '2026-06-10m — Per-SR-tier WR forward tracking. recordIntradayOutcome now stamps the entry-time SR tier on every armed/triggered signal (preserved across pending refreshes so a 5/5→4/5 weakening doesnt overwrite the original entry tag) and carries it onto the resolved trade record. New liveSRTierWR(k) aggregates per-tier W/L from INTRADAY_RESULTS, surfaced in two places: (1) the SR pill on the DE40 / DJ30 cards now reads the live WR and replaces the static "tracking — sample <30" placeholder with a tiered display (n<5 = "sample <5", 5≤n<30 = "X% (n=N — need 30)", n≥30 = "★ DEPLOY-READY"); (2) the failure-mode panel gains a new "School Run tier WR" row showing per-pair × per-tier progress with the n=30 promotion threshold tracked inline. Honest scope note: there is no per-user Telegram routing yet — all alerts (4/4 trigger, fib, and the new sr_5_5/4_5/3_5 tiers) go to the single admin TELEGRAM_CHAT_ID. The alert_classes field on public.profiles is forward-compatible schema for a future Stripe + entitlement + fan-out build; the SR alert classes are documented there so the migration is in place when that work lands.',
   '2026-06-10l — School Run tier Telegram alerts wired up. detect_triggers.py format_alert grows three new kinds (sr_5_5 / sr_4_5 / sr_3_5) with tier-specific emoji and styling (⭐ / 🟡 / 🟠). After the existing 4/4 trigger / fib alert checks fire, the main loop now also checks the SR tier and emits a tier-classified alert with per-pair per-day rate limits (5/5: 1/day, 4/5: 2/day, 3/5: 1/day). Counters live in alerts-state.json under sr_alerts, scoped by UTC date so they reset cleanly; older date entries are pruned at save time. Baseline (first-run) cycle records existing SR state without alerting, same dedup discipline as the 4/4 alignment alerts. Profile modal grows three new alert-class checkboxes (sr_5_5 default-on; sr_4_5 + sr_3_5 default-off) with an inline explainer of the tier semantics + daily caps. VIPRO_CONSENT_VERSION bumped to 2026-06-10-v2 so existing subscribers see the modal once and can opt in. The per-user routing in notify-new-users.yml will be wired to the new alert_classes values in a follow-up.',
@@ -11026,12 +11027,7 @@ function RULES_FINGERPRINT(){
     ewMin: (typeof EW_MIN !== 'undefined') ? EW_MIN : null,
     autoEwMinConf: (typeof AUTO_EW_MIN_CONFIDENCE !== 'undefined') ? AUTO_EW_MIN_CONFIDENCE : null,
     counterBarsThresh: 2,
-    // 2026-06-11: switched from body/range ratio (old: 0 = disabled) to a
-    // directional opposing-wick budget. Counter-bar must have its opposing
-    // wick ≤ body × this ratio — 0.5 means the close sits in the upper 2/3
-    // of the range (bear setup) so wicky rejection bars don't invalidate
-    // valid trades. Backtest history in detectConsecutiveCounterBars.
-    counterOpposingWickRatio: 0.5,
+    counterBarsNoWick: 0,  // 0 = ratio check disabled (pre-2026-06-04 behaviour, restored 2026-06-11dd after the wick-budget shipped at 0.5 dropped the dashboard aggregate to 67.8% and DE40 −11.5pp)
     minRAtrMult: 0.5,
     minRFxPips: 12,  // 2026-06-10n absolute FX pip floor — invalidates caches that pre-date the hybrid rule
     // A1 — per-class RSI thresholds (refined 2026-06-10a). Stringified
@@ -12843,47 +12839,31 @@ function detectConsecutiveCounterBars(bars, fromIdx, currentIdx, setupDir, minPr
   //   2026-06-04 (NOWICK_BODY_RATIO = 0.70):  aggregate WR ≈ 63.2%
   //   2026-06-09 (NOWICK_BODY_RATIO = 0.55):  aggregate WR ≈ 58.4%
   //   2026-06-09 (reverted — any-body):       aggregate WR ≈ 69.7%
-  //   2026-06-11 (wick≤body×0.5 — current):   aggregate WR ≈ 69.5%
-  //                                            (+3.6pp vs any-body
-  //                                             on the same walker;
-  //                                             see backtest_counter_
-  //                                             bar_wick.py)
+  //   2026-06-11cc (wick≤body×0.5):           dashboard 67.8%
+  //                                            DE40 -11.5pp / DJ30 -2.1pp
+  //   2026-06-11dd (reverted to any-body):    targeting ≈ 69.7%
   //
-  // 2026-06-11 RULE CHANGE: switched from body-RATIO (body/range) to
-  // a directional wick-budget. Earlier body-ratio attempts degraded
-  // WR because they let through wicky counter-bars whose close was
-  // in the upper half of the range — actually rejection candles, not
-  // confirmed bullish pressure. Reported on XAG/USD 2026-06-11 where
-  // idx 95 (upper_wick 0.15 / body 0.17) triggered a cancellation
-  // even though the close sat well below the bar's high.
+  // 2026-06-11 REVERT NOTE: shipped wick≤body×0.5 based on a
+  // standalone-walker backtest predicting +3.6pp aggregate and
+  // class-wide gains. Production recompute (different fib / CHoCH /
+  // lift-gate semantics) instead dropped the aggregate from 71.3%
+  // to 67.8% with DE40 regressing -11.5pp — below the user-mandated
+  // 70% floor. Reverted to the pre-nowick definition: two
+  // consecutive opposite-body candles with a 25%-noise-floor body
+  // minimum and rising/falling closes, regardless of wick. The
+  // XAG case the new rule fixed comes back as a known edge.
   //
-  // New definition: a counter-bar is one whose body is meaningful
-  // AND the OPPOSING-direction wick is at most half the body. For a
-  // bear setup, the bull counter-bar must close in roughly the upper
-  // 2/3 of its range; for a bull setup, the bear counter-bar must
-  // close in the lower 2/3 of its range. Bars with large opposing
-  // wicks are skipped — they're rejection, not invalidation.
-  //
-  // Wick-budget = body × 0.5 (only the 0.5 ratio actually fixes the
-  // XAG case; larger ratios let the rejection bar through).
-  var COUNTER_OPPOSING_WICK_RATIO = 0.5;
+  // Lessons: standalone walker isn't a sufficient predictor —
+  // production walker handles fib half-size + opposing CHoCH
+  // differently than the simplified script. Any future rule
+  // attempt should recompute the production deep BT first and
+  // verify the aggregate before shipping.
   var prev = bars[currentIdx - 1];
   var curr = bars[currentIdx];
   var minBody = (minProminence || 0) * 0.25;
   var isCounter = function(b){
-    if(b == null || b.o == null || b.c == null || b.h == null || b.l == null) return false;
-    if(setupDir === 'bear'){
-      var body = b.c - b.o;
-      if(body < minBody) return false;
-      var upperWick = b.h - Math.max(b.o, b.c);
-      return upperWick <= body * COUNTER_OPPOSING_WICK_RATIO;
-    }
-    if(setupDir === 'bull'){
-      var body = b.o - b.c;
-      if(body < minBody) return false;
-      var lowerWick = Math.min(b.o, b.c) - b.l;
-      return lowerWick <= body * COUNTER_OPPOSING_WICK_RATIO;
-    }
+    if(setupDir === 'bear') return (b.c > b.o) && ((b.c - b.o) >= minBody);
+    if(setupDir === 'bull') return (b.c < b.o) && ((b.o - b.c) >= minBody);
     return false;
   };
   if(!isCounter(prev) || !isCounter(curr)) return -1;
