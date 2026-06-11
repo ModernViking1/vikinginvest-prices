@@ -2132,6 +2132,25 @@ def write_directions_json(current, path='directions.json'):
             'cl': info.get('cl'),
             'aligned_dir': info.get('aligned_dir'),
             'macro': info.get('macro'),
+            # 1.618 Fib extension — same value that ships in the
+            # Telegram alert below the 1:1 R:R target line. Dashboard
+            # reads this back via fetchServerDirections so the per-pair
+            # detail panel can render an identical stretch target +
+            # R:R without recomputing in-browser. Both fields are
+            # None when the lookback geometry doesn't validate (e.g.
+            # bull setup with swing low after swing high) — the
+            # dashboard hides the line in that case.
+            'fib_ext_target': info.get('sig_fib_ext_target'),
+            'fib_ext_rr': info.get('sig_fib_ext_rr'),
+            # Wick + fib entry / stop / target — primarily here so the
+            # dashboard can reconstruct the Telegram alert content
+            # locally (currently used only by the 1.618 render path
+            # but cheap to expose, ~6 floats per pair).
+            'sig_entry': info.get('sig_entry'),
+            'sig_stop': info.get('sig_stop'),
+            'sig_target': info.get('sig_target'),
+            'sig_fib_entry': info.get('sig_fib_entry'),
+            'sig_fib_target': info.get('sig_fib_target'),
         }
     try:
         with open(path, 'w') as f:

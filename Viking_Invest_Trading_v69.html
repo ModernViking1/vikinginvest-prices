@@ -3588,6 +3588,31 @@ function getLayerDet(k,layer,sig){
             +   ' &middot; <strong>Stop:</strong> '+fmt(iSig.stop)
             +   ' &middot; <strong>Target:</strong> '+fmt(iSig.target)
             + '</div>'
+            + (function(){
+                // 1.618 Fib extension line — mirrors the Telegram alert.
+                // Sourced from directions.json via SERVER_DIR so the dashboard
+                // shows the same number the alert quoted, without depending
+                // on a fully-loaded in-browser INTRADAY buffer for the 60-bar
+                // swing scan. R:R is recomputed locally against the *displayed*
+                // entry/stop (matches the Telegram alert's per-kind logic).
+                // Hidden when the server returned null (geometry didn't align —
+                // e.g. bull setup whose swing low printed AFTER the swing high
+                // in the lookback window) so the layout doesn't break.
+                var srv = (typeof SERVER_DIR !== 'undefined' && SERVER_DIR[k]) ? SERVER_DIR[k] : null;
+                var ext = srv && srv.fib_ext_target;
+                if(ext == null || !isFinite(ext)) return '';
+                if(iSig.stop == null || iSig.entry == null || iSig.stop === iSig.entry) return '';
+                var R = Math.abs(iSig.stop - iSig.entry);
+                var reward = Math.abs(ext - iSig.entry);
+                if(R <= 0) return '';
+                var rr = reward / R;
+                var extPips = (reward * pipMult).toFixed(0) + ' pips';
+                return '<div style="margin-top:2px;color:var(--ink);font-size:9.5px;" title="1.618 Fib extension — projected from the 60-bar (15h) swing high/low ending at the creator. Same value the Telegram alert quotes under the 1:1 R:R target. Advisory stretch target — the algorithm still resolves on the 1:1 stop/target above.">'
+                  + '<span style="color:var(--purple);">🪜 <strong>Fib 1.618:</strong></span> '
+                  + fmt(ext)
+                  + ' <span style="color:var(--inkd);font-size:8px;">(' + extPips + ' &middot; ' + rr.toFixed(2) + ':1 R:R)</span>'
+                  + '</div>';
+              })()
             + '<div style="margin-top:2px;color:var(--inkd);font-size:8px;">'
             +   'Risk: '+pipsLabel+' &middot; Reward: '+pipsTarget+ triggeredAtTxt + ' &middot; '
             +   liveDescriptor
@@ -5270,7 +5295,15 @@ function fetchServerDirections(){
           // detect_triggers.py writes this when the cash session is
           // active; lets the dashboard render the SR pill on first
           // load before INTRADAY[k] has filled in-browser.
-          sr: row.sr || null
+          sr: row.sr || null,
+          // 1.618 Fib extension — the same stretch target the Telegram
+          // alert prints under the 1:1 R:R line. Computed server-side
+          // off the 60-bar 15m swing window so the dashboard's
+          // intraday signal box can surface a matching number without
+          // depending on a fully-loaded in-browser INTRADAY buffer.
+          // Both null when the lookback geometry doesn't validate.
+          fib_ext_target: (row.fib_ext_target != null) ? row.fib_ext_target : null,
+          fib_ext_rr:     (row.fib_ext_rr     != null) ? row.fib_ext_rr     : null
         };
         n++;
       }
