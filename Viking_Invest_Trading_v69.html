@@ -12749,17 +12749,41 @@ function autoFibTarget(bars, anchorIdx, entry, stop, setupDir){
   var start = Math.max(0, anchorIdx - AUTO_FIB_LOOKBACK);
   var end = Math.min(bars.length - 1, anchorIdx);
   if(end - start < 10) return null;
-  var shIdx = -1, sh = -Infinity, slIdx = -1, sl = Infinity;
-  for(var i = start; i <= end; i++){
-    if(bars[i].h > sh){ sh = bars[i].h; shIdx = i; }
-    if(bars[i].l < sl){ sl = bars[i].l; slIdx = i; }
+  // 2026-06-11 algorithm fix:
+  //   The previous logic took the GLOBAL extremes inside the 60-bar
+  //   lookback and required SH-before-SL (bear) / SL-before-SH (bull),
+  //   which silently dropped the advisory whenever the global window
+  //   spanned a down-then-up-then-down pattern (the global SL printed
+  //   BEFORE a counter-trend rally that printed the global SH, even
+  //   though the trade thesis was perfectly valid). Reported on
+  //   XAU/USD + XAG/USD 2026-06-10 night where the Telegram alerts
+  //   shipped without a 1.618 line.
+  //
+  //   Anchor the second pivot at the CREATOR's wick extreme — for a
+  //   bear creator that's its LOW (the bar that broke structure DOWN),
+  //   for a bull creator that's its HIGH — then search BEFORE the
+  //   creator for the opposite pivot. Matches Wickator's framing of
+  //   the creator as the W3 origin.
+  var creator = bars[anchorIdx];
+  if(!creator) return null;
+  var sh, sl;
+  if(setupDir === 'bear'){
+    sl = creator.l;
+    if(sl == null) return null;
+    sh = -Infinity;
+    for(var i = start; i < anchorIdx; i++){
+      if(bars[i].h != null && bars[i].h > sh) sh = bars[i].h;
+    }
+    if(!isFinite(sh) || sh <= sl) return null;
+  } else {
+    sh = creator.h;
+    if(sh == null) return null;
+    sl = Infinity;
+    for(var i = start; i < anchorIdx; i++){
+      if(bars[i].l != null && bars[i].l < sl) sl = bars[i].l;
+    }
+    if(!isFinite(sl) || sl >= sh) return null;
   }
-  if(shIdx < 0 || slIdx < 0) return null;
-  // Geometry check — the leg must run in the trade's direction.
-  // Bear setup: leg points down, so SH must come BEFORE SL in time.
-  // Bull setup: leg points up, so SL must come BEFORE SH in time.
-  if(setupDir === 'bear' && shIdx >= slIdx) return null;
-  if(setupDir === 'bull' && slIdx >= shIdx) return null;
   var leg = sh - sl;
   if(leg <= 0) return null;
   var EXT_LEVELS = [

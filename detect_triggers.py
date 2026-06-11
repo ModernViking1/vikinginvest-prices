@@ -609,16 +609,30 @@ def detect_consecutive_counter_bars(bars, current_idx, setup_dir, min_prominence
 # target so traders can scale out in two legs (1:1 R:R then 1.618 ext).
 # Lookback 60×15m = 15h of macro context, same window the dashboard
 # uses for its TV-style Auto Fib Retracement panel.
+#
+# 2026-06-11 algorithm fix:
+#   Original logic took the GLOBAL extremes inside the lookback window
+#   and required SH-before-SL for bear (SL-before-SH for bull). XAU/USD
+#   and XAG/USD 2026-06-10 night dropped the line because both pairs
+#   had down-then-up-then-down structure: global SL formed BEFORE the
+#   counter-trend rally that printed the global SH, so the check
+#   rejected what was actually a legitimate setup.
+#
+#   Anchor the second pivot at the CREATOR's wick extreme — for a bear
+#   creator that's its LOW (the bar that broke structure DOWN), for a
+#   bull creator that's its HIGH. Then search BEFORE the creator for
+#   the opposite pivot. This matches Wickator's "creator is the W3
+#   start" framing and validates as long as there's a higher high
+#   (bull→SL) / lower low (bear→SH) somewhere in the lookback window.
 AUTO_FIB_LOOKBACK = 60
 
 
 def auto_fib_1618(bars, anchor_idx, entry, stop, setup_dir):
-    """Project the 1.618 Fibonacci extension beyond the second pivot.
+    """Project the 1.618 Fibonacci extension beyond the creator pivot.
 
     Returns {'target', 'leg', 'sh', 'sl', 'R', 'reward', 'rr'} or None
-    when the geometry doesn't align with the trade direction (e.g.
-    a bull setup where the swing low came AFTER the swing high in the
-    lookback window — the impulse isn't pointing the right way).
+    when no valid pivot exists before the creator (no higher high before
+    a bear creator's low / no lower low before a bull creator's high).
     """
     if not bars or anchor_idx is None or anchor_idx < 5:
         return None
@@ -626,36 +640,45 @@ def auto_fib_1618(bars, anchor_idx, entry, stop, setup_dir):
     end = min(len(bars) - 1, anchor_idx)
     if end - start < 10:
         return None
-    sh = float('-inf'); sh_idx = -1
-    sl = float('inf');  sl_idx = -1
-    for i in range(start, end + 1):
-        h = bars[i].get('h')
-        l = bars[i].get('l')
-        if h is None or l is None:
-            continue
-        if h > sh:
-            sh = h; sh_idx = i
-        if l < sl:
-            sl = l; sl_idx = i
-    if sh_idx < 0 or sl_idx < 0:
+    creator = bars[anchor_idx]
+    if not creator:
         return None
-    # Bear: leg points down → SH must come BEFORE SL in time
-    # Bull: leg points up   → SL must come BEFORE SH in time
-    if setup_dir == 'bear' and sh_idx >= sl_idx:
-        return None
-    if setup_dir == 'bull' and sl_idx >= sh_idx:
-        return None
-    leg = sh - sl
-    if leg <= 0:
-        return None
-    # Extension beyond the second pivot in the trade direction
     if setup_dir == 'bear':
+        # Anchor: creator low (the swing low that broke structure).
+        sl = creator.get('l')
+        if sl is None:
+            return None
+        # Find the highest high BEFORE the creator in the lookback.
+        sh = float('-inf'); sh_idx = -1
+        for i in range(start, anchor_idx):
+            h = bars[i].get('h')
+            if h is None:
+                continue
+            if h > sh:
+                sh = h; sh_idx = i
+        if sh_idx < 0 or sh <= sl:
+            return None
+        leg = sh - sl
         target_1618 = sl - 0.618 * leg
-        if target_1618 >= entry:
+        if entry is not None and target_1618 >= entry:
             return None
     else:
+        # Bull mirror: anchor at creator high, find lowest low before.
+        sh = creator.get('h')
+        if sh is None:
+            return None
+        sl = float('inf'); sl_idx = -1
+        for i in range(start, anchor_idx):
+            l = bars[i].get('l')
+            if l is None:
+                continue
+            if l < sl:
+                sl = l; sl_idx = i
+        if sl_idx < 0 or sl >= sh:
+            return None
+        leg = sh - sl
         target_1618 = sh + 0.618 * leg
-        if target_1618 <= entry:
+        if entry is not None and target_1618 <= entry:
             return None
     R = abs(stop - entry) if stop is not None and entry is not None else 0
     reward = abs(target_1618 - entry) if entry is not None else 0
