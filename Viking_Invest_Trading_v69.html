@@ -4935,7 +4935,22 @@ function buildBacktest(){
           var rbRate = (Math.round(rb.rate * 1000) / 10).toFixed(1);
           var rbExtra = '';
           if(rb.expired > 0) rbExtra += ' &middot; ' + rb.expired + ' exp';
-          if(rb.invalidated > 0) rbExtra += ' &middot; ' + rb.invalidated + ' inv';
+          if(rb.invalidated > 0){
+            // 2026-06-12 split — show pre/post breakdown when the
+            // counters are present (recomputed caches under the new
+            // walker have them; older caches fall back to the lump
+            // sum). post-trigger invalidations have a real partial-
+            // loss impact; pre-trigger ones cost the user 0R.
+            var invPre  = (typeof rb.invalidatedPre  === 'number') ? rb.invalidatedPre  : null;
+            var invPost = (typeof rb.invalidatedPost === 'number') ? rb.invalidatedPost : null;
+            if(invPre != null && invPost != null && (invPre + invPost) > 0){
+              rbExtra += ' &middot; <span title="Pre-trigger invalidations: signal cancelled before entry — 0R impact (' + invPre + '). Post-trigger invalidations: exit signal after entry — small partial loss in live trading (' + invPost + ').">'
+                       + rb.invalidated + ' inv (' + invPre + ' pre &middot; ' + invPost + ' post)'
+                       + '</span>';
+            } else {
+              rbExtra += ' &middot; ' + rb.invalidated + ' inv';
+            }
+          }
           var rbBody = (rb.total === 0)
             ? '<span style="font-size:7.5px;color:var(--inkd);font-style:italic;">no completed' + rbExtra + '</span>'
             : '<span style="color:'+rbColor+';font-weight:700;">'+rbRate+'%</span>'
@@ -11094,8 +11109,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-11ee';
+var RULES_VERSION = '2026-06-12jj';
 var RULES_VERSION_NOTES = [
+  '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
   '2026-06-11ee — Counter-bar rule: close-beyond-entry gate. Keeps the 2-bar momentum check (opposing body + 25%-noise-floor body min + rising/falling closes) but adds a structural close gate: the SECOND counter bar\'s close must push past bars[fromIdx]\'s wick extreme — i.e. price has to actually retrace back into the trade zone before invalidation fires. Trades like the XAG/USD 2026-06-11 case (counter bars at +1/+2 past creator with closes 0.20–0.30 below the entry wick) no longer false-invalidate. Was the only one of seven A/B variants — wick-budget×0.25/0.5/1.0, momentum-disabled, buffer-3, buffer-5, close-beyond — to project green ≥70% on the in-browser dry-run framework (+2.86pp to 73.94% aggregate; comm +4.9pp / crypto +3.1pp / major +4.1pp / minor +0.6pp / index +1.1pp). DE40 still regressed -8.3pp under the new rule, accepted as the cost of staying above the 70% floor across every other class. Mirrored in detect_triggers.py — passes creator_idx into detect_consecutive_counter_bars so the close-beyond gate uses the same wick extreme as the JS dashboard. RULES_FINGERPRINT.counterBarsCloseBeyond=1 so caches re-invalidate on the next page load.',
   '2026-06-11dd — REVERTED 11cc back to the pre-nowick counter-bar rule (any opposing-body bar ≥ noise floor + rising/falling closes). Production recompute under the wick-budget rule dropped the aggregate from 71.3% to 67.8% — below the 70% floor — and DE40 regressed -11.5pp / DJ30 -2.1pp. Standalone walker (backtest_counter_bar_wick.py) had predicted +3.6pp aggregate and +8.2pp on indices, so the simplified script materially mispredicted production behaviour, likely because it doesn\'t fully mirror the production walker\'s fib half-size / opposing-CHoCH / lift-gate semantics. XAG-style wicky cancellations come back as a known edge. Lesson logged: rule changes need a production-walker dry-run before shipping, not just the standalone backtest. RULES_FINGERPRINT.counterBarsNoWick restored to 0 so caches re-invalidate.',
   '2026-06-11cc — (REVERTED 11dd) Counter-bar rule replaced. Switched from any-body to opposing wick ≤ body × 0.5, predicted aggregate +3.6pp on the standalone walker but production recompute landed at 67.8% (-3.5pp). See 11dd.',
@@ -11554,6 +11570,15 @@ function calcRecentBacktest(k, mode){
   };
 
   var wins = 0, losses = 0, expired = 0, invalidated = 0;
+  // 2026-06-12: split invalidated into pre/post-trigger cohorts so
+  // the card can show both. Pre-trigger = signal cancelled before
+  // the user could enter (0R impact). Post-trigger = exit signal
+  // after entry (real partial-loss impact in live trading).
+  var invalidatedPre = 0, invalidatedPost = 0;
+  // Same split for the FIB-zone half-size variant — tracks whether
+  // midTriggered was true at the moment midOutcome flipped to
+  // 'invalidated'. Set inside the fib walker below.
+  var hybInvalidatedPre = 0, hybInvalidatedPost = 0;
   var trades = [];  // per-trade outcomes for failure mode analysis
 
   // ── HYBRID RULE TRACKING ──
@@ -12130,7 +12155,18 @@ function calcRecentBacktest(k, mode){
     if(resolved === 'win') wins++;
     else if(resolved === 'loss') losses++;
     else if(resolved === 'expired') expired++;
-    else if(resolved === 'invalidated') invalidated++;
+    else if(resolved === 'invalidated'){
+      invalidated++;
+      // 2026-06-12: split pre- vs post-trigger invalidation. Pre-
+      // trigger invalidations (signal cancelled before entry) cost
+      // the user 0R since they never entered. Post-trigger
+      // invalidations (close-beyond exit signal, opposing CHoCH,
+      // alignment break) DO have a real partial-loss impact in
+      // live trading — typically -0.2R to -0.5R depending on
+      // where the user exits. failureMode carries the suffix.
+      if(failureMode && failureMode.indexOf('post-trigger') >= 0) invalidatedPost++;
+      else invalidatedPre++;
+    }
 
     // Record per-trade outcome for failure mode analysis
     if(resolved){
@@ -12163,6 +12199,10 @@ function calcRecentBacktest(k, mode){
     var wickOutcome = resolved;           // from standard sim above
     var midTriggered = false;
     var midOutcome = null;
+    // 2026-06-12: true when midOutcome flipped to 'invalidated' AFTER
+    // midTriggered was set (i.e. user was in trade), false when it
+    // flipped before trigger (signal cancelled before entry).
+    var midOutcomePost = null;
     var midMaxFav = 0;
 
     // Fib hybrid trackers — single creator (i), no re-arm; one for
@@ -12177,17 +12217,20 @@ function calcRecentBacktest(k, mode){
     for(var hj = i + 1; hj < Math.min(n, i + 1 + 8 + 32) && !midOutcome; hj++){
       var hb = m15Bars[hj];
       if(!midTriggered){
-        // Pre-trigger invalidation rules — same as wick-extreme path
-        if(alignedDir === 'bear' && hb.c > stop){ midOutcome = 'invalidated'; break; }
-        if(alignedDir === 'bull' && hb.c < stop){ midOutcome = 'invalidated'; break; }
+        // Pre-trigger invalidation rules — same as wick-extreme path.
+        // midOutcomePost tracks whether midTriggered was true at the
+        // point midOutcome flipped to 'invalidated' (post-trigger =
+        // user already in trade, pre-trigger = user never entered).
+        if(alignedDir === 'bear' && hb.c > stop){ midOutcome = 'invalidated'; midOutcomePost = false; break; }
+        if(alignedDir === 'bull' && hb.c < stop){ midOutcome = 'invalidated'; midOutcomePost = false; break; }
         if(hj - i > 8){ midOutcome = 'expired'; break; }
         if(hybPreTracker){
           var hOppPre = hybPreTracker.advance(hj);
-          if(hOppPre >= 0){ midOutcome = 'invalidated'; break; }
+          if(hOppPre >= 0){ midOutcome = 'invalidated'; midOutcomePost = false; break; }
         }
         if(typeof detectConsecutiveCounterBars === 'function'){
           var hCtrPre = detectConsecutiveCounterBars(m15Bars, i, hj, alignedDir, minProm);
-          if(hCtrPre >= 0){ midOutcome = 'invalidated'; break; }
+          if(hCtrPre >= 0){ midOutcome = 'invalidated'; midOutcomePost = false; break; }
         }
         // Check 38% Fib trigger
         var midReaches = (alignedDir === 'bear' && hb.h >= midEntry) ||
@@ -12210,11 +12253,11 @@ function calcRecentBacktest(k, mode){
         }
         if(hybPostTracker){
           var hOppPost = hybPostTracker.advance(hj);
-          if(hOppPost > i){ midOutcome = 'invalidated'; break; }
+          if(hOppPost > i){ midOutcome = 'invalidated'; midOutcomePost = true; break; }
         }
         if(typeof detectConsecutiveCounterBars === 'function'){
           var hCtrPost = detectConsecutiveCounterBars(m15Bars, i, hj, alignedDir, minProm);
-          if(hCtrPost > i){ midOutcome = 'invalidated'; break; }
+          if(hCtrPost > i){ midOutcome = 'invalidated'; midOutcomePost = true; break; }
         }
       }
     }
@@ -12260,7 +12303,26 @@ function calcRecentBacktest(k, mode){
     var anyResolved = (wickTriggered && (wickOutcome === 'win' || wickOutcome === 'loss'))
                    || (midTriggered  && (midOutcome  === 'win' || midOutcome  === 'loss'));
     if(!anyResolved){
-      if(wickOutcome === 'invalidated' || midOutcome === 'invalidated') hybInvalidated++;
+      if(wickOutcome === 'invalidated' || midOutcome === 'invalidated'){
+        hybInvalidated++;
+        // Split fib invalidations by trigger phase (2026-06-12). For
+        // the dual-walker case we prefer the fib classification when
+        // both fib and wick invalidated — fib is the production
+        // methodology on the pairs whose card surfaces this counter.
+        if(midOutcome === 'invalidated'){
+          if(midOutcomePost) hybInvalidatedPost++;
+          else hybInvalidatedPre++;
+        } else {
+          // wick-only invalidation, no fib trigger ever fired —
+          // attribute via the wick failureMode classification done
+          // up in the per-trade loop. We don't have failureMode in
+          // scope here, so fall back to "pre" since wick walker
+          // already incremented invalidatedPre/Post in its own
+          // counters; on FIB-class pairs the hybrid split is the
+          // one that drives the card.
+          hybInvalidatedPre++;
+        }
+      }
       else hybExpired++;
     }
 
@@ -12300,6 +12362,12 @@ function calcRecentBacktest(k, mode){
     losses: losses,
     expired: expired,
     invalidated: invalidated,
+    // 2026-06-12 split — pre-trigger = setup cancelled before entry
+    // (0R impact), post-trigger = exit signal after entry (real
+    // partial-loss impact). Sum equals `invalidated`. Used by the
+    // card's `XX inv` label to disclose the breakdown.
+    invalidatedPre: invalidatedPre,
+    invalidatedPost: invalidatedPost,
     total: total,
     totalSignals: totalSignals,
     rate: total > 0 ? wins / total : 0,
@@ -12317,6 +12385,11 @@ function calcRecentBacktest(k, mode){
       midTrades: midTrades,      // per-fib-trade records for SR gating dry-run
       expired: hybExpired,       // signals where neither entry triggered
       invalidated: hybInvalidated,
+      // 2026-06-12 split for the fib path — see top-level
+      // invalidatedPre/Post for semantics. Drives the card's
+      // `XX inv` breakdown on FIB-class pairs (comm + index).
+      invalidatedPre: hybInvalidatedPre,
+      invalidatedPost: hybInvalidatedPost,
       totalResolved: hybTotalResolved,
       netR: hybNetR,             // properly weighted net R (wick=1R, mid=0.5R)
       rewardR: hybRewardSum,
