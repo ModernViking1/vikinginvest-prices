@@ -11016,8 +11016,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-11dd';
+var RULES_VERSION = '2026-06-11ee';
 var RULES_VERSION_NOTES = [
+  '2026-06-11ee — Counter-bar rule: close-beyond-entry gate. Keeps the 2-bar momentum check (opposing body + 25%-noise-floor body min + rising/falling closes) but adds a structural close gate: the SECOND counter bar\'s close must push past bars[fromIdx]\'s wick extreme — i.e. price has to actually retrace back into the trade zone before invalidation fires. Trades like the XAG/USD 2026-06-11 case (counter bars at +1/+2 past creator with closes 0.20–0.30 below the entry wick) no longer false-invalidate. Was the only one of seven A/B variants — wick-budget×0.25/0.5/1.0, momentum-disabled, buffer-3, buffer-5, close-beyond — to project green ≥70% on the in-browser dry-run framework (+2.86pp to 73.94% aggregate; comm +4.9pp / crypto +3.1pp / major +4.1pp / minor +0.6pp / index +1.1pp). DE40 still regressed -8.3pp under the new rule, accepted as the cost of staying above the 70% floor across every other class. Mirrored in detect_triggers.py — passes creator_idx into detect_consecutive_counter_bars so the close-beyond gate uses the same wick extreme as the JS dashboard. RULES_FINGERPRINT.counterBarsCloseBeyond=1 so caches re-invalidate on the next page load.',
   '2026-06-11dd — REVERTED 11cc back to the pre-nowick counter-bar rule (any opposing-body bar ≥ noise floor + rising/falling closes). Production recompute under the wick-budget rule dropped the aggregate from 71.3% to 67.8% — below the 70% floor — and DE40 regressed -11.5pp / DJ30 -2.1pp. Standalone walker (backtest_counter_bar_wick.py) had predicted +3.6pp aggregate and +8.2pp on indices, so the simplified script materially mispredicted production behaviour, likely because it doesn\'t fully mirror the production walker\'s fib half-size / opposing-CHoCH / lift-gate semantics. XAG-style wicky cancellations come back as a known edge. Lesson logged: rule changes need a production-walker dry-run before shipping, not just the standalone backtest. RULES_FINGERPRINT.counterBarsNoWick restored to 0 so caches re-invalidate.',
   '2026-06-11cc — (REVERTED 11dd) Counter-bar rule replaced. Switched from any-body to opposing wick ≤ body × 0.5, predicted aggregate +3.6pp on the standalone walker but production recompute landed at 67.8% (-3.5pp). See 11dd.',
   '2026-06-10n — Hybrid min-R floor. The 0.5×ATR(20) check from 2026-06-08 stopped catching noise-tier setups when ATR itself collapsed: NZD/USD 2026-06-10 hit ATR(20)=4.6 pips on a tight-range session, the 0.5×ATR floor evaluated to 2.3 pips, and a setup with R=8.5 pips (9-pip target) made it through to a live Telegram alert. Added an absolute FX pip floor of 12 pips on majors/minors (= 0.0012 non-JPY, = 0.12 JPY) as a hybrid second-gate; final rule is R ≥ max(0.5×ATR, FX_floor). Non-FX classes (commodities / indices / crypto) keep just the ATR check — price magnitudes and pip conventions are too varied for a single pip-unit floor and ATR scales appropriately for those. Applied to the JS dashboard live detector AND backtest engine AND detect_triggers.py (which previously had NO min-R check, breaking dashboard-vs-Telegram parity). Verified across live FX: NZD/USD 8.5-pip setup correctly rejected with reason min-R-floor; EUR/USD 12, GBP/USD 14.2, AUD/USD 14.4, DJ30 / BTC / XAU all pass through. RULES_FINGERPRINT.minRFxPips=12 added so cached backtests pre-dating this rule auto-invalidate.',
@@ -11057,6 +11058,13 @@ function RULES_FINGERPRINT(){
     autoEwMinConf: (typeof AUTO_EW_MIN_CONFIDENCE !== 'undefined') ? AUTO_EW_MIN_CONFIDENCE : null,
     counterBarsThresh: 2,
     counterBarsNoWick: 0,  // 0 = ratio check disabled (pre-2026-06-04 behaviour, restored 2026-06-11dd after the wick-budget shipped at 0.5 dropped the dashboard aggregate to 67.8% and DE40 −11.5pp)
+    // 2026-06-11ee — close-beyond-entry gate added to the 2-bar
+    // momentum check. Was the only one of seven dry-run variants
+    // (wick-budget×0.25/0.5/1.0, momentum-disabled, buffer-3,
+    // buffer-5, close-beyond) to project green ≥70% on the
+    // production walker (+2.86pp to 73.94%). Cache must invalidate
+    // so the dashboard recomputes under the new rule on next load.
+    counterBarsCloseBeyond: 1,
     minRAtrMult: 0.5,
     minRFxPips: 12,  // 2026-06-10n absolute FX pip floor — invalidates caches that pre-date the hybrid rule
     // A1 — per-class RSI thresholds (refined 2026-06-10a). Stringified
@@ -13271,33 +13279,37 @@ function detectConsecutiveCounterBars(bars, fromIdx, currentIdx, setupDir, minPr
   //   2026-06-11cc (wick≤body×0.5):           dashboard 67.8%
   //                                            DE40 -11.5pp / DJ30 -2.1pp
   //   2026-06-11dd (reverted to any-body):    targeting ≈ 69.7%
+  //   2026-06-11ee (close-beyond entry):      dry-run projected 73.94%
+  //                                            comm +4.9 / crypto +3.1 /
+  //                                            major +4.1 / minor +0.6 /
+  //                                            index +1.1pp — shipped
+  //                                            after the dry-run was the
+  //                                            only one of seven tested
+  //                                            variants to project
+  //                                            green ≥70% across the
+  //                                            production walker.
   //
-  // 2026-06-11 REVERT NOTE: shipped wick≤body×0.5 based on a
-  // standalone-walker backtest predicting +3.6pp aggregate and
-  // class-wide gains. Production recompute (different fib / CHoCH /
-  // lift-gate semantics) instead dropped the aggregate from 71.3%
-  // to 67.8% with DE40 regressing -11.5pp — below the user-mandated
-  // 70% floor. Reverted to the pre-nowick definition: two
-  // consecutive opposite-body candles with a 25%-noise-floor body
-  // minimum and rising/falling closes, regardless of wick. The
-  // XAG case the new rule fixed comes back as a known edge.
-  //
-  // Lessons: standalone walker isn't a sufficient predictor —
-  // production walker handles fib half-size + opposing CHoCH
-  // differently than the simplified script. Any future rule
-  // attempt should recompute the production deep BT first and
-  // verify the aggregate before shipping.
+  // 2026-06-11ee RULE CHANGE: close-beyond-entry gate.
+  // Keep all mechanics of the 2-bar momentum check — opposing body,
+  // 25%-noise-floor body minimum, rising/falling closes — but add a
+  // structural close gate: the SECOND counter bar's close must push
+  // past bars[fromIdx]'s wick extreme (creator's HIGH for bear,
+  // LOW for bull; trigger high/low post-trigger). Intuition: a
+  // 2-bar pullback isn't really "the trade thesis broken" unless
+  // price has actually reclaimed the entry zone. Trades like the
+  // XAG/USD 2026-06-11 case (counter bars at +1 / +2 past creator
+  // with closes 0.20–0.30 below the entry wick) no longer get
+  // false-invalidated; trades that genuinely reverse and close
+  // back through entry still hit the cancellation.
   var prev = bars[currentIdx - 1];
   var curr = bars[currentIdx];
   var minBody = (minProminence || 0) * 0.25;
   // Dry-run override (2026-06-11dd) — window.__counterBarOverride lets
-  // compareCounterBarRules() recompute calcRecentBacktest under the
-  // wick-budget variant WITHOUT touching production. Flag stays null
-  // in normal operation so the shipped rule (any-body) runs as
-  // before. Accepted values:
-  //   null / undefined          → shipped any-body rule
-  //   {wickRatio: 0.5}          → wick-budget at the given ratio
-  // Set, run computeAllRecentBacktests once, reset.
+  // compareCounterBarRules() recompute calcRecentBacktest under
+  // alternate rules WITHOUT touching production. Flag stays null in
+  // normal operation so the shipped rule (close-beyond) runs as
+  // designed. Accepted values: {wickRatio:N}, {mode:'disabled'},
+  // {mode:'buffer',bufferBars:N}, {mode:'close-beyond'} (= shipped).
   var _override = (typeof window !== 'undefined') ? window.__counterBarOverride : null;
   var isCounter = function(b){
     if(_override && typeof _override.wickRatio === 'number'){
@@ -13321,16 +13333,33 @@ function detectConsecutiveCounterBars(bars, fromIdx, currentIdx, setupDir, minPr
     return false;
   };
   if(!isCounter(prev) || !isCounter(curr)) return -1;
-  // close-beyond override — require the second counter bar's close to
-  // push past the fromIdx bar's wick extreme. The fromIdx bar is the
-  // creator (pre-trigger) or trigger (post-trigger), so its high/low
-  // is the relevant trade-zone boundary.
-  var _from = bars[fromIdx];
-  if(_ovr && _ovr.mode === 'close-beyond' && _from){
-    if(setupDir === 'bear' && _from.h != null){
-      if(!(curr.c > _from.h)) return -1;
-    } else if(setupDir === 'bull' && _from.l != null){
-      if(!(curr.c < _from.l)) return -1;
+  // close-beyond gate (2026-06-11ee — shipped). Require the second
+  // counter bar's close to push past bars[fromIdx]'s wick extreme.
+  // fromIdx is the creator pre-trigger / trigger post-trigger, so
+  // its high/low is the relevant trade-zone boundary. Active by
+  // default; opt-out for dry-run variants happens via the override.
+  //
+  // Opt-out overrides:
+  //   {wickRatio:N}      → shipped behaviour before 11ee (any body
+  //                        + rising/falling closes, NO close-beyond)
+  //   {mode:'disabled'}  → no momentum check at all
+  //   {mode:'buffer',…}  → settling-window-then-shipped-rule
+  //   {mode:'close-beyond'} → same as default (no-op flag for the
+  //                           dry-run framework's symmetry)
+  // The dry-run framework's OLD comparison passes a null override,
+  // so the shipped path INCLUDES close-beyond — which is exactly
+  // what 11ee adds to production.
+  var _ccbOptOut = !!_override && (_override.wickRatio != null
+                                    || _override.mode === 'disabled'
+                                    || _override.mode === 'buffer');
+  if(!_ccbOptOut){
+    var _from = bars[fromIdx];
+    if(_from){
+      if(setupDir === 'bear' && _from.h != null){
+        if(!(curr.c > _from.h)) return -1;
+      } else if(setupDir === 'bull' && _from.l != null){
+        if(!(curr.c < _from.l)) return -1;
+      }
     }
   }
   if(setupDir === 'bear' && curr.c > prev.c) return currentIdx;

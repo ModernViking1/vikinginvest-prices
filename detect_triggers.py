@@ -549,21 +549,29 @@ def detect_opposing_choch(bars, creator_idx, current_idx, setup_dir, min_promine
     return -1
 
 
-def detect_consecutive_counter_bars(bars, current_idx, setup_dir, min_prominence):
-    """Two consecutive opposite-body candles with rising/falling closes.
-    Bear setup: two bull-body bars with body >= 25% of the noise floor
-    AND second bar's close > first's. Mirror for bull. Returns
-    current_idx when the pair forms at (current_idx-1, current_idx),
-    else -1.
+def detect_consecutive_counter_bars(bars, from_idx, current_idx, setup_dir, min_prominence):
+    """Two consecutive opposite-body candles with rising/falling closes,
+    gated by a close-beyond check against bars[from_idx]'s wick extreme.
+
+    Bear setup: two bull-body bars with body >= 25% of the noise floor,
+    second bar's close > first's, AND second bar's close > the
+    creator's wick high. Mirror for bull. Returns current_idx when
+    the pair forms at (current_idx-1, current_idx), else -1.
 
     Matches the JS detectConsecutiveCounterBars
-    (Viking_Invest_Trading_v69.html ~L12823). 2026-06-11dd reverted
-    the wick-budget rule shipped in 11cc after the production
-    deep-BT recompute dropped the dashboard aggregate to 67.8% —
-    below the 70% floor — and DE40 regressed -11.5pp. The XAG case
-    that motivated the wick-budget comes back as a known edge.
+    (Viking_Invest_Trading_v69.html ~L13227) after the 2026-06-11ee
+    rule change. The close-beyond gate was the only variant of seven
+    A/B'd against the production walker that projected green ≥70%
+    aggregate WR — see the dry-run history at the top of the JS
+    function. Trades like the XAG/USD 2026-06-11 case (counter bars
+    at +1/+2 past creator with closes well below the entry wick) no
+    longer false-invalidate.
     """
-    if not bars or current_idx < 1 or current_idx >= len(bars):
+    if not bars or from_idx is None or from_idx < 0:
+        return -1
+    if current_idx <= from_idx + 1:
+        return -1
+    if current_idx < 1 or current_idx >= len(bars):
         return -1
     prev = bars[current_idx - 1]
     curr = bars[current_idx]
@@ -591,6 +599,22 @@ def detect_consecutive_counter_bars(bars, current_idx, setup_dir, min_prominence
     pc, cc = prev.get('c'), curr.get('c')
     if pc is None or cc is None:
         return -1
+
+    # close-beyond gate (2026-06-11ee). Second counter bar's close
+    # must push past bars[from_idx]'s wick extreme — the trade
+    # entry zone. A pullback that stays below entry (bear) or above
+    # entry (bull) is not enough to invalidate.
+    from_bar = bars[from_idx] if 0 <= from_idx < len(bars) else None
+    if from_bar:
+        if setup_dir == 'bear':
+            from_h = from_bar.get('h')
+            if from_h is None or not (cc > from_h):
+                return -1
+        elif setup_dir == 'bull':
+            from_l = from_bar.get('l')
+            if from_l is None or not (cc < from_l):
+                return -1
+
     if setup_dir == 'bear' and cc > pc:
         return current_idx
     if setup_dir == 'bull' and cc < pc:
@@ -947,8 +971,10 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16,
                     invalidation_reason = 'opposing-choch'
                     invalidation_bar_idx = opp_idx
                     break
-                # 3. Two consecutive nowick counter-bars
-                cb_idx = detect_consecutive_counter_bars(bars, j,
+                # 3. Two consecutive counter-bars (close-beyond gate
+                #    — 2026-06-11ee — requires the 2nd bar's close to
+                #    push past creator's wick extreme)
+                cb_idx = detect_consecutive_counter_bars(bars, creator_idx, j,
                                                          aligned_dir, _inval_prom)
                 if cb_idx >= 0:
                     invalidated_pre_trigger = True
