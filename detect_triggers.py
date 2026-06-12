@@ -1015,6 +1015,70 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16,
     else:
         state = 'triggered' if trigger_bar_idx >= 0 else 'armed'
         fib_state = 'triggered' if fib_trigger_bar_idx >= 0 else 'armed'
+
+    # ── POST-TRIGGER OUTCOME WALK (2026-06-11ff) ───────────────
+    # The Telegram pipeline now fires an EXIT alert when a previously
+    # alerted triggered trade hits a structural invalidation (opposing
+    # CHoCH or close-beyond counter-bars). Letting the user know they
+    # fired = giving them a chance to bail before stop. Target / stop
+    # hits don't produce an alert (target = win, stop = loss already
+    # realised).
+    #
+    # Pre-2026-06-11ff the detector explicitly skipped post-trigger
+    # invalidation tracking — comment at L948 said "the live detector
+    # handles post-trigger invalidations as the exit mechanic, but the
+    # Telegram pipeline only needs to decide whether to fire at all".
+    # That changes with the exit alert. The walk is bounded by
+    # TRIGGERED_MAX_BARS (16 = 4h on 15m) so an unresolved trade past
+    # that window is marked 'stale-expired' and stops being checked.
+    def _walk_post_trigger_outcome(trig_idx, lvl_stop, lvl_target):
+        if trig_idx < 0:
+            return None, None, -1, None
+        TRIGGERED_MAX_BARS = 16
+        for jj in range(trig_idx + 1, n):
+            bb = bars[jj]
+            bbh, bbl = bb.get('h'), bb.get('l')
+            # Target / stop check — close-of-bar fills the wick logic
+            # used in the live detector. Use range-touch for parity
+            # with the JS dashboard.
+            if aligned_dir == 'bear':
+                if lvl_target is not None and bbl is not None and bbl <= lvl_target:
+                    return 'target-hit', None, jj, bb.get('t')
+                if lvl_stop is not None and bbh is not None and bbh >= lvl_stop:
+                    return 'stop-hit', None, jj, bb.get('t')
+            else:
+                if lvl_target is not None and bbh is not None and bbh >= lvl_target:
+                    return 'target-hit', None, jj, bb.get('t')
+                if lvl_stop is not None and bbl is not None and bbl <= lvl_stop:
+                    return 'stop-hit', None, jj, bb.get('t')
+            # Opposing CHoCH (close-through past creator+1 swing)
+            opp_post = detect_opposing_choch(bars, creator_idx, jj,
+                                              aligned_dir, _inval_prom)
+            if opp_post >= 0 and opp_post > trig_idx:
+                return ('choch-invalidated', 'opposing-choch', opp_post,
+                        bars[opp_post].get('t'))
+            # 2-bar counter momentum (close-beyond gated since 11ee)
+            cb_post = detect_consecutive_counter_bars(bars, trig_idx, jj,
+                                                     aligned_dir, _inval_prom)
+            if cb_post >= 0 and cb_post > trig_idx:
+                return ('choch-invalidated', 'counter-bars', cb_post,
+                        bars[cb_post].get('t'))
+            # Time-based expiry
+            if jj - trig_idx > TRIGGERED_MAX_BARS:
+                return 'stale-expired', None, jj, bb.get('t')
+        return None, None, -1, None
+
+    outcome = outcome_reason = outcome_ts = None
+    outcome_bar_idx = -1
+    fib_outcome = fib_outcome_reason = fib_outcome_ts = None
+    fib_outcome_bar_idx = -1
+    if state == 'triggered':
+        outcome, outcome_reason, outcome_bar_idx, outcome_ts = \
+            _walk_post_trigger_outcome(trigger_bar_idx, stop, target)
+    if fib_state == 'triggered':
+        fib_outcome, fib_outcome_reason, fib_outcome_bar_idx, fib_outcome_ts = \
+            _walk_post_trigger_outcome(fib_trigger_bar_idx, stop, fib_target)
+
     # Compute the 1.618 Fib extension off the swing high / swing low
     # found in the AUTO_FIB_LOOKBACK window ending at the creator. This
     # is the same projection TradingView's Auto Fib Retracement
@@ -1060,6 +1124,21 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16,
             if invalidation_bar_idx >= 0 and invalidation_bar_idx < len(bars)
             else None
         ),
+        # Post-trigger outcome (added 2026-06-11ff). state stays
+        # 'triggered' regardless — outcome tells the main loop whether
+        # to fire an exit alert. Values: 'target-hit', 'stop-hit',
+        # 'choch-invalidated', 'stale-expired', or None (in flight).
+        # Exit alert only fires on 'choch-invalidated' — the others
+        # are already realised at the broker (target = win, stop =
+        # locked-in loss, stale-expired = passive timeout).
+        'outcome': outcome,
+        'outcome_reason': outcome_reason,
+        'outcome_bar_idx': outcome_bar_idx,
+        'outcome_ts': outcome_ts,
+        'fib_outcome': fib_outcome,
+        'fib_outcome_reason': fib_outcome_reason,
+        'fib_outcome_bar_idx': fib_outcome_bar_idx,
+        'fib_outcome_ts': fib_outcome_ts,
     }
 
 
@@ -1964,6 +2043,15 @@ def scan_pairs(intraday_data, historical_data):
             'sig_fib_trigger_ts': sig.get('fib_trigger_ts') if sig else None,
             'sig_fib_ext_target': sig.get('fib_ext_target') if sig else None,
             'sig_fib_ext_rr': sig.get('fib_ext_rr') if sig else None,
+            # Post-trigger outcome metadata (2026-06-11ff) — main loop
+            # uses this to fire EXIT alerts when a previously-alerted
+            # trigger gets invalidated by counter-bars / opposing CHoCH.
+            'sig_outcome': sig.get('outcome') if sig else None,
+            'sig_outcome_reason': sig.get('outcome_reason') if sig else None,
+            'sig_outcome_ts': sig.get('outcome_ts') if sig else None,
+            'sig_fib_outcome': sig.get('fib_outcome') if sig else None,
+            'sig_fib_outcome_reason': sig.get('fib_outcome_reason') if sig else None,
+            'sig_fib_outcome_ts': sig.get('fib_outcome_ts') if sig else None,
             # Invalidation metadata — passed through to directions.json
             # so the dashboard can render a tooltip on cancelled setups
             # and so alert-state debugging is possible without a code
@@ -2133,6 +2221,58 @@ def format_alert(pair, info, kind):
         )
         return text
 
+    if kind in ('invalidated', 'invalidated-fib'):
+        # Post-trigger exit alert (2026-06-11ff). Triggered trade has
+        # hit a structural invalidation (opposing CHoCH or close-beyond
+        # counter-bars). Loss isn't realised yet — stop hasn't been
+        # touched — so the user has a window to exit at current price
+        # and limit the damage before the stop fills.
+        is_fib = (kind == 'invalidated-fib')
+        if is_fib:
+            entry_val = info.get('sig_fib_entry')
+            target_val = info.get('sig_fib_target')
+            reason = info.get('sig_fib_outcome_reason') or 'structure-flip'
+            kind_lbl = 'FIB-ZONE · half size'
+        else:
+            entry_val = info.get('sig_entry')
+            target_val = info.get('sig_target')
+            reason = info.get('sig_outcome_reason') or 'structure-flip'
+            kind_lbl = 'WICK · full size'
+        stop_val = info.get('sig_stop')
+        # Translate reason into a trader-readable phrase
+        reason_lbl = {
+            'counter-bars': '2 counter-bars closed past entry (momentum reversal)',
+            'opposing-choch': 'opposing CHoCH printed (structure flipped)',
+        }.get(reason, reason or 'structure flip')
+        # Optional: rough R loss at current price (positive = trade went
+        # against us). Helps the user judge whether to exit or hold.
+        loss_R_line = ''
+        try:
+            entry_f = float(entry_val) if entry_val is not None else None
+            stop_f  = float(stop_val) if stop_val is not None else None
+            curr_f  = float(info['price']) if info.get('price') is not None else None
+            if entry_f is not None and stop_f is not None and curr_f is not None and stop_f != entry_f:
+                R_size = abs(stop_f - entry_f)
+                if direction == 'bull':
+                    loss_R = (entry_f - curr_f) / R_size
+                else:
+                    loss_R = (curr_f - entry_f) / R_size
+                loss_R_line = f"Current loss: <code>{loss_R:+.2f}R</code> (stop = -1.0R)\n"
+        except Exception:
+            loss_R_line = ''
+        text = (
+            f"⊘ <b>INVALIDATED — EXIT {sym}</b> ({kind_lbl})\n"
+            f"Original entry: <code>{_fmt_price(entry_val)}</code>\n"
+            f"Original stop:  <code>{_fmt_price(stop_val)}</code>\n"
+            f"Original target: <code>{_fmt_price(target_val)}</code>\n"
+            f"Current px: <code>{_fmt_price(info['price'])}</code>\n"
+            f"{loss_R_line}"
+            f"Reason: {reason_lbl}\n"
+            f"Suggested: exit at market to limit loss before stop fills.\n"
+            f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
+        )
+        return text
+
     arrow = '🟢▲' if direction == 'bull' else '🔴▼'
     if kind == 'newly-aligned':
         title = '4/4 ALIGNED'
@@ -2295,6 +2435,11 @@ def main():
         # exactly once, regardless of whether 'armed' was observed.
         cur_creator_ts = info.get('sig_creator_ts')
         prev_alerted_creator = prev.get('alerted_trigger_creator_ts')
+        # Carry forward the post-trigger exit dedup keys so they persist
+        # even on cycles where the exit branch doesn't run. Reassigned
+        # below if an exit alert fires this cycle.
+        alerted_exit = prev.get('alerted_exit_creator_ts')
+        alerted_fib_exit = prev.get('alerted_fib_exit_creator_ts')
         # Migration: state files written before alerted_trigger_creator_ts
         # existed have no dedup key. If the pair was already 'triggered' on
         # the same creator last run, treat that creator as already-alerted
@@ -2389,6 +2534,56 @@ def main():
                     alerts_sent += 1
                 alerted_fib = cur_creator_ts
 
+        # ── POST-TRIGGER EXIT ALERTS (2026-06-11ff) ─────────────────
+        # Fire an EXIT alert when a trade we previously alerted on has
+        # been invalidated post-trigger by counter-bars / opposing CHoCH
+        # (NOT target-hit / stop-hit / stale-expired — those are
+        # outcomes the user already sees at the broker). One alert per
+        # alerted trigger so we don't spam every cycle while the
+        # outcome persists.
+        alerted_exit = prev.get('alerted_exit_creator_ts')
+        cur_outcome = info.get('sig_outcome')
+        if (alerted_creator == cur_creator_ts
+            and cur_creator_ts is not None
+            and cur_outcome == 'choch-invalidated'
+            and alerted_exit != cur_creator_ts
+            and not is_first_run):
+            # Freshness gate — if the invalidation bar is stale (the
+            # workflow lagged or the trade was hours back), still send
+            # but flag it. We pick a generous 60 min window; older than
+            # that and the loss is likely already past stop.
+            exit_age = _trigger_age_minutes(info.get('sig_outcome_ts'))
+            if exit_age is not None and exit_age > 60:
+                print(f'  skip(exit,stale): {pair} outcome_ts={info.get("sig_outcome_ts")} age={exit_age:.1f}min > 60 — not alerting')
+                alerted_exit = cur_creator_ts
+            else:
+                age_tag = f' (fresh, age={exit_age:.1f}min)' if exit_age is not None else ''
+                print(f'  ALERT(exit): {pair} -> invalidated (creator={cur_creator_ts}, reason={info.get("sig_outcome_reason")}){age_tag}')
+                text = format_alert(pair, info, 'invalidated')
+                if send_telegram(token, chat_id, text):
+                    alerts_sent += 1
+                alerted_exit = cur_creator_ts
+
+        # Mirror for fib variant — independent dedup key
+        alerted_fib_exit = prev.get('alerted_fib_exit_creator_ts')
+        cur_fib_outcome = info.get('sig_fib_outcome')
+        if (alerted_fib == cur_creator_ts
+            and cur_creator_ts is not None
+            and cur_fib_outcome == 'choch-invalidated'
+            and alerted_fib_exit != cur_creator_ts
+            and not is_first_run):
+            fib_exit_age = _trigger_age_minutes(info.get('sig_fib_outcome_ts'))
+            if fib_exit_age is not None and fib_exit_age > 60:
+                print(f'  skip(fib-exit,stale): {pair} age={fib_exit_age:.1f}min > 60 — not alerting')
+                alerted_fib_exit = cur_creator_ts
+            else:
+                age_tag = f' (fresh, age={fib_exit_age:.1f}min)' if fib_exit_age is not None else ''
+                print(f'  ALERT(fib-exit): {pair} -> fib invalidated (creator={cur_creator_ts}, reason={info.get("sig_fib_outcome_reason")}){age_tag}')
+                text = format_alert(pair, info, 'invalidated-fib')
+                if send_telegram(token, chat_id, text):
+                    alerts_sent += 1
+                alerted_fib_exit = cur_creator_ts
+
         # ── SCHOOL RUN TIER ALERTS (DE40 / DJ30 only) ───────────────
         # Tier-classified alerts surfacing 5/5, 4/5, and 3/5 cohorts
         # (RULES_VERSION 2026-06-10l). Engine gating is unchanged —
@@ -2440,6 +2635,11 @@ def main():
             'sig_fib_trigger_ts': info.get('sig_fib_trigger_ts'),
             'alerted_trigger_creator_ts': alerted_creator,
             'alerted_fib_creator_ts': alerted_fib,
+            # Post-trigger exit-alert dedup (2026-06-11ff). Independent
+            # of trigger dedup so a single creator can have both a
+            # trigger alert and an exit alert recorded.
+            'alerted_exit_creator_ts': alerted_exit,
+            'alerted_fib_exit_creator_ts': alerted_fib_exit,
             'last_check': now_iso,
         }
 
