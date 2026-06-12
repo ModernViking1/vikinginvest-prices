@@ -589,8 +589,8 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <span class="fpill" id="fp-index" onclick="setFilter('index')" style="border-color:var(--purple);color:var(--purple);">📊 Indices</span>
     <span class="fpill" id="fp-fire" style="border-color:var(--bear);color:var(--bear);" onclick="setFilter('fire')">🔴 Active</span>
     <span class="fpill" id="fp-armed" style="border-color:var(--gold);color:var(--gold);" onclick="setFilter('armed')">⏳ Armed</span>
-    <span class="fpill" id="fp-trig" style="border-color:var(--bull);color:var(--bull);" onclick="setFilter('trig')">⚡ Triggered</span>
     <span class="fpill" id="fp-inv" style="border-color:rgba(192,40,26,0.45);color:rgba(192,40,26,0.7);font-size:9px;letter-spacing:0.3px;padding:3px 7px;opacity:0.85;" title="Trades that triggered then got invalidated post-entry by counter-bars or opposing CHoCH (same exit signal that fires via Telegram). Discretionary exit before stop fills." onclick="setFilter('inv')">⊘ Invalidated</span>
+    <span class="fpill" id="fp-trig" style="border-color:var(--bull);color:var(--bull);" onclick="setFilter('trig')">⚡ Triggered</span>
   </div>
   <div class="ovgrid" id="ovGrid"></div>
   <div class="mscroll" id="mScroll"></div>
@@ -2013,26 +2013,35 @@ function isFire(k){return sc(k).tot>=4;}
 // which only checks 4/4 alignment — many aligned pairs are still in
 // "armed, awaiting retest" state. isTriggered drives the ⚡ Triggered
 // pill, surfacing the subset that's already in-trade.
+// True if the pair is currently in a live, in-flight 4/4 trade —
+// creator triggered, no exit hit yet (target / stop / CHoCH-
+// invalidation / stale-expiry). Uses _btMethodFor(k) to look at
+// ONLY the production path for the pair's class (wick for FX +
+// crypto, fib for comm + index), since pre-fix this OR'd both
+// paths and leaked pairs where the non-production leg had a
+// different state. Reported on the dashboard screenshot at
+// 2026-06-11ii where GBP/USD and NZD/USD (both wick FX majors,
+// still in-trade) showed under the Invalidated filter because
+// their fib path had separately gone choch-invalidated.
+function _intradayPath(sig, method){
+  if(!sig) return null;
+  if(method === 'fib'){
+    if(!sig.fib) return null;
+    return {state: sig.fib.state, outcome: sig.fib.outcome};
+  }
+  return {state: sig.state, outcome: sig.outcome};
+}
 function isTriggered(k){
-  // True if the pair is currently in a live, in-flight 4/4 trade —
-  // creator triggered, no exit hit yet (target / stop / CHoCH-
-  // invalidation / stale-expiry). Pre-fix this only checked
-  // sig.state === 'triggered' so any 3/4 or 2/4 partial whose
-  // signal walker happened to also produce a triggered wick/fib
-  // setup leaked into the Triggered filter. Reported 2026-06-11hh
-  // on the screenshot showing PARTIAL 3/4 / 2/4 cards under the
-  // Triggered pill. Belt-and-braces with isFire (4/4 alignment),
-  // !alignmentBroken (15m hasn't flipped), and !sig.outcome (trade
-  // hasn't resolved into target/stop/invalidation yet).
   if(!isFire(k)) return false;
   if(typeof detectIntradaySignal !== 'function') return false;
   try {
     var sig = detectIntradaySignal(k);
     if(!sig || sig.alignmentBroken) return false;
     if(sig.rsiBlocked) return false;  // A1 — RSI extreme blocks the trade
-    var wickInFlight = (sig.state === 'triggered' && !sig.outcome);
-    var fibInFlight  = (sig.fib && sig.fib.state === 'triggered' && !sig.fib.outcome);
-    return !!(wickInFlight || fibInFlight);
+    var method = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
+    var path = _intradayPath(sig, method);
+    if(!path) return false;
+    return path.state === 'triggered' && !path.outcome;
   } catch(e){ return false; }
 }
 // True if a previously-triggered trade has been invalidated
@@ -2040,16 +2049,19 @@ function isTriggered(k){
 // alert signal that fires via Telegram since 11ff). Drives the
 // ⊘ Invalidated filter pill — a less prominent surface so the
 // user can see at-a-glance which pairs need a discretionary exit
-// before stop fills.
+// before stop fills. Uses _btMethodFor(k) per pair so the FX
+// majors' wick path is the one being checked, not the auxiliary
+// fib path.
 function isInvalidated(k){
   if(!isFire(k)) return false;
   if(typeof detectIntradaySignal !== 'function') return false;
   try {
     var sig = detectIntradaySignal(k);
     if(!sig) return false;
-    var wickInv = (sig.state === 'triggered' && sig.outcome === 'choch-invalidated');
-    var fibInv  = (sig.fib && sig.fib.state === 'triggered' && sig.fib.outcome === 'choch-invalidated');
-    return !!(wickInv || fibInv);
+    var method = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
+    var path = _intradayPath(sig, method);
+    if(!path) return false;
+    return path.state === 'triggered' && path.outcome === 'choch-invalidated';
   } catch(e){ return false; }
 }
 // True if the intraday signal has armed (creator CHoCH found, levels

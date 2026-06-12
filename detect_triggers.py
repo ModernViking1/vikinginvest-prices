@@ -1145,7 +1145,16 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16,
 # Trigger alerts older than this are suppressed (the trigger likely fired
 # in an earlier cycle that the detector missed; alerting now would
 # misrepresent a stale price level the user can no longer act on).
-MAX_TRIGGER_AGE_MIN = 30
+#
+# 2026-06-11ii: raised 30 → 45 min after the user reported missing
+# trigger alerts on GBP/USD and NZD/USD while the dashboard correctly
+# showed them as triggered. Most likely cause was a GitHub Actions cron
+# throttle gap (the inline run lives inside fetch-data.yml, which itself
+# can be skipped/delayed by Actions). 45 min covers 4-5 missed 10-min
+# cron cycles, which is the worst observed throttle case. If the
+# alert is genuinely > 45 min stale the price has moved past entry
+# anyway, so the alert would be more confusing than useful.
+MAX_TRIGGER_AGE_MIN = 45
 
 
 def _trigger_age_minutes(trigger_ts):
