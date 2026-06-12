@@ -737,6 +737,8 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
         <option value="sr-broken-only">2: SR break already in state</option>
         <option value="sr-tier-only">3: SR direction matches trade</option>
         <option value="sr-no-44">4: SR break only · ignore 4/4 alignment</option>
+        <option value="sr-orb-failure">5: ORB Failure (fade the failed break)</option>
+        <option value="sr-orb-strong">6: ORB with strength filter (body+ATR)</option>
       </select>
     </label>
     <span id="btSRTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
@@ -12943,6 +12945,175 @@ function _walkSRNo44(bars, pairKey){
   return trades;
 }
 
+// Variant 'sr-orb-failure' — research-paper "ORB failure" reversal.
+// Most opening-range breakouts fail; the higher-edge play is to
+// fade the failed breakout when price closes BACK INSIDE the SR
+// range within N bars of the break. Bull-break that fails →
+// fade short. Bear-break that fails → fade long.
+// Entry at the close-back-inside bar's close.
+// Stop at the failed-break extreme (highest high since break for
+// bull-failed, lowest low for bear-failed).
+// Target at 1:1 R:R for parity with other variants.
+//
+// Sources: tradertom.com Dax/Dow open strategy, daytradingtoolkit
+// first-15-minutes pro guide — both flag the failure cohort as the
+// main edge once you accept ~70% of breakouts roll over.
+function _walkSRFailure(bars, pairKey){
+  var spec = SR_REF_TIMES[pairKey];
+  if(!spec || !bars || bars.length === 0) return [];
+  var n = bars.length;
+  var trades = [];
+  var ref = null;
+  var breakSt = null;  // {dir, breakIdx, extreme}
+  for(var i = 0; i < n; i++){
+    var b = bars[i];
+    var ts = b && b.t;
+    if(!ts || ts.length < 16) continue;
+    var hhmm = ts.substr(11, 5);
+    var date = ts.substr(0, 10);
+    if(spec.openTimes.indexOf(hhmm) !== -1){
+      ref = {idx: i, refHigh: b.h, refLow: b.l, date: date};
+      breakSt = null;
+    }
+    var inWindow = ref && (i - ref.idx) <= spec.windowBars
+                   && ref.date === date;
+    if(!ref || !inWindow) continue;
+    var c = b.c;
+    if(c == null) continue;
+    var hi = Math.max(ref.refHigh, ref.refLow);
+    var lo = Math.min(ref.refHigh, ref.refLow);
+    // First leg — detect the breakout
+    if(!breakSt){
+      if(c > hi) breakSt = {dir: 'bull', breakIdx: i, extreme: (b.h != null ? b.h : c)};
+      else if(c < lo) breakSt = {dir: 'bear', breakIdx: i, extreme: (b.l != null ? b.l : c)};
+      continue;
+    }
+    // Track the extreme since the break
+    if(breakSt.dir === 'bull' && b.h != null && b.h > breakSt.extreme) breakSt.extreme = b.h;
+    if(breakSt.dir === 'bear' && b.l != null && b.l < breakSt.extreme) breakSt.extreme = b.l;
+    // Watch up to 8 bars for a failure (research suggests fast
+    // failure is the strongest edge; slow drift back doesn't have
+    // the trapped-trader liquidity).
+    var failed = false;
+    if(breakSt.dir === 'bull' && c <= hi) failed = true;
+    else if(breakSt.dir === 'bear' && c >= lo) failed = true;
+    if(!failed){
+      if(i - breakSt.breakIdx > 8) breakSt = null;
+      continue;
+    }
+    // Fade the failed break
+    var dir = (breakSt.dir === 'bull') ? 'bear' : 'bull';
+    var entry = c;
+    var stop = breakSt.extreme;
+    if(dir === 'bull' && stop >= entry){ breakSt = null; continue; }
+    if(dir === 'bear' && stop <= entry){ breakSt = null; continue; }
+    var R = Math.abs(stop - entry);
+    if(R <= 0){ breakSt = null; continue; }
+    var target = (dir === 'bull') ? (entry + R) : (entry - R);
+    var outcome = 'expired';
+    for(var j = i + 1; j < Math.min(n, i + 17); j++){
+      var bb = bars[j];
+      if(dir === 'bull'){
+        if(bb.l != null && bb.l <= stop){ outcome = 'loss'; break; }
+        if(bb.h != null && bb.h >= target){ outcome = 'win'; break; }
+      } else {
+        if(bb.h != null && bb.h >= stop){ outcome = 'loss'; break; }
+        if(bb.l != null && bb.l <= target){ outcome = 'win'; break; }
+      }
+    }
+    if(outcome === 'win' || outcome === 'loss'){
+      trades.push({outcome: outcome, dir: dir, entry: entry, stop: stop,
+                   target: target, R: R, creatorTs: ts});
+    }
+    breakSt = null;  // one failure-fade per session
+  }
+  return trades;
+}
+
+// Variant 'sr-orb-strong' — Quantified Strategies / tradersmastermind
+// ORB with strict break-strength filter. Same as sr-no-44 but the
+// breakout candle must be a CONVINCING break: body ≥ 60% of total
+// range AND body magnitude ≥ 1.5 × ATR(20). This drops the wicky
+// fake-breakout cohort that pulled sr-no-44 down to 41-54%.
+function _walkSROrbStrong(bars, pairKey){
+  var spec = SR_REF_TIMES[pairKey];
+  if(!spec || !bars || bars.length === 0) return [];
+  var BODY_RATIO_MIN = 0.6;
+  var ATR_MULT_MIN = 1.5;
+  var n = bars.length;
+  var trades = [];
+  var ref = null;
+  var brokenAlready = null;
+  for(var i = 0; i < n; i++){
+    var b = bars[i];
+    var ts = b && b.t;
+    if(!ts || ts.length < 16) continue;
+    var hhmm = ts.substr(11, 5);
+    var date = ts.substr(0, 10);
+    if(spec.openTimes.indexOf(hhmm) !== -1){
+      ref = {idx: i, refHigh: b.h, refLow: b.l, date: date};
+      brokenAlready = null;
+    }
+    var inWindow = ref && (i - ref.idx) <= spec.windowBars
+                   && ref.date === date;
+    if(!ref || !inWindow) continue;
+    var c = b.c, o = b.o, h = b.h, l = b.l;
+    if(c == null || o == null || h == null || l == null) continue;
+    var hi = Math.max(ref.refHigh, ref.refLow);
+    var lo = Math.min(ref.refHigh, ref.refLow);
+    var dir = null;
+    if(brokenAlready == null){
+      if(c > hi) dir = 'bull';
+      else if(c < lo) dir = 'bear';
+    }
+    if(!dir) continue;
+    // STRENGTH FILTER #1 — body fills ≥ 60% of bar's range. Filters
+    // out the wicky doji-style closes that count as a break under
+    // sr-no-44 but rarely follow through.
+    var body = Math.abs(c - o);
+    var rng = h - l;
+    if(rng <= 0) continue;
+    if((body / rng) < BODY_RATIO_MIN) continue;
+    // STRENGTH FILTER #2 — body magnitude ≥ 1.5 × ATR(20). Filters
+    // out the small-body grind through the SR boundary; we want a
+    // decisive expansion candle.
+    var atrStart = Math.max(0, i - 20);
+    var atrSum = 0, atrCount = 0;
+    for(var ai = atrStart; ai < i; ai++){
+      var ab = bars[ai];
+      if(ab && ab.h != null && ab.l != null){
+        atrSum += Math.max(0, ab.h - ab.l);
+        atrCount++;
+      }
+    }
+    var atr20 = atrCount > 0 ? atrSum / atrCount : 0;
+    if(atr20 > 0 && body < ATR_MULT_MIN * atr20) continue;
+    brokenAlready = dir;
+    var entry = c;
+    var stop = (dir === 'bull') ? lo : hi;
+    if(dir === 'bull' && entry <= stop) continue;
+    if(dir === 'bear' && entry >= stop) continue;
+    var R = (dir === 'bull') ? (entry - stop) : (stop - entry);
+    var target = (dir === 'bull') ? (entry + R) : (entry - R);
+    var outcome = 'expired';
+    for(var j = i + 1; j < Math.min(n, i + 17); j++){
+      var bb = bars[j];
+      if(dir === 'bull'){
+        if(bb.l != null && bb.l <= stop){ outcome = 'loss'; break; }
+        if(bb.h != null && bb.h >= target){ outcome = 'win'; break; }
+      } else {
+        if(bb.h != null && bb.h >= stop){ outcome = 'loss'; break; }
+        if(bb.l != null && bb.l <= target){ outcome = 'win'; break; }
+      }
+    }
+    if(outcome === 'win' || outcome === 'loss'){
+      trades.push({outcome: outcome, dir: dir, entry: entry, stop: stop,
+                   target: target, R: R, creatorTs: ts});
+    }
+  }
+  return trades;
+}
+
 function _binSearchTsIdx(bars, target){
   // Find the last bar index whose timestamp <= target.
   if(!bars || bars.length === 0 || !target) return -1;
@@ -12975,11 +13146,19 @@ function compareSRGating(opts){
     }
     var bars = DEEP_HIST[k].m15;
     var srStates = _computeHistoricalSRState(bars, k);
-    if(variant === 'sr-no-44'){
-      // Standalone walker — ignores 4/4 entirely. Fire on every SR
-      // break with entry at break close, 1:1 R:R against opposite
-      // SR boundary.
-      var trades = _walkSRNo44(bars, k);
+    if(variant === 'sr-no-44' || variant === 'sr-orb-failure' || variant === 'sr-orb-strong'){
+      // Standalone walker — ignores 4/4 entirely. Each variant has
+      // its own walker so the strategy logic is isolated:
+      //   sr-no-44         basic ORB — every SR break fires
+      //   sr-orb-failure   reverse on the failed-break (close back
+      //                    inside the SR range within 8 bars)
+      //   sr-orb-strong    ORB with body≥60%-of-range AND body
+      //                    ≥ 1.5×ATR(20) strength filter
+      var walker;
+      if(variant === 'sr-orb-failure')      walker = _walkSRFailure;
+      else if(variant === 'sr-orb-strong')  walker = _walkSROrbStrong;
+      else                                  walker = _walkSRNo44;
+      var trades = walker(bars, k);
       var w = trades.filter(function(t){return t.outcome === 'win';}).length;
       var l = trades.filter(function(t){return t.outcome === 'loss';}).length;
       var n = w + l;
@@ -13152,14 +13331,18 @@ function runSRGatingTest(opts){
         + '<td style="padding:3px 6px;text-align:right;color:var(--inkd);">−' + sampleDrop + '</td>'
         + '</tr>';
     });
-    var noBaseline = (out.variant === 'sr-no-44');
+    var noBaseline = (out.variant === 'sr-no-44'
+                      || out.variant === 'sr-orb-failure'
+                      || out.variant === 'sr-orb-strong');
     resultEl.innerHTML =
       '<div style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--purple,#6a5cb8);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px;">🏫 SR gating dry-run · ' + out.variant + '</div>'
       + '<div style="margin-bottom:6px;color:var(--inkd);font-size:8.5px;">' + ({
           'sr-window-only': 'Keeps DE40 / DJ30 fib trades whose creator timestamp falls inside the 2-hour SR window (07:00–09:00 UTC DE40, 13:30–15:30 UTC DJ30). Anything outside the window is dropped.',
           'sr-broken-only': 'Keeps DE40 / DJ30 trades whose creator timestamp had an SR break already in state (bull_broken / bear_broken). Pending and failed states drop.',
           'sr-tier-only':   'Keeps DE40 / DJ30 trades where the SR state matches the trade direction (bull_broken with bull trade, bear_broken with bear trade) — proxy for the 5/5 + 4/5 SR cohorts.',
-          'sr-no-44':       'IGNORES 4/4 alignment entirely. Fires a fresh setup on every SR break (bull_broken / bear_broken). Entry at break candle close, stop at opposite SR boundary, target at 1:1 R:R, 16-bar expiry. The OLD column is N/A since this isn\'t a filter — it\'s a different strategy.'
+          'sr-no-44':       'IGNORES 4/4 alignment entirely. Fires a fresh setup on every SR break (bull_broken / bear_broken). Entry at break candle close, stop at opposite SR boundary, target at 1:1 R:R, 16-bar expiry. The OLD column is N/A since this isn\'t a filter — it\'s a different strategy.',
+          'sr-orb-failure': 'ORB FAILURE (research: tradertom, daytradingtoolkit). Most opening-range breakouts fail; this variant FADES the failed break. After SR break, watches up to 8 bars; if price closes back INSIDE the SR range, fires a counter-trend trade at the close-back-inside bar. Stop at the failed-break extreme, target 1:1 R:R. The expected edge: trapped breakout traders provide momentum in the reversal direction.',
+          'sr-orb-strong':  'ORB WITH STRENGTH FILTER (research: quantifiedstrategies, tradersmastermind). Same as sr-no-44 (any-SR-break) but the breakout candle must be a CONVINCING break: body ≥ 60% of total range AND body magnitude ≥ 1.5 × ATR(20). Drops the wicky fake-breakout cohort that pulled sr-no-44 down to 41-54% on DE40/DJ30. Expected to lift WR closer to the cited 65%.'
         }[out.variant] || '') + '</div>'
       + '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">'
       + '<thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);font-size:8.5px;color:var(--inkd);">'
