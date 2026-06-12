@@ -12183,10 +12183,16 @@ function calcRecentBacktest(k, mode){
       // Persist per-trade Fib record for SR gating dry-run (2026-06-11gg).
       // creatorTs uses the SETUP creator's m15 timestamp so the SR-state
       // walker can look up the School Run state that was active at the
-      // moment this trade decided to fire.
+      // moment this trade decided to fire. NOTE: the variable `curTs` in
+      // calcRecentBacktest is the PRE-PARSED epoch-ms timestamp (m15Ts[i]),
+      // not the original ISO string. _binSearchTsIdx below compares
+      // against bars[mid].t which IS the ISO string, so we store the raw
+      // ISO here to keep the comparison apples-to-apples. Bug found
+      // 2026-06-11gg after every filter variant produced 0W/0L on the
+      // first user test.
       midTrades.push({
         outcome: midOutcome,
-        creatorTs: curTs,
+        creatorTs: m15[i] && m15[i].t,
         dir: alignedDir,
         entry: midEntry,
         stop: stop,
