@@ -717,6 +717,31 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   </div>
   <div id="btCounterTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
 
+  <!-- ── 1d. SR GATING TEST (DE40 / DJ30 only) — dry-run four
+       variants that filter or replace the existing 4/4 fib trades
+       on the two index pairs the user flagged as having low WR
+       even after the 11ee close-beyond deploy. No production data
+       is touched; results render in the panel below. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btSRTestBtn"
+            onclick="runSRGatingTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid var(--purple,#6a5cb8);background:rgba(106,92,184,0.08);color:var(--purple,#6a5cb8);border-radius:3px;cursor:pointer;">
+      🏫 TEST SR GATING (DAX/DJ30)
+    </button>
+    <label style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);letter-spacing:0.4px;">
+      variant
+      <select id="btSRTestVariant"
+              style="font-family:Orbitron,monospace;font-size:9px;padding:3px 5px;border:1px solid rgba(106,92,184,0.4);background:#fff;color:var(--purple,#6a5cb8);border-radius:3px;margin-left:4px;">
+        <option value="sr-window-only" selected>1: SR window only (drop trades outside)</option>
+        <option value="sr-broken-only">2: SR break already in state</option>
+        <option value="sr-tier-only">3: SR direction matches trade</option>
+        <option value="sr-no-44">4: SR break only · ignore 4/4 alignment</option>
+      </select>
+    </label>
+    <span id="btSRTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btSRTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
+
   <!-- ── 2. PER-PAIR BACKTEST CARDS (the actual content) ── -->
   <div class="mktcards" id="mktCards"></div>
 
@@ -11133,10 +11158,22 @@ function _saveRecentBtCache(data, mode){
     if(DROPPED_PAIRS.has(k)) return;
     var rb = data[k];
     if(!rb){ slim[k] = null; return; }
-    // Shallow copy everything except the heavy per-trade array.
+    // Shallow copy everything except the heavy per-trade arrays.
+    // hybrid.midTrades (2026-06-11gg) is also stripped — it's only
+    // materialised on demand for the SR gating dry-run on DE40/DJ30,
+    // not part of the cached aggregate stats.
     var copy = {};
     Object.keys(rb).forEach(function(field){
-      if(field !== 'trades') copy[field] = rb[field];
+      if(field === 'trades') return;
+      if(field === 'hybrid' && rb.hybrid){
+        var hybCopy = {};
+        Object.keys(rb.hybrid).forEach(function(hf){
+          if(hf !== 'midTrades') hybCopy[hf] = rb.hybrid[hf];
+        });
+        copy.hybrid = hybCopy;
+        return;
+      }
+      copy[field] = rb[field];
     });
     slim[k] = copy;
   });
@@ -11481,6 +11518,12 @@ function calcRecentBacktest(k, mode){
   var hybMidLosses = 0;  // count of midpoint losses (0.5R cost)
   var hybInvalidated = 0;
   var hybExpired = 0;    // signals that neither wick nor midpoint took
+  // Per-trade Fib record array (2026-06-11gg) — additive, no impact on
+  // WR math. compareSRGating walks DE40 / DJ30 midTrades to filter by
+  // School Run state at the trade's creator timestamp. Each entry:
+  //   {outcome:'win'|'loss', creatorTs, entry, stop, target, R, triggered}
+  // creatorTs is the m15 bar timestamp of the setup's creator candle.
+  var midTrades = [];
 
   var i = 8;
   var lastResolvedIdx = -1;
@@ -12137,6 +12180,19 @@ function calcRecentBacktest(k, mode){
     if(midTriggered && (midOutcome === 'win' || midOutcome === 'loss')){
       if(midOutcome === 'win') hybMidWins++;
       else hybMidLosses++;
+      // Persist per-trade Fib record for SR gating dry-run (2026-06-11gg).
+      // creatorTs uses the SETUP creator's m15 timestamp so the SR-state
+      // walker can look up the School Run state that was active at the
+      // moment this trade decided to fire.
+      midTrades.push({
+        outcome: midOutcome,
+        creatorTs: curTs,
+        dir: alignedDir,
+        entry: midEntry,
+        stop: stop,
+        target: midTarget,
+        R: midR
+      });
     }
     // Setup-level resolution flags (for the "expired/invalidated" cohorts
     // in failure-mode analysis): only count if NEITHER side resolved as a
@@ -12199,6 +12255,7 @@ function calcRecentBacktest(k, mode){
       wickLosses: hybLosses,     // full-size wick-extreme losses
       midWins: hybMidWins,       // half-size midpoint wins
       midLosses: hybMidLosses,   // half-size midpoint losses
+      midTrades: midTrades,      // per-fib-trade records for SR gating dry-run
       expired: hybExpired,       // signals where neither entry triggered
       invalidated: hybInvalidated,
       totalResolved: hybTotalResolved,
@@ -12604,6 +12661,397 @@ function runCounterBarRuleTest(opts){
   }, 50);
 }
 if(typeof window !== 'undefined'){ window.runCounterBarRuleTest = runCounterBarRuleTest; }
+
+// ── SR GATING DRY-RUN (DE40 / DJ30) ───────────────────────────
+// User asked to evaluate four variants for DE40 + DJ30 specifically,
+// since those two pairs underperform on the dashboard's aggregate
+// (DE40 50.0% → 41.7% on the 11ee recompute). The variants:
+//
+//   sr-window-only   keep only trades whose creator timestamp falls
+//                    INSIDE the SR window (07:00–09:00 UTC DE40,
+//                    13:30–15:30 UTC DJ30 — 8 bars × 15m each).
+//                    Other trades dropped.
+//
+//   sr-broken-only   keep only trades whose creator timestamp had
+//                    an SR break already in state (bull_broken /
+//                    bear_broken). Pending and failed states drop.
+//
+//   sr-tier-only     keep only trades whose SR tier at creator time
+//                    was 5/5 (4/4 confluence + SR break aligned) or
+//                    4/5 (3/4 confluence + SR break aligned). Drop
+//                    3/5 (2/4 + SR) and everything else.
+//
+//   sr-no-44         IGNORE 4/4 alignment; fire a fresh setup on
+//                    every SR break (bull_broken or bear_broken)
+//                    with entry at the break candle's close, stop
+//                    at the opposite SR boundary, target at 1:1 R:R.
+//                    Walk forward to determine outcome.
+//
+// Outputs per-variant W/L per pair plus aggregate. Decision rule:
+// pick the variant that improves DE40 AND DJ30 WR materially while
+// not tanking the overall 73-74% dashboard aggregate (we project
+// the aggregate by replacing DE40/DJ30 totals with the filtered
+// counts and recomputing).
+
+function _computeHistoricalSRState(bars, pairKey){
+  // Walk m15 bars and return, per bar, the active SR state from the
+  // most recent ref candle (if within windowBars), or null when
+  // outside any session. Mirrors _findRefCandle + _computeSRState
+  // for one-pass historical evaluation.
+  var spec = SR_REF_TIMES[pairKey];
+  if(!spec || !bars || bars.length === 0) return null;
+  var n = bars.length;
+  var out = new Array(n);
+  var ref = null;
+  var state = 'pending';
+  for(var i = 0; i < n; i++){
+    var b = bars[i];
+    var ts = b && b.t;
+    if(!ts || ts.length < 16){ out[i] = null; continue; }
+    var hhmm = ts.substr(11, 5);
+    var date = ts.substr(0, 10);
+    // Open of a new session?
+    if(spec.openTimes.indexOf(hhmm) !== -1){
+      ref = {
+        idx: i,
+        refHigh: b.h != null ? b.h : b.p,
+        refLow:  b.l != null ? b.l : b.p,
+        date: date,
+        openTime: hhmm
+      };
+      state = 'pending';
+    }
+    // Within the active 2h SR window?
+    var inWindow = ref && (i - ref.idx) <= spec.windowBars
+                   && ref.date === date;
+    if(!ref || !inWindow){ out[i] = null; continue; }
+    var c = b.c != null ? b.c : b.p;
+    if(c != null){
+      var hi = Math.max(ref.refHigh, ref.refLow);
+      var lo = Math.min(ref.refHigh, ref.refLow);
+      if(state === 'pending'){
+        if(c > hi) state = 'bull_broken';
+        else if(c < lo) state = 'bear_broken';
+      } else if(state === 'bull_broken'){
+        if(c <= hi) state = 'bull_failed';
+      } else if(state === 'bear_broken'){
+        if(c >= lo) state = 'bear_failed';
+      }
+    }
+    out[i] = {
+      refIdx: ref.idx,
+      refHigh: ref.refHigh,
+      refLow: ref.refLow,
+      state: state,
+      barsSinceRef: i - ref.idx,
+      sessionDate: ref.date
+    };
+  }
+  return out;
+}
+
+function _walkSRNo44(bars, pairKey){
+  // For variant 'sr-no-44': fire on every SR break regardless of
+  // 4/4 alignment. Entry at break candle close, stop at opposite
+  // SR boundary, target at 1:1 R:R. Walk forward up to 16 bars
+  // (matches TRIGGERED_MAX_BARS) to resolve.
+  var spec = SR_REF_TIMES[pairKey];
+  if(!spec || !bars || bars.length === 0) return [];
+  var n = bars.length;
+  var trades = [];
+  var ref = null;
+  var brokenAlready = null;  // track to avoid double-firing the same session
+  for(var i = 0; i < n; i++){
+    var b = bars[i];
+    var ts = b && b.t;
+    if(!ts || ts.length < 16) continue;
+    var hhmm = ts.substr(11, 5);
+    var date = ts.substr(0, 10);
+    if(spec.openTimes.indexOf(hhmm) !== -1){
+      ref = {idx: i, refHigh: b.h, refLow: b.l, date: date};
+      brokenAlready = null;
+    }
+    var inWindow = ref && (i - ref.idx) <= spec.windowBars
+                   && ref.date === date;
+    if(!ref || !inWindow) continue;
+    var c = b.c;
+    if(c == null) continue;
+    var hi = Math.max(ref.refHigh, ref.refLow);
+    var lo = Math.min(ref.refHigh, ref.refLow);
+    var dir = null;
+    if(brokenAlready == null){
+      if(c > hi) dir = 'bull';
+      else if(c < lo) dir = 'bear';
+    }
+    if(!dir) continue;
+    brokenAlready = dir;
+    var entry = c;
+    var stop = (dir === 'bull') ? lo : hi;
+    if(dir === 'bull' && entry <= stop) continue;
+    if(dir === 'bear' && entry >= stop) continue;
+    var R = (dir === 'bull') ? (entry - stop) : (stop - entry);
+    var target = (dir === 'bull') ? (entry + R) : (entry - R);
+    // Forward walk
+    var outcome = 'expired';
+    for(var j = i + 1; j < Math.min(n, i + 17); j++){
+      var bb = bars[j];
+      if(dir === 'bull'){
+        if(bb.l != null && bb.l <= stop){ outcome = 'loss'; break; }
+        if(bb.h != null && bb.h >= target){ outcome = 'win'; break; }
+      } else {
+        if(bb.h != null && bb.h >= stop){ outcome = 'loss'; break; }
+        if(bb.l != null && bb.l <= target){ outcome = 'win'; break; }
+      }
+    }
+    if(outcome === 'win' || outcome === 'loss'){
+      trades.push({outcome: outcome, dir: dir, entry: entry, stop: stop,
+                   target: target, R: R, creatorTs: ts});
+    }
+  }
+  return trades;
+}
+
+function _binSearchTsIdx(bars, target){
+  // Find the last bar index whose timestamp <= target.
+  if(!bars || bars.length === 0 || !target) return -1;
+  var lo = 0, hi = bars.length - 1, ans = -1;
+  while(lo <= hi){
+    var mid = (lo + hi) >> 1;
+    var t = bars[mid] && bars[mid].t;
+    if(!t){ hi = mid - 1; continue; }
+    if(t <= target){ ans = mid; lo = mid + 1; }
+    else hi = mid - 1;
+  }
+  return ans;
+}
+
+function compareSRGating(opts){
+  opts = opts || {};
+  var variant = opts.variant || 'sr-window-only';
+  var pairs = opts.pairs || ['de40', 'dj30'];
+  var mode = opts.mode || 'auto-ew';
+
+  console.log('%c[compareSRGating] running…', 'color:#c8860a;font-weight:700;',
+              {variant: variant, pairs: pairs, mode: mode});
+
+  var perPair = {};
+  pairs.forEach(function(k){
+    if(!(typeof DEEP_HIST !== 'undefined' && DEEP_HIST[k]
+         && DEEP_HIST[k].m15 && DEEP_HIST[k].m15.length >= 1000)){
+      perPair[k] = {error: 'no deep history'};
+      return;
+    }
+    var bars = DEEP_HIST[k].m15;
+    var srStates = _computeHistoricalSRState(bars, k);
+    if(variant === 'sr-no-44'){
+      // Standalone walker — ignores 4/4 entirely. Fire on every SR
+      // break with entry at break close, 1:1 R:R against opposite
+      // SR boundary.
+      var trades = _walkSRNo44(bars, k);
+      var w = trades.filter(function(t){return t.outcome === 'win';}).length;
+      var l = trades.filter(function(t){return t.outcome === 'loss';}).length;
+      var n = w + l;
+      perPair[k] = {
+        variant: variant, w: w, l: l, n: n,
+        wr: n > 0 ? (w / n) * 100 : null,
+        oldW: null, oldL: null, oldWR: null,  // no comparable baseline
+        trades: trades
+      };
+      return;
+    }
+    // Filter variants — take production fib trades and drop those
+    // whose creator timestamp doesn't match the SR criterion.
+    var rb;
+    try {
+      window.__counterBarOverride = null;  // ensure shipped rule
+      rb = calcRecentBacktest(k, mode);
+    } catch(e){ perPair[k] = {error: 'calc failed: ' + (e&&e.message)}; return; }
+    if(!rb || !rb.hybrid || !rb.hybrid.midTrades){
+      perPair[k] = {error: 'no midTrades — older cache or wick pair'};
+      return;
+    }
+    var midTrades = rb.hybrid.midTrades;
+    var oldW = midTrades.filter(function(t){return t.outcome === 'win';}).length;
+    var oldL = midTrades.filter(function(t){return t.outcome === 'loss';}).length;
+    var newW = 0, newL = 0;
+    midTrades.forEach(function(t){
+      var idx = _binSearchTsIdx(bars, t.creatorTs);
+      if(idx < 0){ return; }
+      var sr = srStates ? srStates[idx] : null;
+      var keep = false;
+      if(variant === 'sr-window-only'){
+        keep = !!sr;  // any bar with sr state means inside window
+      } else if(variant === 'sr-broken-only'){
+        keep = !!sr && (sr.state === 'bull_broken' || sr.state === 'bear_broken');
+      } else if(variant === 'sr-tier-only'){
+        // 5/5 or 4/5 = SR aligned with macro direction. We approximate
+        // by requiring sr.state matches trade dir AND keeping all kept
+        // trades (which already had 4/4 confluence — that's why they
+        // existed in midTrades). The 4/4 part gives 5/5 vs 4/5 split
+        // but for filter purposes both pass.
+        var aligned = sr && (
+          (sr.state === 'bull_broken' && t.dir === 'bull') ||
+          (sr.state === 'bear_broken' && t.dir === 'bear')
+        );
+        keep = !!aligned;
+      }
+      if(!keep) return;
+      if(t.outcome === 'win') newW++;
+      else if(t.outcome === 'loss') newL++;
+    });
+    perPair[k] = {
+      variant: variant,
+      oldW: oldW, oldL: oldL, oldWR: (oldW + oldL) > 0 ? (oldW / (oldW + oldL)) * 100 : null,
+      w: newW, l: newL, n: newW + newL,
+      wr: (newW + newL) > 0 ? (newW / (newW + newL)) * 100 : null
+    };
+  });
+
+  // Aggregate impact on dashboard 73.94% — replace DE40 + DJ30 totals
+  // with the filtered counts, recompute. Need the other pairs' W/L
+  // for the denominator.
+  var globalW = 0, globalL = 0;
+  var dashAdjustW = 0, dashAdjustL = 0;
+  if(typeof MKTS !== 'undefined'){
+    Object.keys(MKTS).forEach(function(k){
+      if(k === 'dxy') return;
+      var m = MKTS[k];
+      var bw = m.bw || 0, bl = m.bl || 0;
+      globalW += bw; globalL += bl;
+      if(pairs.indexOf(k) !== -1){
+        dashAdjustW += bw; dashAdjustL += bl;
+      }
+    });
+  }
+  var projW = globalW - dashAdjustW, projL = globalL - dashAdjustL;
+  pairs.forEach(function(k){
+    var p = perPair[k];
+    if(p && p.n != null){ projW += p.w; projL += p.l; }
+  });
+  var projOverall = (projW + projL) > 0 ? (projW / (projW + projL)) * 100 : null;
+  var origOverall = (globalW + globalL) > 0 ? (globalW / (globalW + globalL)) * 100 : null;
+
+  console.log('%c── PER-PAIR FILTERED RESULTS ──', 'color:#c8860a;font-weight:700;');
+  console.table(pairs.map(function(k){
+    var p = perPair[k] || {};
+    return {
+      pair: k, variant: variant,
+      old: (p.oldW != null) ? (p.oldW + 'W/' + p.oldL + 'L') : '—',
+      old_WR: (p.oldWR != null) ? p.oldWR.toFixed(1) + '%' : '—',
+      'new': (p.w != null) ? (p.w + 'W/' + p.l + 'L') : (p.error || '—'),
+      new_WR: (p.wr != null) ? p.wr.toFixed(1) + '%' : '—',
+      delta_pp: (p.oldWR != null && p.wr != null)
+        ? ((p.wr - p.oldWR) >= 0 ? '+' : '') + (p.wr - p.oldWR).toFixed(1) : '—'
+    };
+  }));
+  console.log('Original dashboard overall: ' + (origOverall != null ? origOverall.toFixed(2) + '%' : '—'));
+  console.log('Projected after filter: ' + (projOverall != null ? projOverall.toFixed(2) + '%' : '—'));
+  return {variant: variant, pairs: pairs, perPair: perPair,
+          origOverall: origOverall, projOverall: projOverall};
+}
+if(typeof window !== 'undefined'){ window.compareSRGating = compareSRGating; }
+
+// In-page handler for the SR gating test button. Reads the variant
+// dropdown and renders results into the on-page panel below the
+// button (same UX as runCounterBarRuleTest — no devtools required).
+function runSRGatingTest(opts){
+  var btn = document.getElementById('btSRTestBtn');
+  var statusEl = document.getElementById('btSRTestStatus');
+  var resultEl = document.getElementById('btSRTestResult');
+  var variantSel = document.getElementById('btSRTestVariant');
+  if(!resultEl) return;
+  if(typeof compareSRGating !== 'function'){
+    if(statusEl) statusEl.textContent = 'Engine not loaded — reload the page.';
+    return;
+  }
+  if(typeof DEEP_HIST === 'undefined' || Object.keys(DEEP_HIST).length === 0){
+    if(statusEl) statusEl.textContent = '⏳ Deep history still loading — try again in a few seconds.';
+    return;
+  }
+  if(!opts) opts = {};
+  if(variantSel && !opts.variant) opts.variant = variantSel.value || 'sr-window-only';
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '🏫 RUNNING…'; }
+  if(statusEl) statusEl.textContent = 'Filtering DE40 + DJ30 trades…';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div style="color:var(--inkd);font-style:italic;">⏳ Computing — '
+                     + 'walks DE40 + DJ30 fib trades and filters by the SR variant. '
+                     + 'No production data is touched.</div>';
+  setTimeout(function(){
+    var out;
+    try { out = compareSRGating(opts); }
+    catch(e){
+      resultEl.innerHTML = '<div style="color:var(--bear);font-weight:700;">❌ Test errored: '
+                         + (e && e.message ? e.message : String(e)) + '</div>';
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🏫 TEST SR GATING'; }
+      if(statusEl) statusEl.textContent = 'Errored — see panel.';
+      return;
+    }
+    if(!out){
+      resultEl.innerHTML = '<div style="color:var(--bear);">Test returned no data.</div>';
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🏫 TEST SR GATING'; }
+      return;
+    }
+    var safe = (out.projOverall != null && out.projOverall >= 70);
+    var color = safe ? '#1a7a4a' : '#c0281a';
+    var verdict = (out.projOverall == null)
+      ? '⚠ Could not project overall — variant may use a non-fib walker (sr-no-44 has no comparable baseline).'
+      : (safe ? '✓ Projected overall ≥ 70% — safe to deploy if DE40/DJ30 per-pair WR improves enough.'
+              : '⚠ Projected overall below 70% — do not deploy this scoping.');
+    var pairRows = '';
+    out.pairs.forEach(function(k){
+      var p = out.perPair[k] || {};
+      var oldStr = (p.oldW != null) ? (p.oldW + 'W/' + p.oldL + 'L') : '—';
+      var oldWr = (p.oldWR != null) ? p.oldWR.toFixed(1) + '%' : '—';
+      var newStr = (p.w != null) ? (p.w + 'W/' + p.l + 'L') : (p.error || '—');
+      var newWr = (p.wr != null) ? p.wr.toFixed(1) + '%' : '—';
+      var delta = (p.oldWR != null && p.wr != null) ? (p.wr - p.oldWR) : null;
+      var deltaStr = (delta == null) ? '—' : ((delta >= 0 ? '+' : '') + delta.toFixed(1) + 'pp');
+      var deltaCol = (delta == null) ? 'var(--inkd)' : (delta >= 0 ? 'var(--bull)' : 'var(--bear)');
+      var sampleDrop = (p.oldW != null && p.w != null)
+        ? Math.round(100 * (1 - (p.n / Math.max(1, p.oldW + p.oldL)))) + '%'
+        : '—';
+      pairRows += '<tr>'
+        + '<td style="padding:3px 6px;">' + k + '</td>'
+        + '<td style="padding:3px 6px;text-align:right;">' + oldStr + '</td>'
+        + '<td style="padding:3px 6px;text-align:right;">' + oldWr + '</td>'
+        + '<td style="padding:3px 6px;text-align:right;">' + newStr + '</td>'
+        + '<td style="padding:3px 6px;text-align:right;">' + newWr + '</td>'
+        + '<td style="padding:3px 6px;text-align:right;color:' + deltaCol + ';font-weight:700;">' + deltaStr + '</td>'
+        + '<td style="padding:3px 6px;text-align:right;color:var(--inkd);">−' + sampleDrop + '</td>'
+        + '</tr>';
+    });
+    var noBaseline = (out.variant === 'sr-no-44');
+    resultEl.innerHTML =
+      '<div style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--purple,#6a5cb8);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px;">🏫 SR gating dry-run · ' + out.variant + '</div>'
+      + '<div style="margin-bottom:6px;color:var(--inkd);font-size:8.5px;">' + ({
+          'sr-window-only': 'Keeps DE40 / DJ30 fib trades whose creator timestamp falls inside the 2-hour SR window (07:00–09:00 UTC DE40, 13:30–15:30 UTC DJ30). Anything outside the window is dropped.',
+          'sr-broken-only': 'Keeps DE40 / DJ30 trades whose creator timestamp had an SR break already in state (bull_broken / bear_broken). Pending and failed states drop.',
+          'sr-tier-only':   'Keeps DE40 / DJ30 trades where the SR state matches the trade direction (bull_broken with bull trade, bear_broken with bear trade) — proxy for the 5/5 + 4/5 SR cohorts.',
+          'sr-no-44':       'IGNORES 4/4 alignment entirely. Fires a fresh setup on every SR break (bull_broken / bear_broken). Entry at break candle close, stop at opposite SR boundary, target at 1:1 R:R, 16-bar expiry. The OLD column is N/A since this isn\'t a filter — it\'s a different strategy.'
+        }[out.variant] || '') + '</div>'
+      + '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">'
+      + '<thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);font-size:8.5px;color:var(--inkd);">'
+      + '<th style="padding:3px 6px;text-align:left;">pair</th>'
+      + '<th style="padding:3px 6px;text-align:right;">OLD W/L</th>'
+      + '<th style="padding:3px 6px;text-align:right;">OLD WR</th>'
+      + '<th style="padding:3px 6px;text-align:right;">NEW W/L</th>'
+      + '<th style="padding:3px 6px;text-align:right;">NEW WR</th>'
+      + '<th style="padding:3px 6px;text-align:right;">Δ</th>'
+      + '<th style="padding:3px 6px;text-align:right;">sample drop</th>'
+      + '</tr></thead><tbody>' + pairRows + '</tbody></table></div>'
+      + '<div style="margin-top:12px;padding:8px 10px;border-radius:3px;background:' + (safe ? 'rgba(26,122,74,0.07)' : 'rgba(192,40,26,0.07)') + ';border:1px solid ' + (safe ? 'rgba(26,122,74,0.3)' : 'rgba(192,40,26,0.3)') + ';">'
+      + '<div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;color:var(--inkd);margin-bottom:4px;">Projected dashboard impact</div>'
+      + (noBaseline
+          ? '<div style="font-size:9.5px;color:var(--inkd);">sr-no-44 is a strategy variant, not a filter — overall impact requires per-pair deployment to evaluate. Use the per-pair WR + sample size above to judge.</div>'
+          : '<div style="font-size:11px;"><span style="color:var(--inkd);">Current dashboard:</span> <strong>' + (out.origOverall != null ? out.origOverall.toFixed(2) + '%' : '—') + '</strong></div>'
+            + '<div style="font-size:13px;color:' + color + ';font-weight:700;margin-top:2px;">Projected after SR filter: ' + (out.projOverall != null ? out.projOverall.toFixed(2) + '%' : '—') + '</div>'
+            + '<div style="margin-top:6px;color:' + color + ';font-weight:700;font-size:9.5px;">' + verdict + '</div>')
+      + '</div>';
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🏫 TEST SR GATING'; }
+    if(statusEl) statusEl.textContent = noBaseline ? 'Done — see per-pair table.' : (safe ? 'Done — projection is ≥70%.' : 'Done — projection BELOW 70%.');
+  }, 50);
+}
+if(typeof window !== 'undefined'){ window.runSRGatingTest = runSRGatingTest; }
 
 // Async version with progress callback. Yields to UI between pairs so the
 // browser can repaint, preventing a frozen-tab experience during compute.
