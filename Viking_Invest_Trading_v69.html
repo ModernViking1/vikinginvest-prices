@@ -692,13 +692,23 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
        so a mobile user (no devtools console) can see whether a proposed
        rule change keeps the dashboard above the 70% WR floor BEFORE
        it's deployed. Calls compareCounterBarRules() and renders the
-       result in the panel below. ── -->
+       result in the panel below. The ratio selector lets the user
+       sweep tight/medium/lax without reaching for devtools. ── -->
   <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
     <button id="btCounterTestBtn"
             onclick="runCounterBarRuleTest();"
             style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid var(--purple,#6a5cb8);background:rgba(106,92,184,0.08);color:var(--purple,#6a5cb8);border-radius:3px;cursor:pointer;">
       🧪 TEST COUNTER-BAR RULE
     </button>
+    <label style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);letter-spacing:0.4px;">
+      wick ratio
+      <select id="btCounterTestRatio"
+              style="font-family:Orbitron,monospace;font-size:9px;padding:3px 5px;border:1px solid rgba(106,92,184,0.4);background:#fff;color:var(--purple,#6a5cb8);border-radius:3px;margin-left:4px;">
+        <option value="0.25">0.25 (tight)</option>
+        <option value="0.5" selected>0.5 (medium)</option>
+        <option value="1.0">1.0 (lax)</option>
+      </select>
+    </label>
     <span id="btCounterTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
   </div>
   <div id="btCounterTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
@@ -12374,10 +12384,19 @@ function runCounterBarRuleTest(opts){
   var btn = document.getElementById('btCounterTestBtn');
   var statusEl = document.getElementById('btCounterTestStatus');
   var resultEl = document.getElementById('btCounterTestResult');
+  var ratioSel = document.getElementById('btCounterTestRatio');
   if(!resultEl) return;
   if(typeof compareCounterBarRules !== 'function'){
     if(statusEl) statusEl.textContent = 'Engine not loaded — reload the page.';
     return;
+  }
+  // Read the ratio dropdown so the in-page button stays useful when
+  // we want to sweep tight/medium/lax without dropping into devtools.
+  // Caller-supplied opts (programmatic) override the dropdown.
+  if(!opts) opts = {};
+  if(opts.wickRatio == null && ratioSel){
+    var parsed = parseFloat(ratioSel.value);
+    if(isFinite(parsed) && parsed > 0) opts.wickRatio = parsed;
   }
   // Deep-history gate — the function silently skips pairs without
   // enough deep data, but on a fresh session it's worth being explicit.
@@ -12386,7 +12405,8 @@ function runCounterBarRuleTest(opts){
     return;
   }
   if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '🧪 RUNNING…'; }
-  if(statusEl) statusEl.textContent = 'Running both walkers per pair…';
+  var statusRatio = (opts && opts.wickRatio != null) ? ' (wick≤body×' + opts.wickRatio + ')' : '';
+  if(statusEl) statusEl.textContent = 'Running both walkers per pair' + statusRatio + '…';
   resultEl.style.display = 'block';
   resultEl.innerHTML = '<div style="color:var(--inkd);font-style:italic;">⏳ Computing — '
                      + 'this runs calcRecentBacktest twice on every pair '
@@ -12457,9 +12477,10 @@ function runCounterBarRuleTest(opts){
         + '<td style="padding:3px 6px;text-align:right;color:'+dCol+';font-weight:700;">'+d+'</td>'
         + '</tr>';
     });
+    var ratioUsed = (opts && opts.wickRatio != null) ? opts.wickRatio : 0.5;
     resultEl.innerHTML =
-      '<div style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--purple,#6a5cb8);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px;">🧪 Counter-bar rule dry-run · scoped (FX+crypto NEW, comm+index OLD-kept)</div>'
-      + '<div style="margin-bottom:6px;color:var(--inkd);font-size:8.5px;">Compares the shipped any-body rule (OLD) against the wick≤body×0.5 budget (NEW) on FX + crypto pairs only. Comm + index pairs run OLD on both passes — their WR is identical and acts as a sanity check.</div>'
+      '<div style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--purple,#6a5cb8);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px;">🧪 Counter-bar rule dry-run · scoped · wick≤body×' + ratioUsed + ' (FX+crypto NEW, comm+index OLD-kept)</div>'
+      + '<div style="margin-bottom:6px;color:var(--inkd);font-size:8.5px;">Compares the shipped any-body rule (OLD) against the wick≤body×' + ratioUsed + ' budget (NEW) on FX + crypto pairs only. Comm + index pairs run OLD on both passes — their WR is identical and acts as a sanity check.</div>'
       + '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;margin-top:4px;">'
       + '<thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);font-size:8.5px;color:var(--inkd);">'
       + '<th style="padding:3px 6px;text-align:left;">class</th>'
