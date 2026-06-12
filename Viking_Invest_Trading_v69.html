@@ -705,9 +705,12 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       <select id="btCounterTestRatio"
               style="font-family:Orbitron,monospace;font-size:9px;padding:3px 5px;border:1px solid rgba(106,92,184,0.4);background:#fff;color:var(--purple,#6a5cb8);border-radius:3px;margin-left:4px;">
         <option value="0.25">wick≤body×0.25 (tight)</option>
-        <option value="0.5" selected>wick≤body×0.5 (medium)</option>
+        <option value="0.5">wick≤body×0.5 (medium)</option>
         <option value="1.0">wick≤body×1.0 (lax)</option>
-        <option value="momentum-disabled">Option 2: drop 2-bar momentum (CHoCH only)</option>
+        <option value="momentum-disabled">Drop 2-bar momentum (CHoCH only)</option>
+        <option value="buffer-3" selected>Opt 1: 3-bar settling buffer</option>
+        <option value="buffer-5">Opt 1: 5-bar settling buffer</option>
+        <option value="close-beyond">Opt 2: require close beyond entry</option>
       </select>
     </label>
     <span id="btCounterTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
@@ -12246,31 +12249,37 @@ function compareCounterBarRules(opts){
   var wickRatio = (typeof opts.wickRatio === 'number') ? opts.wickRatio : 0.5;
   var classes = opts.classes || ['major','minor','crypto'];
   var mode = opts.mode || 'auto-ew';
-  // variant: 'wick-budget' (default) → wick-budget at wickRatio;
-  //          'momentum-disabled'      → short-circuit the 2-bar
-  //            momentum check entirely so the trade only invalidates
-  //            via opposing-CHoCH (the SMC structural close-through
-  //            already in place). Lets us A/B "option 2" the user
-  //            asked for after the wick-budget revert.
+  // variant: 'wick-budget' (default) → wick-budget at wickRatio
+  //          'momentum-disabled'    → short-circuit the 2-bar momentum
+  //                                   check entirely
+  //          'buffer'               → skip momentum check while
+  //                                   currentIdx - fromIdx < bufferBars
+  //                                   (settling window after creator)
+  //          'close-beyond'         → keep momentum check but require
+  //                                   the second counter bar to close
+  //                                   beyond the fromIdx bar's extreme
   var variant = opts.variant || 'wick-budget';
-  // 'momentum-disabled' is conceptually a global change (not class-
-  // scoped) — the rule is either on or off. We still apply the
-  // override per-pair so the class table reads symmetrically with
-  // the wick-budget runs and the OLD-kept watch-list verification.
-  // Pass {classes: ['major','minor','crypto','comm','index']} to
-  // exercise it on every class.
-  if(variant === 'momentum-disabled' && !opts.classes){
+  var bufferBars = (typeof opts.bufferBars === 'number') ? opts.bufferBars : 3;
+  // 'momentum-disabled' / 'buffer' / 'close-beyond' are conceptually
+  // global rule changes (not class-scoped). Default `classes` to all
+  // five so the per-class table tells the whole story. Pass a
+  // narrower `classes` opt if you want to scope explicitly.
+  var globalVariants = {'momentum-disabled': true, 'buffer': true, 'close-beyond': true};
+  if(globalVariants[variant] && !opts.classes){
     classes = ['major','minor','crypto','comm','index'];
   }
   var classSet = {};
   classes.forEach(function(c){ classSet[c] = true; });
   // Build the override the engine will read on each NEW-rule pass.
-  var newOverride = (variant === 'momentum-disabled')
-    ? {mode: 'disabled'}
-    : {wickRatio: wickRatio};
+  var newOverride;
+  if(variant === 'momentum-disabled')      newOverride = {mode: 'disabled'};
+  else if(variant === 'buffer')            newOverride = {mode: 'buffer', bufferBars: bufferBars};
+  else if(variant === 'close-beyond')      newOverride = {mode: 'close-beyond'};
+  else                                     newOverride = {wickRatio: wickRatio};
 
   console.log('%c[compareCounterBarRules] running…', 'color:#c8860a;font-weight:700;',
-              {variant: variant, wickRatio: wickRatio, classes: classes, mode: mode});
+              {variant: variant, wickRatio: wickRatio, bufferBars: bufferBars,
+               classes: classes, mode: mode});
   console.log('  This runs calcRecentBacktest twice per pair (~20-40s on');
   console.log('  mobile, 5-10s desktop). No cache writes.');
 
@@ -12391,7 +12400,8 @@ function compareCounterBarRules(opts){
   }
   return {byClass: byClass, totals: totals, oldOverall: oldOverall,
           newOverall: newOverall, delta: deltaOverall, rows: rows,
-          variant: variant, wickRatio: wickRatio, classes: classes};
+          variant: variant, wickRatio: wickRatio, bufferBars: bufferBars,
+          classes: classes};
 }
 // Expose to window so the user can call it from devtools console
 if(typeof window !== 'undefined'){ window.compareCounterBarRules = compareCounterBarRules; }
@@ -12413,13 +12423,20 @@ function runCounterBarRuleTest(opts){
     return;
   }
   // Read the variant dropdown so the in-page button stays useful when
-  // we want to sweep tight/medium/lax/disabled without dropping into
-  // devtools. Caller-supplied opts (programmatic) override the dropdown.
+  // we want to sweep ratios / disabled / buffer / close-beyond without
+  // dropping into devtools. Caller-supplied opts (programmatic) override
+  // the dropdown.
   if(!opts) opts = {};
   if(ratioSel && opts.variant == null && opts.wickRatio == null){
     var raw = ratioSel.value;
     if(raw === 'momentum-disabled'){
       opts.variant = 'momentum-disabled';
+    } else if(raw === 'close-beyond'){
+      opts.variant = 'close-beyond';
+    } else if(raw && raw.indexOf('buffer-') === 0){
+      opts.variant = 'buffer';
+      var n = parseInt(raw.slice('buffer-'.length), 10);
+      if(isFinite(n) && n > 0) opts.bufferBars = n;
     } else {
       var parsed = parseFloat(raw);
       if(isFinite(parsed) && parsed > 0) opts.wickRatio = parsed;
@@ -12504,16 +12521,33 @@ function runCounterBarRuleTest(opts){
         + '<td style="padding:3px 6px;text-align:right;color:'+dCol+';font-weight:700;">'+d+'</td>'
         + '</tr>';
     });
-    var isDisabled = (out && out.variant === 'momentum-disabled');
-    var variantLbl = isDisabled
-      ? 'momentum-disabled (rely on opposing CHoCH only)'
-      : 'wick≤body×' + ((opts && opts.wickRatio != null) ? opts.wickRatio : 0.5);
-    var scopeLbl = isDisabled
+    var outVariant = out && out.variant;
+    var isGlobal = (outVariant === 'momentum-disabled' || outVariant === 'buffer' || outVariant === 'close-beyond');
+    var variantLbl;
+    if(outVariant === 'momentum-disabled'){
+      variantLbl = 'momentum-disabled (rely on opposing CHoCH only)';
+    } else if(outVariant === 'buffer'){
+      var bb = (out && out.bufferBars) || 3;
+      variantLbl = 'Opt 1 · ' + bb + '-bar settling buffer';
+    } else if(outVariant === 'close-beyond'){
+      variantLbl = 'Opt 2 · close beyond entry required';
+    } else {
+      variantLbl = 'wick≤body×' + ((opts && opts.wickRatio != null) ? opts.wickRatio : 0.5);
+    }
+    var scopeLbl = isGlobal
       ? 'all classes — the rule is either on or off, can\'t be class-scoped'
       : '(FX+crypto NEW, comm+index OLD-kept)';
-    var sanityNote = isDisabled
-      ? 'Every class runs NEW (with the 2-bar momentum check switched off, leaving only the opposing-CHoCH structural close-through). Watch-list shows DE40 / DJ30 / XAG / XAU under both rules so the impact on the cohort that flagged this work is visible.'
-      : 'Compares the shipped any-body rule (OLD) against the ' + variantLbl + ' budget (NEW) on FX + crypto pairs only. Comm + index pairs run OLD on both passes — their WR is identical and acts as a sanity check.';
+    var sanityNote;
+    if(outVariant === 'momentum-disabled'){
+      sanityNote = 'Every class runs NEW (with the 2-bar momentum check switched off, leaving only the opposing-CHoCH structural close-through). Watch-list shows DE40 / DJ30 / XAG / XAU under both rules so the impact on the cohort that flagged this work is visible.';
+    } else if(outVariant === 'buffer'){
+      var bb2 = (out && out.bufferBars) || 3;
+      sanityNote = 'Every class runs NEW. The 2-bar momentum check is suppressed while the current bar is fewer than ' + bb2 + ' bars past fromIdx (creator or trigger) — a "settling window" that ignores lingering breakdown volatility. After ' + bb2 + ' bars the momentum check resumes exactly as in production.';
+    } else if(outVariant === 'close-beyond'){
+      sanityNote = 'Every class runs NEW. The 2-bar momentum check still fires, but the SECOND counter bar must close past the fromIdx bar\'s wick extreme (entry for pre-trigger calls, trigger high/low post-trigger) — i.e. price must have actually retraced back into the trade zone before the rule invalidates.';
+    } else {
+      sanityNote = 'Compares the shipped any-body rule (OLD) against the ' + variantLbl + ' budget (NEW) on FX + crypto pairs only. Comm + index pairs run OLD on both passes — their WR is identical and acts as a sanity check.';
+    }
     resultEl.innerHTML =
       '<div style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--purple,#6a5cb8);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px;">🧪 Counter-bar rule dry-run · ' + variantLbl + ' · ' + scopeLbl + '</div>'
       + '<div style="margin-bottom:6px;color:var(--inkd);font-size:8.5px;">' + sanityNote + '</div>'
@@ -12531,7 +12565,7 @@ function runCounterBarRuleTest(opts){
       + classRows
       + '</tbody></table></div>'
       + '<div style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--purple,#6a5cb8);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-top:10px;margin-bottom:4px;">Watch-list pairs (DE40 / DJ30 / XAG / XAU)</div>'
-      + '<div style="color:var(--inkd);font-size:8.5px;margin-bottom:4px;">' + (isDisabled
+      + '<div style="color:var(--inkd);font-size:8.5px;margin-bottom:4px;">' + (isGlobal
           ? 'Each pair runs OLD vs NEW directly. Big NEW WR drops on DE40 / DJ30 / XAG / XAU would replay the 11dd regression — read the deltas before deciding.'
           : 'Must be marked OLD-kept on this scoping — verifies the comm + index regression doesn\'t reappear.') + '</div>'
       + '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">'
@@ -13194,13 +13228,33 @@ function detectConsecutiveCounterBars(bars, fromIdx, currentIdx, setupDir, minPr
   if(!bars || fromIdx < 0 || currentIdx <= fromIdx + 1) return -1;
   if(currentIdx >= bars.length) currentIdx = bars.length - 1;
   if(currentIdx < 1) return -1;
-  // Dry-run override (2026-06-11dd) — see compareCounterBarRules. When
-  // override.mode === 'disabled' the 2-bar momentum check is short-
-  // circuited entirely so the caller relies on detectOpposingCHoCH
-  // for structural close-through invalidation alone. Used to A/B the
-  // "option 2" path the user asked for after the wick-budget revert.
+  // Dry-run override (2026-06-11dd) — see compareCounterBarRules. The
+  // window.__counterBarOverride flag lets the dashboard's dry-run
+  // framework swap the invalidation rule per pair without touching
+  // production. Recognised modes:
+  //   null / undefined         → shipped any-body rule (production)
+  //   {wickRatio: 0.5}         → wick-budget at the given ratio
+  //   {mode: 'disabled'}       → short-circuit the 2-bar momentum
+  //                              check entirely; rely on opposing
+  //                              CHoCH for invalidation (option 2)
+  //   {mode: 'buffer',
+  //    bufferBars: N}          → skip the momentum check while the
+  //                              current bar is fewer than N bars
+  //                              past fromIdx (creator or trigger).
+  //                              "Settling window" — gives the trade
+  //                              N bars of lingering breakdown
+  //                              volatility before momentum can
+  //                              invalidate.
+  //   {mode: 'close-beyond'}   → keep all 2-bar momentum mechanics,
+  //                              but require the SECOND bar's close
+  //                              to push back through bars[fromIdx]
+  //                              wick extreme — i.e. price must have
+  //                              actually retraced into the trade
+  //                              zone before invalidation fires.
   var _ovr = (typeof window !== 'undefined') ? window.__counterBarOverride : null;
   if(_ovr && _ovr.mode === 'disabled') return -1;
+  if(_ovr && _ovr.mode === 'buffer' && typeof _ovr.bufferBars === 'number'
+     && (currentIdx - fromIdx) < _ovr.bufferBars) return -1;
   // O(1) per call: only check whether bars[currentIdx-1] and
   // bars[currentIdx] form the qualifying pair. Earlier pairs in the
   // window would already have been detected on previous bar-by-bar
@@ -13267,6 +13321,18 @@ function detectConsecutiveCounterBars(bars, fromIdx, currentIdx, setupDir, minPr
     return false;
   };
   if(!isCounter(prev) || !isCounter(curr)) return -1;
+  // close-beyond override — require the second counter bar's close to
+  // push past the fromIdx bar's wick extreme. The fromIdx bar is the
+  // creator (pre-trigger) or trigger (post-trigger), so its high/low
+  // is the relevant trade-zone boundary.
+  var _from = bars[fromIdx];
+  if(_ovr && _ovr.mode === 'close-beyond' && _from){
+    if(setupDir === 'bear' && _from.h != null){
+      if(!(curr.c > _from.h)) return -1;
+    } else if(setupDir === 'bull' && _from.l != null){
+      if(!(curr.c < _from.l)) return -1;
+    }
+  }
   if(setupDir === 'bear' && curr.c > prev.c) return currentIdx;
   if(setupDir === 'bull' && curr.c < prev.c) return currentIdx;
   return -1;
