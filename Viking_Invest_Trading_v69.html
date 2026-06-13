@@ -762,6 +762,20 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   </div>
   <div id="btNewsTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
 
+  <!-- ── 1f. PER-CLASS R:R DRY-RUN — sweeps the target ratio (1:0.5
+       through 1:2) across the universe and reports per-class WR +
+       expected R per trade. Lets us pick the target multiplier that
+       maximises edge per asset class instead of forcing 1:1 on all. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btRRTestBtn"
+            onclick="runRRPerClassTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid var(--purple,#6a5cb8);background:rgba(106,92,184,0.08);color:var(--purple,#6a5cb8);border-radius:3px;cursor:pointer;">
+      🎯 TEST R:R PER CLASS
+    </button>
+    <span id="btRRTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btRRTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
+
   <!-- ── 2. PER-PAIR BACKTEST CARDS (the actual content) ── -->
   <div class="mktcards" id="mktCards"></div>
 
@@ -12312,7 +12326,14 @@ function calcRecentBacktest(k, mode){
         entry: midEntry,
         stop: stop,
         target: midTarget,
-        R: midR
+        R: midR,
+        // 2026-06-13: capture maxFavorable + triggered so the per-class
+        // R:R dry-run can recompute outcomes at different target
+        // multipliers without re-walking the bars. midMaxFav is updated
+        // in the post-trigger walker; midTriggered is true here by
+        // virtue of the push being inside the won/lost branch above.
+        maxFavorable: midMaxFav,
+        triggered: true
       });
     }
     // Setup-level resolution flags (for the "expired/invalidated" cohorts
@@ -13929,6 +13950,180 @@ function runNewsBlackoutTest(opts){
   }, 50);
 }
 if(typeof window !== 'undefined'){ window.runNewsBlackoutTest = runNewsBlackoutTest; }
+
+// ── PER-CLASS R:R DRY-RUN ──────────────────────────────────────
+// User hypothesis after 9 prior variants couldn't lift DAX/DJ30:
+// DE40/DJ30 might respond better to a different reward multiplier
+// than the production 1:1 R:R. Smaller targets are easier to hit
+// (higher WR but smaller per-win), bigger targets vice versa.
+//
+// Test design: for each pair, take the per-trade records (wins
+// + losses with their maxFavorable excursion) and recompute the
+// outcome at each candidate ratio. Rule:
+//   triggered + maxFav >= ratio  → WIN at this ratio
+//   triggered + maxFav <  ratio  → LOSS (stop) at this ratio
+// Skip invalidated/expired since they didn't reach a stop or
+// target outcome. Aggregate per class to find the ratio that
+// maximises EXPECTED R per trade (win × ratio − loss × 1.0).
+//
+// Same dry-run pattern as the other tests — no production
+// behaviour changes, no cache writes.
+function compareRRPerClass(opts){
+  opts = opts || {};
+  // 2026-06-13 — user explicitly added 2.0 (1:2 R:R) to the test set.
+  var ratios = opts.ratios || [0.5, 0.75, 1.0, 1.5, 2.0];
+  var mode = opts.mode || 'auto-ew';
+  var perPair = {};
+  var classAgg = {};
+  Object.keys(MKTS).forEach(function(k){
+    if(k === 'dxy') return;
+    var m = MKTS[k];
+    var cls = m && m.t;
+    if(!cls) return;
+    if(!(typeof DEEP_HIST !== 'undefined' && DEEP_HIST[k]
+        && DEEP_HIST[k].m15 && DEEP_HIST[k].m15.length >= 1000)){
+      perPair[k] = {error: 'no deep history'};
+      return;
+    }
+    window.__counterBarOverride = null;
+    var rb;
+    try { rb = calcRecentBacktest(k, mode); }
+    catch(e){ perPair[k] = {error: 'calc failed: ' + (e && e.message)}; return; }
+    if(!rb){ perPair[k] = {error: 'no rb'}; return; }
+    var method = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
+    var trades;
+    if(method === 'fib' && rb.hybrid && rb.hybrid.midTrades) trades = rb.hybrid.midTrades;
+    else trades = rb.trades;
+    if(!trades){ perPair[k] = {error: 'no per-trade records'}; return; }
+    if(!classAgg[cls]){
+      classAgg[cls] = {pairs: 0, byRatio: {}};
+      ratios.forEach(function(r){ classAgg[cls].byRatio[r] = {W: 0, L: 0}; });
+    }
+    classAgg[cls].pairs += 1;
+    var pairByRatio = {};
+    ratios.forEach(function(r){ pairByRatio[r] = {W: 0, L: 0}; });
+    trades.forEach(function(t){
+      if(t.triggered === false) return;
+      // Only count trades that produced a structural outcome
+      // (win or loss). Invalidated/expired didn't traverse from
+      // entry to target/stop, so promoting them to a different
+      // ratio outcome would over-estimate the sample.
+      if(t.outcome !== 'win' && t.outcome !== 'loss') return;
+      var maxFav;
+      if(typeof t.maxFavorable === 'number') maxFav = t.maxFavorable;
+      else maxFav = (t.outcome === 'win') ? 1.0 : 0;
+      ratios.forEach(function(r){
+        if(maxFav >= r){
+          classAgg[cls].byRatio[r].W += 1;
+          pairByRatio[r].W += 1;
+        } else {
+          classAgg[cls].byRatio[r].L += 1;
+          pairByRatio[r].L += 1;
+        }
+      });
+    });
+    perPair[k] = {cls: cls, method: method, byRatio: pairByRatio};
+  });
+  // Compute WR + E[R] per class per ratio, pick the best
+  Object.keys(classAgg).forEach(function(cls){
+    var bestR = null, bestEV = -Infinity, bestWR = null;
+    ratios.forEach(function(r){
+      var c = classAgg[cls].byRatio[r];
+      var n = c.W + c.L;
+      c.n = n;
+      c.wr = n > 0 ? (c.W / n) * 100 : null;
+      c.evPerTrade = n > 0 ? (c.W * r - c.L * 1.0) / n : null;
+      if(n > 0 && c.evPerTrade > bestEV){
+        bestEV = c.evPerTrade;
+        bestR = r;
+        bestWR = c.wr;
+      }
+    });
+    classAgg[cls].bestRatio = bestR;
+    classAgg[cls].bestEV = bestEV;
+    classAgg[cls].bestWR = bestWR;
+  });
+  return {classAgg: classAgg, perPair: perPair, ratios: ratios};
+}
+if(typeof window !== 'undefined'){ window.compareRRPerClass = compareRRPerClass; }
+
+function runRRPerClassTest(opts){
+  var btn = document.getElementById('btRRTestBtn');
+  var statusEl = document.getElementById('btRRTestStatus');
+  var resultEl = document.getElementById('btRRTestResult');
+  if(!resultEl) return;
+  if(typeof compareRRPerClass !== 'function'){
+    if(statusEl) statusEl.textContent = 'Engine not loaded — reload the page.';
+    return;
+  }
+  if(typeof DEEP_HIST === 'undefined' || Object.keys(DEEP_HIST).length === 0){
+    if(statusEl) statusEl.textContent = '⏳ Deep history still loading — try again in a few seconds.';
+    return;
+  }
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '🎯 RUNNING…'; }
+  if(statusEl) statusEl.textContent = 'Sweeping R:R ratios across all classes…';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div style="color:var(--inkd);font-style:italic;">⏳ Computing — '
+                     + 'recomputes calcRecentBacktest across the universe and re-classifies each trade at each candidate ratio via maxFavorable. ~20-60s.</div>';
+  setTimeout(function(){
+    var out;
+    try { out = compareRRPerClass(opts || {}); }
+    catch(e){
+      resultEl.innerHTML = '<div style="color:var(--bear);font-weight:700;">❌ ' + (e && e.message ? e.message : String(e)) + '</div>';
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🎯 TEST R:R PER CLASS'; }
+      return;
+    }
+    if(!out){
+      resultEl.innerHTML = '<div style="color:var(--bear);">No data.</div>';
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🎯 TEST R:R PER CLASS'; }
+      return;
+    }
+    // Header row of ratios
+    var hdrCells = '<th style="padding:3px 6px;text-align:left;">class</th><th></th>';
+    out.ratios.forEach(function(r){
+      hdrCells += '<th style="padding:3px 6px;text-align:right;" colspan="2">1:' + r + '</th>';
+    });
+    hdrCells += '<th style="padding:3px 6px;text-align:right;">best</th>';
+    var sub = '<th></th><th></th>';
+    out.ratios.forEach(function(){
+      sub += '<th style="padding:1px 6px;text-align:right;font-size:7.5px;color:var(--inkd);font-weight:400;">WR</th>'
+           + '<th style="padding:1px 6px;text-align:right;font-size:7.5px;color:var(--inkd);font-weight:400;">E[R]</th>';
+    });
+    sub += '<th></th>';
+    var rows = '';
+    Object.keys(out.classAgg).sort().forEach(function(cls){
+      var ca = out.classAgg[cls];
+      var row = '<tr>'
+        + '<td style="padding:3px 6px;font-weight:700;">' + cls + '</td>'
+        + '<td style="padding:3px 6px;color:var(--inkd);">' + ca.pairs + ' pairs</td>';
+      out.ratios.forEach(function(r){
+        var c = ca.byRatio[r];
+        var wrStr = (c.wr != null) ? c.wr.toFixed(1) + '%' : '—';
+        var evStr = (c.evPerTrade != null) ? (c.evPerTrade >= 0 ? '+' : '') + c.evPerTrade.toFixed(2) + 'R' : '—';
+        var evCol = (c.evPerTrade != null) ? (c.evPerTrade > 0 ? 'var(--bull)' : 'var(--bear)') : 'var(--inkd)';
+        var bgWR = (r === ca.bestRatio) ? 'background:rgba(26,122,74,0.07);font-weight:700;' : '';
+        var bgEV = (r === ca.bestRatio) ? 'background:rgba(26,122,74,0.07);font-weight:700;' : '';
+        row += '<td style="padding:3px 6px;text-align:right;' + bgWR + '">' + wrStr + '</td>'
+             + '<td style="padding:3px 6px;text-align:right;color:' + evCol + ';' + bgEV + '">' + evStr + '</td>';
+      });
+      row += '<td style="padding:3px 6px;text-align:right;color:var(--bull);font-weight:700;">1:' + ca.bestRatio + '</td>';
+      row += '</tr>';
+      rows += row;
+    });
+    resultEl.innerHTML =
+      '<div style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--purple,#6a5cb8);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px;">🎯 R:R sweep · per asset class · ratios ' + out.ratios.map(function(r){return '1:'+r;}).join(' / ') + '</div>'
+      + '<div style="margin-bottom:6px;color:var(--inkd);font-size:8.5px;">For each existing trade, recomputes WIN if maxFavorable ≥ target ratio, else LOSS. Invalidated/expired trades excluded — they never reached a structural outcome. The "best" column is the ratio that maximises E[R] per trade for that class (highlighted green in the table).</div>'
+      + '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">'
+      + '<thead>'
+      + '<tr style="border-bottom:1px solid rgba(0,0,0,0.1);font-size:8.5px;color:var(--inkd);">' + hdrCells + '</tr>'
+      + '<tr style="border-bottom:1px solid rgba(0,0,0,0.06);">' + sub + '</tr>'
+      + '</thead><tbody>' + rows + '</tbody></table></div>'
+      + '<div style="margin-top:10px;color:var(--inkd);font-size:8.5px;line-height:1.4;">Deploy rule of thumb — the per-class production R:R should be set to the column with the highest E[R] for that class. If two columns are within ~0.05R per trade, prefer the one with the higher WR (smoother equity curve, less psychological drawdown).</div>';
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🎯 TEST R:R PER CLASS'; }
+    if(statusEl) statusEl.textContent = 'Done — see table.';
+  }, 50);
+}
+if(typeof window !== 'undefined'){ window.runRRPerClassTest = runRRPerClassTest; }
 
 // Async version with progress callback. Yields to UI between pairs so the
 // browser can repaint, preventing a frozen-tab experience during compute.
