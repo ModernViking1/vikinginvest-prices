@@ -14110,6 +14110,52 @@ function runRRPerClassTest(opts){
       row += '</tr>';
       rows += row;
     });
+    // Watch-list — DE40 / DJ30 / XAG / XAU per-pair so the user can
+    // see whether smaller targets specifically help the cohort that
+    // drags the INDEX aggregate down. The class aggregate masks
+    // DAX/DJ30 because NAS / SPX / FTSE pull it up.
+    var watchList = ['de40','dj30','xagusd','xauusd'];
+    var watchRows = '';
+    watchList.forEach(function(k){
+      var pp = out.perPair[k];
+      if(!pp || pp.error || !pp.byRatio) return;
+      // Compute best per pair
+      var pBestR = null, pBestEV = -Infinity;
+      out.ratios.forEach(function(r){
+        var c = pp.byRatio[r];
+        var n = c.W + c.L;
+        if(n === 0) return;
+        var ev = (c.W * r - c.L * 1.0) / n;
+        if(ev > pBestEV){ pBestEV = ev; pBestR = r; }
+      });
+      var wr = '<tr><td style="padding:3px 6px;font-weight:700;">' + k + '</td>'
+             + '<td style="padding:3px 6px;color:var(--inkd);">' + (pp.method || '?') + '</td>';
+      out.ratios.forEach(function(r){
+        var c = pp.byRatio[r];
+        var n = c.W + c.L;
+        var wrV = n > 0 ? (c.W / n) * 100 : null;
+        var evV = n > 0 ? (c.W * r - c.L * 1.0) / n : null;
+        var wrStr = (wrV != null) ? wrV.toFixed(1) + '%' : '—';
+        var evStr = (evV != null) ? (evV >= 0 ? '+' : '') + evV.toFixed(2) + 'R' : '—';
+        var evCol = (evV != null) ? (evV > 0 ? 'var(--bull)' : 'var(--bear)') : 'var(--inkd)';
+        var hl = (r === pBestR) ? 'background:rgba(26,122,74,0.07);font-weight:700;' : '';
+        wr += '<td style="padding:3px 6px;text-align:right;' + hl + '">' + wrStr + '</td>'
+            + '<td style="padding:3px 6px;text-align:right;color:' + evCol + ';' + hl + '">' + evStr + ' <span style="color:var(--inkd);font-size:7px;">(n=' + n + ')</span></td>';
+      });
+      wr += '<td style="padding:3px 6px;text-align:right;color:var(--bull);font-weight:700;">1:' + (pBestR != null ? pBestR : '—') + '</td>';
+      wr += '</tr>';
+      watchRows += wr;
+    });
+    var watchSection = '';
+    if(watchRows){
+      watchSection = '<div style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--purple,#6a5cb8);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-top:14px;margin-bottom:4px;">Watch-list pairs (DE40 / DJ30 / XAG / XAU)</div>'
+        + '<div style="color:var(--inkd);font-size:8.5px;margin-bottom:4px;">Per-pair view of the same ratio sweep — the index aggregate masks DAX/DJ30 because NAS / SPX / FTSE pull it up. The "best" column is the per-pair ratio that maximises E[R] for that single pair.</div>'
+        + '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">'
+        + '<thead>'
+        + '<tr style="border-bottom:1px solid rgba(0,0,0,0.1);font-size:8.5px;color:var(--inkd);">' + hdrCells + '</tr>'
+        + '<tr style="border-bottom:1px solid rgba(0,0,0,0.06);">' + sub + '</tr>'
+        + '</thead><tbody>' + watchRows + '</tbody></table></div>';
+    }
     resultEl.innerHTML =
       '<div style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--purple,#6a5cb8);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px;">🎯 R:R sweep · per asset class · ratios ' + out.ratios.map(function(r){return '1:'+r;}).join(' / ') + '</div>'
       + '<div style="margin-bottom:6px;color:var(--inkd);font-size:8.5px;">For each existing trade, recomputes WIN if maxFavorable ≥ target ratio, else LOSS. Invalidated/expired trades excluded — they never reached a structural outcome. The "best" column is the ratio that maximises E[R] per trade for that class (highlighted green in the table).</div>'
@@ -14118,7 +14164,9 @@ function runRRPerClassTest(opts){
       + '<tr style="border-bottom:1px solid rgba(0,0,0,0.1);font-size:8.5px;color:var(--inkd);">' + hdrCells + '</tr>'
       + '<tr style="border-bottom:1px solid rgba(0,0,0,0.06);">' + sub + '</tr>'
       + '</thead><tbody>' + rows + '</tbody></table></div>'
-      + '<div style="margin-top:10px;color:var(--inkd);font-size:8.5px;line-height:1.4;">Deploy rule of thumb — the per-class production R:R should be set to the column with the highest E[R] for that class. If two columns are within ~0.05R per trade, prefer the one with the higher WR (smoother equity curve, less psychological drawdown).</div>';
+      + watchSection
+      + '<div style="margin-top:10px;padding:7px 9px;border-radius:3px;background:rgba(200,134,10,0.08);border:1px solid rgba(200,134,10,0.25);color:var(--inkd);font-size:8.5px;line-height:1.4;">⚠ <strong>Methodology caveat for ratios > 1.0</strong>: the production walker exits the trade the moment the 1:1 target is hit, so maxFavorable is capped near 1.0R for winning trades. The 1:1.5 and 1:2 WR columns are therefore UNDER-stated — they only count trades whose favourable peak somehow exceeded the production exit. Only 1:0.5, 1:0.75 and 1:1 are reliable on this data. Larger ratios need a re-walker that lets winners run past 1:1 to capture the true exit — flag if needed.</div>'
+      + '<div style="margin-top:6px;color:var(--inkd);font-size:8.5px;line-height:1.4;">Deploy rule of thumb — the per-class production R:R should be set to the column with the highest E[R] for that class. If two columns are within ~0.05R per trade, prefer the one with the higher WR (smoother equity curve, less psychological drawdown).</div>';
     if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🎯 TEST R:R PER CLASS'; }
     if(statusEl) statusEl.textContent = 'Done — see table.';
   }, 50);
