@@ -1089,8 +1089,8 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <div class="pf-tf" id="pf-tf-host">
       <button type="button" class="pf-tf-btn" data-tf="weekly">Weekly<small>last 7 days</small></button>
       <button type="button" class="pf-tf-btn" data-tf="monthly">Monthly<small>this calendar month</small></button>
-      <button type="button" class="pf-tf-btn active" data-tf="ytd">YTD<small>Jan 1 → today</small></button>
-      <button type="button" class="pf-tf-btn" data-tf="all">All-time<small>full backtest</small></button>
+      <button type="button" class="pf-tf-btn" data-tf="ytd">YTD<small>Jan 1 → today</small></button>
+      <button type="button" class="pf-tf-btn active" data-tf="all">All-time<small>full backtest</small></button>
     </div>
 
     <div class="pf-kpis" id="pf-kpis-host"></div>
@@ -11474,7 +11474,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-13qq';
+var RULES_VERSION = '2026-06-13rr';
 var RULES_VERSION_NOTES = [
   '2026-06-13kk — DAX 30 (de40) DROPPED from the active universe. Chronic structural underperformance confirmed across the full optimisation phase: 9 SR gating variants (1: window-only / 2: broken-only / 3: tier-only / 4: SR break ignoring 4/4 / 5: ORB Failure / 6: ORB+strength filter / 7: VWAP pullback / 8: Silver Bullet) PLUS the news + vol-spike blackout filter PLUS the per-class R:R sweep (1:0.5, 1:0.75, 1:1, 1:1.5, 1:2). DE40 produced NEGATIVE expected R on every tested combination — most generous read was 1:1 at −0.17R per trade over n=12 decided trades, with smaller targets making it WORSE (1:0.5 at −0.25R because the WR uplift didn\'t offset the smaller win size). Same pattern as the prior DROPPED_PAIRS additions where instrument microstructure simply doesn\'t map to the 4/4 confluence + close-beyond detector. Added to DROPPED_PAIRS deny-list so caches flush on next page load. DJ30 stays in the universe at +0.07R/trade (marginal but positive; reassess in 6 months with more data). Active universe: 40 instruments + DXY anchor.',
   '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
@@ -19118,7 +19118,14 @@ function _renderCCIVariantPanel(host, commodityKeys){
     comm:'Commodities', index:'Indices', crypto:'Crypto'
   };
 
-  var _currentTF = 'ytd';
+  // 2026-06-13rr: default to All-time. The narrower slices (Weekly /
+  // Monthly / YTD) filter the cache by real-world calendar boundaries.
+  // If the user's auto-EW cache hasn't built, OR the historical price
+  // data the backtest walks ends before the slice's lower bound, those
+  // slices come back empty even when the cache has data. All-time is
+  // always populated — either from real per-trade events or from the
+  // baked fallback path — so it's the right landing view.
+  var _currentTF = 'all';
 
   function _fmt(n){ return (n|0).toLocaleString('en-US'); }
   function _pct(w,l){ var t=w+l; return t>0 ? (w/t*100) : null; }
@@ -19153,10 +19160,16 @@ function _renderCCIVariantPanel(host, commodityKeys){
     return {fromMs: 0, label: 'All-time (full 12-month backtest)', short: 'All-time'};
   }
 
+  // Captures the cache's earliest + latest creatorTs across all pairs,
+  // independent of the active timeframe slice. Surfaces in the empty-
+  // state for narrow windows so the user can immediately see "ah, the
+  // backtest data ends in April — that's why YTD looks empty."
+  var _cacheRange = {minTs: null, maxTs: null, total: 0};
   function _gatherTrades(fromMs){
     var allRecent = (typeof _loadRecentBtCache === 'function')
       ? _loadRecentBtCache('auto-ew') : null;
     var out = [];
+    _cacheRange = {minTs: null, maxTs: null, total: 0};
     if(!allRecent) return out;
     Object.keys(MKTS || {}).forEach(function(k){
       var cls = _classOfPair(k);
@@ -19179,7 +19192,14 @@ function _renderCCIVariantPanel(host, commodityKeys){
         var ts = t.creatorTs;
         if(ts == null) continue;
         if(typeof ts === 'string') ts = Date.parse(ts);
-        if(isNaN(ts) || ts < fromMs) continue;
+        if(isNaN(ts)) continue;
+        // Track the cache-wide range even for trades outside the window
+        // so the empty-state diagnostic can explain which dates the
+        // backtest actually covers.
+        if(_cacheRange.minTs == null || ts < _cacheRange.minTs) _cacheRange.minTs = ts;
+        if(_cacheRange.maxTs == null || ts > _cacheRange.maxTs) _cacheRange.maxTs = ts;
+        _cacheRange.total++;
+        if(ts < fromMs) continue;
         var rDelta = 0;
         if(t.outcome === 'win')  rDelta = rPerTrade;
         else if(t.outcome === 'loss') rDelta = -rPerTrade;
@@ -19256,6 +19276,32 @@ function _renderCCIVariantPanel(host, commodityKeys){
     return n;
   }
 
+  // Diagnostic message shown in empty trade tables. Three distinct
+  // cases — cache not built, cache built but the window doesn't overlap
+  // the data range, or cache built and window overlaps but no trades
+  // fired. Each gets a specific, actionable explanation instead of the
+  // old "try a wider window" handwave.
+  function _emptyExplanation(){
+    var cacheReady = (typeof _loadRecentBtCache === 'function')
+                      && !!_loadRecentBtCache('auto-ew');
+    if(!cacheReady){
+      return '⏳ Building auto-EW backtest cache in the background — populates automatically when ready (~30–60s on first load). Or switch to <strong>All-time</strong> for the baked-in baseline while you wait.';
+    }
+    if(_cacheRange.total === 0){
+      return 'Cache is built but contains no per-trade events — the auto-EW walk found 0 setups. Switch to <strong>All-time</strong> to see the baked-in baseline numbers.';
+    }
+    var fmtD = function(ms){
+      try {
+        var d = new Date(ms);
+        return d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      } catch(e){ return '?'; }
+    };
+    var rangeTxt = fmtD(_cacheRange.minTs) + ' → ' + fmtD(_cacheRange.maxTs);
+    return 'No trades fell inside this window. The auto-EW cache contains '
+         + _fmt(_cacheRange.total) + ' trade event' + (_cacheRange.total===1?'':'s')
+         + ' spanning <strong>' + rangeTxt + '</strong>. Today\'s slice may not overlap that range — switch to <strong>All-time</strong> to see every cached trade, or pick a window that falls inside the cache range.';
+  }
+
   function _renderKPIs(totals, win){
     var host = document.getElementById('pf-kpis-host');
     if(!host) return;
@@ -19324,13 +19370,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       + '<td>—</td><td>—</td>'
       + '</tr>';
     if(!anyTrades){
-      var cacheReady = (typeof _loadRecentBtCache === 'function')
-                        && !!_loadRecentBtCache('auto-ew');
-      if(!cacheReady){
-        host.innerHTML = '<div class="pf-empty">⏳ Building backtest cache in the background — this table will populate automatically when ready (~30–60s on first load). Or switch to <strong>All-time</strong> for the baseline baked-in figures while you wait.</div>';
-      } else {
-        host.innerHTML = '<div class="pf-empty">No resolved trades in this window — try a wider slice (Monthly, YTD, or All-time) for a larger sample.</div>';
-      }
+      host.innerHTML = '<div class="pf-empty">' + _emptyExplanation() + '</div>';
       return;
     }
     host.innerHTML = '<table class="pf-tbl">'
@@ -19373,13 +19413,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var host = document.getElementById('pf-trades-host');
     if(!host) return;
     if(!trades.length){
-      var cacheReady = (typeof _loadRecentBtCache === 'function')
-                        && !!_loadRecentBtCache('auto-ew');
-      if(!cacheReady){
-        host.innerHTML = '<div class="pf-empty">⏳ Backtest cache building in the background — the trade log will populate automatically when ready (~30–60s on first load).</div>';
-      } else {
-        host.innerHTML = '<div class="pf-empty">No trades in this window. Try a wider timeframe.</div>';
-      }
+      host.innerHTML = '<div class="pf-empty">' + _emptyExplanation() + '</div>';
       return;
     }
     var CAP = 200;
@@ -19574,7 +19608,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     pairNetR.sort(function(a,b){ return b.netR - a.netR; });
 
     if(resolved === 0){
-      host.innerHTML = '<div class="pf-empty">No resolved trades in this window — try a wider timeframe.</div>';
+      host.innerHTML = '<div class="pf-empty">' + _emptyExplanation() + '</div>';
       return;
     }
 
