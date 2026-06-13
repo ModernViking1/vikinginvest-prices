@@ -729,11 +729,11 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 <!-- NAV -->
 <div class="nav">
   <button class="ntab active" onclick="switchPage('dash')">📊 Dashboard</button>
-  <button class="ntab" onclick="switchPage('bt')">📈 Backtest</button>
-  <button class="ntab" onclick="switchPage('log')">📋 Signal Log</button>
-  <button class="ntab" onclick="switchPage('journal')">📓 Journal</button>
   <button class="ntab" onclick="switchPage('performance')">📈 Performance</button>
+  <button class="ntab" onclick="switchPage('journal')">📓 Journal</button>
   <button class="ntab" onclick="switchPage('newsletter')">📨 Newsletter</button>
+  <button class="ntab" onclick="switchPage('bt')">🧪 Backtest</button>
+  <button class="ntab" onclick="switchPage('log')">📋 Signal Log</button>
 </div>
 
 <!-- ════ DASHBOARD ════ -->
@@ -3486,17 +3486,12 @@ function buildPanel(k){
   var ns=document.createElement('div');ns.className='nsetup';
   ns.innerHTML='<div><div class="nslbl">Watch Zone</div><div class="nsval" id="ns-entry-'+k+'" style="color:var(--gold);">'+setupField(k,'entry')+'</div><div class="nssub">Daily macro zone — refine on 15m</div></div><div><div class="nslbl">Stop Reference</div><div class="nsval" id="ns-stop-'+k+'" style="color:var(--bear);">'+setupField(k,'stop')+'</div><div class="nssub">Daily structural extreme</div></div><div><div class="nslbl">Target</div><div class="nsval" id="ns-tgt-'+k+'" style="color:var(--bull);">'+setupField(k,'tgt')+'</div><div class="nssub" id="ns-tgt-src-'+k+'">'+macroSourceBadge(k)+'</div></div><div><div class="nslbl">Inv / Reward</div><div class="nsval" id="ns-inv-'+k+'" style="font-size:8px;color:var(--neu);">'+setupField(k,'inv')+'</div><div class="nssub" id="ns-rr-'+k+'">'+formatRR(setupField(k,'rr'))+'</div></div>';
   frag.appendChild(ns);
-  // Workflow how-to (collapsible, tucked inside per-pair detail panel)
-  var wf=document.createElement('details');
-  wf.style.cssText='background:linear-gradient(90deg,#fdf6e3,#f4ecd8);border:1px solid var(--rule);border-radius:3px;padding:7px 11px;margin:0 0 10px 0;font-size:10px;color:var(--inkd);';
-  wf.innerHTML='<summary style="cursor:pointer;font-weight:700;color:var(--ink);font-size:10px;letter-spacing:0.3px;">▸ Workflow &mdash; how to take this trade</summary>'+
-    '<div style="margin-top:6px;line-height:1.5;">'+
-      '<span style="color:var(--gold);">①</span> Dashboard flags 4/4 confluence + macro direction →<br>'+
-      '<span style="color:var(--gold);">②</span> Open '+m.sym+' 15m chart on TradingView →<br>'+
-      '<span style="color:var(--gold);">③</span> Wait for OB/FVG retest + 15m CHoCH inside the daily watch zone →<br>'+
-      '<span style="color:var(--gold);">④</span> Enter at 15m OB, stop just past last 15m swing, target the listed macro level.'+
-    '</div>';
-  frag.appendChild(wf);
+  // 2026-06-13nn: legacy "▸ Workflow — how to take this trade"
+  // collapsible removed. The same 4-step guidance is now embedded
+  // inline at the bottom of card ④ 15M via _workflowGuidanceHTML(),
+  // where the INTRADAY SIGNAL used to sit. The intraday signal is
+  // now its own standalone card pinned below the 4-layer grid (see
+  // intraday card append after frag.appendChild(lg) below).
   // Four layers (v6) — ordered Macro → 4H → 1H → 15m (timeframe descending
   // so the eye reads from longest to shortest, matching how a trader
   // confirms top-down).
@@ -3513,6 +3508,27 @@ function buildPanel(k){
     lg.appendChild(card);
   });
   frag.appendChild(lg);
+
+  // ── Standalone INTRADAY SIGNAL card (2026-06-13nn) ──
+  // Was nested inside the 15M layer card; pulled out so it gets its
+  // own visual weight and the 15M card body can carry the "how to
+  // take this trade" workflow guidance instead. Sits as a full-width
+  // row below the 4-layer grid — natural reading order is "look at
+  // the 4 confluence layers → see if the intraday detector found an
+  // armed entry → check the chart below."
+  var iCard = document.createElement('div');
+  iCard.className = 'lcard';
+  iCard.id = 'intra-card-' + k;
+  iCard.style.marginBottom = '9px';
+  iCard.innerHTML =
+      '<div class="lhd" style="background:rgba(200,134,10,0.08);border-bottom:1px solid var(--rule);">'
+    +   '<div class="lnum" style="background:var(--gold);color:#fff;">⚡</div>'
+    +   '<div class="lttl">Intraday Signal</div>'
+    +   '<div class="ltf">1:1 R:R</div>'
+    + '</div>'
+    + '<div class="lbdy" id="intra-body-' + k + '">' + getIntraSignalHTML(k) + '</div>';
+  frag.appendChild(iCard);
+
   // Chart
   var cs=document.createElement('div');cs.className='csect';
   var chdr=document.createElement('div');chdr.className='chdr';
@@ -3538,6 +3554,45 @@ function buildPanel(k){
   });
   csct.appendChild(cg);var sb=document.createElement('button');sb.className='simbtn';sb.id='sbtn-'+k;sb.textContent='&#9654; Simulate '+m.sym;sb.onclick=(function(key){return function(){toggleSim(key);};})(k);csct.appendChild(sb);frag.appendChild(csct);
   return frag;
+}
+
+// ── "How to take this trade" guidance block (2026-06-13nn) ──
+// Renders the 4-step workflow that used to live in the collapsible
+// top-of-panel <details>. Now lives inside the 15M layer card body
+// where the INTRADAY SIGNAL used to sit. Sym is interpolated so the
+// "Open SYM 15m chart" line names the actual pair.
+function _workflowGuidanceHTML(m){
+  var sym = (m && m.sym) || 'this pair';
+  return '<div style="margin-top:6px;padding:7px 9px;background:rgba(200,134,10,0.06);border-left:2px solid var(--gold);border-radius:2px;font-size:9px;line-height:1.55;color:var(--inkm);">'
+       + '<div style="font-weight:700;color:var(--ink);letter-spacing:0.5px;text-transform:uppercase;font-size:8px;margin-bottom:5px;">▸ How to take this trade</div>'
+       + '<div><span style="color:var(--gold);font-weight:700;">①</span> Dashboard flags 4/4 confluence + macro direction →</div>'
+       + '<div><span style="color:var(--gold);font-weight:700;">②</span> Open <strong style="color:var(--ink);">' + sym + '</strong> 15m chart on TradingView →</div>'
+       + '<div><span style="color:var(--gold);font-weight:700;">③</span> Wait for OB/FVG retest + 15m CHoCH inside the daily watch zone →</div>'
+       + '<div><span style="color:var(--gold);font-weight:700;">④</span> Enter at 15m OB · stop just past the last 15m swing · target the listed macro level.</div>'
+       + '</div>';
+}
+
+// Returns the cached INTRADAY SIGNAL HTML for pair k. The actual
+// generation is a side-effect of getLayerDet's 'nw' branch — that
+// keeps the detector logic in one place and matches the per-bar
+// refresh cadence of the rest of the panel.
+function getIntraSignalHTML(k){
+  // Prime the cache if it's missing — calls getLayerDet for nw which
+  // populates window._intraSignalCache as a side-effect.
+  if(!window._intraSignalCache || !(k in window._intraSignalCache)){
+    try {
+      var sig = (typeof STATE !== 'undefined' && STATE[k]) ? STATE[k].nw : 'neutral';
+      getLayerDet(k, 'nw', sig);
+    } catch(e){}
+  }
+  var html = (window._intraSignalCache && window._intraSignalCache[k]) || '';
+  if(html) return html;
+  // No active intraday signal — render a neutral placeholder so the
+  // card slot doesn't disappear (layout shift on every refresh would
+  // be jarring) and so the user knows the detector ran.
+  return '<div style="padding:8px 10px;color:var(--inkd);font-size:9px;font-style:italic;line-height:1.5;">'
+       + 'No active intraday signal — awaiting 4/4 confluence + 15m CHoCH retest. The 1:1 R:R box appears here when the detector finds an armed entry.'
+       + '</div>';
 }
 
 function getLayerDet(k,layer,sig){
@@ -4087,9 +4142,20 @@ function getLayerDet(k,layer,sig){
       }
     } catch(e){ intraMsg = ''; }
 
-    if(sig==='bear') return '<span class="rb">CHoCH bearish confirmed.</span> Daily zone: <strong>'+setupField(k,'entry')+'</strong>.'+refineLine+' Invalidation: <span class="rb">'+setupField(k,'inv')+'</span>' + autoMsg + intraMsg;
-    if(sig==='bull') return '<span class="rg">CHoCH bullish confirmed.</span> Daily zone: <strong>'+setupField(k,'entry')+'</strong>.'+refineLine+' Invalidation: <span class="ro">'+setupField(k,'inv')+'</span>' + autoMsg + intraMsg;
-    return '<span class="ro">CHoCH PENDING.</span> Awaiting 15m structure break. Watch: <span class="ro">'+setupField(k,'entry')+'</span>' + autoMsg + intraMsg;
+    // 2026-06-13nn: INTRADAY SIGNAL was nested inside the 15M layer
+    // card. User feedback: pull it out into a standalone card pinned
+    // below the 4-layer grid, and put the legacy "how to take this
+    // trade" workflow steps where the intraday box used to live.
+    // Stash intraMsg in a per-pair window cache so the standalone
+    // card (rendered after .lgrid) can pull the freshest HTML each
+    // refreshAlert cycle without duplicating the detector call.
+    window._intraSignalCache = window._intraSignalCache || {};
+    window._intraSignalCache[k] = intraMsg || '';
+    var _workflowHTML = _workflowGuidanceHTML(MKTS[k]);
+
+    if(sig==='bear') return '<span class="rb">CHoCH bearish confirmed.</span> Daily zone: <strong>'+setupField(k,'entry')+'</strong>.'+refineLine+' Invalidation: <span class="rb">'+setupField(k,'inv')+'</span>' + autoMsg + _workflowHTML;
+    if(sig==='bull') return '<span class="rg">CHoCH bullish confirmed.</span> Daily zone: <strong>'+setupField(k,'entry')+'</strong>.'+refineLine+' Invalidation: <span class="ro">'+setupField(k,'inv')+'</span>' + autoMsg + _workflowHTML;
+    return '<span class="ro">CHoCH PENDING.</span> Awaiting 15m structure break. Watch: <span class="ro">'+setupField(k,'entry')+'</span>' + autoMsg + _workflowHTML;
   }
   if(layer==='cl'){
     // 4H EMA 21/55 cloud — server-computed (directions.json). Direction =
@@ -4123,6 +4189,11 @@ function refreshAlert(k){
     if(pill){pill.className='lpill '+(sig==='bear'?'pb':sig==='bull'?'pg':'pn');pill.innerHTML=sig==='bear'?'&#9660; BEAR':sig==='bull'?'&#9650; BULL':'&#9679; NEUTRAL';}
     if(det)det.innerHTML = getLayerDet(k, l, sig); // Refresh detail text (picks up wave context)
   });
+  // Refresh the standalone Intraday Signal card body — getLayerDet's
+  // 'nw' branch above re-populates window._intraSignalCache[k] as a
+  // side-effect, so we just read it here.
+  var iBody = document.getElementById('intra-body-' + k);
+  if(iBody) iBody.innerHTML = getIntraSignalHTML(k);
   // Refresh the top "Watch Zone / Stop / Target / Inv-Reward" panel —
   // setupField returns getAutoSetup values once STATE[k].ew is set
   // (post-server-load), but the panel was built once during buildPanel
@@ -11388,7 +11459,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-13nn';
+var RULES_VERSION = '2026-06-13oo';
 var RULES_VERSION_NOTES = [
   '2026-06-13kk — DAX 30 (de40) DROPPED from the active universe. Chronic structural underperformance confirmed across the full optimisation phase: 9 SR gating variants (1: window-only / 2: broken-only / 3: tier-only / 4: SR break ignoring 4/4 / 5: ORB Failure / 6: ORB+strength filter / 7: VWAP pullback / 8: Silver Bullet) PLUS the news + vol-spike blackout filter PLUS the per-class R:R sweep (1:0.5, 1:0.75, 1:1, 1:1.5, 1:2). DE40 produced NEGATIVE expected R on every tested combination — most generous read was 1:1 at −0.17R per trade over n=12 decided trades, with smaller targets making it WORSE (1:0.5 at −0.25R because the WR uplift didn\'t offset the smaller win size). Same pattern as the prior DROPPED_PAIRS additions where instrument microstructure simply doesn\'t map to the 4/4 confluence + close-beyond detector. Added to DROPPED_PAIRS deny-list so caches flush on next page load. DJ30 stays in the universe at +0.07R/trade (marginal but positive; reassess in 6 months with more data). Active universe: 40 instruments + DXY anchor.',
   '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
@@ -19238,7 +19309,13 @@ function _renderCCIVariantPanel(host, commodityKeys){
       + '<td>—</td><td>—</td>'
       + '</tr>';
     if(!anyTrades){
-      host.innerHTML = '<div class="pf-empty">No resolved trades in this window. Either the slice is too narrow (try YTD or All-time), or the backtest cache hasn\'t built yet (open the Backtest tab once and return here).</div>';
+      var cacheReady = (typeof _loadRecentBtCache === 'function')
+                        && !!_loadRecentBtCache('auto-ew');
+      if(!cacheReady){
+        host.innerHTML = '<div class="pf-empty">⏳ Building backtest cache in the background — this table will populate automatically when ready (~30–60s on first load). Or switch to <strong>All-time</strong> for the baseline baked-in figures while you wait.</div>';
+      } else {
+        host.innerHTML = '<div class="pf-empty">No resolved trades in this window — try a wider slice (Monthly, YTD, or All-time) for a larger sample.</div>';
+      }
       return;
     }
     host.innerHTML = '<table class="pf-tbl">'
@@ -19281,7 +19358,13 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var host = document.getElementById('pf-trades-host');
     if(!host) return;
     if(!trades.length){
-      host.innerHTML = '<div class="pf-empty">No trades in this window. The Backtest tab may not have computed yet — open it once and return here.</div>';
+      var cacheReady = (typeof _loadRecentBtCache === 'function')
+                        && !!_loadRecentBtCache('auto-ew');
+      if(!cacheReady){
+        host.innerHTML = '<div class="pf-empty">⏳ Backtest cache building in the background — the trade log will populate automatically when ready (~30–60s on first load).</div>';
+      } else {
+        host.innerHTML = '<div class="pf-empty">No trades in this window. Try a wider timeframe.</div>';
+      }
       return;
     }
     var CAP = 200;
@@ -19323,22 +19406,104 @@ function _renderCCIVariantPanel(host, commodityKeys){
       + capNote;
   }
 
+  // ── Baked-in fallback (MKTS[k].bw / .bl) ──
+  // The Backtest cache may not exist on first page load (the user
+  // hasn't opened the Backtest tab yet). The Investor Brief still
+  // needs a credible "All-time" number, so we fall back to the
+  // pair-baked-in baseline figures the same way the dashboard cards
+  // and Newsletter do. Per-trade timestamps don't exist on this
+  // fallback, so it ONLY populates the All-time slice — windowed
+  // views (Weekly/Monthly/YTD) require the real cache.
+  function _aggregateBaked(){
+    var byCls = {};
+    CLS_ORDER.forEach(function(c){
+      byCls[c] = {wins:0, losses:0, inv:0, expired:0, netR:0, pairWL:{}, total:0};
+    });
+    Object.keys(MKTS || {}).forEach(function(k){
+      var cls = _classOfPair(k);
+      if(!cls) return;
+      var m = MKTS[k];
+      var w = m.bw || 0;
+      var l = m.bl || 0;
+      if(w + l === 0) return;
+      var method = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
+      var rPerTrade = (method === 'fib') ? 0.5 : 1.0;
+      var s = byCls[cls];
+      s.wins += w;
+      s.losses += l;
+      s.total += w + l;
+      s.netR += rPerTrade * (w - l);
+      s.pairWL[k] = {w:w, l:l, sym: m.sym};
+    });
+    CLS_ORDER.forEach(function(c){
+      var s = byCls[c];
+      var best = null, worst = null;
+      Object.keys(s.pairWL).forEach(function(k){
+        var pw = s.pairWL[k];
+        var sample = pw.w + pw.l;
+        if(sample < 3) return;
+        var rate = pw.w / sample;
+        if(!best  || rate > best.rate)  best  = {sym: pw.sym, rate: rate, w: pw.w, l: pw.l};
+        if(!worst || rate < worst.rate) worst = {sym: pw.sym, rate: rate, w: pw.w, l: pw.l};
+      });
+      s.best  = best;
+      s.worst = (best && worst && best.sym === worst.sym) ? null : worst;
+    });
+    return byCls;
+  }
+
+  var _autoTriggeredBuild = false;
+  function _ensureCacheBuilding(){
+    if(_autoTriggeredBuild) return;
+    if(typeof _loadRecentBtCache === 'function' && _loadRecentBtCache('auto-ew')) return;
+    if(typeof computeAllRecentBacktestsAsync !== 'function') return;
+    _autoTriggeredBuild = true;
+    // Mode 'auto-ew' is the source the Backtest tab + Newsletter use.
+    // false = don't force refresh; null progress callback; on complete
+    // re-render the Performance page with the freshly built cache.
+    try {
+      computeAllRecentBacktestsAsync(false, null, function(){
+        if(typeof window.buildPerformance === 'function'){
+          try { window.buildPerformance(); } catch(e){}
+        }
+      }, 'auto-ew');
+    } catch(e){}
+  }
+
   function buildPerformance(){
     // Toggle active button to match _currentTF
     document.querySelectorAll('#pf-tf-host .pf-tf-btn').forEach(function(b){
       b.classList.toggle('active', b.getAttribute('data-tf') === _currentTF);
     });
     var win = _tfWindow(_currentTF);
+    var cacheReady = (typeof _loadRecentBtCache === 'function')
+                      && !!_loadRecentBtCache('auto-ew');
     var trades = _gatherTrades(win.fromMs);
-    var byCls = _aggregateByClass(trades);
-    var totals = _totalsFromAgg(byCls);
+    var byCls, totals, usingBaked = false;
+    if(trades.length === 0 && _currentTF === 'all'){
+      // Cache empty — supplement the All-time view with the baked-in
+      // baseline so the page is never blank on first load. KPIs and
+      // class table populate; the trade log shows a hint instead.
+      byCls = _aggregateBaked();
+      totals = _totalsFromAgg(byCls);
+      usingBaked = (totals.wins + totals.losses) > 0;
+    } else {
+      byCls = _aggregateByClass(trades);
+      totals = _totalsFromAgg(byCls);
+    }
     _renderKPIs(totals, win);
     var clsWin = document.getElementById('pf-cls-window');
-    if(clsWin) clsWin.textContent = win.short;
+    if(clsWin) clsWin.textContent = win.short + (usingBaked ? ' · baseline figures' : '');
     _renderClassTable(byCls);
     var tWin = document.getElementById('pf-trades-window');
     if(tWin) tWin.textContent = win.short + ' · most recent first';
-    _renderTradeLog(trades);
+    if(usingBaked){
+      var tHost = document.getElementById('pf-trades-host');
+      if(tHost) tHost.innerHTML = '<div class="pf-empty">Trade-level log requires the backtest cache. <strong>Building it now in the background</strong> — the table will populate automatically when ready (~30–60s on first load). Or open the <strong>Backtest</strong> tab to watch it compute.</div>';
+    } else {
+      _renderTradeLog(trades);
+    }
+    if(!cacheReady) _ensureCacheBuilding();
   }
 
   // Wire the timeframe selector once on first build
