@@ -1063,15 +1063,13 @@ var MKTS = {
     ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
     entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
-  de40:{sym:'DAX 30',t:'index',px:'24,315',p:24315,d:0,sc:200,up:false,chg:'-1.17%',
-    ew:'bear',tl:'bear',nw:'bear',
-    // WICKATOR METHOD: Wave 5/(A) top at 25,512 complete. ABC correction in progress.
-    // Wave A=5 down done to 21,863 LL. Wave B bounce = 3 waves up to 23,900 (0.618 fib).
-    // Wave B complete. Now in Wave C=5 waves DOWN. Wave (3) targets 21,500-21,800.
-    // Wave (5)/C targets 20,500-21,000 (1.618 ext). RSI green = Wave B bounce (sell).
-    // 4/4 BEAR confirmed.
-    wr:65.2,g:'B',bw:12,bl:6,brr:3.0,
-    entry:'24,000&#8211;24,600 OB (Wave B)',stop:'Above 25,512',tgt:'21,863 Wave C3 / 20,500 Wave C5',inv:'Close&gt;25,512',rr:'1:3.0'},
+  // de40 removed 2026-06-13kk — chronic structural underperformance
+  // confirmed across 9 SR variants + news/vol filter + per-class R:R
+  // sweep. DAX 30 produced negative E[R] at every tested ratio
+  // (1:0.5 −0.25R, 1:0.75 −0.27R, 1:1 −0.17R) on a stable 12-trade
+  // 12-month sample. Same pattern as the prior DROPPED_PAIRS
+  // additions — instrument doesn't trade the way our setup detects.
+  // Added to DROPPED_PAIRS deny-list to flush from caches.
   suiusd:{sym:'SUI/USD',t:'crypto',px:'0.93600',p:0.936,d:4,sc:0.015,up:true,chg:'+2.54%',
     ew:'bear',tl:'bull',nw:'bull',
     // INFERRED (Apr 2026 — synthesised from public sources, BTC-correlated):
@@ -1324,7 +1322,8 @@ var DROPPED_PAIRS = new Set([
   'nzdcad',                                      // 2026-06-10c
   'hypeusd',                                     // 2026-06-10g
   'gbpaud',                                      // 2026-06-10h
-  'audcad'                                       // 2026-06-10i
+  'audcad',                                      // 2026-06-10i
+  'de40'                                         // 2026-06-13kk — chronic negative E[R] across 9+ variants
 ]);
 function _filterDroppedPairs(obj){
   if(!obj || typeof obj !== 'object') return obj;
@@ -1852,7 +1851,7 @@ function refreshChartData(k){
 var SR_REF_TIMES = {
   // DAX cash session opens 09:00 CET = 07:00 UTC (CEST summer) or
   // 08:00 UTC (CET winter). 2-hour window = next 8 m15 bars.
-  de40: { openTimes: ['07:00', '08:00'], sessionLabel: 'DAX 09:00 CET', windowBars: 8 },
+  // de40 removed 2026-06-13kk — only DJ30 now has SR coverage.
   // NYSE cash session opens 09:30 ET = 13:30 UTC (EDT summer) or
   // 14:30 UTC (EST winter).
   dj30: { openTimes: ['13:30', '14:30'], sessionLabel: 'DJ30 09:30 ET', windowBars: 8 }
@@ -5373,7 +5372,7 @@ var PAIR_CURRENCIES = {
   xauusd:['USD'], xagusd:['USD'],
   xptusd:['USD'],
   usoil: ['USD'], wtiusd:['USD'], natgas:['USD'],
-  de40:  ['EUR'],
+  // de40 removed 2026-06-13kk.
   suiusd:[], audnzd:['AUD','NZD'], eurgbp:['EUR','GBP'],
   // audchf removed 2026-06-08 — low win-rate drag.
   btcusd:[],
@@ -11142,8 +11141,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-12jj';
+var RULES_VERSION = '2026-06-13kk';
 var RULES_VERSION_NOTES = [
+  '2026-06-13kk — DAX 30 (de40) DROPPED from the active universe. Chronic structural underperformance confirmed across the full optimisation phase: 9 SR gating variants (1: window-only / 2: broken-only / 3: tier-only / 4: SR break ignoring 4/4 / 5: ORB Failure / 6: ORB+strength filter / 7: VWAP pullback / 8: Silver Bullet) PLUS the news + vol-spike blackout filter PLUS the per-class R:R sweep (1:0.5, 1:0.75, 1:1, 1:1.5, 1:2). DE40 produced NEGATIVE expected R on every tested combination — most generous read was 1:1 at −0.17R per trade over n=12 decided trades, with smaller targets making it WORSE (1:0.5 at −0.25R because the WR uplift didn\'t offset the smaller win size). Same pattern as the prior DROPPED_PAIRS additions where instrument microstructure simply doesn\'t map to the 4/4 confluence + close-beyond detector. Added to DROPPED_PAIRS deny-list so caches flush on next page load. DJ30 stays in the universe at +0.07R/trade (marginal but positive; reassess in 6 months with more data). Active universe: 40 instruments + DXY anchor.',
   '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
   '2026-06-11ee — Counter-bar rule: close-beyond-entry gate. Keeps the 2-bar momentum check (opposing body + 25%-noise-floor body min + rising/falling closes) but adds a structural close gate: the SECOND counter bar\'s close must push past bars[fromIdx]\'s wick extreme — i.e. price has to actually retrace back into the trade zone before invalidation fires. Trades like the XAG/USD 2026-06-11 case (counter bars at +1/+2 past creator with closes 0.20–0.30 below the entry wick) no longer false-invalidate. Was the only one of seven A/B variants — wick-budget×0.25/0.5/1.0, momentum-disabled, buffer-3, buffer-5, close-beyond — to project green ≥70% on the in-browser dry-run framework (+2.86pp to 73.94% aggregate; comm +4.9pp / crypto +3.1pp / major +4.1pp / minor +0.6pp / index +1.1pp). DE40 still regressed -8.3pp under the new rule, accepted as the cost of staying above the 70% floor across every other class. Mirrored in detect_triggers.py — passes creator_idx into detect_consecutive_counter_bars so the close-beyond gate uses the same wick extreme as the JS dashboard. RULES_FINGERPRINT.counterBarsCloseBeyond=1 so caches re-invalidate on the next page load.',
   '2026-06-11dd — REVERTED 11cc back to the pre-nowick counter-bar rule (any opposing-body bar ≥ noise floor + rising/falling closes). Production recompute under the wick-budget rule dropped the aggregate from 71.3% to 67.8% — below the 70% floor — and DE40 regressed -11.5pp / DJ30 -2.1pp. Standalone walker (backtest_counter_bar_wick.py) had predicted +3.6pp aggregate and +8.2pp on indices, so the simplified script materially mispredicted production behaviour, likely because it doesn\'t fully mirror the production walker\'s fib half-size / opposing-CHoCH / lift-gate semantics. XAG-style wicky cancellations come back as a known edge. Lesson logged: rule changes need a production-walker dry-run before shipping, not just the standalone backtest. RULES_FINGERPRINT.counterBarsNoWick restored to 0 so caches re-invalidate.',
@@ -11201,7 +11201,7 @@ function RULES_FINGERPRINT(){
           return c + ':' + RSI_GATE_BY_CLASS[c].hi + '/' + RSI_GATE_BY_CLASS[c].lo;
         }).join(',')
       : '80/20',
-    fibPairs: ['xauusd','xagusd','usoil','wtiusd','natgas','xptusd','de40','nas100','dj30','ftse100','spx500','jp225'].sort().join(','),
+    fibPairs: ['xauusd','xagusd','usoil','wtiusd','natgas','xptusd','nas100','dj30','ftse100','spx500','jp225'].sort().join(','),
     // Active pair universe (hash of sorted MKTS keys) — bump on any
     // add/remove so dropped pairs are flushed from localStorage caches
     // on the next page load, not the next TTL expiry. Without this the
@@ -13269,7 +13269,7 @@ function _walkSRVWAPPullback(bars, pairKey){
 var SR_SILVER_BULLET_TIMES = {
   // Second open time in each spec is the production kill-zone open
   // (DST-adjusted equivalent). Kill zone runs 4 bars (= 1h on 15m).
-  de40: { openTime: '08:00', windowBars: 4 },
+  // de40 removed 2026-06-13kk.
   dj30: { openTime: '14:30', windowBars: 4 }
 };
 function _walkSRSilverBullet(bars, pairKey){

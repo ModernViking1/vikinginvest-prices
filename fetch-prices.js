@@ -79,7 +79,7 @@ const OANDA_PAIRS = {
                          // identifier; OANDA's native ticker is NATGAS_USD.
   xptusd: 'XPT_USD',     // Platinum — added 2026-06-10
   // Equity indices
-  de40:    'DE30_EUR',   // DAX (OANDA still uses old DE30 ticker)
+  // de40 removed 2026-06-13kk — chronic negative E[R] across optimisation tests.
   ftse100: 'UK100_GBP',  // FTSE 100
   dj30:    'US30_USD',   // Dow Jones Industrial Average
   nas100:  'NAS100_USD', // Nasdaq 100

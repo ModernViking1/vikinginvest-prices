@@ -62,7 +62,7 @@ PAIR_DISPLAY = {
     # Commodities / indices
     'xauusd': 'XAU/USD', 'xagusd': 'XAG/USD', 'usoil': 'BRENT',
     'wtiusd': 'WTI', 'natgas': 'NAT GAS', 'xptusd': 'XPT/USD',
-    'de40':   'DAX 30',  'ftse100': 'FTSE 100',
+    'ftse100': 'FTSE 100',
     'dj30':   'DJ 30',   'nas100':  'NAS 100', 'spx500':  'S&P 500',
     # v7 FX minors (2026-06-03)
     # nzdcad removed 2026-06-10 — low win-rate drag.
@@ -114,7 +114,7 @@ PAIR_CLASS = {
     # Indices (incl. DXY — confluence reference, not tradeable but
     # classified for completeness so any lookup gets a deterministic
     # answer instead of falling back to 80/20).
-    'de40': 'index', 'ftse100': 'index', 'dj30': 'index',
+    'ftse100': 'index', 'dj30': 'index',
     'nas100': 'index', 'spx500': 'index', 'jp225': 'index',
     # fra40 removed 2026-06-10 — low win-rate drag.
     'dxy': 'index',
@@ -162,7 +162,7 @@ def rsi_gate_for(pair):
 # alert tier (written to directions.json) matches the dashboard pill
 # the user sees.
 SR_REF_TIMES = {
-    'de40': {'open_times': ('07:00', '08:00'), 'session_label': 'DAX 09:00 CET',  'window_bars': 8},
+    # de40 removed 2026-06-13kk — only DJ30 now has SR coverage.
     'dj30': {'open_times': ('13:30', '14:30'), 'session_label': 'DJ30 09:30 ET', 'window_bars': 8},
 }
 
@@ -1312,7 +1312,8 @@ FIB_ENTRY_PAIRS = {
     # reverted both after production realised 50% / 47.8% on the larger
     # auto-EW-driven sample. Awaiting auto-EW-integrated backtest before
     # any further methodology change.
-    'de40', 'nas100', 'dj30', 'ftse100', 'spx500',
+    # de40 dropped 2026-06-13kk (chronic negative E[R]).
+    'nas100', 'dj30', 'ftse100', 'spx500',
     # v7 additions (2026-06-03)
     'jp225',
     # fra40 (CAC 40) removed 2026-06-10 — low win-rate drag.

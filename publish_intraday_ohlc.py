@@ -82,7 +82,7 @@ PAIRS = {
     "natgas":  {"oanda": "NATGAS_USD"},  # Natural Gas (Henry Hub)
     "xptusd":  {"oanda": "XPT_USD"},     # Platinum
     # Equity indices
-    "de40":    {"oanda": "DE30_EUR"},
+    # de40 removed 2026-06-13kk — chronic negative E[R].
     "ftse100": {"oanda": "UK100_GBP"},
     "dj30":    {"oanda": "US30_USD"},
     "nas100":  {"oanda": "NAS100_USD"},
