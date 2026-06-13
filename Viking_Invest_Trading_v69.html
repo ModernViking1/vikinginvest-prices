@@ -502,6 +502,92 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   .nl-headline-pct{font-size:38px;}
   .nl-classes{grid-template-columns:repeat(2,1fr);}
 }
+
+/* ── PERFORMANCE TAB (📈 investor-grade report) ── */
+.pf-wrap{max-width:1040px;margin:0 auto;}
+.pf-mast{
+  background:linear-gradient(135deg,#1a7a4a 0%,#0d5a36 100%);
+  color:#fff;padding:22px 26px;border-radius:6px;
+  box-shadow:var(--shad);margin-bottom:14px;position:relative;overflow:hidden;
+}
+.pf-mast::after{
+  content:'';position:absolute;top:-30%;right:-10%;width:280px;height:160%;
+  background:radial-gradient(circle at 50% 50%,rgba(255,255,255,0.10) 0%,transparent 60%);
+  pointer-events:none;
+}
+.pf-mast-eyebrow{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:3px;color:rgba(255,255,255,0.85);text-transform:uppercase;margin-bottom:6px;position:relative;}
+.pf-mast h1{font-family:'Orbitron',monospace;font-size:22px;font-weight:900;letter-spacing:1.5px;line-height:1.1;margin:0 0 8px 0;position:relative;}
+.pf-mast-sub{font-size:11px;color:rgba(255,255,255,0.78);letter-spacing:0.5px;position:relative;}
+.pf-tf{
+  display:flex;gap:6px;background:var(--sf2);border:1px solid var(--rule);
+  border-radius:6px;padding:5px;margin-bottom:14px;box-shadow:var(--shad);
+}
+.pf-tf-btn{
+  flex:1;padding:9px 8px;font-family:'Orbitron',monospace;font-size:10px;
+  font-weight:700;letter-spacing:1.2px;text-transform:uppercase;
+  background:transparent;border:none;border-radius:3px;cursor:pointer;
+  color:var(--inkd);transition:all .18s;
+}
+.pf-tf-btn:hover:not(.active){background:var(--sf);color:var(--ink);}
+.pf-tf-btn.active{background:var(--ink);color:#fff;}
+.pf-tf-btn small{display:block;font-size:7.5px;font-weight:400;letter-spacing:0.5px;margin-top:2px;opacity:0.7;}
+.pf-tf-btn.active small{opacity:0.85;}
+.pf-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px;}
+.pf-kpi{background:var(--sf);border:1px solid var(--rule);border-radius:6px;padding:14px 16px;box-shadow:var(--shad);position:relative;overflow:hidden;}
+.pf-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--bull);}
+.pf-kpi.gold::before{background:var(--gold);}
+.pf-kpi.purple::before{background:var(--purple);}
+.pf-kpi.orange::before{background:var(--orange);}
+.pf-kpi.neu::before{background:var(--neu);}
+.pf-kpi-lbl{font-family:'Orbitron',monospace;font-size:8.5px;letter-spacing:1.5px;color:var(--inkd);text-transform:uppercase;font-weight:700;margin-bottom:4px;}
+.pf-kpi-val{font-family:'Orbitron',monospace;font-size:24px;font-weight:900;color:var(--ink);letter-spacing:0.5px;line-height:1.1;}
+.pf-kpi-sub{font-size:10px;color:var(--inkm);margin-top:3px;letter-spacing:0.3px;}
+.pf-card{background:var(--sf);border:1px solid var(--rule);border-radius:6px;padding:18px 20px;margin-bottom:14px;box-shadow:var(--shad);}
+.pf-card-hd{
+  font-family:'Orbitron',monospace;font-size:10px;letter-spacing:1.5px;
+  color:var(--inkm);text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;
+  border-bottom:1px solid var(--rule);
+  display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;
+}
+.pf-card-hd-r{font-size:9px;color:var(--inkd);font-weight:400;letter-spacing:0.5px;text-transform:none;}
+.pf-tbl{width:100%;border-collapse:collapse;font-size:11px;}
+.pf-tbl th,.pf-tbl td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--rule);}
+.pf-tbl th{font-family:'Orbitron',monospace;font-size:8.5px;letter-spacing:1px;color:var(--inkd);text-transform:uppercase;font-weight:700;background:var(--sf2);position:sticky;top:0;}
+.pf-tbl td{font-family:'Mukta',sans-serif;color:var(--ink);}
+.pf-tbl .pf-num{font-family:'Orbitron',monospace;font-weight:700;text-align:right;}
+.pf-tbl .pf-r{font-family:'Orbitron',monospace;font-weight:700;text-align:right;}
+.pf-tbl .pf-r.pos{color:var(--bull);}
+.pf-tbl .pf-r.neg{color:var(--bear);}
+.pf-tbl tr:hover td{background:var(--sf2);}
+.pf-tbl tr.pf-tot td{font-weight:700;border-top:2px solid var(--ink);background:var(--bullt);}
+.pf-cls-pill{display:inline-block;padding:1px 6px;border-radius:8px;font-family:'Orbitron',monospace;font-size:7.5px;letter-spacing:0.5px;font-weight:700;border:1px solid;}
+.pf-cls-pill.cls-major{background:var(--bullt);color:var(--bull);border-color:var(--bull);}
+.pf-cls-pill.cls-minor{background:rgba(26,122,74,0.05);color:var(--bull);border-color:rgba(26,122,74,0.5);}
+.pf-cls-pill.cls-comm{background:var(--goldt);color:var(--gold);border-color:var(--gold);}
+.pf-cls-pill.cls-index{background:var(--purplet);color:var(--purple);border-color:var(--purple);}
+.pf-cls-pill.cls-crypto{background:var(--oranget);color:var(--orange);border-color:var(--orange);}
+.pf-dir-pill{display:inline-block;padding:1px 7px;border-radius:3px;font-family:'Orbitron',monospace;font-size:8px;letter-spacing:0.5px;font-weight:700;}
+.pf-dir-pill.bull{background:var(--bullt);color:var(--bull);}
+.pf-dir-pill.bear{background:var(--beart);color:var(--bear);}
+.pf-out-pill{display:inline-block;padding:1px 7px;border-radius:3px;font-family:'Orbitron',monospace;font-size:8px;letter-spacing:0.5px;font-weight:700;}
+.pf-out-pill.win{background:var(--bullt);color:var(--bull);}
+.pf-out-pill.loss{background:var(--beart);color:var(--bear);}
+.pf-out-pill.invalidated{background:var(--neut);color:var(--neu);}
+.pf-out-pill.expired{background:rgba(0,0,0,0.04);color:var(--inkd);}
+.pf-empty{padding:30px 12px;text-align:center;color:var(--inkd);font-style:italic;font-size:11px;}
+.pf-equity-wrap{padding:6px 0;}
+.pf-equity-axis{display:flex;justify-content:space-between;font-family:'Orbitron',monospace;font-size:8.5px;color:var(--inkd);letter-spacing:0.5px;margin-top:6px;}
+.pf-trades-scroll{max-height:520px;overflow-y:auto;border:1px solid var(--rule);border-radius:4px;}
+.pf-trades-scroll .pf-tbl{font-size:10.5px;}
+.pf-trades-scroll .pf-tbl th{background:var(--sf);}
+.pf-disclosure{font-size:10px;color:var(--inkd);text-align:center;padding:18px 14px 4px;line-height:1.55;font-family:'Mukta',sans-serif;letter-spacing:0.3px;}
+.pf-disclosure strong{color:var(--inkm);}
+.pf-loadhint{font-size:10px;color:var(--inkd);margin-top:6px;font-style:italic;}
+@media (max-width:540px){
+  .pf-mast h1{font-size:17px;letter-spacing:1px;}
+  .pf-tf-btn{font-size:9px;padding:8px 4px;}
+  .pf-tbl th,.pf-tbl td{padding:6px 6px;font-size:10px;}
+}
 </style>
 </head>
 <body>
@@ -646,6 +732,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   <button class="ntab" onclick="switchPage('bt')">📈 Backtest</button>
   <button class="ntab" onclick="switchPage('log')">📋 Signal Log</button>
   <button class="ntab" onclick="switchPage('journal')">📓 Journal</button>
+  <button class="ntab" onclick="switchPage('performance')">📈 Performance</button>
   <button class="ntab" onclick="switchPage('newsletter')">📨 Newsletter</button>
 </div>
 
@@ -974,6 +1061,41 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   <div style="background:var(--sf);border:1px solid var(--rule);border-radius:4px;padding:14px;box-shadow:var(--shad);">
     <h3 style="font-family:Orbitron,monospace;font-size:11px;letter-spacing:1px;margin:0 0 10px 0;color:var(--ink);">📋 OPEN &amp; CLOSED TRADES</h3>
     <div id="journalList" style="max-height:500px;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- ════ PERFORMANCE ════ -->
+<div class="page" id="page-performance">
+  <div class="pf-wrap" id="performanceRoot">
+    <div class="pf-mast">
+      <div class="pf-mast-eyebrow">⚓ Viking Invest · Performance Report</div>
+      <h1 id="pf-mast-title">4/4 Confluence — Investor Brief</h1>
+      <div class="pf-mast-sub" id="pf-mast-sub">Same backtest engine as the Backtest tab · target 1R · stop at structural extreme</div>
+    </div>
+
+    <div class="pf-tf" id="pf-tf-host">
+      <button type="button" class="pf-tf-btn" data-tf="weekly">Weekly<small>last 7 days</small></button>
+      <button type="button" class="pf-tf-btn" data-tf="monthly">Monthly<small>this calendar month</small></button>
+      <button type="button" class="pf-tf-btn active" data-tf="ytd">YTD<small>Jan 1 → today</small></button>
+      <button type="button" class="pf-tf-btn" data-tf="all">All-time<small>full backtest</small></button>
+    </div>
+
+    <div class="pf-kpis" id="pf-kpis-host"></div>
+
+    <div class="pf-card">
+      <div class="pf-card-hd">▸ Performance by Asset Class <span class="pf-card-hd-r" id="pf-cls-window">YTD</span></div>
+      <div id="pf-cls-host"><div class="pf-empty">awaiting backtest cache…</div></div>
+    </div>
+
+    <div class="pf-card">
+      <div class="pf-card-hd">▸ Individual Trade Log <span class="pf-card-hd-r" id="pf-trades-window">YTD · most recent first</span></div>
+      <div id="pf-trades-host"><div class="pf-empty">awaiting backtest cache…</div></div>
+    </div>
+
+    <div class="pf-disclosure">
+      <strong>Data integrity.</strong> Every figure on this page is regenerated from the same auto-EW backtest cache that powers the Backtest tab — there's no separate datastore, so the Investor Brief and the Trader view can never disagree. WR is wins ÷ (wins + losses); invalidated setups are excluded from WR but listed in the trade log. Net R assumes 1R risk per trade and the configured per-pair entry methodology (wick for FX/crypto, fib half-size for commodities/indices). Methodology, sample sizes, and rule fingerprint live on the Backtest tab.<br>
+      Educational simulation · not financial advice.
+    </div>
   </div>
 </div>
 
@@ -8743,6 +8865,7 @@ function switchPage(p){
   if(p === 'bt') setTimeout(drawEquity, 80);
   if(p === 'dash' && activeMkt !== 'overview') setTimeout(function(){drawChart(activeMkt);}, 60);
   if(p === 'newsletter' && typeof buildNewsletter === 'function') setTimeout(buildNewsletter, 30);
+  if(p === 'performance' && typeof buildPerformance === 'function') setTimeout(buildPerformance, 30);
 }
 window.addEventListener('resize',function(){if(activeMkt!=='overview')drawChart(activeMkt);if(document.getElementById('page-bt').classList.contains('active'))drawEquity();});
 
@@ -11265,7 +11388,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-13mm';
+var RULES_VERSION = '2026-06-13nn';
 var RULES_VERSION_NOTES = [
   '2026-06-13kk — DAX 30 (de40) DROPPED from the active universe. Chronic structural underperformance confirmed across the full optimisation phase: 9 SR gating variants (1: window-only / 2: broken-only / 3: tier-only / 4: SR break ignoring 4/4 / 5: ORB Failure / 6: ORB+strength filter / 7: VWAP pullback / 8: Silver Bullet) PLUS the news + vol-spike blackout filter PLUS the per-class R:R sweep (1:0.5, 1:0.75, 1:1, 1:1.5, 1:2). DE40 produced NEGATIVE expected R on every tested combination — most generous read was 1:1 at −0.17R per trade over n=12 decided trades, with smaller targets making it WORSE (1:0.5 at −0.25R because the WR uplift didn\'t offset the smaller win size). Same pattern as the prior DROPPED_PAIRS additions where instrument microstructure simply doesn\'t map to the 4/4 confluence + close-beyond detector. Added to DROPPED_PAIRS deny-list so caches flush on next page load. DJ30 stays in the universe at +0.07R/trade (marginal but positive; reassess in 6 months with more data). Active universe: 40 instruments + DXY anchor.',
   '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
@@ -18889,6 +19012,356 @@ function _renderCCIVariantPanel(host, commodityKeys){
   }
 
   window.buildNewsletter = buildNewsletter;
+})();
+</script>
+
+<script>
+/* ──────────────────────────────────────────────────────────────
+   📈 PERFORMANCE — investor-grade report tab
+   Reads the same auto-EW backtest cache as the Backtest tab + the
+   Newsletter, so the three views are mathematically identical. The
+   only thing this tab adds on top is timeframe windowing (Weekly /
+   Monthly / YTD / All-time), per-class aggregation with a best/worst
+   pair callout, and a scrollable per-trade log with date · pair ·
+   direction · entry · outcome · R.
+   ────────────────────────────────────────────────────────────── */
+(function(){
+  var CLS_ORDER = ['major','minor','comm','index','crypto'];
+  var CLS_LABEL = {
+    major:'FX Majors', minor:'FX Minors',
+    comm:'Commodities', index:'Indices', crypto:'Crypto'
+  };
+
+  var _currentTF = 'ytd';
+
+  function _fmt(n){ return (n|0).toLocaleString('en-US'); }
+  function _pct(w,l){ var t=w+l; return t>0 ? (w/t*100) : null; }
+  function _pctColor(p){
+    if(p == null) return 'var(--inkd)';
+    if(p >= 70) return 'var(--bull)';
+    if(p >= 60) return 'var(--gold)';
+    if(p >= 50) return 'var(--orange)';
+    return 'var(--bear)';
+  }
+  function _classOfPair(k){
+    var m = (typeof MKTS !== 'undefined') ? MKTS[k] : null;
+    if(!m) return null;
+    if(k === 'dxy') return null;
+    if(typeof DROPPED_PAIRS !== 'undefined' && DROPPED_PAIRS.has && DROPPED_PAIRS.has(k)) return null;
+    var cls = m.t;
+    return CLS_LABEL[cls] ? cls : null;
+  }
+  function _tfWindow(tf){
+    var now = new Date();
+    if(tf === 'weekly'){
+      return {fromMs: now.getTime() - 7*24*3600*1000, label: 'Last 7 days', short: 'Weekly'};
+    }
+    if(tf === 'monthly'){
+      var monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      return {fromMs: monthStart.getTime(), label: now.toLocaleString('en-US',{month:'long',year:'numeric'}), short: 'Monthly'};
+    }
+    if(tf === 'ytd'){
+      var yearStart = new Date(now.getFullYear(), 0, 1);
+      return {fromMs: yearStart.getTime(), label: 'YTD · since 1 Jan ' + now.getFullYear(), short: 'YTD'};
+    }
+    return {fromMs: 0, label: 'All-time (full 12-month backtest)', short: 'All-time'};
+  }
+
+  function _gatherTrades(fromMs){
+    var allRecent = (typeof _loadRecentBtCache === 'function')
+      ? _loadRecentBtCache('auto-ew') : null;
+    var out = [];
+    if(!allRecent) return out;
+    Object.keys(MKTS || {}).forEach(function(k){
+      var cls = _classOfPair(k);
+      if(!cls) return;
+      var rb = allRecent[k];
+      if(!rb) return;
+      var method = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
+      var src;
+      var rPerTrade = 1.0;
+      if(method === 'fib' && rb.hybrid && Array.isArray(rb.hybrid.midTrades)){
+        src = rb.hybrid.midTrades;
+        rPerTrade = 0.5;  // half-size fib entry
+      } else if(Array.isArray(rb.trades)){
+        src = rb.trades;
+        rPerTrade = 1.0;
+      } else { return; }
+      for(var i = 0; i < src.length; i++){
+        var t = src[i];
+        if(!t || !t.outcome) continue;
+        var ts = t.creatorTs;
+        if(ts == null) continue;
+        if(typeof ts === 'string') ts = Date.parse(ts);
+        if(isNaN(ts) || ts < fromMs) continue;
+        var rDelta = 0;
+        if(t.outcome === 'win')  rDelta = rPerTrade;
+        else if(t.outcome === 'loss') rDelta = -rPerTrade;
+        // invalidated / expired count as 0R
+        out.push({
+          k: k,
+          sym: (MKTS[k] && MKTS[k].sym) || k,
+          cls: cls,
+          method: method,
+          ts: ts,
+          dir: t.dir || (rDelta >= 0 ? '?' : '?'),
+          entry: t.entry,
+          stop: t.stop,
+          target: t.target,
+          outcome: t.outcome,
+          rDelta: rDelta,
+          triggered: t.triggered !== false
+        });
+      }
+    });
+    out.sort(function(a,b){ return b.ts - a.ts; });
+    return out;
+  }
+
+  function _aggregateByClass(trades){
+    var byCls = {};
+    CLS_ORDER.forEach(function(c){
+      byCls[c] = {wins:0, losses:0, inv:0, expired:0, netR:0, pairWL:{}, total:0};
+    });
+    for(var i = 0; i < trades.length; i++){
+      var t = trades[i];
+      var s = byCls[t.cls];
+      if(!s) continue;
+      s.total++;
+      if(t.outcome === 'win')  s.wins++;
+      else if(t.outcome === 'loss') s.losses++;
+      else if(t.outcome === 'invalidated') s.inv++;
+      else if(t.outcome === 'expired') s.expired++;
+      s.netR += t.rDelta;
+      if(!s.pairWL[t.k]) s.pairWL[t.k] = {w:0, l:0, sym: t.sym};
+      if(t.outcome === 'win') s.pairWL[t.k].w++;
+      else if(t.outcome === 'loss') s.pairWL[t.k].l++;
+    }
+    // Best / worst pair (by WR with min sample of 3 trades)
+    CLS_ORDER.forEach(function(c){
+      var s = byCls[c];
+      var best = null, worst = null;
+      Object.keys(s.pairWL).forEach(function(k){
+        var pw = s.pairWL[k];
+        var sample = pw.w + pw.l;
+        if(sample < 3) return;
+        var rate = pw.w / sample;
+        if(!best  || rate > best.rate)  best  = {sym: pw.sym, rate: rate, w: pw.w, l: pw.l};
+        if(!worst || rate < worst.rate) worst = {sym: pw.sym, rate: rate, w: pw.w, l: pw.l};
+      });
+      s.best  = best;
+      s.worst = (best && worst && best.sym === worst.sym) ? null : worst;
+    });
+    return byCls;
+  }
+
+  function _totalsFromAgg(byCls){
+    var w = 0, l = 0, inv = 0, expired = 0, netR = 0;
+    CLS_ORDER.forEach(function(c){
+      var s = byCls[c];
+      w += s.wins; l += s.losses; inv += s.inv; expired += s.expired; netR += s.netR;
+    });
+    return {wins:w, losses:l, inv:inv, expired:expired, netR:netR};
+  }
+
+  function _activePairCount(){
+    var n = 0;
+    Object.keys(MKTS || {}).forEach(function(k){ if(_classOfPair(k)) n++; });
+    return n;
+  }
+
+  function _renderKPIs(totals, win){
+    var host = document.getElementById('pf-kpis-host');
+    if(!host) return;
+    var resolved = totals.wins + totals.losses;
+    var p = _pct(totals.wins, totals.losses);
+    var wrColor = _pctColor(p);
+    var netRColor = totals.netR >= 0 ? 'var(--bull)' : 'var(--bear)';
+    var nPairs = _activePairCount();
+    host.innerHTML = ''
+      + '<div class="pf-kpi"><div class="pf-kpi-lbl">Win rate</div>'
+      +   '<div class="pf-kpi-val" style="color:'+wrColor+';">'+(p == null ? '—' : p.toFixed(1)+'%')+'</div>'
+      +   '<div class="pf-kpi-sub">'+_fmt(totals.wins)+'W / '+_fmt(totals.losses)+'L resolved</div>'
+      + '</div>'
+      + '<div class="pf-kpi gold"><div class="pf-kpi-lbl">Net R</div>'
+      +   '<div class="pf-kpi-val" style="color:'+netRColor+';">'+(totals.netR >= 0 ? '+' : '')+totals.netR.toFixed(1)+'R</div>'
+      +   '<div class="pf-kpi-sub">across '+_fmt(resolved)+' trade'+(resolved===1?'':'s')+'</div>'
+      + '</div>'
+      + '<div class="pf-kpi purple"><div class="pf-kpi-lbl">Trades</div>'
+      +   '<div class="pf-kpi-val">'+_fmt(resolved)+'</div>'
+      +   '<div class="pf-kpi-sub">+ '+_fmt(totals.inv)+' inv · '+_fmt(totals.expired)+' exp</div>'
+      + '</div>'
+      + '<div class="pf-kpi orange"><div class="pf-kpi-lbl">Universe</div>'
+      +   '<div class="pf-kpi-val">'+nPairs+'</div>'
+      +   '<div class="pf-kpi-sub">active pairs · DXY anchor</div>'
+      + '</div>'
+      + '<div class="pf-kpi neu"><div class="pf-kpi-lbl">Window</div>'
+      +   '<div class="pf-kpi-val" style="font-size:14px;line-height:1.25;">'+win.label+'</div>'
+      +   '<div class="pf-kpi-sub">'+win.short+' slice of auto-EW cache</div>'
+      + '</div>';
+  }
+
+  function _renderClassTable(byCls){
+    var host = document.getElementById('pf-cls-host');
+    if(!host) return;
+    var anyTrades = false;
+    var rows = '';
+    CLS_ORDER.forEach(function(c){
+      var s = byCls[c];
+      var resolved = s.wins + s.losses;
+      if(resolved > 0) anyTrades = true;
+      var p = _pct(s.wins, s.losses);
+      var pColor = _pctColor(p);
+      var rColor = s.netR >= 0 ? 'pos' : 'neg';
+      var bestTxt  = s.best  ? s.best.sym + ' · ' + (s.best.rate*100).toFixed(0)+'% ('+(s.best.w+s.best.l)+')' : '—';
+      var worstTxt = s.worst ? s.worst.sym + ' · ' + (s.worst.rate*100).toFixed(0)+'% ('+(s.worst.w+s.worst.l)+')' : '—';
+      rows += '<tr>'
+        + '<td><span class="pf-cls-pill cls-'+c+'">'+CLS_LABEL[c]+'</span></td>'
+        + '<td class="pf-num">'+_fmt(resolved)+'</td>'
+        + '<td class="pf-num" style="color:'+pColor+';">'+(p == null ? '—' : p.toFixed(1)+'%')+'</td>'
+        + '<td class="pf-num">'+_fmt(s.wins)+'W / '+_fmt(s.losses)+'L</td>'
+        + '<td class="pf-r '+rColor+'">'+(s.netR >= 0 ? '+' : '')+s.netR.toFixed(1)+'R</td>'
+        + '<td style="font-size:10px;color:'+(s.best ? 'var(--bull)' : 'var(--inkd)')+';">'+bestTxt+'</td>'
+        + '<td style="font-size:10px;color:'+(s.worst ? 'var(--bear)' : 'var(--inkd)')+';">'+worstTxt+'</td>'
+        + '</tr>';
+    });
+    var totals = _totalsFromAgg(byCls);
+    var totP = _pct(totals.wins, totals.losses);
+    var totColor = _pctColor(totP);
+    var totRClass = totals.netR >= 0 ? 'pos' : 'neg';
+    rows += '<tr class="pf-tot">'
+      + '<td>Overall</td>'
+      + '<td class="pf-num">'+_fmt(totals.wins + totals.losses)+'</td>'
+      + '<td class="pf-num" style="color:'+totColor+';">'+(totP == null ? '—' : totP.toFixed(1)+'%')+'</td>'
+      + '<td class="pf-num">'+_fmt(totals.wins)+'W / '+_fmt(totals.losses)+'L</td>'
+      + '<td class="pf-r '+totRClass+'">'+(totals.netR >= 0 ? '+' : '')+totals.netR.toFixed(1)+'R</td>'
+      + '<td>—</td><td>—</td>'
+      + '</tr>';
+    if(!anyTrades){
+      host.innerHTML = '<div class="pf-empty">No resolved trades in this window. Either the slice is too narrow (try YTD or All-time), or the backtest cache hasn\'t built yet (open the Backtest tab once and return here).</div>';
+      return;
+    }
+    host.innerHTML = '<table class="pf-tbl">'
+      + '<thead><tr>'
+      +   '<th>Asset class</th>'
+      +   '<th class="pf-num">Trades</th>'
+      +   '<th class="pf-num">WR</th>'
+      +   '<th class="pf-num">W/L</th>'
+      +   '<th class="pf-num">Net R</th>'
+      +   '<th>Best pair</th>'
+      +   '<th>Worst pair</th>'
+      + '</tr></thead>'
+      + '<tbody>'+rows+'</tbody></table>';
+  }
+
+  function _fmtPxForTrade(k, v){
+    if(v == null || isNaN(v)) return '—';
+    var m = MKTS[k];
+    var dec = m && typeof m.d === 'number' ? m.d : (Math.abs(v) < 10 ? 4 : (Math.abs(v) < 100 ? 3 : 2));
+    try { return Number(v).toFixed(dec); } catch(e){ return String(v); }
+  }
+  function _fmtTradeDate(ts){
+    if(!ts) return '—';
+    var d = new Date(ts);
+    var month = d.toLocaleString('en-US', {month:'short'});
+    var day = d.getDate();
+    var hh = String(d.getHours()).padStart(2,'0');
+    var mm = String(d.getMinutes()).padStart(2,'0');
+    return month + ' ' + day + ' · ' + hh + ':' + mm;
+  }
+  function _outcomeLabel(o){
+    if(o === 'win') return 'WIN';
+    if(o === 'loss') return 'LOSS';
+    if(o === 'invalidated') return 'INV';
+    if(o === 'expired') return 'EXP';
+    return (o||'?').toUpperCase();
+  }
+
+  function _renderTradeLog(trades){
+    var host = document.getElementById('pf-trades-host');
+    if(!host) return;
+    if(!trades.length){
+      host.innerHTML = '<div class="pf-empty">No trades in this window. The Backtest tab may not have computed yet — open it once and return here.</div>';
+      return;
+    }
+    var CAP = 200;
+    var capped = trades.length > CAP;
+    var display = capped ? trades.slice(0, CAP) : trades;
+    var rows = '';
+    display.forEach(function(t){
+      var rText = t.rDelta === 0 ? '0R' : ((t.rDelta > 0 ? '+' : '') + t.rDelta.toFixed(2) + 'R');
+      var rClass = t.rDelta > 0 ? 'pos' : (t.rDelta < 0 ? 'neg' : '');
+      var dirCls = (t.dir === 'bull') ? 'bull' : (t.dir === 'bear') ? 'bear' : '';
+      var dirTxt = (t.dir === 'bull') ? 'BUY' : (t.dir === 'bear') ? 'SELL' : '·';
+      var entryTxt = _fmtPxForTrade(t.k, t.entry);
+      var outcomeCls = (t.outcome === 'win' || t.outcome === 'loss' || t.outcome === 'invalidated' || t.outcome === 'expired') ? t.outcome : 'expired';
+      rows += '<tr>'
+        + '<td style="font-family:Orbitron,monospace;font-size:10px;color:var(--inkm);">'+_fmtTradeDate(t.ts)+'</td>'
+        + '<td style="font-weight:600;">'+t.sym+'</td>'
+        + '<td><span class="pf-cls-pill cls-'+t.cls+'">'+CLS_LABEL[t.cls]+'</span></td>'
+        + '<td>'+(dirCls ? '<span class="pf-dir-pill '+dirCls+'">'+dirTxt+'</span>' : '·')+'</td>'
+        + '<td class="pf-num">'+entryTxt+'</td>'
+        + '<td><span class="pf-out-pill '+outcomeCls+'">'+_outcomeLabel(t.outcome)+'</span></td>'
+        + '<td class="pf-r '+rClass+'">'+rText+'</td>'
+        + '</tr>';
+    });
+    var capNote = capped
+      ? '<div class="pf-loadhint">Showing the most recent '+CAP+' of '+_fmt(trades.length)+' trades in this window. Narrow the timeframe to see older ones.</div>'
+      : '';
+    host.innerHTML = '<div class="pf-trades-scroll">'
+      + '<table class="pf-tbl">'
+      + '<thead><tr>'
+      +   '<th>Time</th>'
+      +   '<th>Pair</th>'
+      +   '<th>Class</th>'
+      +   '<th>Side</th>'
+      +   '<th class="pf-num">Entry</th>'
+      +   '<th>Result</th>'
+      +   '<th class="pf-num">R</th>'
+      + '</tr></thead>'
+      + '<tbody>'+rows+'</tbody></table></div>'
+      + capNote;
+  }
+
+  function buildPerformance(){
+    // Toggle active button to match _currentTF
+    document.querySelectorAll('#pf-tf-host .pf-tf-btn').forEach(function(b){
+      b.classList.toggle('active', b.getAttribute('data-tf') === _currentTF);
+    });
+    var win = _tfWindow(_currentTF);
+    var trades = _gatherTrades(win.fromMs);
+    var byCls = _aggregateByClass(trades);
+    var totals = _totalsFromAgg(byCls);
+    _renderKPIs(totals, win);
+    var clsWin = document.getElementById('pf-cls-window');
+    if(clsWin) clsWin.textContent = win.short;
+    _renderClassTable(byCls);
+    var tWin = document.getElementById('pf-trades-window');
+    if(tWin) tWin.textContent = win.short + ' · most recent first';
+    _renderTradeLog(trades);
+  }
+
+  // Wire the timeframe selector once on first build
+  function _wireTFButtons(){
+    var host = document.getElementById('pf-tf-host');
+    if(!host || host.__wired) return;
+    host.__wired = true;
+    host.addEventListener('click', function(e){
+      var b = e.target.closest && e.target.closest('.pf-tf-btn');
+      if(!b) return;
+      var tf = b.getAttribute('data-tf');
+      if(!tf) return;
+      _currentTF = tf;
+      buildPerformance();
+    });
+  }
+
+  // Wrap buildPerformance so the buttons get wired before first paint.
+  var _origBuild = buildPerformance;
+  window.buildPerformance = function(){
+    _wireTFButtons();
+    return _origBuild();
+  };
 })();
 </script>
 
