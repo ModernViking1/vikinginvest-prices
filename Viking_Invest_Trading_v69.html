@@ -431,6 +431,77 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   color:#1c1a17;border-radius:4px;cursor:pointer;
 }
 .viauth-link:hover{background:#1c1a17;color:#f0ede8;}
+
+/* ── NEWSLETTER (📨 Weekly Recap) ── */
+.nl-wrap{max-width:780px;margin:0 auto;}
+.nl-mast{
+  background:linear-gradient(135deg,var(--ink) 0%,#2d2925 100%);
+  color:#fff;padding:24px 26px;border-radius:6px;
+  box-shadow:var(--shad);margin-bottom:14px;position:relative;overflow:hidden;
+}
+.nl-mast::after{
+  content:'';position:absolute;top:0;right:0;width:160px;height:100%;
+  background:radial-gradient(circle at 70% 50%,rgba(200,134,10,0.20) 0%,transparent 70%);
+  pointer-events:none;
+}
+.nl-mast-eyebrow{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:3px;color:var(--gold);opacity:0.95;text-transform:uppercase;margin-bottom:6px;position:relative;}
+.nl-mast h1{font-family:'Orbitron',monospace;font-size:22px;font-weight:900;letter-spacing:1.5px;line-height:1.1;margin:0 0 8px 0;position:relative;}
+.nl-mast-sub{font-size:11px;color:rgba(255,255,255,0.72);letter-spacing:0.5px;position:relative;}
+.nl-card{background:var(--sf);border:1px solid var(--rule);border-radius:6px;padding:18px 20px;margin-bottom:14px;box-shadow:var(--shad);}
+.nl-card-hd{
+  font-family:'Orbitron',monospace;font-size:10px;letter-spacing:1.5px;
+  color:var(--inkm);text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;
+  border-bottom:1px solid var(--rule);
+  display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;
+}
+.nl-card-hd-r{font-size:9px;color:var(--inkd);font-weight:400;letter-spacing:0.5px;text-transform:none;}
+.nl-headline{display:flex;align-items:center;gap:26px;}
+.nl-headline-stats{flex:1;min-width:160px;}
+.nl-headline-pct{font-family:'Orbitron',monospace;font-size:46px;font-weight:900;color:var(--bull);line-height:1;letter-spacing:-1px;}
+.nl-headline-wl{font-family:'Orbitron',monospace;font-size:12px;color:var(--inkm);margin-top:8px;letter-spacing:0.5px;}
+.nl-headline-lbl{font-size:9.5px;color:var(--inkd);margin-top:10px;letter-spacing:1px;text-transform:uppercase;font-family:'Orbitron',monospace;}
+.nl-classes{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;}
+.nl-cls{background:var(--sf2);border:1px solid var(--rule);border-radius:5px;padding:14px 12px 12px;display:flex;flex-direction:column;align-items:center;text-align:center;}
+.nl-cls-name{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:var(--inkm);margin-bottom:10px;font-weight:700;}
+.nl-cls-pct{font-family:'Orbitron',monospace;font-size:17px;font-weight:900;margin-top:8px;letter-spacing:0.5px;}
+.nl-cls-wl{font-family:'Orbitron',monospace;font-size:9px;color:var(--inkd);letter-spacing:0.5px;margin-top:2px;}
+.nl-cls-empty{color:var(--inkd);font-style:italic;font-size:10.5px;font-family:'Mukta',sans-serif;letter-spacing:0;line-height:1.5;padding:6px 2px;}
+.nl-week-table{width:100%;border-collapse:collapse;font-size:11px;}
+.nl-week-table th,.nl-week-table td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--rule);}
+.nl-week-table th{font-family:'Orbitron',monospace;font-size:8.5px;letter-spacing:1px;color:var(--inkd);text-transform:uppercase;font-weight:700;background:var(--sf2);}
+.nl-week-table td{font-family:'Mukta',sans-serif;color:var(--ink);}
+.nl-week-table tr.nl-tot td{font-weight:700;border-top:2px solid var(--ink);background:var(--bullt);}
+.nl-week-table .nl-num{font-family:'Orbitron',monospace;font-weight:700;}
+.nl-sub-card{
+  background:linear-gradient(135deg,var(--bullt) 0%,rgba(26,122,74,0.03) 100%);
+  border:1px solid var(--bull);border-radius:6px;padding:16px 18px;margin-bottom:14px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+}
+.nl-sub-icon{font-size:28px;flex-shrink:0;}
+.nl-sub-body{flex:1;min-width:220px;}
+.nl-sub-title{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:var(--bull);text-transform:uppercase;margin-bottom:3px;}
+.nl-sub-desc{font-size:10.5px;color:var(--inkm);line-height:1.5;}
+.nl-sub-desc strong{color:var(--ink);}
+.nl-sub-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.nl-sub-toggle{
+  display:inline-flex;align-items:center;gap:6px;background:#fff;
+  padding:8px 14px;border:1.5px solid var(--bull);border-radius:4px;
+  font-family:'Orbitron',monospace;font-size:10px;letter-spacing:0.8px;
+  font-weight:700;cursor:pointer;color:var(--bull);transition:all 0.18s;
+  text-transform:uppercase;
+}
+.nl-sub-toggle:hover:not(:disabled){background:var(--bull);color:#fff;}
+.nl-sub-toggle.on{background:var(--bull);color:#fff;}
+.nl-sub-toggle:disabled{opacity:0.55;cursor:default;}
+.nl-sub-status{font-size:9.5px;color:var(--inkd);font-style:italic;}
+.nl-foot{font-size:10px;color:var(--inkd);text-align:center;padding:20px 14px 8px;line-height:1.55;font-family:'Mukta',sans-serif;letter-spacing:0.3px;}
+.nl-foot strong{color:var(--inkm);}
+@media (max-width:480px){
+  .nl-mast h1{font-size:17px;letter-spacing:1px;}
+  .nl-headline{flex-direction:column;align-items:center;gap:8px;text-align:center;}
+  .nl-headline-pct{font-size:38px;}
+  .nl-classes{grid-template-columns:repeat(2,1fr);}
+}
 </style>
 </head>
 <body>
@@ -575,6 +646,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   <button class="ntab" onclick="switchPage('bt')">📈 Backtest</button>
   <button class="ntab" onclick="switchPage('log')">📋 Signal Log</button>
   <button class="ntab" onclick="switchPage('journal')">📓 Journal</button>
+  <button class="ntab" onclick="switchPage('newsletter')">📨 Newsletter</button>
 </div>
 
 <!-- ════ DASHBOARD ════ -->
@@ -902,6 +974,46 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   <div style="background:var(--sf);border:1px solid var(--rule);border-radius:4px;padding:14px;box-shadow:var(--shad);">
     <h3 style="font-family:Orbitron,monospace;font-size:11px;letter-spacing:1px;margin:0 0 10px 0;color:var(--ink);">📋 OPEN &amp; CLOSED TRADES</h3>
     <div id="journalList" style="max-height:500px;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- ════ NEWSLETTER ════ -->
+<div class="page" id="page-newsletter">
+  <div class="nl-wrap" id="newsletterRoot">
+    <div class="nl-mast">
+      <div class="nl-mast-eyebrow">⚓ Viking Invest · Weekly Recap</div>
+      <h1 id="nl-mast-title">Loading week…</h1>
+      <div class="nl-mast-sub" id="nl-mast-sub">4/4 Confluence Strategy — performance digest</div>
+    </div>
+
+    <div id="nl-sub-card-host"></div>
+
+    <div class="nl-card">
+      <div class="nl-card-hd">▸ Overall Performance <span class="nl-card-hd-r" id="nl-overall-window">all resolved trades · 12-month auto-EW backtest</span></div>
+      <div class="nl-headline">
+        <div id="nl-overall-donut"></div>
+        <div class="nl-headline-stats">
+          <div class="nl-headline-pct" id="nl-overall-pct">—</div>
+          <div class="nl-headline-wl" id="nl-overall-wl">awaiting backtest cache…</div>
+          <div class="nl-headline-lbl">Win rate · 4/4 confluence · target 1R</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nl-card">
+      <div class="nl-card-hd">▸ By Asset Class <span class="nl-card-hd-r">donut fills with win share · cohort total below</span></div>
+      <div class="nl-classes" id="nl-classes-host"></div>
+    </div>
+
+    <div class="nl-card">
+      <div class="nl-card-hd">▸ This Week <span class="nl-card-hd-r" id="nl-week-window">setups with creator bar in the last 7 days</span></div>
+      <div id="nl-week-host"><div class="nl-cls-empty">awaiting backtest cache…</div></div>
+    </div>
+
+    <div class="nl-foot">
+      <strong>Methodology.</strong> Overall WR aggregates the full auto-EW backtest cache across every active pair (4/4 confluence aligned, target 1R, stop at structural extreme). The weekly slice filters that same engine to setups whose creator bar fell within the last 7 days — same rules, narrower window. Numbers refresh on the next page load after the cache rebuilds (typically every 24h or when rules change).<br>
+      Educational simulation · not financial advice.
+    </div>
   </div>
 </div>
 
@@ -8619,7 +8731,19 @@ function setFilter(mode){
 function runScan(){loggedSess={};Object.keys(MKTS).forEach(function(k){refreshAlert(k);});var cnt=Object.keys(MKTS).filter(isFire).length;var n=Object.keys(MKTS).length;addNote('&#9889; Scan complete &#8212; '+cnt+' active 4/4 signal'+(cnt!==1?'s':'')+' across '+n+' markets.');}
 
 function switchMkt(k){activeMkt=k;document.querySelectorAll('.mtab').forEach(function(t){t.classList.remove('active');});document.querySelectorAll('.mpanel').forEach(function(p){p.classList.remove('active');});var tab=document.getElementById('tab-'+k),panel=document.getElementById('mp-'+k);if(tab)tab.classList.add('active');if(panel)panel.classList.add('active');if(k!=='overview')setTimeout(function(){drawChart(k);},50);}
-function switchPage(p){document.querySelectorAll('.page').forEach(function(el){el.classList.remove('active');});document.querySelectorAll('.ntab').forEach(function(t){t.classList.remove('active');});var pg=document.getElementById('page-'+p);if(pg)pg.classList.add('active');var idx=['dash','bt','log'].indexOf(p),tabs=document.querySelectorAll('.ntab');if(idx>=0&&tabs[idx])tabs[idx].classList.add('active');if(p==='bt')setTimeout(drawEquity,80);if(p==='dash'&&activeMkt!=='overview')setTimeout(function(){drawChart(activeMkt);},60);}
+function switchPage(p){
+  document.querySelectorAll('.page').forEach(function(el){el.classList.remove('active');});
+  document.querySelectorAll('.ntab').forEach(function(t){
+    t.classList.remove('active');
+    var oc = t.getAttribute('onclick') || '';
+    if(oc.indexOf("switchPage('"+p+"')") !== -1) t.classList.add('active');
+  });
+  var pg = document.getElementById('page-'+p);
+  if(pg) pg.classList.add('active');
+  if(p === 'bt') setTimeout(drawEquity, 80);
+  if(p === 'dash' && activeMkt !== 'overview') setTimeout(function(){drawChart(activeMkt);}, 60);
+  if(p === 'newsletter' && typeof buildNewsletter === 'function') setTimeout(buildNewsletter, 30);
+}
 window.addEventListener('resize',function(){if(activeMkt!=='overview')drawChart(activeMkt);if(document.getElementById('page-bt').classList.contains('active'))drawEquity();});
 
 // ================================================================
@@ -11141,7 +11265,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-13ll';
+var RULES_VERSION = '2026-06-13mm';
 var RULES_VERSION_NOTES = [
   '2026-06-13kk — DAX 30 (de40) DROPPED from the active universe. Chronic structural underperformance confirmed across the full optimisation phase: 9 SR gating variants (1: window-only / 2: broken-only / 3: tier-only / 4: SR break ignoring 4/4 / 5: ORB Failure / 6: ORB+strength filter / 7: VWAP pullback / 8: Silver Bullet) PLUS the news + vol-spike blackout filter PLUS the per-class R:R sweep (1:0.5, 1:0.75, 1:1, 1:1.5, 1:2). DE40 produced NEGATIVE expected R on every tested combination — most generous read was 1:1 at −0.17R per trade over n=12 decided trades, with smaller targets making it WORSE (1:0.5 at −0.25R because the WR uplift didn\'t offset the smaller win size). Same pattern as the prior DROPPED_PAIRS additions where instrument microstructure simply doesn\'t map to the 4/4 confluence + close-beyond detector. Added to DROPPED_PAIRS deny-list so caches flush on next page load. DJ30 stays in the universe at +0.07R/trade (marginal but positive; reassess in 6 months with more data). Active universe: 40 instruments + DXY anchor.',
   '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
@@ -17983,6 +18107,11 @@ function _renderCCIVariantPanel(host, commodityKeys){
   });
   var session = null;
   var wantedPage = null;
+  // Expose for the Newsletter tab's subscribe card. session is kept in
+  // sync below in getSession + onAuthStateChange. The Newsletter page
+  // reads window._vinlSb / window._vinlSession on each render.
+  window._vinlSb = sb;
+  window._vinlSession = null;
 
   function updateStatus(){
     var el = document.getElementById('viauth-status');
@@ -18036,11 +18165,21 @@ function _renderCCIVariantPanel(host, commodityKeys){
 
   sb.auth.getSession().then(function(r){
     session = (r && r.data) ? r.data.session : null;
+    window._vinlSession = session;
     updateStatus();
   }).catch(function(){});
 
   sb.auth.onAuthStateChange(function(event, newSession){
     session = newSession || null;
+    window._vinlSession = session;
+    // Refresh the Newsletter subscribe card if the user is viewing it
+    // when sign-in / sign-out happens.
+    try {
+      var pg = document.getElementById('page-newsletter');
+      if(pg && pg.classList.contains('active') && typeof window.buildNewsletter === 'function'){
+        window.buildNewsletter();
+      }
+    } catch(e){}
     updateStatus();
     if(session){
       // If a Telegram ID was entered before the magic-link round-trip and
@@ -18392,6 +18531,364 @@ function _renderCCIVariantPanel(host, commodityKeys){
   } else {
     onReady();
   }
+})();
+</script>
+
+<script>
+/* ──────────────────────────────────────────────────────────────
+   📨 NEWSLETTER — Weekly Recap tab
+   Renders a professional weekly performance digest with inline-SVG
+   donut charts. Two data slices, both read from the same auto-EW
+   backtest cache that powers the rest of the dashboard:
+     • OVERALL  — full 12-month aggregate, the headline ~74% number.
+                  Falls back to MKTS[k].bw/.bl baked-in figures when
+                  the cache hasn't been computed yet so the page is
+                  never empty.
+     • WEEKLY   — same engine, filtered to setups whose creatorTs
+                  fell within the last 7 days. midTrades for fib
+                  pairs (comm + index), top-level trades for wick.
+   Subscribe card upserts profiles.newsletter_opt_in via the same
+   Supabase client + RLS rules as the existing profile modal.
+   ────────────────────────────────────────────────────────────── */
+(function(){
+  var CLS_ORDER = ['major','minor','comm','index','crypto'];
+  var CLS_LABEL = {
+    major:'FX Majors', minor:'FX Minors',
+    comm:'Commodities', index:'Indices', crypto:'Crypto'
+  };
+  var CLS_ICON = {
+    major:'💱', minor:'💴', comm:'⛏', index:'📊', crypto:'₿'
+  };
+
+  function _fmt(n){ return (n|0).toLocaleString('en-US'); }
+  function _pct(w,l){ var t=w+l; return t>0 ? (w/t*100) : null; }
+  function _pctColor(p){
+    if(p == null) return 'var(--inkd)';
+    if(p >= 70) return 'var(--bull)';
+    if(p >= 60) return 'var(--gold)';
+    if(p >= 50) return 'var(--orange)';
+    return 'var(--bear)';
+  }
+
+  // Inline-SVG donut: works in every browser without a chart lib and
+  // ports cleanly to email later. Stroke-dash trick draws the won arc.
+  function _donut(wins, losses, size, color){
+    size  = size  || 110;
+    color = color || 'var(--bull)';
+    var stroke = Math.max(8, Math.round(size * 0.16));
+    var r  = (size - stroke) / 2;
+    var cx = size / 2, cy = size / 2;
+    var circ = 2 * Math.PI * r;
+    var total = wins + losses;
+    var winFrac = total > 0 ? wins / total : 0;
+    var dashWin  = circ * winFrac;
+    var dashRest = circ - dashWin;
+    var label = total > 0 ? Math.round(winFrac * 100) + '%' : '–';
+    var textColor = total > 0 ? color : 'var(--inkd)';
+    var fontSize = (size * 0.21).toFixed(1);
+    return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" style="display:block;">'
+      + '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--rule)" stroke-width="'+stroke+'"/>'
+      + (total > 0
+          ? '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="'+stroke
+              + '" stroke-dasharray="'+dashWin.toFixed(2)+' '+dashRest.toFixed(2)
+              + '" stroke-dashoffset="'+(circ * 0.25).toFixed(2)
+              + '" stroke-linecap="butt" transform="rotate(-90 '+cx+' '+cy+')"/>'
+          : '')
+      + '<text x="'+cx+'" y="'+cy+'" text-anchor="middle" dy="0.36em"'
+      + ' font-family="Orbitron,monospace" font-size="'+fontSize+'" font-weight="900" fill="'+textColor+'">'+label+'</text>'
+      + '</svg>';
+  }
+
+  function _classOfPair(k){
+    var m = (typeof MKTS !== 'undefined') ? MKTS[k] : null;
+    if(!m) return null;
+    if(k === 'dxy') return null;
+    if(typeof DROPPED_PAIRS !== 'undefined' && DROPPED_PAIRS.has && DROPPED_PAIRS.has(k)) return null;
+    var cls = m.t;
+    return CLS_LABEL[cls] ? cls : null;  // skip exotic t values
+  }
+
+  function _emptyCls(){
+    var o = {};
+    CLS_ORDER.forEach(function(c){ o[c] = {w:0, l:0, pairs:0}; });
+    return o;
+  }
+
+  function _aggregateOverall(){
+    var allRecent = (typeof _loadRecentBtCache === 'function')
+      ? _loadRecentBtCache('auto-ew') : null;
+    var byCls = _emptyCls();
+    var totalW = 0, totalL = 0;
+    Object.keys(MKTS || {}).forEach(function(k){
+      var cls = _classOfPair(k);
+      if(!cls) return;
+      var w = 0, l = 0;
+      var rb = allRecent && allRecent[k];
+      if(rb){
+        var method = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
+        if(method === 'fib' && rb.hybrid){
+          w = rb.hybrid.midWins   || 0;
+          l = rb.hybrid.midLosses || 0;
+        } else {
+          w = rb.wins   || 0;
+          l = rb.losses || 0;
+        }
+      }
+      // Fallback: MKTS-embedded baked-in backtest figures so the
+      // page is never empty even before the cache builds.
+      if(w === 0 && l === 0){
+        w = MKTS[k].bw || 0;
+        l = MKTS[k].bl || 0;
+      }
+      if(w + l > 0){
+        byCls[cls].w += w;
+        byCls[cls].l += l;
+        byCls[cls].pairs++;
+        totalW += w;
+        totalL += l;
+      }
+    });
+    return {byCls: byCls, totalW: totalW, totalL: totalL};
+  }
+
+  function _aggregateWeekly(){
+    var allRecent = (typeof _loadRecentBtCache === 'function')
+      ? _loadRecentBtCache('auto-ew') : null;
+    if(!allRecent) return null;
+    var byCls = _emptyCls();
+    var weekAgoMs = Date.now() - 7 * 24 * 3600 * 1000;
+    var totalW = 0, totalL = 0;
+    Object.keys(MKTS || {}).forEach(function(k){
+      var cls = _classOfPair(k);
+      if(!cls) return;
+      var rb = allRecent[k];
+      if(!rb) return;
+      var method = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
+      var src;
+      if(method === 'fib' && rb.hybrid && Array.isArray(rb.hybrid.midTrades)){
+        src = rb.hybrid.midTrades;
+      } else if(Array.isArray(rb.trades)){
+        src = rb.trades;
+      } else {
+        return;
+      }
+      for(var i = 0; i < src.length; i++){
+        var t = src[i];
+        if(!t) continue;
+        var ts = t.creatorTs;
+        if(ts == null) continue;
+        if(typeof ts === 'string') ts = Date.parse(ts);
+        if(isNaN(ts) || ts < weekAgoMs) continue;
+        if(t.outcome === 'win'){ byCls[cls].w++; totalW++; }
+        else if(t.outcome === 'loss'){ byCls[cls].l++; totalL++; }
+      }
+    });
+    return {byCls: byCls, totalW: totalW, totalL: totalL};
+  }
+
+  function _renderMasthead(){
+    var t = document.getElementById('nl-mast-title');
+    var s = document.getElementById('nl-mast-sub');
+    if(!t || !s) return;
+    var now = new Date();
+    var weekAgo = new Date(now.getTime() - 6 * 24 * 3600 * 1000);
+    var fmt = function(d){
+      return d.toLocaleString('en-US', {month:'short', day:'numeric'});
+    };
+    t.textContent = 'Week of ' + fmt(weekAgo) + ' – ' + fmt(now);
+    s.textContent = '4/4 confluence performance digest · ' + now.getFullYear();
+  }
+
+  function _renderHeadline(agg){
+    var pctNode = document.getElementById('nl-overall-pct');
+    var wlNode  = document.getElementById('nl-overall-wl');
+    var dNode   = document.getElementById('nl-overall-donut');
+    if(!pctNode || !wlNode || !dNode) return;
+    var p = _pct(agg.totalW, agg.totalL);
+    if(p == null){
+      pctNode.textContent = '—';
+      pctNode.style.color = 'var(--inkd)';
+      wlNode.textContent  = 'No resolved trades yet — open the Backtest tab to build the cache.';
+      dNode.innerHTML     = _donut(0, 0, 140, 'var(--bull)');
+      return;
+    }
+    pctNode.textContent = p.toFixed(1) + '%';
+    pctNode.style.color = _pctColor(p);
+    wlNode.textContent  = _fmt(agg.totalW) + ' wins · ' + _fmt(agg.totalL) + ' losses · ' + _fmt(agg.totalW + agg.totalL) + ' resolved';
+    dNode.innerHTML     = _donut(agg.totalW, agg.totalL, 140, _pctColor(p));
+  }
+
+  function _renderClasses(agg){
+    var host = document.getElementById('nl-classes-host');
+    if(!host) return;
+    var html = '';
+    CLS_ORDER.forEach(function(cls){
+      var s = agg.byCls[cls];
+      var p = _pct(s.w, s.l);
+      var color = _pctColor(p);
+      var icon = CLS_ICON[cls] || '·';
+      html += '<div class="nl-cls">'
+        +   '<div class="nl-cls-name">' + icon + ' ' + CLS_LABEL[cls] + '</div>'
+        +   _donut(s.w, s.l, 92, color)
+        +   '<div class="nl-cls-pct" style="color:' + color + ';">' + (p == null ? '—' : p.toFixed(1) + '%') + '</div>'
+        +   '<div class="nl-cls-wl">' + (s.w + s.l === 0 ? '0 trades' : (_fmt(s.w) + 'W / ' + _fmt(s.l) + 'L')) + '</div>'
+        + '</div>';
+    });
+    host.innerHTML = html;
+  }
+
+  function _renderWeek(weekAgg){
+    var host = document.getElementById('nl-week-host');
+    if(!host) return;
+    if(!weekAgg){
+      host.innerHTML = '<div class="nl-cls-empty">Backtest cache not yet loaded for this session — visit the <strong>Backtest</strong> tab once and the 7-day slice will populate here on next view.</div>';
+      return;
+    }
+    var rows = '';
+    CLS_ORDER.forEach(function(cls){
+      var s = weekAgg.byCls[cls];
+      var p = _pct(s.w, s.l);
+      var color = _pctColor(p);
+      rows += '<tr>'
+        +   '<td>' + CLS_ICON[cls] + ' ' + CLS_LABEL[cls] + '</td>'
+        +   '<td class="nl-num">' + s.w + 'W</td>'
+        +   '<td class="nl-num">' + s.l + 'L</td>'
+        +   '<td class="nl-num" style="color:' + color + ';">' + (p == null ? '—' : p.toFixed(1) + '%') + '</td>'
+        + '</tr>';
+    });
+    var totP = _pct(weekAgg.totalW, weekAgg.totalL);
+    var totColor = _pctColor(totP);
+    rows += '<tr class="nl-tot">'
+      +   '<td>Overall (7d)</td>'
+      +   '<td class="nl-num">' + weekAgg.totalW + 'W</td>'
+      +   '<td class="nl-num">' + weekAgg.totalL + 'L</td>'
+      +   '<td class="nl-num" style="color:' + totColor + ';">' + (totP == null ? '—' : totP.toFixed(1) + '%') + '</td>'
+      + '</tr>';
+    var html = '<table class="nl-week-table">'
+      + '<thead><tr><th>Asset class</th><th>Wins</th><th>Losses</th><th>WR</th></tr></thead>'
+      + '<tbody>' + rows + '</tbody></table>';
+    if(weekAgg.totalW + weekAgg.totalL === 0){
+      html += '<div class="nl-cls-empty" style="margin-top:14px;">No 4/4 setups resolved in the last 7 days — markets were ranging, or only partial confluence (1–3 of 4 layers) fired. The Overall card above carries the larger sample.</div>';
+    }
+    host.innerHTML = html;
+  }
+
+  function _renderSubCard(){
+    var host = document.getElementById('nl-sub-card-host');
+    if(!host) return;
+    var sb = window._vinlSb;
+    var session = window._vinlSession;
+    if(!sb){
+      host.innerHTML = '<div class="nl-sub-card">'
+        + '<div class="nl-sub-icon">📬</div>'
+        + '<div class="nl-sub-body">'
+        +   '<div class="nl-sub-title">Subscribe to the recap</div>'
+        +   '<div class="nl-sub-desc">Sign-in service is loading — refresh the page if this doesn\'t resolve in a moment.</div>'
+        + '</div></div>';
+      return;
+    }
+    if(!session){
+      host.innerHTML = '<div class="nl-sub-card">'
+        + '<div class="nl-sub-icon">📬</div>'
+        + '<div class="nl-sub-body">'
+        +   '<div class="nl-sub-title">Subscribe to the recap</div>'
+        +   '<div class="nl-sub-desc">Sign in and tick the box — your preference is saved on your profile, and once email rollout is live, the same recap lands in your inbox every Sunday.</div>'
+        + '</div>'
+        + '<div class="nl-sub-actions">'
+        +   '<button class="nl-sub-toggle" onclick="window.__viAuthOpen && window.__viAuthOpen()">Sign in</button>'
+        + '</div></div>';
+      return;
+    }
+    var rawEmail = (session.user && session.user.email) || 'signed in';
+    var email = rawEmail.replace(/[<>&"]/g, '');
+    host.innerHTML = '<div class="nl-sub-card">'
+      + '<div class="nl-sub-icon">📬</div>'
+      + '<div class="nl-sub-body">'
+      +   '<div class="nl-sub-title">Weekly recap subscription</div>'
+      +   '<div class="nl-sub-desc">Tick to receive this recap as a weekly email when the rollout goes live. Either way, this dashboard page stays here for you. <span style="color:var(--inkd);">Signed in as <strong>' + email + '</strong>.</span></div>'
+      + '</div>'
+      + '<div class="nl-sub-actions">'
+      +   '<button id="nl-sub-toggle" class="nl-sub-toggle" disabled>Loading…</button>'
+      +   '<span class="nl-sub-status" id="nl-sub-status"></span>'
+      + '</div></div>';
+    sb.from('profiles').select('newsletter_opt_in').eq('id', session.user.id).maybeSingle()
+      .then(function(r){
+        if(r && r.error && r.error.code === '42P01'){
+          _wireSubToggleUnavailable('Profile backend not enabled.');
+          return;
+        }
+        var optIn = !!(r && r.data && r.data.newsletter_opt_in);
+        _wireSubToggle(optIn);
+      })
+      .catch(function(){
+        _wireSubToggle(false);
+      });
+  }
+
+  function _wireSubToggleUnavailable(msg){
+    var btn = document.getElementById('nl-sub-toggle');
+    var st  = document.getElementById('nl-sub-status');
+    if(!btn) return;
+    btn.disabled = true;
+    btn.textContent = 'Unavailable';
+    if(st) st.textContent = msg || '';
+  }
+
+  function _wireSubToggle(initial){
+    var btn = document.getElementById('nl-sub-toggle');
+    var st  = document.getElementById('nl-sub-status');
+    if(!btn) return;
+    var on = !!initial;
+    var render = function(){
+      btn.disabled = false;
+      btn.classList.toggle('on', on);
+      btn.textContent = on ? '✓ Subscribed' : 'Subscribe';
+    };
+    render();
+    btn.onclick = function(){
+      var sb = window._vinlSb;
+      var session = window._vinlSession;
+      if(!sb || !session) return;
+      var next = !on;
+      btn.disabled = true;
+      if(st) st.textContent = 'Saving…';
+      sb.from('profiles').upsert(
+        {id: session.user.id, newsletter_opt_in: next},
+        {onConflict: 'id'}
+      ).then(function(r){
+        if(r && r.error){
+          if(st){
+            st.textContent = r.error.code === '42P01'
+              ? 'Profile backend not enabled — admin to run migration.'
+              : (r.error.message || 'Save failed.');
+          }
+          btn.disabled = false;
+          return;
+        }
+        on = next;
+        render();
+        if(st){
+          st.textContent = on ? '✓ Subscribed' : '✓ Unsubscribed';
+          setTimeout(function(){ if(st) st.textContent = ''; }, 2400);
+        }
+      }).catch(function(err){
+        if(st) st.textContent = (err && err.message) || 'Network error — try again.';
+        btn.disabled = false;
+      });
+    };
+  }
+
+  function buildNewsletter(){
+    _renderMasthead();
+    var overall = _aggregateOverall();
+    _renderHeadline(overall);
+    _renderClasses(overall);
+    var weekly = _aggregateWeekly();
+    _renderWeek(weekly);
+    _renderSubCard();
+  }
+
+  window.buildNewsletter = buildNewsletter;
 })();
 </script>
 
