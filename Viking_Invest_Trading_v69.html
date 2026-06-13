@@ -736,8 +736,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   <button class="ntab" onclick="switchPage('performance')">📈 Performance</button>
   <button class="ntab" onclick="switchPage('journal')">📓 Journal</button>
   <button class="ntab" onclick="switchPage('newsletter')">📨 Newsletter</button>
-  <button class="ntab" onclick="switchPage('bt')">🧪 Backtest</button>
-  <button class="ntab" onclick="switchPage('log')">📋 Signal Log</button>
+  <button class="ntab" onclick="switchPage('bt')">🧪 Backtest / Signal Log</button>
 </div>
 
 <!-- ════ DASHBOARD ════ -->
@@ -852,6 +851,16 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <span id="btForceRerunStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
   </div>
 
+  <!-- ── DRY-RUN TEST PANEL (hidden 2026-06-13qq) ─────────────────────
+       Buttons + variant selectors for the 4 in-page rule-test harnesses
+       (counter-bar, SR gating, news blackout, R:R per class). User
+       requested these be hidden from the GUI — the JS handlers
+       (runCounterBarRuleTest(), runSRGatingTest(), runNewsBlackoutTest(),
+       runRRPerClassTest()) are unchanged and remain callable from
+       devtools console. To re-show, remove the wrapper div's
+       style="display:none". ── -->
+  <div id="btTestPanelHost" style="display:none;">
+
   <!-- ── 1c. COUNTER-BAR RULE TEST — runs the dry-run comparison in-page
        so a mobile user (no devtools console) can see whether a proposed
        rule change keeps the dashboard above the 70% WR floor BEFORE
@@ -939,6 +948,8 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   </div>
   <div id="btRRTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
 
+  </div><!-- /#btTestPanelHost (hidden test panel) -->
+
   <!-- ── 2. PER-PAIR BACKTEST CARDS (the actual content) ── -->
   <div class="mktcards" id="mktCards"></div>
 
@@ -967,46 +978,44 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 
   <div id="btReadinessStrip" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;font-family:'Orbitron',monospace;font-size:9px;letter-spacing:0.6px;"></div>
 
-  <!-- ── 7. EQUITY CURVE ── -->
-  <div class="eq-sect">
-    <div class="eq-hdr">
-      <h3 id="eqCurveTitle">▸ 4/4 Equity Curve — All Markets Combined · $1,000/signal base</h3>
-      <span style="font-family:'Orbitron',monospace;font-size:8px;color:var(--inkd);">Green dot=WIN · Red dot=LOSS · Apr 2025–Apr 2026</span>
-    </div>
-    <canvas id="eqCanvas" style="width:100%;height:230px;display:block;"></canvas>
-  </div>
+  <!-- ── 7. EQUITY CURVE relocated to the Performance tab (2026-06-13qq).
+       drawEquity() still populates #eqCanvas which now lives on
+       page-performance, called from buildPerformance(). ── -->
 
   <!-- ── 9. BACKTEST DISCLAIMER ── -->
   <div style="background:var(--beart);border:1px solid rgba(192,40,26,.2);border-radius:3px;padding:10px 12px;font-size:10px;color:var(--inkm);line-height:1.7;margin-bottom:10px;">
     <strong style="color:var(--ink);">⚠ Backtest Disclaimer:</strong> Results reconstructed from documented Apr 2025–Apr 2026 price turning points. Confluence rules applied consistently — OB/FVG retest entry, structural stop beyond swept extreme, liquidity zone target. Slippage, spread and execution delay are not modelled. 4/4 confluence filter applied strictly (EW · TL · NW · 4H EMA21/55 cloud). Past performance does not guarantee future results.
   </div>
+
+  <!-- ════ SIGNAL LOG (merged into the Backtest page 2026-06-13qq) ════
+       Was page-log; now lives as a section here so users have one
+       combined "Backtest / Signal Log" tab instead of two. switchPage('log')
+       aliases to switchPage('bt') so old call-sites still work. -->
+  <div style="margin-top:18px;padding-top:14px;border-top:2px solid var(--rule);">
+    <div id="dataStalenessBanner" style="display:none;text-align:center;padding:7px 14px;font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.5px;margin-bottom:8px;border-radius:3px;"></div>
+    <div class="logsect" style="margin-bottom:12px;">
+      <div class="loghdr">
+        <h3>▸ Release Notes</h3>
+      </div>
+      <div id="releaseNotes" style="padding:12px 14px;font-size:11px;line-height:1.7;color:var(--inkm);font-family:'Mukta',sans-serif;">
+        <div style="font-family:'Orbitron',monospace;font-size:10px;letter-spacing:0.5px;color:var(--ink);"><strong>4/4 Confluence strategy</strong> (EW &middot; TL &middot; NW &middot; 4H EMA Cloud) &middot; <span id="vi-mkt-count">Markets</span> &middot; v69 &middot; Build <span id="buildStamp">BUILD_TIMESTAMP_UTC</span></div>
+        <div style="margin-top:8px;">DE40 + DJ30 reverted to FIB half-size methodology (2026-06-10j) — the 10i wick switch was based on a small-sample backtest; production WR (50% / 47.8%) showed no real edge. Auto-EW-integrated backtest in progress. AUD/CAD remains dropped from the universe (chronic low WR drag).</div>
+      </div>
+    </div>
+    <div class="logsect">
+      <div class="loghdr">
+        <h3 id="sigHistTitle">▸ Full Signal History — All Markets</h3>
+        <button class="logbtn" onclick="clearLog()">Clear All</button>
+      </div>
+      <div class="loglist" id="logListFull" style="max-height:600px;"></div>
+    </div>
+  </div>
 </div>
 
-<!-- ════ LOG ════ -->
-<div class="page" id="page-log">
-  <!-- Data freshness banner: shown when the price/intraday feeds are older
-       than 15 min. GitHub Actions cron is throttled on this repo, so feeds
-       can lag 1-3 hours. Lives on the Signal Log page (not the main
-       dashboard) per user request — signals are what need the staleness
-       caveat, the dashboard top is reserved for current confluence state. -->
-  <div id="dataStalenessBanner" style="display:none;text-align:center;padding:7px 14px;font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.5px;margin-bottom:8px;border-radius:3px;"></div>
-  <div class="logsect" style="margin-bottom:12px;">
-    <div class="loghdr">
-      <h3>▸ Release Notes</h3>
-    </div>
-    <div id="releaseNotes" style="padding:12px 14px;font-size:11px;line-height:1.7;color:var(--inkm);font-family:'Mukta',sans-serif;">
-      <div style="font-family:'Orbitron',monospace;font-size:10px;letter-spacing:0.5px;color:var(--ink);"><strong>4/4 Confluence strategy</strong> (EW &middot; TL &middot; NW &middot; 4H EMA Cloud) &middot; <span id="vi-mkt-count">Markets</span> &middot; v69 &middot; Build <span id="buildStamp">BUILD_TIMESTAMP_UTC</span></div>
-      <div style="margin-top:8px;">DE40 + DJ30 reverted to FIB half-size methodology (2026-06-10j) — the 10i wick switch was based on a small-sample backtest; production WR (50% / 47.8%) showed no real edge. Auto-EW-integrated backtest in progress. AUD/CAD remains dropped from the universe (chronic low WR drag).</div>
-    </div>
-  </div>
-  <div class="logsect">
-    <div class="loghdr">
-      <h3 id="sigHistTitle">▸ Full Signal History — All Markets</h3>
-      <button class="logbtn" onclick="clearLog()">Clear All</button>
-    </div>
-    <div class="loglist" id="logListFull" style="max-height:600px;"></div>
-  </div>
-</div>
+<!-- ════ LOG ════ (legacy page kept as an empty stub so any external
+     anchors landing on #page-log don't break the layout. Content has
+     been merged into page-bt above. switchPage('log') aliases to 'bt'.) -->
+<div class="page" id="page-log" style="display:none;"></div>
 
 <!-- ════ JOURNAL ════ -->
 <div class="page" id="page-journal">
@@ -1087,8 +1096,21 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <div class="pf-kpis" id="pf-kpis-host"></div>
 
     <div class="pf-card">
+      <div class="pf-card-hd">▸ Extended Metrics <span class="pf-card-hd-r" id="pf-ext-window">YTD</span></div>
+      <div id="pf-ext-host"><div class="pf-empty">awaiting backtest cache…</div></div>
+    </div>
+
+    <div class="pf-card">
       <div class="pf-card-hd">▸ Performance by Asset Class <span class="pf-card-hd-r" id="pf-cls-window">YTD</span></div>
       <div id="pf-cls-host"><div class="pf-empty">awaiting backtest cache…</div></div>
+    </div>
+
+    <div class="pf-card">
+      <div class="pf-card-hd">▸ Equity Curve <span class="pf-card-hd-r">$1,000/signal base · Apr 2025 → Apr 2026</span></div>
+      <div class="pf-equity-wrap">
+        <canvas id="eqCanvas" style="width:100%;height:230px;display:block;"></canvas>
+        <div style="font-family:'Orbitron',monospace;font-size:8.5px;letter-spacing:0.5px;color:var(--inkd);margin-top:6px;text-align:center;">Green dot = WIN · Red dot = LOSS · 4/4 confluence signals only</div>
+      </div>
     </div>
 
     <div class="pf-card">
@@ -5391,12 +5413,14 @@ function buildBacktest(){
                   + '<span class="mkt-section-count">'+keys.length+' pair'+(keys.length===1?'':'s')+'</span>';
     mc.appendChild(hdr);
     keys.forEach(_renderBacktestCard);
-    // After the Commodities cards, inject the CCI 4H+1H variant
-    // comparison panel. Display-only — must beat the current
-    // commodity win rate before promotion to production routing.
-    if(group.key === 'comm' && typeof _renderCCIVariantPanel === 'function'){
-      try { _renderCCIVariantPanel(mc, keys); } catch(e){}
-    }
+    // 2026-06-13qq: CCI 4H+1H variant comparison panel injection
+    // disabled per user request. The renderer (_renderCCIVariantPanel)
+    // and its dependent compute functions are kept in the JS so the
+    // diagnostic can be triggered manually from the console if needed.
+    // To re-enable display, uncomment the block below.
+    // if(group.key === 'comm' && typeof _renderCCIVariantPanel === 'function'){
+    //   try { _renderCCIVariantPanel(mc, keys); } catch(e){}
+    // }
   });
   drawEquity();
 }
@@ -8913,6 +8937,10 @@ function runScan(){loggedSess={};Object.keys(MKTS).forEach(function(k){refreshAl
 
 function switchMkt(k){activeMkt=k;document.querySelectorAll('.mtab').forEach(function(t){t.classList.remove('active');});document.querySelectorAll('.mpanel').forEach(function(p){p.classList.remove('active');});var tab=document.getElementById('tab-'+k),panel=document.getElementById('mp-'+k);if(tab)tab.classList.add('active');if(panel)panel.classList.add('active');if(k!=='overview')setTimeout(function(){drawChart(k);},50);}
 function switchPage(p){
+  // 2026-06-13qq: Signal Log merged into the Backtest page; alias the
+  // old 'log' route so existing call-sites + bookmarks still land on
+  // the combined page instead of a blank screen.
+  if(p === 'log') p = 'bt';
   document.querySelectorAll('.page').forEach(function(el){el.classList.remove('active');});
   document.querySelectorAll('.ntab').forEach(function(t){
     t.classList.remove('active');
@@ -8921,12 +8949,11 @@ function switchPage(p){
   });
   var pg = document.getElementById('page-'+p);
   if(pg) pg.classList.add('active');
-  if(p === 'bt') setTimeout(drawEquity, 80);
   if(p === 'dash' && activeMkt !== 'overview') setTimeout(function(){drawChart(activeMkt);}, 60);
   if(p === 'newsletter' && typeof buildNewsletter === 'function') setTimeout(buildNewsletter, 30);
   if(p === 'performance' && typeof buildPerformance === 'function') setTimeout(buildPerformance, 30);
 }
-window.addEventListener('resize',function(){if(activeMkt!=='overview')drawChart(activeMkt);if(document.getElementById('page-bt').classList.contains('active'))drawEquity();});
+window.addEventListener('resize',function(){if(activeMkt!=='overview')drawChart(activeMkt);var pPerf=document.getElementById('page-performance');if(pPerf && pPerf.classList.contains('active'))drawEquity();});
 
 // ================================================================
 // LIVE PRICE ENGINE v13
@@ -11447,7 +11474,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-13pp';
+var RULES_VERSION = '2026-06-13qq';
 var RULES_VERSION_NOTES = [
   '2026-06-13kk — DAX 30 (de40) DROPPED from the active universe. Chronic structural underperformance confirmed across the full optimisation phase: 9 SR gating variants (1: window-only / 2: broken-only / 3: tier-only / 4: SR break ignoring 4/4 / 5: ORB Failure / 6: ORB+strength filter / 7: VWAP pullback / 8: Silver Bullet) PLUS the news + vol-spike blackout filter PLUS the per-class R:R sweep (1:0.5, 1:0.75, 1:1, 1:1.5, 1:2). DE40 produced NEGATIVE expected R on every tested combination — most generous read was 1:1 at −0.17R per trade over n=12 decided trades, with smaller targets making it WORSE (1:0.5 at −0.25R because the WR uplift didn\'t offset the smaller win size). Same pattern as the prior DROPPED_PAIRS additions where instrument microstructure simply doesn\'t map to the 4/4 confluence + close-beyond detector. Added to DROPPED_PAIRS deny-list so caches flush on next page load. DJ30 stays in the universe at +0.07R/trade (marginal but positive; reassess in 6 months with more data). Active universe: 40 instruments + DXY anchor.',
   '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
@@ -19458,6 +19485,121 @@ function _renderCCIVariantPanel(host, commodityKeys){
     } catch(e){}
   }
 
+  // Build the Extended Metrics card — surfaces stats the KPI strip
+  // and class table can't fit: expectancy, max drawdown, avg win/loss
+  // R, longest streaks, trade frequency, and a top-3/bottom-3 ranking
+  // by Net R. When the cache hasn't built, we degrade gracefully to a
+  // smaller set computed from baked numbers (streaks + drawdown need
+  // per-trade timestamps so they're hidden in baked mode).
+  function _renderExtMetrics(trades, byCls, totals, usingBaked){
+    var host = document.getElementById('pf-ext-host');
+    if(!host) return;
+    var resolved = totals.wins + totals.losses;
+    var expectancy = resolved > 0 ? totals.netR / resolved : 0;
+    var expColor = expectancy >= 0 ? 'var(--bull)' : 'var(--bear)';
+
+    var html = '';
+    var topBottomHTML = function(top3, bot3){
+      var rowHTML = function(p){
+        var pos = p.netR >= 0 ? 'pos' : 'neg';
+        var sign = p.netR >= 0 ? '+' : '';
+        return '<div style="display:flex;justify-content:space-between;padding:5px 8px;font-size:11px;border-bottom:1px solid var(--rule);">'
+             + '<span style="font-weight:600;">'+p.sym+'</span>'
+             + '<span class="pf-r '+pos+'">'+sign+p.netR.toFixed(1)+'R</span></div>';
+      };
+      var hdrStyle = 'font-family:Orbitron,monospace;font-size:9px;letter-spacing:0.8px;color:var(--inkd);text-transform:uppercase;margin-bottom:6px;';
+      return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;">'
+           + '<div><div style="'+hdrStyle+'">Top by Net R</div>'+(top3.length?top3.map(rowHTML).join(''):'<div style="font-size:10px;color:var(--inkd);font-style:italic;padding:6px 8px;">no data</div>')+'</div>'
+           + '<div><div style="'+hdrStyle+'">Bottom by Net R</div>'+(bot3.length?bot3.map(rowHTML).join(''):'<div style="font-size:10px;color:var(--inkd);font-style:italic;padding:6px 8px;">no data</div>')+'</div>'
+           + '</div>';
+    };
+
+    if(usingBaked){
+      // Baked path — per-pair Net R from MKTS[k].bw/.bl, no streaks/DD
+      var pairNetR = [];
+      Object.keys(MKTS || {}).forEach(function(k){
+        var cls = _classOfPair(k);
+        if(!cls) return;
+        var m = MKTS[k];
+        var w = m.bw || 0, l = m.bl || 0;
+        if(w + l === 0) return;
+        var method = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
+        var rPer = (method === 'fib') ? 0.5 : 1.0;
+        pairNetR.push({sym: m.sym, netR: rPer * (w - l)});
+      });
+      pairNetR.sort(function(a,b){ return b.netR - a.netR; });
+      var freqWk = resolved > 0 ? (resolved / 52).toFixed(1) : '—';
+      html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;">'
+           + '<div class="pf-kpi"><div class="pf-kpi-lbl">Expectancy</div>'
+           +   '<div class="pf-kpi-val" style="font-size:18px;color:'+expColor+';">'+(expectancy >= 0 ? '+' : '')+expectancy.toFixed(3)+'R</div>'
+           +   '<div class="pf-kpi-sub">avg R per resolved trade</div></div>'
+           + '<div class="pf-kpi gold"><div class="pf-kpi-lbl">Trade Frequency</div>'
+           +   '<div class="pf-kpi-val" style="font-size:18px;">'+freqWk+'/wk</div>'
+           +   '<div class="pf-kpi-sub">across the 12-month backtest</div></div>'
+           + '</div>'
+           + topBottomHTML(pairNetR.slice(0,3), pairNetR.slice(-3).reverse())
+           + '<div style="font-size:9.5px;color:var(--inkd);margin-top:12px;font-style:italic;text-align:center;line-height:1.5;">Max drawdown, win/loss streaks, and trade-by-trade equity stats unlock once the backtest cache builds (~30–60s on first load).</div>';
+      host.innerHTML = html;
+      return;
+    }
+
+    // Cache-driven path — full set of metrics from per-trade events
+    var sorted = trades.slice().sort(function(a,b){ return a.ts - b.ts; });
+    var runR = 0, peakR = 0, maxDD = 0;
+    var curStreak = 0, lastSign = 0, maxWS = 0, maxLS = 0;
+    var pairNetRMap = {};
+    var winRSum = 0, lossRSum = 0;
+    sorted.forEach(function(t){
+      runR += t.rDelta;
+      if(runR > peakR) peakR = runR;
+      var dd = peakR - runR;
+      if(dd > maxDD) maxDD = dd;
+      if(t.outcome === 'win'){
+        if(lastSign === 1) curStreak++; else { curStreak = 1; lastSign = 1; }
+        if(curStreak > maxWS) maxWS = curStreak;
+        winRSum += t.rDelta;
+      } else if(t.outcome === 'loss'){
+        if(lastSign === -1) curStreak++; else { curStreak = 1; lastSign = -1; }
+        if(curStreak > maxLS) maxLS = curStreak;
+        lossRSum += t.rDelta;
+      } else { lastSign = 0; curStreak = 0; }
+      if(!pairNetRMap[t.k]) pairNetRMap[t.k] = {sym: t.sym, netR: 0};
+      pairNetRMap[t.k].netR += t.rDelta;
+    });
+    var avgWin  = totals.wins   > 0 ? (winRSum  / totals.wins  ) : 0;
+    var avgLoss = totals.losses > 0 ? (lossRSum / totals.losses) : 0;
+    var spanDays = sorted.length >= 2 ? (sorted[sorted.length-1].ts - sorted[0].ts) / (24*3600*1000) : 0;
+    var freqWk = spanDays > 0 ? (resolved / (spanDays/7)).toFixed(1) : '—';
+    var pairNetR = Object.keys(pairNetRMap).map(function(k){ return pairNetRMap[k]; });
+    pairNetR.sort(function(a,b){ return b.netR - a.netR; });
+
+    if(resolved === 0){
+      host.innerHTML = '<div class="pf-empty">No resolved trades in this window — try a wider timeframe.</div>';
+      return;
+    }
+
+    html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">'
+         + '<div class="pf-kpi"><div class="pf-kpi-lbl">Expectancy</div>'
+         +   '<div class="pf-kpi-val" style="font-size:18px;color:'+expColor+';">'+(expectancy >= 0 ? '+' : '')+expectancy.toFixed(3)+'R</div>'
+         +   '<div class="pf-kpi-sub">avg R per resolved trade</div></div>'
+         + '<div class="pf-kpi gold"><div class="pf-kpi-lbl">Max Drawdown</div>'
+         +   '<div class="pf-kpi-val" style="font-size:18px;color:var(--bear);">-'+maxDD.toFixed(1)+'R</div>'
+         +   '<div class="pf-kpi-sub">peak-to-trough in window</div></div>'
+         + '<div class="pf-kpi purple"><div class="pf-kpi-lbl">Avg Win / Loss</div>'
+         +   '<div class="pf-kpi-val" style="font-size:15px;"><span style="color:var(--bull);">+'+avgWin.toFixed(2)+'R</span> / <span style="color:var(--bear);">'+avgLoss.toFixed(2)+'R</span></div>'
+         +   '<div class="pf-kpi-sub">winners reward / losers cost</div></div>'
+         + '<div class="pf-kpi orange"><div class="pf-kpi-lbl">Longest Streaks</div>'
+         +   '<div class="pf-kpi-val" style="font-size:16px;"><span style="color:var(--bull);">'+maxWS+'W</span> · <span style="color:var(--bear);">'+maxLS+'L</span></div>'
+         +   '<div class="pf-kpi-sub">consecutive wins / losses</div></div>'
+         + '<div class="pf-kpi neu"><div class="pf-kpi-lbl">Trade Frequency</div>'
+         +   '<div class="pf-kpi-val" style="font-size:18px;">'+freqWk+'/wk</div>'
+         +   '<div class="pf-kpi-sub">resolved trades per week</div></div>'
+         + '</div>'
+         + topBottomHTML(pairNetR.slice(0,3), pairNetR.slice(-3).reverse());
+
+    host.innerHTML = html;
+  }
+
   function buildPerformance(){
     // Toggle active button to match _currentTF
     document.querySelectorAll('#pf-tf-host .pf-tf-btn').forEach(function(b){
@@ -19482,6 +19624,9 @@ function _renderCCIVariantPanel(host, commodityKeys){
     _renderKPIs(totals, win);
     var clsWin = document.getElementById('pf-cls-window');
     if(clsWin) clsWin.textContent = win.short + (usingBaked ? ' · baseline figures' : '');
+    var extWin = document.getElementById('pf-ext-window');
+    if(extWin) extWin.textContent = win.short + (usingBaked ? ' · baseline figures' : '');
+    _renderExtMetrics(trades, byCls, totals, usingBaked);
     _renderClassTable(byCls);
     var tWin = document.getElementById('pf-trades-window');
     if(tWin) tWin.textContent = win.short + ' · most recent first';
@@ -19491,6 +19636,12 @@ function _renderCCIVariantPanel(host, commodityKeys){
     } else {
       _renderTradeLog(trades);
     }
+    // Equity curve was relocated from the Backtest tab (2026-06-13qq).
+    // drawEquity walks MKTS[k].bw/.bl and renders into #eqCanvas — the
+    // canvas now lives inside this page's "Equity Curve" card. The
+    // 80ms timeout matches the original switchPage('bt') hook so the
+    // canvas is laid out before we read offsetWidth.
+    if(typeof drawEquity === 'function') setTimeout(drawEquity, 80);
     if(!cacheReady) _ensureCacheBuilding();
   }
 
