@@ -747,6 +747,21 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   </div>
   <div id="btSRTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
 
+  <!-- ── 1e. NEWS BLACKOUT TEST (all currency pairs) — dry-run a
+       filter that drops trades during scheduled high-impact news
+       windows OR on bars with volatility-spike (range > 2.5× ATR).
+       The second filter catches Trump-tweet / unscheduled events
+       which the calendar can't anticipate. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btNewsTestBtn"
+            onclick="runNewsBlackoutTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid var(--purple,#6a5cb8);background:rgba(106,92,184,0.08);color:var(--purple,#6a5cb8);border-radius:3px;cursor:pointer;">
+      🗞 TEST NEWS BLACKOUT
+    </button>
+    <span id="btNewsTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btNewsTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
+
   <!-- ── 2. PER-PAIR BACKTEST CARDS (the actual content) ── -->
   <div class="mktcards" id="mktCards"></div>
 
@@ -13597,6 +13612,323 @@ function runSRGatingTest(opts){
   }, 50);
 }
 if(typeof window !== 'undefined'){ window.runSRGatingTest = runSRGatingTest; }
+
+// ── NEWS BLACKOUT FILTER (variant 9) ───────────────────────────
+// Goal: drop trade setups whose creator timestamp falls inside a
+// high-impact news window for the pair's currency. Targets the
+// XAG/XAU/DAX/DJ-style false-invalidation cohort where the trade
+// was structurally valid but lost because a scheduled release
+// drove the next bar against the setup.
+//
+// Two filters compose the variant:
+//
+// 1. SCHEDULED RELEASE BLACKOUT — hardcoded recurring high-impact
+//    windows per currency, derived from public econ calendars.
+//    Doesn't cover one-off events (rate cuts off-cycle, EM crises)
+//    but does cover the regular cadence that drives 70%+ of news
+//    volatility: NFP, CPI, FOMC, ECB, BOE, BOJ. The live path
+//    falls back to events.json (which is populated hourly by
+//    publish-events.yml) so the LIVE filter has the actual
+//    upcoming calendar; the historical dry-run uses the recurring
+//    schedule because events.json doesn't carry historical data.
+//
+// 2. VOLATILITY SPIKE FILTER — catches UNSCHEDULED news the
+//    calendar can't predict (Trump tweets, terror attacks,
+//    surprise central bank moves). When the m15 bar at creator
+//    time has a range > VOL_SPIKE_RATIO × ATR(20), treat as
+//    event-driven and skip. Reactive — doesn't prevent the spike
+//    but does prevent entering a setup that fired on the spike.
+//    This is the canonical no-trade-the-noise rule for prop firms.
+
+// Recurring high-impact news windows by currency, UTC.
+// Each entry: {dow:0-6, hour, min, durationMin, label}.
+// Day of week: 0=Sunday, 1=Monday, ..., 5=Friday.
+// The blackout is widened by BLACKOUT_PAD_MIN on each side so a
+// setup that fires just before/after the release also gets dropped.
+//
+// US covers: NFP (1st Fri 12:30/13:30), CPI/PPI/Retail (mid-month
+// 12:30), FOMC (8x/yr 18:00 Wed), claims (Thu 12:30). EU covers
+// CPI (mid-month 09:00), ECB (8x/yr 12:15 Thu), PMI (Mon-Wed 07:30-
+// 08:30). GBP covers BOE (8x/yr 11:00 Thu), CPI (Wed 06:00),
+// PMI/employment. JPY covers BOJ + Tankan (Tue/Wed 04:00-06:00).
+// AUD/NZD/CAD/CHF approximate from their major calendars.
+var NEWS_WINDOWS_BY_CCY = {
+  USD: [
+    // Wed FOMC press window (8x/yr — over a 12mo window most Weds
+    // at 18:00 are post-FOMC pressers; treat conservatively).
+    {dow:3, hour:18, min:0, durationMin:60, label:'FOMC'},
+    // Tue-Fri 12:30-13:45 UTC catches NFP, CPI, PCE, PPI, retail,
+    // claims (covers winter EST 13:30 too via the durationMin).
+    {dow:2, hour:12, min:30, durationMin:75, label:'US data'},
+    {dow:3, hour:12, min:30, durationMin:75, label:'US data'},
+    {dow:4, hour:12, min:30, durationMin:75, label:'US data'},
+    {dow:5, hour:12, min:30, durationMin:75, label:'US data'}
+  ],
+  EUR: [
+    {dow:1, hour:7, min:30, durationMin:120, label:'EU AM data'},
+    {dow:2, hour:7, min:30, durationMin:120, label:'EU AM data'},
+    {dow:3, hour:7, min:30, durationMin:120, label:'EU AM data'},
+    {dow:4, hour:7, min:30, durationMin:120, label:'EU AM data'},
+    {dow:5, hour:7, min:30, durationMin:120, label:'EU AM data'},
+    // ECB presser Thu 12:15 (~8x/yr)
+    {dow:4, hour:12, min:15, durationMin:90, label:'ECB'}
+  ],
+  GBP: [
+    {dow:1, hour:6, min:30, durationMin:90, label:'UK AM data'},
+    {dow:2, hour:6, min:30, durationMin:90, label:'UK AM data'},
+    {dow:3, hour:6, min:30, durationMin:90, label:'UK AM data'},
+    {dow:4, hour:6, min:30, durationMin:90, label:'UK AM data'},
+    {dow:5, hour:6, min:30, durationMin:90, label:'UK AM data'},
+    // BOE Thu 11:00 (~8x/yr)
+    {dow:4, hour:11, min:0, durationMin:60, label:'BOE'}
+  ],
+  JPY: [
+    {dow:1, hour:0, min:30, durationMin:90, label:'JP data'},
+    {dow:2, hour:0, min:30, durationMin:90, label:'JP data'},
+    {dow:3, hour:0, min:30, durationMin:90, label:'JP data'}
+  ],
+  AUD: [
+    {dow:1, hour:1, min:0, durationMin:60, label:'AU data'},
+    {dow:2, hour:1, min:0, durationMin:60, label:'AU data'},
+    {dow:3, hour:1, min:0, durationMin:60, label:'AU data'}
+  ],
+  NZD: [
+    {dow:2, hour:21, min:45, durationMin:90, label:'NZ data'},
+    {dow:3, hour:21, min:45, durationMin:90, label:'NZ data'}
+  ],
+  CAD: [
+    {dow:2, hour:12, min:30, durationMin:75, label:'CA data'},
+    {dow:5, hour:12, min:30, durationMin:75, label:'CA data'}
+  ],
+  CHF: [
+    {dow:1, hour:6, min:30, durationMin:60, label:'CH data'},
+    {dow:4, hour:6, min:30, durationMin:60, label:'CH data'}
+  ]
+};
+
+var NEWS_BLACKOUT_PAD_MIN = 15;        // ± minutes around release
+var NEWS_VOL_SPIKE_RATIO  = 2.5;       // range > 2.5 × ATR(20)
+var NEWS_VOL_SPIKE_ATR_LOOKBACK = 20;
+
+function _isInScheduledNewsWindow(tsIso, currencies, padMin){
+  if(!tsIso) return null;
+  var d = new Date(tsIso);
+  if(isNaN(d.getTime())) return null;
+  var dow = d.getUTCDay();
+  var minOfDay = d.getUTCHours() * 60 + d.getUTCMinutes();
+  var dayOfMonth = d.getUTCDate();
+  for(var i = 0; i < currencies.length; i++){
+    var ccy = currencies[i];
+    var wins = NEWS_WINDOWS_BY_CCY[ccy] || [];
+    for(var j = 0; j < wins.length; j++){
+      var w = wins[j];
+      if(w.dow !== dow) continue;
+      var wStart = w.hour * 60 + w.min - padMin;
+      var wEnd   = w.hour * 60 + w.min + w.durationMin + padMin;
+      if(minOfDay >= wStart && minOfDay <= wEnd){
+        return ccy + ' · ' + w.label;
+      }
+    }
+    // Special: NFP first Friday of month for USD (release 12:30 or 13:30)
+    if(ccy === 'USD' && dow === 5 && dayOfMonth <= 7){
+      var nfpStart = 12 * 60 + 30 - padMin;
+      var nfpEnd   = 13 * 60 + 45 + padMin;
+      if(minOfDay >= nfpStart && minOfDay <= nfpEnd) return 'USD · NFP';
+    }
+  }
+  return null;
+}
+
+function _isVolatilitySpike(bars, idx, threshold, lookback){
+  if(idx < lookback || !bars[idx]) return false;
+  var atrSum = 0, atrCount = 0;
+  for(var i = idx - lookback; i < idx; i++){
+    var b = bars[i];
+    if(b && b.h != null && b.l != null){
+      atrSum += Math.max(0, b.h - b.l);
+      atrCount++;
+    }
+  }
+  if(atrCount === 0) return false;
+  var atr = atrSum / atrCount;
+  var bar = bars[idx];
+  if(bar.h == null || bar.l == null) return false;
+  return (bar.h - bar.l) > threshold * atr;
+}
+
+function compareNewsBlackout(opts){
+  opts = opts || {};
+  var padMin       = (opts.padMin != null) ? opts.padMin : NEWS_BLACKOUT_PAD_MIN;
+  var volThreshold = (opts.volSpikeRatio != null) ? opts.volSpikeRatio : NEWS_VOL_SPIKE_RATIO;
+  var mode         = opts.mode || 'auto-ew';
+
+  console.log('%c[compareNewsBlackout] running…', 'color:#c8860a;font-weight:700;',
+              {padMin: padMin, volSpikeRatio: volThreshold, mode: mode});
+
+  var perPair = {};
+  var classAgg = {};
+  Object.keys(MKTS).forEach(function(k){
+    if(k === 'dxy') return;
+    var m = MKTS[k];
+    var cls = m && m.t;
+    if(!cls) return;
+    var currencies = PAIR_CURRENCIES[k] || [];
+    if(currencies.length === 0){
+      perPair[k] = {error: 'no currency mapping (crypto / no-coverage)'};
+      return;
+    }
+    if(!(typeof DEEP_HIST !== 'undefined' && DEEP_HIST[k]
+        && DEEP_HIST[k].m15 && DEEP_HIST[k].m15.length >= 1000)){
+      perPair[k] = {error: 'no deep history'};
+      return;
+    }
+    var bars = DEEP_HIST[k].m15;
+    window.__counterBarOverride = null;
+    var rb;
+    try { rb = calcRecentBacktest(k, mode); }
+    catch(e){ perPair[k] = {error: 'calc failed: ' + (e && e.message)}; return; }
+    if(!rb){ perPair[k] = {error: 'no rb'}; return; }
+    var method = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
+    var trades;
+    if(method === 'fib' && rb.hybrid && rb.hybrid.midTrades) trades = rb.hybrid.midTrades;
+    else trades = rb.trades;
+    if(!trades){ perPair[k] = {error: 'no per-trade records'}; return; }
+    var oldW = 0, oldL = 0, newW = 0, newL = 0;
+    var droppedNews = 0, droppedVol = 0;
+    trades.forEach(function(t){
+      if(t.outcome === 'win') oldW++;
+      else if(t.outcome === 'loss') oldL++;
+      else return;
+      var newsHit = _isInScheduledNewsWindow(t.creatorTs, currencies, padMin);
+      if(newsHit){ droppedNews++; return; }
+      var idx = _binSearchTsIdx(bars, t.creatorTs);
+      var volHit = (idx >= 0) && _isVolatilitySpike(bars, idx, volThreshold, NEWS_VOL_SPIKE_ATR_LOOKBACK);
+      if(volHit){ droppedVol++; return; }
+      if(t.outcome === 'win') newW++;
+      else newL++;
+    });
+    perPair[k] = {
+      cls: cls, method: method,
+      oldW: oldW, oldL: oldL,
+      newW: newW, newL: newL,
+      droppedNews: droppedNews, droppedVol: droppedVol,
+      oldWR: (oldW + oldL) > 0 ? (oldW / (oldW + oldL)) * 100 : null,
+      newWR: (newW + newL) > 0 ? (newW / (newW + newL)) * 100 : null
+    };
+    if(!classAgg[cls]) classAgg[cls] = {oldW:0,oldL:0,newW:0,newL:0,pairs:0,droppedNews:0,droppedVol:0};
+    var ca = classAgg[cls];
+    ca.oldW += oldW; ca.oldL += oldL;
+    ca.newW += newW; ca.newL += newL;
+    ca.droppedNews += droppedNews; ca.droppedVol += droppedVol;
+    ca.pairs += 1;
+  });
+
+  // Overall projection
+  var totOldW = 0, totOldL = 0, totNewW = 0, totNewL = 0;
+  Object.keys(classAgg).forEach(function(c){
+    var ca = classAgg[c];
+    totOldW += ca.oldW; totOldL += ca.oldL;
+    totNewW += ca.newW; totNewL += ca.newL;
+  });
+  var oldOverall = (totOldW + totOldL) > 0 ? (totOldW / (totOldW + totOldL)) * 100 : null;
+  var newOverall = (totNewW + totNewL) > 0 ? (totNewW / (totNewW + totNewL)) * 100 : null;
+
+  console.log('per-pair:', perPair);
+  console.log('per-class:', classAgg);
+  console.log('overall — OLD', oldOverall && oldOverall.toFixed(2)+'%',
+              'NEW', newOverall && newOverall.toFixed(2)+'%');
+
+  return {
+    perPair: perPair, classAgg: classAgg,
+    oldOverall: oldOverall, newOverall: newOverall,
+    totOldW: totOldW, totOldL: totOldL,
+    totNewW: totNewW, totNewL: totNewL,
+    padMin: padMin, volSpikeRatio: volThreshold
+  };
+}
+if(typeof window !== 'undefined'){ window.compareNewsBlackout = compareNewsBlackout; }
+
+// In-page handler — same UX shape as runSRGatingTest.
+function runNewsBlackoutTest(opts){
+  var btn = document.getElementById('btNewsTestBtn');
+  var statusEl = document.getElementById('btNewsTestStatus');
+  var resultEl = document.getElementById('btNewsTestResult');
+  if(!resultEl) return;
+  if(typeof compareNewsBlackout !== 'function'){
+    if(statusEl) statusEl.textContent = 'Engine not loaded — reload the page.';
+    return;
+  }
+  if(typeof DEEP_HIST === 'undefined' || Object.keys(DEEP_HIST).length === 0){
+    if(statusEl) statusEl.textContent = '⏳ Deep history still loading — try again in a few seconds.';
+    return;
+  }
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '🗞 RUNNING…'; }
+  if(statusEl) statusEl.textContent = 'Filtering all pairs by news + vol-spike…';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div style="color:var(--inkd);font-style:italic;">⏳ Computing — '
+                     + 'recomputes calcRecentBacktest across the universe and applies the news + '
+                     + 'volatility-spike filter on each trade. ~20-60s.</div>';
+  setTimeout(function(){
+    var out;
+    try { out = compareNewsBlackout(opts || {}); }
+    catch(e){
+      resultEl.innerHTML = '<div style="color:var(--bear);font-weight:700;">❌ ' + (e && e.message ? e.message : String(e)) + '</div>';
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🗞 TEST NEWS BLACKOUT'; }
+      return;
+    }
+    if(!out){
+      resultEl.innerHTML = '<div style="color:var(--bear);">No data.</div>';
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🗞 TEST NEWS BLACKOUT'; }
+      return;
+    }
+    var safe = (out.newOverall != null && out.newOverall >= 70);
+    var color = safe ? '#1a7a4a' : '#c0281a';
+    var verdict = (out.newOverall == null)
+      ? 'No samples passed the filter.'
+      : (safe ? '✓ Projected overall ≥ 70% — safe to deploy if uplift is meaningful.'
+              : '⚠ Projected overall below 70% — do not deploy this scoping.');
+    // Per-class table
+    var classRows = '';
+    Object.keys(out.classAgg).sort().forEach(function(c){
+      var ca = out.classAgg[c];
+      var oldD = ca.oldW + ca.oldL, newD = ca.newW + ca.newL;
+      var oldWr = oldD > 0 ? (ca.oldW / oldD) * 100 : null;
+      var newWr = newD > 0 ? (ca.newW / newD) * 100 : null;
+      var delta = (oldWr != null && newWr != null) ? (newWr - oldWr) : null;
+      var deltaStr = (delta == null) ? '—' : ((delta >= 0 ? '+' : '') + delta.toFixed(1) + 'pp');
+      var deltaCol = (delta == null) ? 'var(--inkd)' : (delta >= 0 ? 'var(--bull)' : 'var(--bear)');
+      classRows += '<tr>'
+        + '<td style="padding:3px 6px;">' + c + '</td>'
+        + '<td style="padding:3px 6px;color:var(--inkd);">' + ca.pairs + ' pairs</td>'
+        + '<td style="padding:3px 6px;text-align:right;">' + ca.oldW + 'W/' + ca.oldL + 'L</td>'
+        + '<td style="padding:3px 6px;text-align:right;">' + (oldWr != null ? oldWr.toFixed(1) + '%' : '—') + '</td>'
+        + '<td style="padding:3px 6px;text-align:right;">' + ca.newW + 'W/' + ca.newL + 'L</td>'
+        + '<td style="padding:3px 6px;text-align:right;">' + (newWr != null ? newWr.toFixed(1) + '%' : '—') + '</td>'
+        + '<td style="padding:3px 6px;text-align:right;color:' + deltaCol + ';font-weight:700;">' + deltaStr + '</td>'
+        + '<td style="padding:3px 6px;text-align:right;color:var(--inkd);">' + ca.droppedNews + ' news · ' + ca.droppedVol + ' vol</td>'
+        + '</tr>';
+    });
+    resultEl.innerHTML =
+      '<div style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--purple,#6a5cb8);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px;">🗞 News blackout · ±' + out.padMin + ' min · vol-spike > ' + out.volSpikeRatio + '× ATR(20)</div>'
+      + '<div style="margin-bottom:6px;color:var(--inkd);font-size:8.5px;">Drops any trade whose creator timestamp lands inside a recurring high-impact news window for the pair\'s currencies (NFP, CPI, FOMC, ECB, BOE, BOJ, etc.) OR on a bar whose range exceeds 2.5× ATR(20) — the volatility-spike heuristic that catches unscheduled events (Trump tweets, surprise statements, terror).</div>'
+      + '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">'
+      + '<thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);font-size:8.5px;color:var(--inkd);">'
+      + '<th style="padding:3px 6px;text-align:left;">class</th><th></th>'
+      + '<th style="padding:3px 6px;text-align:right;">OLD W/L</th><th style="padding:3px 6px;text-align:right;">OLD WR</th>'
+      + '<th style="padding:3px 6px;text-align:right;">NEW W/L</th><th style="padding:3px 6px;text-align:right;">NEW WR</th>'
+      + '<th style="padding:3px 6px;text-align:right;">Δ</th><th style="padding:3px 6px;text-align:right;">dropped</th>'
+      + '</tr></thead><tbody>' + classRows + '</tbody></table></div>'
+      + '<div style="margin-top:12px;padding:8px 10px;border-radius:3px;background:' + (safe ? 'rgba(26,122,74,0.07)' : 'rgba(192,40,26,0.07)') + ';border:1px solid ' + (safe ? 'rgba(26,122,74,0.3)' : 'rgba(192,40,26,0.3)') + ';">'
+      + '<div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;color:var(--inkd);margin-bottom:4px;">Projected overall</div>'
+      + '<div style="font-size:11px;"><span style="color:var(--inkd);">Current:</span> <strong>' + (out.oldOverall != null ? out.oldOverall.toFixed(2) + '%' : '—') + '</strong> (' + out.totOldW + 'W/' + out.totOldL + 'L)</div>'
+      + '<div style="font-size:13px;color:' + color + ';font-weight:700;margin-top:2px;">After news filter: ' + (out.newOverall != null ? out.newOverall.toFixed(2) + '%' : '—') + ' (' + out.totNewW + 'W/' + out.totNewL + 'L)</div>'
+      + '<div style="margin-top:6px;color:' + color + ';font-weight:700;font-size:9.5px;">' + verdict + '</div>'
+      + '</div>';
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🗞 TEST NEWS BLACKOUT'; }
+    if(statusEl) statusEl.textContent = safe ? 'Done — projection ≥70%.' : 'Done — projection below 70%.';
+  }, 50);
+}
+if(typeof window !== 'undefined'){ window.runNewsBlackoutTest = runNewsBlackoutTest; }
 
 // Async version with progress callback. Yields to UI between pairs so the
 // browser can repaint, preventing a frozen-tab experience during compute.
