@@ -906,7 +906,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <span class="fpill" id="fp-index" onclick="setFilter('index')" style="border-color:var(--purple);color:var(--purple);">📊 Indices</span>
     <span class="fpill" id="fp-fire" style="border-color:var(--bear);color:var(--bear);" onclick="setFilter('fire')">🔴 Active</span>
     <span class="fpill" id="fp-armed" style="border-color:var(--gold);color:var(--gold);" onclick="setFilter('armed')">⏳ Armed</span>
-    <span class="fpill" id="fp-inv" style="border-color:rgba(192,40,26,0.45);color:rgba(192,40,26,0.7);font-size:9px;letter-spacing:0.3px;padding:3px 7px;opacity:0.85;" title="Trades that triggered then got invalidated post-entry by counter-bars or opposing CHoCH (same exit signal that fires via Telegram). Discretionary exit before stop fills." onclick="setFilter('inv')">⊘ Invalidated</span>
+    <span class="fpill" id="fp-inv" style="border-color:rgba(192,40,26,0.45);color:rgba(192,40,26,0.7);font-size:9px;letter-spacing:0.3px;padding:3px 7px;opacity:0.85;" title="Trades that triggered then were cancelled post-entry by the platform's exit rules (same exit alert that fires via Telegram). Discretionary close before the stop fills." onclick="setFilter('inv')">⊘ Cancelled</span>
     <span class="fpill" id="fp-trig" style="border-color:var(--bull);color:var(--bull);" onclick="setFilter('trig')">⚡ Triggered</span>
   </div>
   <div class="ovgrid" id="ovGrid"></div>
@@ -3761,7 +3761,10 @@ function buildPanel(k){
   // so the eye reads from longest to shortest, matching how a trader
   // confirms top-down).
   var lg=document.createElement('div');lg.className='lgrid';
-  [{key:'ew',ttl:'Macro (Daily)',tf:'D/W'},{key:'cl',ttl:'4H EMA Cloud',tf:'4H'},{key:'tl',ttl:'Hourly',tf:'1H'},{key:'nw',ttl:'15m',tf:'15m'}].forEach(function(ld,i){
+  // 2026-06-14ddd: card titles scrubbed of strategy-revealing detail.
+  // "4H EMA Cloud" → "4H Trend" hides the specific indicator family.
+  // Hourly / 15m kept (generic timeframe labels). Macro kept.
+  [{key:'ew',ttl:'Macro',tf:'D/W'},{key:'cl',ttl:'4H Trend',tf:'4H'},{key:'tl',ttl:'Hourly',tf:'1H'},{key:'nw',ttl:'15m',tf:'15m'}].forEach(function(ld,i){
     var sig=STATE[k][ld.key];
     // (No seed-override here — pills must reflect engine direction so
     // they match the score badge from sc(k). Conflict between seed and
@@ -3791,9 +3794,13 @@ function buildPanel(k){
   var csct=document.createElement('div');csct.className='csct';
   var h3e=document.createElement('h3');h3e.innerHTML='&#9654; '+m.sym+' &#183; Adjust Layers &#183; Win Rate: <span style="color:'+wrLabelColor(m)+'">'+wrLabel(m,'short')+'</span> &#183; Grade: '+m.g;csct.appendChild(h3e);
   var cg=document.createElement('div');cg.className='cgrid';
-  [{key:'ew',lbl:'Macro (Daily)'},{key:'tl',lbl:'Hourly'},{key:'nw',lbl:'15m'}].forEach(function(ll){
+  [{key:'ew',lbl:'Macro'},{key:'tl',lbl:'Hourly'},{key:'nw',lbl:'15m'}].forEach(function(ll){
     var grp=document.createElement('div');grp.className='cgc';var lbl=document.createElement('label');lbl.textContent=ll.lbl;var sel=document.createElement('select');sel.id='sel-'+k+'-'+ll.key;sel.onchange=(function(key){return function(){onSel(key);};})(k);
-    var curVal=STATE[k][ll.key];var opts=ll.key==='ew'?[['bear','Bearish'],['bull','Bullish'],['neutral','Neutral']]:ll.key==='tl'?[['bear','At Resistance'],['bull','At Support'],['neutral','Mid-Channel']]:[['bear','Bearish CHoCH'],['bull','Bullish CHoCH'],['neutral','Pending']];
+    // 2026-06-14ddd: dropdown labels scrubbed of strategy reveal.
+    // "Bearish CHoCH" / "Bullish CHoCH" → "Bearish structure" /
+    // "Bullish structure". Hourly stays at "At Resistance / Support /
+    // Mid-Channel" since those are generic price-action descriptors.
+    var curVal=STATE[k][ll.key];var opts=ll.key==='ew'?[['bear','Bearish'],['bull','Bullish'],['neutral','Neutral']]:ll.key==='tl'?[['bear','At Resistance'],['bull','At Support'],['neutral','Mid-Channel']]:[['bear','Bearish structure'],['bull','Bullish structure'],['neutral','Pending']];
     opts.forEach(function(o){var opt=document.createElement('option');opt.value=o[0];opt.textContent=o[1];if(o[0]===curVal)opt.selected=true;sel.appendChild(opt);});
     grp.appendChild(lbl);grp.appendChild(sel);cg.appendChild(grp);
   });
@@ -4001,7 +4008,7 @@ function getLayerDet(k,layer,sig){
     } else if(levels && (!levels.detected || levels.detected.length === 0)){
       // Detector ran but found nothing useful — also worth surfacing
       autoMsg = '<br><span style="font-size:8.5px;color:var(--inkd);font-style:italic;">'
-              + 'Auto-detection: no fresh OB/FVG found in last 30 bars (15m).'
+              + 'Auto-detection: no fresh entry zone found in last 30 bars (15m).'
               + '</span>';
     }
 
@@ -4388,16 +4395,21 @@ function getLayerDet(k,layer,sig){
     window._intraSignalCache = window._intraSignalCache || {};
     window._intraSignalCache[k] = intraMsg || '';
 
-    if(sig==='bear') return '<span class="rb">CHoCH bearish confirmed.</span> Daily zone: <strong>'+setupField(k,'entry')+'</strong>.'+refineLine+' Invalidation: <span class="rb">'+setupField(k,'inv')+'</span>' + autoMsg;
-    if(sig==='bull') return '<span class="rg">CHoCH bullish confirmed.</span> Daily zone: <strong>'+setupField(k,'entry')+'</strong>.'+refineLine+' Invalidation: <span class="ro">'+setupField(k,'inv')+'</span>' + autoMsg;
-    return '<span class="ro">CHoCH PENDING.</span> Awaiting 15m structure break. Watch: <span class="ro">'+setupField(k,'entry')+'</span>' + autoMsg;
+    // 2026-06-14ddd: scrubbed strategy terminology from user-facing
+    // copy. "CHoCH bullish confirmed" → "Structure confirmed bullish";
+    // "Awaiting 15m structure break" → "Awaiting confirmation".
+    // The actionable values (entry, invalidation) are preserved — the
+    // IP we're shielding is the rule mechanic, not the output prices.
+    if(sig==='bear') return '<span class="rb">Structure confirmed bearish.</span> Watch zone: <strong>'+setupField(k,'entry')+'</strong>.'+refineLine+' Invalidation: <span class="rb">'+setupField(k,'inv')+'</span>' + autoMsg;
+    if(sig==='bull') return '<span class="rg">Structure confirmed bullish.</span> Watch zone: <strong>'+setupField(k,'entry')+'</strong>.'+refineLine+' Invalidation: <span class="ro">'+setupField(k,'inv')+'</span>' + autoMsg;
+    return '<span class="ro">Awaiting confirmation.</span> Entry zone: <span class="ro">'+setupField(k,'entry')+'</span>' + autoMsg;
   }
   if(layer==='cl'){
-    // 4H EMA 21/55 cloud — server-computed (directions.json). Direction =
-    // sign of EMA21 − EMA55 on 4H closes. Source label notes server-only.
-    if(sig==='bear') return '<span class="rb">EMA21 below EMA55 on 4H.</span> Cloud confirms <strong>bearish</strong> trend. <span style="font-size:7px;color:var(--inkd);">[server]</span>';
-    if(sig==='bull') return '<span class="rg">EMA21 above EMA55 on 4H.</span> Cloud confirms <strong>bullish</strong> trend. <span style="font-size:7px;color:var(--inkd);">[server]</span>';
-    return '<span class="ro">Cloud neutral.</span> EMAs converging or directions.json unavailable. <span style="font-size:7px;color:var(--inkd);">[server]</span>';
+    // 2026-06-14ddd: 4H trend layer — server-computed, source-tagged.
+    // Scrubbed EMA21/EMA55/cloud terminology from user-facing copy.
+    if(sig==='bear') return '<span class="rb">4H trend bearish.</span> Mid-timeframe confirms <strong>bearish</strong> bias. <span style="font-size:7px;color:var(--inkd);">[server]</span>';
+    if(sig==='bull') return '<span class="rg">4H trend bullish.</span> Mid-timeframe confirms <strong>bullish</strong> bias. <span style="font-size:7px;color:var(--inkd);">[server]</span>';
+    return '<span class="ro">4H trend neutral.</span> Mid-timeframe in transition. <span style="font-size:7px;color:var(--inkd);">[server]</span>';
   }
   return '';
 }
@@ -11705,7 +11717,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-14bbb';
+var RULES_VERSION = '2026-06-14ddd';
 var RULES_VERSION_NOTES = [
   '2026-06-13kk — DAX 30 (de40) DROPPED from the active universe. Chronic structural underperformance confirmed across the full optimisation phase: 9 SR gating variants (1: window-only / 2: broken-only / 3: tier-only / 4: SR break ignoring 4/4 / 5: ORB Failure / 6: ORB+strength filter / 7: VWAP pullback / 8: Silver Bullet) PLUS the news + vol-spike blackout filter PLUS the per-class R:R sweep (1:0.5, 1:0.75, 1:1, 1:1.5, 1:2). DE40 produced NEGATIVE expected R on every tested combination — most generous read was 1:1 at −0.17R per trade over n=12 decided trades, with smaller targets making it WORSE (1:0.5 at −0.25R because the WR uplift didn\'t offset the smaller win size). Same pattern as the prior DROPPED_PAIRS additions where instrument microstructure simply doesn\'t map to the 4/4 confluence + close-beyond detector. Added to DROPPED_PAIRS deny-list so caches flush on next page load. DJ30 stays in the universe at +0.07R/trade (marginal but positive; reassess in 6 months with more data). Active universe: 40 instruments + DXY anchor.',
   '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
@@ -18784,7 +18796,11 @@ function _renderCCIVariantPanel(host, commodityKeys){
 (function(){
   var SUPABASE_URL = 'https://opwdsuusdmsaicoyqxti.supabase.co';
   var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wd2RzdXVzZG1zYWljb3lxeHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjQwNTYsImV4cCI6MjA5NTg0MDA1Nn0.4QAzhvJUyu5sxou_A1IjVfrH25Ft1sRuYbZmf435_1Y';
-  var GATED = {bt:1, log:1};
+  // 2026-06-14ddd: extend gate to Performance tab so investors see the
+  // masthead + investor-relations CTA but live signal / trade-log
+  // detail is sign-in only. Strategy IP protection — same rationale
+  // as the Backtest gate.
+  var GATED = {bt:1, log:1, performance:1};
 
   if(!window.supabase || !window.supabase.createClient){
     console.warn('[VI Auth] Supabase SDK not loaded — gating disabled.');
