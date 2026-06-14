@@ -648,6 +648,18 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 .pf-live-summary .pf-live-sum-armed{border-color:var(--gold);color:var(--gold);font-weight:700;}
 .pf-live-summary .pf-live-sum-trig{border-color:var(--bull);color:var(--bull);font-weight:700;}
 .pf-live-summary .pf-live-sum-cancel{color:var(--inkd);}
+.pf-sig-log-strip{
+  margin-top:12px;padding:8px 10px;border-top:1px dashed var(--rule);
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  font-size:9.5px;color:var(--inkd);font-family:'Mukta',sans-serif;letter-spacing:0.2px;
+}
+.pf-sig-log-tag{
+  font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1px;
+  text-transform:uppercase;font-weight:700;color:var(--gold);
+  padding:2px 7px;border:1px solid var(--gold);border-radius:2px;
+  background:rgba(200,134,10,0.06);
+}
+.pf-sig-log-strip strong{color:var(--ink);font-weight:600;}
 
 /* ── INVESTOR FOOTER — contact / deck / IR routing ── */
 .pf-investor{
@@ -1202,6 +1214,10 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
         <span class="pf-card-hd-r" id="pf-live-meta">current 4/4 setups across the universe</span>
       </div>
       <div id="pf-live-host"><div class="pf-empty">scanning…</div></div>
+      <div id="pf-sig-log-strip" class="pf-sig-log-strip" title="Phase 0 of the broker auto-execution roadmap — every detector transition is persisted with a stable idempotency key (pair:creatorTs).">
+        <span class="pf-sig-log-tag">📡 Signal Log</span>
+        <span id="pf-sig-log-summary">initialising…</span>
+      </div>
     </div>
 
     <div class="pf-tf" id="pf-tf-host">
@@ -3950,6 +3966,13 @@ function getLayerDet(k,layer,sig){
     try {
       if(typeof detectIntradaySignal === 'function'){
         var iSig = detectIntradaySignal(k);
+        // 2026-06-14vv — Phase 0 of broker auto-execution: persist
+        // every detector-produced state to the signal log. Idempotent
+        // (key = pair:creatorTs) so repeated refreshes don't bloat
+        // the log; transitions append to the row in place.
+        if(typeof recordSignalState === 'function'){
+          try { recordSignalState(k, iSig); } catch(_){}
+        }
         if(iSig && (iSig.state === 'armed' || iSig.state === 'triggered' || iSig.state === 'invalidated')){
           var iDir = iSig.dir;
           var fmt = function(v){
@@ -11624,7 +11647,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-14uu';
+var RULES_VERSION = '2026-06-14vv';
 var RULES_VERSION_NOTES = [
   '2026-06-13kk — DAX 30 (de40) DROPPED from the active universe. Chronic structural underperformance confirmed across the full optimisation phase: 9 SR gating variants (1: window-only / 2: broken-only / 3: tier-only / 4: SR break ignoring 4/4 / 5: ORB Failure / 6: ORB+strength filter / 7: VWAP pullback / 8: Silver Bullet) PLUS the news + vol-spike blackout filter PLUS the per-class R:R sweep (1:0.5, 1:0.75, 1:1, 1:1.5, 1:2). DE40 produced NEGATIVE expected R on every tested combination — most generous read was 1:1 at −0.17R per trade over n=12 decided trades, with smaller targets making it WORSE (1:0.5 at −0.25R because the WR uplift didn\'t offset the smaller win size). Same pattern as the prior DROPPED_PAIRS additions where instrument microstructure simply doesn\'t map to the 4/4 confluence + close-beyond detector. Added to DROPPED_PAIRS deny-list so caches flush on next page load. DJ30 stays in the universe at +0.07R/trade (marginal but positive; reassess in 6 months with more data). Active universe: 40 instruments + DXY anchor.',
   '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
@@ -15675,6 +15698,206 @@ function makeOpposingCHoCHTracker(bars, creatorIdx, setupDir, minProminence){
   }
   return {advance: advance};
 }
+
+// ════════════════════════════════════════════════════════════════════
+// PERSISTENT SIGNAL LOG — Phase 0 of broker auto-execution roadmap
+// ────────────────────────────────────────────────────────────────────
+// Scope (2026-06-14 vv):
+//   • Every transition produced by detectIntradaySignal() is recorded
+//     to localStorage with a stable idempotency key (pair:creatorTs),
+//     so the same setup is never double-logged across refreshes.
+//   • State machine:
+//       armed → triggered → resolved-{target-hit | stop-hit |
+//                                     choch-invalidated | stale-expired}
+//       armed → invalidated   (pre-trigger cancellation)
+//   • Schema for each row:
+//       { id, pair, sym, cls, dir, state, outcome,
+//         entry, stop, target, R,
+//         ewSource, ewPattern,
+//         armedAt, triggeredAt, resolvedAt,
+//         lastSeenAt }
+//   • Storage: localStorage key vit_signal_log_v1, capped to the most
+//     recent 500 signals globally (~70-80 KB at this schema) and
+//     resolved entries older than 90 days are pruned on every save.
+//   • Read API:
+//       getSignalLog()                — full map of {id: row}
+//       getSignalsArray()             — array, newest-first
+//       getSignalsInWindow(fromMs)    — array filtered by armedAt
+//
+// What this enables (Phase 1+):
+//   • Real "Weekly / Monthly / YTD" investor numbers from LIVE signals,
+//     independent of the historical backtest cache that goes stale.
+//   • A future MT5 Expert Advisor (or a Cloudflare Worker bridge to
+//     MetaApi) can poll signals.json — once we publish the log to the
+//     repo via a small action, the same data structure lifts into a
+//     broker contract.
+//   • Reconciliation between backtest-predicted P&L and live outcomes
+//     — drives slippage / latency adjustments to the engine.
+// ════════════════════════════════════════════════════════════════════
+var SIGNAL_LOG_KEY = 'vit_signal_log_v1';
+var SIGNAL_LOG_CAP = 500;
+var SIGNAL_LOG_TTL_DAYS = 90;
+var _signalLogCache = null;
+
+function _loadSignalLogRaw(){
+  if(_signalLogCache !== null) return _signalLogCache;
+  try {
+    var raw = localStorage.getItem(SIGNAL_LOG_KEY);
+    if(!raw){ _signalLogCache = {version:1, signals:{}}; return _signalLogCache; }
+    var parsed = JSON.parse(raw);
+    if(!parsed || typeof parsed !== 'object' || !parsed.signals){
+      _signalLogCache = {version:1, signals:{}};
+      return _signalLogCache;
+    }
+    _signalLogCache = parsed;
+    return _signalLogCache;
+  } catch(e){
+    _signalLogCache = {version:1, signals:{}};
+    return _signalLogCache;
+  }
+}
+
+function _saveSignalLog(){
+  if(!_signalLogCache) return;
+  // Prune resolved signals older than the TTL — keeps the log bounded
+  // without forcing the user to lose recent state on every page load.
+  var cutoff = Date.now() - SIGNAL_LOG_TTL_DAYS * 24 * 3600 * 1000;
+  var sigs = _signalLogCache.signals;
+  Object.keys(sigs).forEach(function(id){
+    var r = sigs[id];
+    if(r && r.resolvedAt && r.resolvedAt < cutoff) delete sigs[id];
+  });
+  // Hard cap on total count — drop oldest by armedAt if over the cap.
+  var keys = Object.keys(sigs);
+  if(keys.length > SIGNAL_LOG_CAP){
+    keys.sort(function(a,b){ return (sigs[a].armedAt||0) - (sigs[b].armedAt||0); });
+    var dropN = keys.length - SIGNAL_LOG_CAP;
+    for(var i = 0; i < dropN; i++) delete sigs[keys[i]];
+  }
+  try {
+    localStorage.setItem(SIGNAL_LOG_KEY, JSON.stringify(_signalLogCache));
+  } catch(e){
+    try { console.warn('Signal log save failed:', e && e.message); } catch(_){}
+  }
+}
+
+function getSignalLog(){
+  return _loadSignalLogRaw().signals || {};
+}
+function getSignalsArray(){
+  var sigs = getSignalLog();
+  var arr = Object.keys(sigs).map(function(id){ return sigs[id]; });
+  arr.sort(function(a,b){ return (b.armedAt||0) - (a.armedAt||0); });
+  return arr;
+}
+function getSignalsInWindow(fromMs, toMs){
+  if(toMs == null) toMs = Date.now();
+  return getSignalsArray().filter(function(r){
+    var t = r.armedAt || 0;
+    return t >= fromMs && t <= toMs;
+  });
+}
+
+// recordSignalState — idempotent transition recorder. Called once per
+// refreshAlert cycle (per pair). Logic:
+//   1. Build the idempotency key (pair:creatorTs).
+//   2. If row doesn't exist → CREATE it in state 'armed'.
+//   3. If row exists and state differs → APPEND the transition
+//      timestamp without overwriting earlier history.
+//   4. lastSeenAt always advances so a stalled signal can be detected.
+// Returns the up-to-date row (or null if the detector produced nothing
+// loggable).
+function recordSignalState(k, sig){
+  if(!sig || !sig.creatorTs) return null;
+  // Only log states the broker would care about. 'no-signal' / null
+  // returns are filtered at the call site.
+  if(sig.state !== 'armed' && sig.state !== 'triggered' && sig.state !== 'invalidated') return null;
+  var id = k + ':' + sig.creatorTs;
+  var log = _loadSignalLogRaw();
+  var prev = log.signals[id];
+  var now = Date.now();
+  var m = (typeof MKTS !== 'undefined' && MKTS[k]) ? MKTS[k] : {};
+  if(!prev){
+    log.signals[id] = {
+      id: id,
+      pair: k,
+      sym: m.sym || k.toUpperCase(),
+      cls: m.t || null,
+      dir: sig.dir || null,
+      state: sig.state,
+      outcome: sig.outcome || null,
+      entry: sig.entry,
+      stop:  sig.stop,
+      target: sig.target,
+      R: sig.R,
+      ewSource:  sig.ewSource  || null,
+      ewPattern: sig.ewPattern || null,
+      // creatorTs is the m15 bar timestamp when the setup armed —
+      // matches the broker bridge's idempotency expectations.
+      armedAt: sig.creatorTs,
+      triggeredAt: sig.state === 'triggered' ? (sig.triggerTs || now) : null,
+      resolvedAt:  (sig.state === 'invalidated' || sig.outcome) ? now : null,
+      resolution:  sig.outcome || (sig.state === 'invalidated' ? 'invalidated-pre-trigger' : null),
+      lastSeenAt: now
+    };
+    _saveSignalLog();
+    return log.signals[id];
+  }
+  // Existing row — update only the fields that actually changed.
+  var dirty = false;
+  if(prev.state !== sig.state){
+    prev.state = sig.state;
+    if(sig.state === 'triggered' && !prev.triggeredAt) prev.triggeredAt = sig.triggerTs || now;
+    if(sig.state === 'invalidated' && !prev.resolvedAt){
+      prev.resolvedAt = now;
+      prev.resolution = 'invalidated-pre-trigger';
+    }
+    dirty = true;
+  }
+  if(sig.outcome && prev.outcome !== sig.outcome){
+    prev.outcome = sig.outcome;
+    if(!prev.resolvedAt) prev.resolvedAt = now;
+    prev.resolution = sig.outcome;
+    dirty = true;
+  }
+  // Levels can refine within a setup (re-arming on a tighter wick) —
+  // capture the latest so the broker bridge sees the current entry.
+  if(sig.entry  != null && prev.entry  !== sig.entry ){ prev.entry  = sig.entry;  dirty = true; }
+  if(sig.stop   != null && prev.stop   !== sig.stop  ){ prev.stop   = sig.stop;   dirty = true; }
+  if(sig.target != null && prev.target !== sig.target){ prev.target = sig.target; dirty = true; }
+  prev.lastSeenAt = now;
+  if(dirty) _saveSignalLog();
+  return prev;
+}
+
+// Stats for the Performance tab footer + diagnostic.
+function getSignalLogStats(){
+  var arr = getSignalsArray();
+  var s = {total: arr.length, armed: 0, triggered: 0, resolved: 0,
+           wins: 0, losses: 0, invalidated: 0, expired: 0,
+           earliest: null, latest: null};
+  arr.forEach(function(r){
+    if(r.state === 'armed') s.armed++;
+    else if(r.state === 'triggered' && !r.outcome) s.triggered++;
+    else if(r.resolvedAt) s.resolved++;
+    if(r.outcome === 'target-hit') s.wins++;
+    else if(r.outcome === 'stop-hit') s.losses++;
+    else if(r.outcome === 'choch-invalidated' || r.resolution === 'invalidated-pre-trigger') s.invalidated++;
+    else if(r.outcome === 'stale-expired') s.expired++;
+    if(r.armedAt){
+      if(s.earliest == null || r.armedAt < s.earliest) s.earliest = r.armedAt;
+      if(s.latest   == null || r.armedAt > s.latest)   s.latest   = r.armedAt;
+    }
+  });
+  return s;
+}
+
+// Expose so devtools / future broker bridge can introspect.
+window.getSignalLog        = getSignalLog;
+window.getSignalsArray     = getSignalsArray;
+window.getSignalsInWindow  = getSignalsInWindow;
+window.getSignalLogStats   = getSignalLogStats;
+window.recordSignalState   = recordSignalState;
 
 function detectIntradaySignal(k){
   if(!STATE[k]) return null;
@@ -19869,6 +20092,14 @@ function _renderCCIVariantPanel(host, commodityKeys){
       var sig;
       try { sig = detectIntradaySignal(k); } catch(e){ return; }
       if(!sig) return;
+      // Persist to the broker-bridge signal log (Phase 0). Same
+      // idempotency key as the per-pair refresh hook, so the log is
+      // updated whether the user is on the Dashboard or the Performance
+      // tab. Refresh cadence (30s here, ~10s per-pair) keeps state
+      // current without thrashing localStorage.
+      if(typeof recordSignalState === 'function'){
+        try { recordSignalState(k, sig); } catch(_){}
+      }
       var bucket = sig.state === 'armed' ? armed
                 : sig.state === 'triggered' ? triggered
                 : sig.state === 'invalidated' ? cancelled
@@ -19921,6 +20152,34 @@ function _renderCCIVariantPanel(host, commodityKeys){
       + '<div class="pf-live-grid">'
       +   all.map(rowHTML).join('')
       + '</div>';
+    _renderSignalLogStrip();
+  }
+  function _renderSignalLogStrip(){
+    var el = document.getElementById('pf-sig-log-summary');
+    if(!el) return;
+    if(typeof getSignalLogStats !== 'function'){
+      el.textContent = 'log not yet initialised';
+      return;
+    }
+    var s = getSignalLogStats();
+    if(s.total === 0){
+      el.innerHTML = '<strong>0 events recorded yet</strong> — the log captures every detector transition (armed → triggered → resolved). Keep this tab open or let the dashboard refresh in the background to build up history. Phase 0 of the broker-bridge roadmap.';
+      return;
+    }
+    var fmtT = function(ms){
+      if(!ms) return '—';
+      try {
+        var d = new Date(ms);
+        return d.toLocaleString('en-US', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+      } catch(e){ return '?'; }
+    };
+    var liveWR = (s.wins + s.losses) > 0 ? ((s.wins/(s.wins+s.losses))*100).toFixed(1)+'%' : '—';
+    el.innerHTML = '<strong>' + s.total + ' events recorded</strong> &middot; '
+                 + s.armed + ' armed · '
+                 + s.triggered + ' in-trade · '
+                 + s.resolved + ' resolved &middot; '
+                 + '<strong>live WR ' + liveWR + '</strong> ('+s.wins+'W / '+s.losses+'L) &middot; '
+                 + 'earliest ' + fmtT(s.earliest) + ' · latest ' + fmtT(s.latest);
   }
   function _startLiveSignalRefresh(){
     if(_liveSigInterval) return;
