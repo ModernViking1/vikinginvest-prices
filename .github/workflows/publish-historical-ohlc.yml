@@ -1,9 +1,20 @@
 name: Historical OHLC Backfill
 
-# Manual trigger only — this is a one-shot bulk fetch (~3-5 minutes runtime).
-# Subsequent runs replace the historical-ohlc.json published to npm/jsDelivr.
+# Auto + manual.
 #
-# To run:
+# Auto: scheduled every 6 hours so the dashboard's Backtest tab and
+#   Performance tab (both read DEEP_HIST off this file) include trades
+#   from the last calendar day. Without the cron the file used to go
+#   stale for days at a time — the Performance tab's Weekly / Monthly
+#   / YTD slices then showed 0 events because no per-trade timestamps
+#   fell inside the user's selected window. Added 2026-06-14 after a
+#   sanity check showed weekend crypto activity wasn't being captured.
+#
+# Manual: same workflow_dispatch UI as before. Use this when you want
+#   a specific subset rebuild or a fast publish-only run. The scheduled
+#   path uses defaults (full rebuild, 365d window).
+#
+# To trigger manually:
 #   1. Go to Actions tab in the repo
 #   2. Select "Historical OHLC Backfill" workflow
 #   3. Click "Run workflow" → choose branch (main) → Run workflow
@@ -11,6 +22,12 @@ name: Historical OHLC Backfill
 #   5. Verify the new historical-ohlc.json was committed and published
 
 on:
+  schedule:
+    # Every 6 hours at minute :17 — offset off the :00 herd so we don't
+    # collide with fetch-data.yml's 10-minute cadence. Picks up the
+    # previous 6h of m15 bars (OANDA back to 365d daily / 90d m15 each
+    # run, dedup-merged with the existing file). Typical run ~3-5 min.
+    - cron: '17 */6 * * *'
   workflow_dispatch:
     inputs:
       days:
@@ -55,9 +72,14 @@ jobs:
           pip install requests
 
       - name: Run historical OHLC backfill
-        if: ${{ inputs.publish_only != 'true' }}
+        # 2026-06-14: `inputs.*` is empty on scheduled runs (workflow_dispatch
+        # inputs only populate when the run was dispatched). Fall back to the
+        # documented defaults so the 6-hourly cron still works.
+        if: ${{ (inputs.publish_only || 'false') != 'true' }}
         env:
           OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+          IN_DAYS: ${{ inputs.days || '365' }}
+          IN_PAIRS: ${{ inputs.pairs || '' }}
         run: |
           # Auto-enable --merge when a pair subset is supplied. Without
           # this, a subset run writes ONLY the listed pairs to
@@ -69,8 +91,8 @@ jobs:
           # field blank still does a full rebuild as before.
           PAIRS_ARG=""
           MERGE_ARG=""
-          if [ -n "${{ inputs.pairs }}" ]; then
-            PAIRS_ARG="--pairs ${{ inputs.pairs }}"
+          if [ -n "$IN_PAIRS" ]; then
+            PAIRS_ARG="--pairs $IN_PAIRS"
             MERGE_ARG="--merge"
             echo "Subset run: $PAIRS_ARG (merging with existing file)"
           else
@@ -84,14 +106,14 @@ jobs:
           # under GitHub's 100MB push limit with headroom for the
           # daily + h1 layers and future pair additions.
           python fetch_historical_ohlc.py \
-            --days ${{ inputs.days }} \
+            --days $IN_DAYS \
             --m15-days 90 \
             --output historical-ohlc.json \
             $PAIRS_ARG $MERGE_ARG
           ls -lh historical-ohlc.json
 
       - name: Verify output sanity
-        if: ${{ inputs.publish_only != 'true' }}
+        if: ${{ (inputs.publish_only || 'false') != 'true' }}
         run: |
           python -c "
           import json, sys
@@ -144,7 +166,7 @@ jobs:
             echo "No changes to commit (historical-ohlc.json identical)"
             exit 0
           fi
-          git commit -m "Historical OHLC backfill — ${{ inputs.days }}d"
+          git commit -m "Historical OHLC backfill — ${{ inputs.days || '365' }}d"
 
           # Race-retry pattern matching the other data workflows
           # (fetch-data.yml, alert-on-trigger.yml, publish-events.yml).
