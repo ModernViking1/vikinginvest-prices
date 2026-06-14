@@ -553,6 +553,17 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 .pf-tbl{width:100%;border-collapse:collapse;font-size:11px;}
 .pf-tbl th,.pf-tbl td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--rule);}
 .pf-tbl th{font-family:'Orbitron',monospace;font-size:8.5px;letter-spacing:1px;color:var(--inkd);text-transform:uppercase;font-weight:700;background:var(--sf2);position:sticky;top:0;}
+/* Class-summary table: 5 columns. Tight column widths so the layout
+   doesn't overflow on a 360-CSS-px phone viewport. The horizontal
+   scroll wrapper is a safety net for narrower devices. */
+.pf-tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px;}
+.pf-cls-tbl{min-width:340px;table-layout:fixed;}
+.pf-cls-tbl th:nth-child(1),.pf-cls-tbl td:nth-child(1){width:22%;}
+.pf-cls-tbl th:nth-child(2),.pf-cls-tbl td:nth-child(2){width:14%;}
+.pf-cls-tbl th:nth-child(3),.pf-cls-tbl td:nth-child(3){width:14%;}
+.pf-cls-tbl th:nth-child(4),.pf-cls-tbl td:nth-child(4){width:16%;}
+.pf-cls-tbl th:nth-child(5),.pf-cls-tbl td:nth-child(5){width:34%;}
+.pf-cls-tbl td{vertical-align:middle;}
 .pf-tbl td{font-family:'Mukta',sans-serif;color:var(--ink);}
 .pf-tbl .pf-num{font-family:'Orbitron',monospace;font-weight:700;text-align:right;}
 .pf-tbl .pf-r{font-family:'Orbitron',monospace;font-weight:700;text-align:right;}
@@ -586,7 +597,11 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 @media (max-width:540px){
   .pf-mast h1{font-size:17px;letter-spacing:1px;}
   .pf-tf-btn{font-size:9px;padding:8px 4px;}
-  .pf-tbl th,.pf-tbl td{padding:6px 6px;font-size:10px;}
+  .pf-tbl th,.pf-tbl td{padding:6px 5px;font-size:10px;}
+  .pf-cls-tbl{min-width:0;}
+  .pf-cls-tbl th{font-size:7.5px;letter-spacing:0.4px;}
+  .pf-cls-tbl td:nth-child(5){font-size:9px;}
+  .pf-cls-pill{font-size:7px;padding:1px 4px;letter-spacing:0.3px;}
 }
 </style>
 </head>
@@ -11474,7 +11489,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-13rr';
+var RULES_VERSION = '2026-06-14ss';
 var RULES_VERSION_NOTES = [
   '2026-06-13kk — DAX 30 (de40) DROPPED from the active universe. Chronic structural underperformance confirmed across the full optimisation phase: 9 SR gating variants (1: window-only / 2: broken-only / 3: tier-only / 4: SR break ignoring 4/4 / 5: ORB Failure / 6: ORB+strength filter / 7: VWAP pullback / 8: Silver Bullet) PLUS the news + vol-spike blackout filter PLUS the per-class R:R sweep (1:0.5, 1:0.75, 1:1, 1:1.5, 1:2). DE40 produced NEGATIVE expected R on every tested combination — most generous read was 1:1 at −0.17R per trade over n=12 decided trades, with smaller targets making it WORSE (1:0.5 at −0.25R because the WR uplift didn\'t offset the smaller win size). Same pattern as the prior DROPPED_PAIRS additions where instrument microstructure simply doesn\'t map to the 4/4 confluence + close-beyond detector. Added to DROPPED_PAIRS deny-list so caches flush on next page load. DJ30 stays in the universe at +0.07R/trade (marginal but positive; reassess in 6 months with more data). Active universe: 40 instruments + DXY anchor.',
   '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
@@ -19338,6 +19353,16 @@ function _renderCCIVariantPanel(host, commodityKeys){
     if(!host) return;
     var anyTrades = false;
     var rows = '';
+    // 2026-06-14ss: dropped the W/L column (redundant with WR + Trades),
+    // collapsed Best + Worst into a single stacked "Top / Bottom" column,
+    // and removed the trade-count parens from the pair labels. Net: 5
+    // columns instead of 7 — comfortably fits the mobile viewport without
+    // horizontal scroll.
+    var pairTag = function(p, color){
+      if(!p) return '—';
+      return '<span style="color:'+color+';font-weight:600;">'+p.sym+'</span>'
+           + ' <span style="font-size:9px;color:var(--inkd);font-weight:400;">'+(p.rate*100).toFixed(0)+'%</span>';
+    };
     CLS_ORDER.forEach(function(c){
       var s = byCls[c];
       var resolved = s.wins + s.losses;
@@ -19345,16 +19370,16 @@ function _renderCCIVariantPanel(host, commodityKeys){
       var p = _pct(s.wins, s.losses);
       var pColor = _pctColor(p);
       var rColor = s.netR >= 0 ? 'pos' : 'neg';
-      var bestTxt  = s.best  ? s.best.sym + ' · ' + (s.best.rate*100).toFixed(0)+'% ('+(s.best.w+s.best.l)+')' : '—';
-      var worstTxt = s.worst ? s.worst.sym + ' · ' + (s.worst.rate*100).toFixed(0)+'% ('+(s.worst.w+s.worst.l)+')' : '—';
+      var topBot = '<div style="line-height:1.45;">'
+                 + '<div title="Top by WR (min 3 trades)">▲ '+pairTag(s.best, 'var(--bull)')+'</div>'
+                 + '<div title="Bottom by WR (min 3 trades)">▼ '+pairTag(s.worst, 'var(--bear)')+'</div>'
+                 + '</div>';
       rows += '<tr>'
         + '<td><span class="pf-cls-pill cls-'+c+'">'+CLS_LABEL[c]+'</span></td>'
         + '<td class="pf-num">'+_fmt(resolved)+'</td>'
         + '<td class="pf-num" style="color:'+pColor+';">'+(p == null ? '—' : p.toFixed(1)+'%')+'</td>'
-        + '<td class="pf-num">'+_fmt(s.wins)+'W / '+_fmt(s.losses)+'L</td>'
         + '<td class="pf-r '+rColor+'">'+(s.netR >= 0 ? '+' : '')+s.netR.toFixed(1)+'R</td>'
-        + '<td style="font-size:10px;color:'+(s.best ? 'var(--bull)' : 'var(--inkd)')+';">'+bestTxt+'</td>'
-        + '<td style="font-size:10px;color:'+(s.worst ? 'var(--bear)' : 'var(--inkd)')+';">'+worstTxt+'</td>'
+        + '<td style="font-size:9.5px;padding:6px 8px;">'+topBot+'</td>'
         + '</tr>';
     });
     var totals = _totalsFromAgg(byCls);
@@ -19365,25 +19390,22 @@ function _renderCCIVariantPanel(host, commodityKeys){
       + '<td>Overall</td>'
       + '<td class="pf-num">'+_fmt(totals.wins + totals.losses)+'</td>'
       + '<td class="pf-num" style="color:'+totColor+';">'+(totP == null ? '—' : totP.toFixed(1)+'%')+'</td>'
-      + '<td class="pf-num">'+_fmt(totals.wins)+'W / '+_fmt(totals.losses)+'L</td>'
       + '<td class="pf-r '+totRClass+'">'+(totals.netR >= 0 ? '+' : '')+totals.netR.toFixed(1)+'R</td>'
-      + '<td>—</td><td>—</td>'
+      + '<td style="color:var(--inkd);font-size:9.5px;">'+_fmt(totals.wins)+'W / '+_fmt(totals.losses)+'L resolved</td>'
       + '</tr>';
     if(!anyTrades){
       host.innerHTML = '<div class="pf-empty">' + _emptyExplanation() + '</div>';
       return;
     }
-    host.innerHTML = '<table class="pf-tbl">'
+    host.innerHTML = '<div class="pf-tbl-scroll"><table class="pf-tbl pf-cls-tbl">'
       + '<thead><tr>'
-      +   '<th>Asset class</th>'
+      +   '<th>Class</th>'
       +   '<th class="pf-num">Trades</th>'
       +   '<th class="pf-num">WR</th>'
-      +   '<th class="pf-num">W/L</th>'
       +   '<th class="pf-num">Net R</th>'
-      +   '<th>Best pair</th>'
-      +   '<th>Worst pair</th>'
+      +   '<th>Top / Bottom</th>'
       + '</tr></thead>'
-      + '<tbody>'+rows+'</tbody></table>';
+      + '<tbody>'+rows+'</tbody></table></div>';
   }
 
   function _fmtPxForTrade(k, v){
