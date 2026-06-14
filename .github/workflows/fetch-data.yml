@@ -221,15 +221,30 @@ jobs:
             exit 0
           fi
           set -e
-          # Commit alerts-state.json + directions.json separately so the
-          # data-files commit above stays focused. Race-retry pattern
-          # matches the data-files step.
-          git add alerts-state.json directions.json 2>/dev/null || true
+          # 2026-06-14 — Phase 1 of the broker-bridge roadmap. Transform
+          # alerts-state.json into a clean signals.json contract the MT5
+          # EA on a VPS polls every 30s. The script is purely a
+          # projection — no detector logic, no network — so it can never
+          # fail the pipeline. We tolerate a non-zero exit code the same
+          # way detect_triggers does so a quirky alert-state never blocks
+          # the data push.
+          set +e
+          python build_signals_json.py
+          BS_EXIT=$?
+          set -e
+          if [ $BS_EXIT -ne 0 ]; then
+            echo "::warning::build_signals_json.py exited $BS_EXIT — signals.json not refreshed this cycle"
+          fi
+          # Commit alerts-state.json + directions.json + signals.json
+          # together so the broker-bridge view always matches what the
+          # detector just published. Race-retry pattern matches the
+          # data-files step.
+          git add alerts-state.json directions.json signals.json 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "No alert-state changes to commit"
             exit 0
           fi
-          git commit -m "chore: update alert state + directions"
+          git commit -m "chore: update alert state + directions + signals"
           MAX_ATTEMPTS=5
           for attempt in $(seq 1 $MAX_ATTEMPTS); do
             if git push origin main 2>&1; then
@@ -279,3 +294,8 @@ jobs:
           # directions.json — the slim server-computed EW/TL/NW file the
           # dashboard reads instead of the 90 MB historical-ohlc.json.
           curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/directions.json" || echo "purge npm directions failed"
+          # signals.json — broker-bridge contract (Phase 1, 2026-06-14).
+          # Both CDN paths purged so the MT5 EA on a VPS sees the new
+          # signal set within seconds of the workflow committing.
+          curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/signals.json" || echo "purge gh signals failed"
+          curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/signals.json" || echo "purge npm signals failed"
