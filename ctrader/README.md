@@ -192,11 +192,75 @@ backtest alone:
 - **Stop-hit vs target-hit attribution**: ground-truth resolution
   reason, not the detector's inference
 
-Phase 3.5 (future): auto-publish executions.json to the repo via a
-small GitHub Action triggered by `repository_dispatch` from the cBot.
-Removes the manual copy/paste step. Documented but not built — the
-manual flow is enough to validate the full loop for the first 2 weeks
-of demo trading.
+## Phase 3.5 — Auto-publish executions to the repo
+
+The manual JSONL import is the fallback. The primary path is the cBot
+firing a `repository_dispatch` event on every execution — the dashboard
+then sees broker fills in near-real-time without copy/paste.
+
+**Setup (one-time, ~5 minutes):**
+
+1. **Create a fine-scoped GitHub PAT**:
+   - GitHub → Settings → Developer settings → Personal access tokens →
+     Fine-grained tokens → **Generate new token**
+   - Repository access: **Only select repositories** →
+     `ModernViking1/vikinginvest-prices`
+   - Permissions → Repository → **Contents: Read and Write**
+   - Expiration: 90 days (rotate before it lapses)
+   - Copy the token (starts with `github_pat_…`) — you won't see it again
+
+2. **Configure the cBot parameters** (cTrader → Robot instance → Edit):
+   - `AutoPublishToRepo` → **true**
+   - `GhPersonalAccessToken` → paste the PAT
+   - Leave `GhRepoOwner` / `GhRepoName` at defaults unless using a fork
+   - Click **OK** and restart the cBot
+
+3. **Verify**: place a dry-run order (set `DryRun = true` temporarily).
+   Within ~30 seconds you should see a new commit on the repo titled
+   `cbot: placed — btcusd:…:wick`. The dashboard's Performance tab
+   should also auto-populate the new fill within a minute.
+
+**Architecture under the hood:**
+
+```
+cBot execution event
+  └─ WriteExecution() — appends to executions.jsonl (always)
+     └─ DispatchExecutionAsync() — POSTs to GitHub API (if PAT set)
+        └─ repository_dispatch:cbot-execution
+           └─ .github/workflows/ingest-cbot-execution.yml
+              └─ ingest_execution.py — validates + dedups + appends
+                 └─ git commit + push + CDN purge → executions.json
+                    └─ Dashboard polls via _fetchExecutionsFromCDN()
+                       └─ Merges into in-browser signal log
+                          └─ Performance Trade Log shows the row
+```
+
+**Security model:**
+
+- PAT scope: **only** `contents:write` on this one repo. Cannot read
+  any other repo, cannot administer the org, cannot create new repos.
+  Worst case if exfiltrated: someone can spam commits to this repo
+  until you revoke the token. No financial data is at risk; the PAT
+  is not the broker credential.
+- PAT lives in **cTrader's local config** on the VPS, not in source
+  control. The cBot reads it from a `[Parameter]` field that cTrader
+  stores in the user's local `cbot-instances.config`.
+- The workflow validates every payload: required fields, allowed
+  events, plausible epoch-ms range, dedup by `(signal_id, event, ts)`.
+  A malformed dispatch (or even an adversarial one) is rejected at
+  the workflow without ever touching `executions.json`.
+
+**Fallback semantics:**
+
+- Network failure → dispatch fails → the local JSONL still has the
+  row. Run a manual JSONL import once connectivity returns; dedup
+  on the workflow side means re-publishing an already-ingested row
+  is a no-op.
+- PAT expires → 401 on dispatch → row stays local → rotate the PAT,
+  manual-import the gap, autosync resumes.
+- Rate limit on GitHub's dispatch API → 60 dispatches/hour at the
+  fine-scoped tier. The cBot's 5-positions cap means realistic
+  steady-state is well under this even on a busy day.
 
 ## Going live (eventually)
 

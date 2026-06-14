@@ -11689,7 +11689,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-14xx';
+var RULES_VERSION = '2026-06-14yy';
 var RULES_VERSION_NOTES = [
   '2026-06-13kk — DAX 30 (de40) DROPPED from the active universe. Chronic structural underperformance confirmed across the full optimisation phase: 9 SR gating variants (1: window-only / 2: broken-only / 3: tier-only / 4: SR break ignoring 4/4 / 5: ORB Failure / 6: ORB+strength filter / 7: VWAP pullback / 8: Silver Bullet) PLUS the news + vol-spike blackout filter PLUS the per-class R:R sweep (1:0.5, 1:0.75, 1:1, 1:1.5, 1:2). DE40 produced NEGATIVE expected R on every tested combination — most generous read was 1:1 at −0.17R per trade over n=12 decided trades, with smaller targets making it WORSE (1:0.5 at −0.25R because the WR uplift didn\'t offset the smaller win size). Same pattern as the prior DROPPED_PAIRS additions where instrument microstructure simply doesn\'t map to the 4/4 confluence + close-beyond detector. Added to DROPPED_PAIRS deny-list so caches flush on next page load. DJ30 stays in the universe at +0.07R/trade (marginal but positive; reassess in 6 months with more data). Active universe: 40 instruments + DXY anchor.',
   '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
@@ -20216,6 +20216,56 @@ function _renderCCIVariantPanel(host, commodityKeys){
       el.style.display = 'none';
     }
   }
+  // Phase 3.5 — auto-fetch executions.json from the CDN. The cBot
+  // POSTs a repository_dispatch per execution which appends to the
+  // server-side executions.json. The dashboard polls that file every
+  // 90s (rate-limited) and merges new rows into the signal log so
+  // the Performance tab reflects broker fills without the manual JSONL
+  // import step. The manual import button still works as a fallback
+  // (cBot deployed without a PAT, or for backfilling old runs).
+  var _execLastFetchMs    = 0;
+  var _execLastTotal      = 0;
+  var _execAlreadyApplied = (typeof Set !== 'undefined') ? new Set() : null;
+  function _fetchExecutionsFromCDN(){
+    if(Date.now() - _execLastFetchMs < 60000) return;
+    _execLastFetchMs = Date.now();
+    var url = 'https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/executions.json?t=' + Math.floor(Date.now()/300000);
+    fetch(url, {cache:'no-store'}).then(function(r){
+      if(!r.ok) throw new Error('HTTP'+r.status);
+      return r.json();
+    }).then(function(d){
+      if(!d || !Array.isArray(d.executions)) return;
+      // Early-out if the count hasn't changed since last poll.
+      var total = d.counts && d.counts.total != null ? d.counts.total : d.executions.length;
+      if(total === _execLastTotal) return;
+      _execLastTotal = total;
+      // Convert the executions array into JSONL so we can reuse the
+      // exact merge code path the manual import uses. Filter rows the
+      // browser has already applied so we don't re-merge on every poll.
+      var lines = [];
+      d.executions.forEach(function(row){
+        if(!row) return;
+        var dedupKey = (row.signal_id || '?') + '|' + (row.event || '?') + '|' + (row.ts || 0);
+        if(_execAlreadyApplied && _execAlreadyApplied.has(dedupKey)) return;
+        if(_execAlreadyApplied) _execAlreadyApplied.add(dedupKey);
+        lines.push(JSON.stringify(row));
+      });
+      if(lines.length === 0) return;
+      try {
+        var summary = _mergeExecutionsJSONL(lines.join('\n'));
+        // Quiet refresh — no alert; just re-render so the new data
+        // surfaces. The manual import alerts; the auto path doesn't.
+        try { _renderLiveSignals(); } catch(_){}
+        try { window.buildPerformance && window.buildPerformance(); } catch(_){}
+        console.log('[VikingInvest] auto-merged ' + lines.length + ' new execution rows', summary);
+      } catch(e){
+        console.warn('[VikingInvest] auto-merge failed:', e && e.message);
+      }
+    }).catch(function(){
+      // Silent — executions.json may not exist yet if no cBot has
+      // published anything. Don't spam the console.
+    });
+  }
   function _fetchKillSwitchFromSignals(){
     // signals.json is built every ~10 min by build_signals_json.py and
     // includes the kill_switch payload in its envelope. Fetch + cache so
@@ -20387,6 +20437,10 @@ function _renderCCIVariantPanel(host, commodityKeys){
       // 60–120s window the cBot itself polls on). _fetchKillSwitchFromSignals
       // is rate-limited by the 5-min cache-buster in the URL.
       try { _fetchKillSwitchFromSignals(); } catch(e){}
+      // Phase 3.5 — re-poll executions.json. Internally rate-limited
+      // to once per minute via _execLastFetchMs, dedup-guarded by
+      // _execAlreadyApplied so it's safe to call on every tick.
+      try { _fetchExecutionsFromCDN(); } catch(e){}
     }, 30000);
   }
 
@@ -20440,6 +20494,12 @@ function _renderCCIVariantPanel(host, commodityKeys){
     // envelope and render the banner if engaged. Refreshes alongside the
     // live signal interval (the 30s cadence is plenty for a switch state).
     try { _fetchKillSwitchFromSignals(); } catch(e){}
+    // Phase 3.5 — pull executions.json from the CDN so broker fills
+    // posted by the cBot (via the repository_dispatch path) surface in
+    // the Performance trade log without a manual import. Internally
+    // rate-limited to once per minute; the merge logic dedups so the
+    // call is idempotent even if it fires more often.
+    try { _fetchExecutionsFromCDN(); } catch(e){}
     if(!cacheReady) _ensureCacheBuilding();
   }
 

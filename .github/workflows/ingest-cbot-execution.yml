@@ -1,0 +1,119 @@
+name: Ingest cBot Execution
+
+# Phase 3.5 of the broker-bridge roadmap (2026-06-14yy).
+#
+# Receives a single execution event from the cTrader cBot via
+# repository_dispatch and appends it to executions.json. The cBot
+# POSTs to the GitHub API on every "placed" / "rejected" / "closed"
+# event so the dashboard sees broker fills in near real-time without
+# the manual JSONL import step.
+#
+# Authentication: the cBot signs requests with a fine-scoped PAT
+# (scope: repo, expires every 90 days). The PAT lives in cTrader's
+# cBot parameters on the VPS — NOT in source — and is rotated via the
+# documented procedure in ctrader/README.md.
+#
+# Schema for the dispatch payload (client_payload field):
+#   {
+#     "event":         "placed" | "rejected" | "closed",
+#     "signal_id":     "pair:creator_ts:wick|fib",
+#     "position_id":   long | null,
+#     "pair":          "btcusd",
+#     "symbol":        "BTCUSD",
+#     "dir":           "bull" | "bear",
+#     "volume_units":  100000.0,
+#     "entry_attempt": 68420.0,
+#     "entry_filled":  68422.5,
+#     "exit_price":    68842.0,
+#     "stop":          68000.0,
+#     "target":        68840.0,
+#     "r_size":        1.0,
+#     "slippage_pips": 0.25,
+#     "net_profit":    42.0,
+#     "commissions":   0.5,
+#     "swap":          0.0,
+#     "realized_r":    1.0,
+#     "reason":        "target-hit" | "stop-hit" | "manual-or-broker"
+#                       | <broker-error-string>,
+#     "account_mode":  "demo" | "live",
+#     "account":       12345678,
+#     "ts":            1717852800000   (epoch ms)
+#   }
+#
+# Trigger:
+#   curl -X POST -H "Authorization: token $PAT" \
+#        -H "Accept: application/vnd.github+json" \
+#        https://api.github.com/repos/ModernViking1/vikinginvest-prices/dispatches \
+#        -d '{"event_type":"cbot-execution","client_payload":{...}}'
+
+on:
+  repository_dispatch:
+    types:
+      - cbot-execution
+
+permissions:
+  contents: write
+
+# Concurrency group prevents two near-simultaneous dispatches from
+# clobbering each other on executions.json. Serial-only within the
+# group, but queues rather than cancelling so no events are lost.
+concurrency:
+  group: ingest-execution
+  cancel-in-progress: false
+
+jobs:
+  append:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Validate + append to executions.json
+        env:
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+        run: |
+          python3 ingest_execution.py
+
+      - name: Commit + push (race-retry)
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add executions.json
+          if git diff --staged --quiet; then
+            echo "No change to executions.json (duplicate event dropped by ingest_execution.py)"
+            exit 0
+          fi
+          # Compact subject so the audit trail is greppable: event-type
+          # and signal-id make repeat events easy to find.
+          EVENT=$(python3 -c "import json,os; print(json.loads(os.environ['PAYLOAD']).get('event','?'))")
+          SIGID=$(python3 -c "import json,os; print(json.loads(os.environ['PAYLOAD']).get('signal_id','?'))")
+          git commit -m "cbot: $EVENT — $SIGID"
+        env:
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+
+      - name: Push with race-retry
+        run: |
+          MAX_ATTEMPTS=5
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            if git push origin main 2>&1; then
+              echo "✅ executions.json appended on attempt $attempt"
+              exit 0
+            fi
+            if [ "$attempt" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::warning::Push failed after $MAX_ATTEMPTS attempts — event will be re-dispatched if cBot retries"
+              exit 1
+            fi
+            git fetch origin main
+            git rebase origin/main || git rebase --abort
+            sleep $((attempt * 2))
+          done
+
+      - name: Purge CDN
+        run: |
+          # Dashboard reads executions.json from the CDN. Purge both
+          # paths so the next Performance tab open sees the fresh row.
+          curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/executions.json" || echo "purge gh executions failed"
+          curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/executions.json" || echo "purge npm executions failed"
