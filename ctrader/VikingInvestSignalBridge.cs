@@ -29,6 +29,13 @@ using System.Threading.Tasks;
 using cAlgo.API;
 using cAlgo.API.Internals;
 
+// 2026-06-14ccc — cAlgo.API.File and cAlgo.API.Directory collide with
+// System.IO.File and System.IO.Directory. Aliases pin the imports to
+// the .NET runtime types we want for read / write / exist checks on the
+// VPS-local cache, dedup, and executions files.
+using IOFile      = System.IO.File;
+using IODirectory = System.IO.Directory;
+
 namespace cAlgo.Robots
 {
     [Robot(AccessRights = AccessRights.FullAccess, AddIndicators = true)]
@@ -170,12 +177,12 @@ namespace cAlgo.Robots
                 return;
             }
 
-            _vikingDir = Path.Combine(Environment.GetFolderPath(
+            _vikingDir = System.IO.Path.Combine(Environment.GetFolderPath(
                 Environment.SpecialFolder.LocalApplicationData), "VikingInvest");
-            Directory.CreateDirectory(_vikingDir);
-            _seenIdsPath     = Path.Combine(_vikingDir, "seen_ids.txt");
-            _executionsPath  = Path.Combine(_vikingDir, "executions.jsonl");
-            _dailyLossPath   = Path.Combine(_vikingDir, "daily_loss.txt");
+            IODirectory.CreateDirectory(_vikingDir);
+            _seenIdsPath     = System.IO.Path.Combine(_vikingDir, "seen_ids.txt");
+            _executionsPath  = System.IO.Path.Combine(_vikingDir, "executions.jsonl");
+            _dailyLossPath   = System.IO.Path.Combine(_vikingDir, "daily_loss.txt");
             LoadSeenIds();
             LoadDailyLossState();
 
@@ -289,10 +296,10 @@ namespace cAlgo.Robots
             _todayStartEquity = Account.Equity;
             _todayRealizedR = 0;
             _dailyLimitHit = false;
-            if (!File.Exists(_dailyLossPath)) { SaveDailyLossState(); return; }
+            if (!IOFile.Exists(_dailyLossPath)) { SaveDailyLossState(); return; }
             try
             {
-                var parts = File.ReadAllText(_dailyLossPath).Split('|');
+                var parts = IOFile.ReadAllText(_dailyLossPath).Split('|');
                 if (parts.Length >= 4 && parts[0] == _todayKey)
                 {
                     _todayRealizedR = double.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture);
@@ -306,7 +313,7 @@ namespace cAlgo.Robots
         {
             try
             {
-                File.WriteAllText(_dailyLossPath,
+                IOFile.WriteAllText(_dailyLossPath,
                     $"{_todayKey}|{_todayRealizedR.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}|" +
                     $"{_todayStartEquity.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}|" +
                     $"{(_dailyLimitHit ? "1" : "0")}");
@@ -762,8 +769,8 @@ namespace cAlgo.Robots
         {
             try
             {
-                if (!File.Exists(_seenIdsPath)) return;
-                foreach (var line in File.ReadAllLines(_seenIdsPath))
+                if (!IOFile.Exists(_seenIdsPath)) return;
+                foreach (var line in IOFile.ReadAllLines(_seenIdsPath))
                     if (!string.IsNullOrWhiteSpace(line)) _seenIds.Add(line.Trim());
             }
             catch (Exception ex)
@@ -778,7 +785,7 @@ namespace cAlgo.Robots
             {
                 try
                 {
-                    File.AppendAllText(_seenIdsPath, id + Environment.NewLine);
+                    IOFile.AppendAllText(_seenIdsPath, id + Environment.NewLine);
                 }
                 catch (Exception ex)
                 {
@@ -797,7 +804,7 @@ namespace cAlgo.Robots
                 var toWrite = _seenIds.Count > 5000
                     ? _seenIds.Skip(_seenIds.Count - 5000)
                     : _seenIds;
-                File.WriteAllLines(_seenIdsPath, toWrite);
+                IOFile.WriteAllLines(_seenIdsPath, toWrite);
             }
             catch (Exception ex)
             {
@@ -870,7 +877,7 @@ namespace cAlgo.Robots
                 F(sb, "account",       r.Account);
                 sb.Append('}');
                 var line = sb.ToString();
-                File.AppendAllText(_executionsPath, line + Environment.NewLine);
+                IOFile.AppendAllText(_executionsPath, line + Environment.NewLine);
                 // Phase 3.5 — fire-and-forget dispatch to GitHub. The
                 // local JSONL is the source of truth + audit trail; the
                 // dispatch is best-effort. If it fails (network, rate-
