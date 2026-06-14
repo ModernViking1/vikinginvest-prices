@@ -87,6 +87,49 @@ namespace cAlgo.Robots
         [Parameter("Auto-publish to repo", DefaultValue = false, Group = "Auto-publish")]
         public bool AutoPublishToRepo { get; set; }
 
+        // ── Phase 4 — Live-mode risk caps + daily loss limiter ──
+        // When Account.IsLive==true these caps OVERRIDE the corresponding
+        // demo parameters above. Demo runs are unaffected. The split
+        // exists because the demo settings can be aggressive (the goal
+        // there is to generate enough trades to validate the loop fast)
+        // while a real-money deployment should be conservative until
+        // the slippage / latency profile is proven over 2+ weeks.
+        [Parameter("LIVE — Risk % per trade", DefaultValue = 0.25, MinValue = 0.01, MaxValue = 2.0, Group = "Live-mode caps")]
+        public double LiveRiskPctPerTrade { get; set; }
+
+        [Parameter("LIVE — Max open positions", DefaultValue = 2, MinValue = 1, MaxValue = 10, Group = "Live-mode caps")]
+        public int LiveMaxOpenPositions { get; set; }
+
+        [Parameter("LIVE — Max spread (pips)", DefaultValue = 2.0, MinValue = 0.1, MaxValue = 20.0, Group = "Live-mode caps")]
+        public double LiveMaxSpreadPips { get; set; }
+
+        [Parameter("LIVE — Daily loss limit (% of equity)", DefaultValue = 2.0, MinValue = 0.5, MaxValue = 10.0, Group = "Live-mode caps")]
+        public double LiveDailyLossPctLimit { get; set; }
+
+        [Parameter("LIVE — Min equity required to start", DefaultValue = 500.0, MinValue = 100.0, Group = "Live-mode caps")]
+        public double LiveMinEquity { get; set; }
+
+        [Parameter("LIVE — Operator confirmation (must be true)", DefaultValue = false, Group = "Live-mode caps")]
+        public bool LiveOperatorConfirmed { get; set; }
+
+        // ── Phase 4 — Telegram alert routing ──
+        // Two split paths:
+        //   • cBot → Telegram: cBot-health events that the user must know
+        //     about immediately even if GitHub is unreachable (dispatch
+        //     failures, PAT expiry, daily loss-limit, kill-switch flips).
+        //   • Workflow → Telegram: per-execution summaries, posted from
+        //     ingest-cbot-execution.yml after each successful ingestion.
+        // The workflow path keeps the secret out of the cBot for the
+        // routine events. The cBot path is necessary for emergencies.
+        [Parameter("Telegram bot token", DefaultValue = "", Group = "Telegram")]
+        public string TelegramBotToken { get; set; }
+
+        [Parameter("Telegram chat ID", DefaultValue = "", Group = "Telegram")]
+        public string TelegramChatId { get; set; }
+
+        [Parameter("Telegram alert level", DefaultValue = "important", Group = "Telegram")]
+        public string TelegramAlertLevel { get; set; }  // "off" | "important" | "all"
+
         // ───────────── State ──────────────────────────────────────────
         private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         private HashSet<string> _seenIds = new HashSet<string>();
@@ -96,11 +139,24 @@ namespace cAlgo.Robots
         private bool _killed = false;
         private string _killReason = null;
         private string _killUpdated = null;
-        private int _signalsSeen, _ordersPlaced, _ordersSkipped, _killBlockedCount;
+        private int _signalsSeen, _ordersPlaced, _ordersSkipped, _killBlockedCount, _dailyLimitBlockedCount;
         // Track which signal id placed each open position so the close
         // event can write a clean execution row tying broker P&L back
         // to the detector signal that created it. positionId → signal id.
         private Dictionary<long, string> _positionIdToSignalId = new Dictionary<long, string>();
+        // Phase 4 — daily loss tracker. Realized R is summed per UTC day
+        // (key = "yyyy-MM-dd") and persisted to disk so a cBot restart
+        // mid-day doesn't reset the budget. When the day's negative R
+        // crosses LiveDailyLossPctLimit (as a % of starting equity), new
+        // orders are refused for the rest of the day. Resets at 00:00 UTC.
+        private string _dailyLossPath;
+        private string _todayKey = "";
+        private double _todayRealizedR = 0;
+        private double _todayStartEquity = 0;
+        private bool   _dailyLimitHit = false;
+        // Phase 4 — preflight gate result, surfaced in logs + Telegram.
+        private bool _preflightPassed = false;
+        private string _preflightReport = "";
 
         // ───────────── Lifecycle ──────────────────────────────────────
         protected override void OnStart()
@@ -117,9 +173,25 @@ namespace cAlgo.Robots
             _vikingDir = Path.Combine(Environment.GetFolderPath(
                 Environment.SpecialFolder.LocalApplicationData), "VikingInvest");
             Directory.CreateDirectory(_vikingDir);
-            _seenIdsPath    = Path.Combine(_vikingDir, "seen_ids.txt");
-            _executionsPath = Path.Combine(_vikingDir, "executions.jsonl");
+            _seenIdsPath     = Path.Combine(_vikingDir, "seen_ids.txt");
+            _executionsPath  = Path.Combine(_vikingDir, "executions.jsonl");
+            _dailyLossPath   = Path.Combine(_vikingDir, "daily_loss.txt");
             LoadSeenIds();
+            LoadDailyLossState();
+
+            // Phase 4 — preflight gate. On a live account, refuse to start
+            // unless every check passes. On demo, run the same checks but
+            // only warn (we want demo to keep validating the loop even
+            // through weekend gaps / thin spreads).
+            RunPreflight();
+            if (Account.IsLive && !_preflightPassed)
+            {
+                Print("🛑 [VikingInvest] Live preflight FAILED — refusing to start.");
+                Print(_preflightReport);
+                TelegramSend("🛑 cBot live preflight FAILED on " + Account.BrokerName + " #" + Account.Number + "\n\n" + _preflightReport, important:true);
+                Stop();
+                return;
+            }
 
             // Phase 3 — subscribe to broker close events so each settled
             // position writes one execution row to the JSONL file. We
@@ -130,15 +202,66 @@ namespace cAlgo.Robots
 
             _http.DefaultRequestHeaders.UserAgent.ParseAdd("VikingInvest-cTrader-Bot/1.0");
 
+            // Effective parameters AFTER live-mode override.
+            var effRisk = EffectiveRiskPct;
+            var effMax  = EffectiveMaxPositions;
+            var effSpr  = EffectiveMaxSpreadPips;
+
             Print("✅ [VikingInvest] Bridge initialised.");
             Print($"   URL: {SignalsUrl}");
-            Print($"   Poll: every {PollSeconds}s · Risk: {RiskPctPerTrade}% · Max positions: {MaxOpenPositions}");
-            Print($"   Mode: {(DryRun ? "DRY-RUN (log only)" : (Account.IsLive ? "LIVE" : "DEMO"))}");
+            Print($"   Poll: every {PollSeconds}s · Risk: {effRisk}% · Max positions: {effMax} · Max spread: {effSpr} pips");
+            Print($"   Mode: {(DryRun ? "DRY-RUN (log only)" : (Account.IsLive ? "🔴 LIVE" : "🟢 DEMO"))}");
             Print($"   Seen ids loaded: {_seenIds.Count}");
+            Print($"   Daily R today ({_todayKey}): {_todayRealizedR:+0.00;-0.00;0.00}R · limit {LiveDailyLossPctLimit}% of {_todayStartEquity:F2}");
+
+            TelegramSend($"✅ Viking Invest cBot started on {(Account.IsLive ? "🔴 LIVE" : "🟢 DEMO")} #{Account.Number} · " +
+                         $"risk {effRisk}% · max-pos {effMax}", important:true);
 
             Timer.Start(TimeSpan.FromSeconds(Math.Max(5, PollSeconds)));
-            // Kick the first poll immediately so the user gets feedback.
             _ = PollAndProcess();
+        }
+
+        // Effective parameters after applying live-mode overrides. The
+        // demo settings stay configurable for fast-loop validation; the
+        // live settings are conservative defaults the user can still
+        // tune but starting from a safer floor.
+        private double EffectiveRiskPct        => Account.IsLive ? LiveRiskPctPerTrade : RiskPctPerTrade;
+        private int    EffectiveMaxPositions   => Account.IsLive ? LiveMaxOpenPositions : MaxOpenPositions;
+        private double EffectiveMaxSpreadPips  => Account.IsLive ? LiveMaxSpreadPips    : MaxSpreadPips;
+
+        // Phase 4 — preflight gate. Run on every OnStart so a cBot
+        // restart re-validates the environment. Live mode requires ALL
+        // checks to pass; demo mode logs but doesn't gate.
+        private void RunPreflight()
+        {
+            var lines = new List<string>();
+            lines.Add("Preflight report:");
+            // Equity floor
+            bool equityOk = Account.Equity >= LiveMinEquity;
+            lines.Add($"  {(equityOk ? "✅" : "❌")} Equity {Account.Equity:F2} {(equityOk ? "≥" : "<")} min {LiveMinEquity:F2}");
+            // Operator confirmation (live only)
+            bool opOk = !Account.IsLive || LiveOperatorConfirmed;
+            lines.Add($"  {(opOk ? "✅" : "❌")} Operator confirmation: {(Account.IsLive ? (LiveOperatorConfirmed ? "yes" : "MISSING — set LiveOperatorConfirmed=true") : "n/a (demo)")}");
+            // GitHub PAT (auto-publish only)
+            bool patOk = !AutoPublishToRepo || !string.IsNullOrEmpty(GhPersonalAccessToken);
+            lines.Add($"  {(patOk ? "✅" : "❌")} GitHub PAT: {(AutoPublishToRepo ? (patOk ? "present" : "MISSING — required when AutoPublishToRepo=true") : "n/a (auto-publish off)")}");
+            // Telegram routing (live mode only — strongly recommended)
+            bool tgOk = !Account.IsLive || (!string.IsNullOrEmpty(TelegramBotToken) && !string.IsNullOrEmpty(TelegramChatId));
+            lines.Add($"  {(tgOk ? "✅" : "⚠️")} Telegram routing: {(string.IsNullOrEmpty(TelegramBotToken) ? "off" : "configured")}{(Account.IsLive && !tgOk ? " — strongly recommended for live mode" : "")}");
+            // Daily loss budget reasonable
+            bool budgetOk = LiveDailyLossPctLimit > 0 && LiveDailyLossPctLimit <= 5.0;
+            lines.Add($"  {(budgetOk ? "✅" : "⚠️")} Daily loss limit {LiveDailyLossPctLimit}% of equity {(budgetOk ? "(within sane 0–5% band)" : "(outside the recommended 0–5% band)")}");
+            // Resolve a few key symbols so we know the broker mapping works
+            string[] checkPairs = { "eurusd", "btcusd", "xauusd" };
+            int resolved = 0;
+            foreach (var p in checkPairs) if (ResolveSymbol(p) != null) resolved++;
+            bool symOk = resolved >= 1;
+            lines.Add($"  {(symOk ? "✅" : "❌")} Symbol resolution: {resolved}/{checkPairs.Length} key pairs in Market Watch");
+
+            _preflightPassed = equityOk && opOk && patOk && symOk
+                               && (!Account.IsLive || (tgOk && budgetOk));
+            _preflightReport = string.Join("\n", lines);
+            Print(_preflightReport);
         }
 
         protected override void OnTimer()
@@ -151,7 +274,113 @@ namespace cAlgo.Robots
             Timer.Stop();
             Positions.Closed -= OnPositionClosed;
             SaveSeenIds();
-            Print($"👋 [VikingInvest] Bridge stopped. Signals seen: {_signalsSeen} · Orders placed: {_ordersPlaced} · Skipped: {_ordersSkipped} · Kill-blocked: {_killBlockedCount}");
+            SaveDailyLossState();
+            Print($"👋 [VikingInvest] Bridge stopped. Signals seen: {_signalsSeen} · Orders placed: {_ordersPlaced} · Skipped: {_ordersSkipped} · Kill-blocked: {_killBlockedCount} · Daily-limit-blocked: {_dailyLimitBlockedCount} · Today R: {_todayRealizedR:+0.00;-0.00;0.00}");
+            TelegramSend($"👋 cBot stopped on {(Account.IsLive ? "LIVE" : "DEMO")} #{Account.Number} · today {_todayRealizedR:+0.00;-0.00;0.00}R · {_ordersPlaced} placed", important:true);
+        }
+
+        // ───────────── Phase 4 — Daily-loss tracker ──────────────────
+        // Persists {today_key, today_R, start_equity, limit_hit} to a
+        // small text file so cBot restarts mid-day don't reset the
+        // budget. RollDailyKeyIfNeeded resets at 00:00 UTC.
+        private void LoadDailyLossState()
+        {
+            _todayKey = DateTime.UtcNow.ToString("yyyy-MM-dd");
+            _todayStartEquity = Account.Equity;
+            _todayRealizedR = 0;
+            _dailyLimitHit = false;
+            if (!File.Exists(_dailyLossPath)) { SaveDailyLossState(); return; }
+            try
+            {
+                var parts = File.ReadAllText(_dailyLossPath).Split('|');
+                if (parts.Length >= 4 && parts[0] == _todayKey)
+                {
+                    _todayRealizedR = double.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture);
+                    _todayStartEquity = double.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture);
+                    _dailyLimitHit = parts[3] == "1";
+                }
+            }
+            catch (Exception ex) { Print($"⚠️ [VikingInvest] daily-loss load failed: {ex.Message}"); }
+        }
+        private void SaveDailyLossState()
+        {
+            try
+            {
+                File.WriteAllText(_dailyLossPath,
+                    $"{_todayKey}|{_todayRealizedR.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}|" +
+                    $"{_todayStartEquity.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}|" +
+                    $"{(_dailyLimitHit ? "1" : "0")}");
+            }
+            catch (Exception ex) { Print($"⚠️ [VikingInvest] daily-loss save failed: {ex.Message}"); }
+        }
+        private void RollDailyKeyIfNeeded()
+        {
+            var nowKey = DateTime.UtcNow.ToString("yyyy-MM-dd");
+            if (nowKey == _todayKey) return;
+            // New UTC day — log the previous day's outcome and reset.
+            Print($"📅 [VikingInvest] UTC day rolled: closing {_todayKey} at {_todayRealizedR:+0.00;-0.00}R, starting {nowKey}");
+            TelegramSend($"📅 Day {_todayKey} closed: {_todayRealizedR:+0.00;-0.00}R. New day {nowKey} starting equity {Account.Equity:F2}", important:false);
+            _todayKey = nowKey;
+            _todayRealizedR = 0;
+            _todayStartEquity = Account.Equity;
+            _dailyLimitHit = false;
+            SaveDailyLossState();
+        }
+        private void CheckDailyLimit()
+        {
+            if (!Account.IsLive) return;  // demo runs without the brake
+            if (_dailyLimitHit) return;
+            if (_todayStartEquity <= 0) return;
+            // Loss limit is expressed as % of starting equity. Convert
+            // realized R back to currency by assuming each R is roughly
+            // worth (EffectiveRiskPct/100 * startEquity) — the size we
+            // intended to risk per trade. This isn't broker-exact (slippage
+            // distorts it slightly) but is close enough to drive the brake.
+            var lossR = -_todayRealizedR;  // positive when in the red
+            var lossPct = lossR * EffectiveRiskPct;
+            if (lossPct >= LiveDailyLossPctLimit)
+            {
+                _dailyLimitHit = true;
+                SaveDailyLossState();
+                Print($"🛑 [VikingInvest] DAILY LOSS LIMIT HIT: -{lossR:F2}R ≈ -{lossPct:F2}% of equity. No new orders today.");
+                TelegramSend(
+                    $"🛑 LIVE DAILY LOSS LIMIT HIT\n" +
+                    $"Today: {_todayRealizedR:+0.00;-0.00}R ≈ {-lossPct:F2}% of equity\n" +
+                    $"Limit: {LiveDailyLossPctLimit}%\n" +
+                    $"New orders blocked until 00:00 UTC. Existing positions keep running on broker SL/TP.",
+                    important:true);
+            }
+        }
+
+        // ───────────── Phase 4 — Telegram routing ────────────────────
+        // Posts a message to the configured Telegram chat. Fire-and-
+        // forget. `important` selects which level the message qualifies
+        // for — when TelegramAlertLevel="important" only important
+        // messages are sent; "all" sends everything; "off" silences.
+        private void TelegramSend(string msg, bool important)
+        {
+            if (string.IsNullOrEmpty(TelegramBotToken) || string.IsNullOrEmpty(TelegramChatId)) return;
+            if (TelegramAlertLevel == "off") return;
+            if (TelegramAlertLevel == "important" && !important) return;
+            _ = TelegramSendAsync(msg);
+        }
+        private async Task TelegramSendAsync(string msg)
+        {
+            try
+            {
+                var url = $"https://api.telegram.org/bot{TelegramBotToken}/sendMessage";
+                var prefix = Account.IsLive ? "🔴" : "🟢";
+                var body = "{\"chat_id\":\"" + TelegramChatId + "\",\"text\":\""
+                         + (prefix + " [Viking cBot] " + msg).Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n")
+                         + "\"}";
+                using var req = new HttpRequestMessage(HttpMethod.Post, url);
+                req.Content = new StringContent(body, Encoding.UTF8, "application/json");
+                await _http.SendAsync(req);
+            }
+            catch (Exception ex)
+            {
+                Print($"⚠️ [VikingInvest] Telegram send failed: {ex.Message}");
+            }
         }
 
         // ───────────── Poll loop ──────────────────────────────────────
@@ -217,6 +446,10 @@ namespace cAlgo.Robots
                 Print(_killed
                     ? $"🛑 [VikingInvest] KILL-SWITCH ENGAGED — pausing new orders. Reason: {_killReason ?? "(unspecified)"}"
                     : $"✅ [VikingInvest] KILL-SWITCH RELEASED — resuming new orders. Last reason: {_killReason ?? "(unspecified)"}");
+                TelegramSend(_killed
+                    ? $"🛑 KILL-SWITCH ENGAGED: {_killReason ?? "(unspecified)"}"
+                    : $"✅ KILL-SWITCH RELEASED: {_killReason ?? "(unspecified)"}",
+                    important:true);
             }
         }
 
@@ -251,6 +484,20 @@ namespace cAlgo.Robots
                 return;
             }
 
+            // Phase 4 — daily-loss gate. RollDailyKeyIfNeeded handles the
+            // midnight-UTC rollover. When the day's negative R crosses the
+            // limit, refuse new orders for the rest of the day. We also
+            // don't mark seen — once the day rolls, an active setup gets
+            // picked up automatically (same rationale as the kill switch).
+            RollDailyKeyIfNeeded();
+            if (_dailyLimitHit)
+            {
+                _dailyLimitBlockedCount++;
+                if (VerboseLog)
+                    Print($"🛑 [VikingInvest] Daily loss limit reached ({_todayRealizedR:F2}R) — blocking id={sig.Id}");
+                return;
+            }
+
             // Stale-signal filter.
             if (sig.ArmedAtMs > 0)
             {
@@ -273,18 +520,18 @@ namespace cAlgo.Robots
 
             // Concurrency check — count our open positions by label.
             var ourOpen = Positions.Count(p => p.Label == OrderLabel);
-            if (ourOpen >= MaxOpenPositions)
+            if (ourOpen >= EffectiveMaxPositions)
             {
-                Print($"🛑 [VikingInvest] Max positions reached ({ourOpen}) — skipping id={sig.Id}");
+                Print($"🛑 [VikingInvest] Max positions reached ({ourOpen}/{EffectiveMaxPositions}) — skipping id={sig.Id}");
                 MarkSeen(sig.Id); _ordersSkipped++;
                 return;
             }
 
             // Spread filter.
             var spreadPips = symbol.Spread / symbol.PipSize;
-            if (spreadPips > MaxSpreadPips)
+            if (spreadPips > EffectiveMaxSpreadPips)
             {
-                Print($"🛑 [VikingInvest] Spread too wide on {symbol.Name}: {spreadPips:F1} > {MaxSpreadPips} pips. Skipping id={sig.Id}");
+                Print($"🛑 [VikingInvest] Spread too wide on {symbol.Name}: {spreadPips:F1} > {EffectiveMaxSpreadPips} pips. Skipping id={sig.Id}");
                 MarkSeen(sig.Id); _ordersSkipped++;
                 return;
             }
@@ -292,7 +539,8 @@ namespace cAlgo.Robots
             // Risk-based volume sizing. Factors in the signal's r_size
             // (1.0 wick, 0.5 fib) so commodity / index trades take half
             // size automatically — matching the dashboard's net-R math.
-            var riskPct = RiskPctPerTrade * (sig.RSize > 0 ? sig.RSize : 1.0);
+            // EffectiveRiskPct applies the live-mode override transparently.
+            var riskPct = EffectiveRiskPct * (sig.RSize > 0 ? sig.RSize : 1.0);
             var volume = ComputeVolume(symbol, sig.Entry, sig.Stop, riskPct);
             if (volume <= 0)
             {
@@ -320,6 +568,9 @@ namespace cAlgo.Robots
                 Print($"✅ [VikingInvest] Order placed {direction} {symbol.Name} {volume:F0} units · " +
                       $"id={sig.Id} position-id={result.Position.Id}");
                 _ordersPlaced++;
+                TelegramSend($"📤 {direction} {symbol.Name} {volume:F0} units · " +
+                             $"entry≈{result.Position.EntryPrice:F5} SL={sig.Stop:F5} TP={sig.Target:F5}",
+                             important: Account.IsLive);  // important when live
                 // Phase 3 — remember which signal opened this position
                 // so the close handler can write a properly-linked
                 // execution row. The dictionary stays small (≤ open
@@ -425,6 +676,27 @@ namespace cAlgo.Robots
             if (sigId != null) _positionIdToSignalId.Remove(p.Id);
             Print($"📒 [VikingInvest] Position closed {p.SymbolName} {p.TradeType} · " +
                   $"net={p.NetProfit:F2} R={realizedR:F2} signal={sigId ?? "(unlinked)"}");
+
+            // Phase 4 — credit/debit the daily R running total, persist,
+            // check the loss limit. Once hit, lock out for the day +
+            // Telegram. Resets at midnight UTC via RollDailyKeyIfNeeded.
+            RollDailyKeyIfNeeded();
+            _todayRealizedR += realizedR;
+            SaveDailyLossState();
+            CheckDailyLimit();
+
+            // Routine close → Telegram (important level — every closure
+            // is something the user wants to know about on a live account).
+            if (TelegramAlertLevel != "off")
+            {
+                var emoji = realizedR > 0 ? "✅" : (realizedR < 0 ? "❌" : "↔");
+                TelegramSend(
+                    $"{emoji} {(Account.IsLive ? "LIVE" : "DEMO")} closed {p.SymbolName} {p.TradeType}\n" +
+                    $"P&L: {p.NetProfit:+0.00;-0.00} ({realizedR:+0.00;-0.00}R)\n" +
+                    $"Reason: {ClassifyCloseReason(p)}\n" +
+                    $"Day total: {_todayRealizedR:+0.00;-0.00}R",
+                    important:true);
+            }
         }
 
         private string ClassifyCloseReason(Position p)
@@ -641,6 +913,14 @@ namespace cAlgo.Robots
                 {
                     var bodyText = await resp.Content.ReadAsStringAsync();
                     Print($"⚠️ [VikingInvest] Dispatch returned {(int)resp.StatusCode}: {bodyText}");
+                    // Phase 4 — 401/403 likely means an expired or revoked
+                    // PAT. Surface immediately on Telegram so the operator
+                    // rotates it instead of finding out hours later that
+                    // executions stopped publishing.
+                    if ((int)resp.StatusCode == 401 || (int)resp.StatusCode == 403)
+                    {
+                        TelegramSend($"⚠️ GitHub dispatch returned {(int)resp.StatusCode} — PAT may be expired/revoked. Local JSONL still recording; rotate the PAT in cBot params to resume auto-publish.", important:true);
+                    }
                 }
             }
             catch (Exception ex)

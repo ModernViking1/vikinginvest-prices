@@ -262,7 +262,158 @@ cBot execution event
   fine-scoped tier. The cBot's 5-positions cap means realistic
   steady-state is well under this even on a busy day.
 
-## Going live (eventually)
+## Phase 4 — Live-mode go/no-go + Telegram
+
+Phase 4 hardens the cBot for real-money operation. The behaviour is
+gated by `Account.IsLive` — demo runs are unchanged, live runs apply a
+stricter set of caps, a preflight gate, a daily-loss limiter, and
+Telegram routing.
+
+### Live-mode parameter overrides
+
+When the bot starts on a live account, these parameters override the
+corresponding demo defaults:
+
+| Live parameter | Default | Replaces |
+|---|---|---|
+| `LiveRiskPctPerTrade` | `0.25` | `RiskPctPerTrade` |
+| `LiveMaxOpenPositions` | `2` | `MaxOpenPositions` |
+| `LiveMaxSpreadPips` | `2.0` | `MaxSpreadPips` |
+| `LiveDailyLossPctLimit` | `2.0%` of equity | new — no demo equivalent |
+| `LiveMinEquity` | `500` | new — preflight floor |
+| `LiveOperatorConfirmed` | `false` | new — manual go/no-go |
+
+The demo parameters stay configurable because the goal in demo is to
+generate enough trades to validate the loop fast. Live floors are
+conservative because the slippage / latency profile is still being
+proven and live capital deserves the bias toward caution.
+
+### Preflight gate
+
+Every `OnStart` runs a preflight check. Live mode REFUSES TO START
+unless every check passes. Demo mode runs the same checks but only
+warns.
+
+| Check | Demo | Live |
+|---|---|---|
+| Equity ≥ `LiveMinEquity` | warn | required |
+| `LiveOperatorConfirmed = true` | n/a | required |
+| GitHub PAT present (if `AutoPublishToRepo`) | warn | required |
+| Telegram bot token + chat ID configured | n/a | required |
+| `LiveDailyLossPctLimit` within sane 0–5% band | n/a | required |
+| At least one key pair (EUR/USD, BTC/USD, XAU/USD) in Market Watch | warn | required |
+
+The full report prints to the cTrader log on every start. On a live
+failure the same report is pushed to Telegram so the operator
+diagnoses without RDP'ing into the VPS.
+
+### Daily-loss limiter
+
+Persisted to `%LocalAppData%\VikingInvest\daily_loss.txt`:
+
+```
+yyyy-MM-dd|today_R|start_equity|limit_hit_flag
+```
+
+- Sums realized R per UTC day across all closures the cBot saw.
+- Survives cBot restarts mid-day — no budget reset on terminal close.
+- Resets at 00:00 UTC. The rollover writes a daily-summary line to the
+  log AND to Telegram (informational level).
+- When the day's loss expressed as `% of starting equity` crosses
+  `LiveDailyLossPctLimit`, the bot:
+  - Locks new orders for the rest of the day
+  - Logs the trip + Telegram alert (important)
+  - Continues monitoring existing positions (they keep running on the
+    broker's SL/TP)
+- Live mode only — demo runs without the brake so the bot keeps
+  generating data for analysis.
+
+The limit conversion is approximate (R → $ uses the intended risk per
+trade, not broker-exact P&L) to keep the check cheap and predictable.
+If you want broker-exact accounting, set the cap a touch tighter (e.g.,
+`1.5%` if you'd actually want `2.0%`) to absorb the approximation.
+
+### Telegram routing
+
+Two paths, deliberately separated so a workflow outage doesn't blind
+the operator to broker events:
+
+**1. cBot → Telegram (direct, from the VPS)**
+- Configured via `TelegramBotToken` / `TelegramChatId` parameters.
+- `TelegramAlertLevel = "off"` / `"important"` / `"all"`.
+- Fires on:
+  - cBot start (any mode)
+  - cBot stop (any mode)
+  - Preflight failure
+  - Kill-switch flip (either direction)
+  - GitHub dispatch failure 401/403 — likely PAT expiry
+  - Position closed (always — closures are always important)
+  - Daily loss limit hit (live mode only)
+  - UTC day rollover summary
+  - Order placed (important only when live)
+- Format: `🔴/🟢 [Viking cBot] {message}` — emoji prefix tells you
+  at a glance whether the message came from a live or demo session.
+
+**2. Workflow → Telegram (after successful ingestion)**
+- Fires from `.github/workflows/ingest-cbot-execution.yml` only after
+  the repository_dispatch payload has been validated, deduped, and
+  appended to `executions.json`.
+- Uses the existing `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` secrets
+  (already provisioned for `detect_triggers.py`'s alerts).
+- Format: `🔴/🟢 [Viking cBot · ingested] {event} {pair} {summary}`.
+  The `· ingested` suffix distinguishes server-confirmed events from
+  the cBot's direct messages — useful when you want to verify a
+  dispatch actually landed in the repo vs only fired locally.
+
+### Promotion checklist (demo → live)
+
+Run the bot in demo for **at least 2 weeks**, then:
+
+1. Reconcile the demo-account P&L against the dashboard's recorded WR
+   for the same window. Expected slippage haircut: 3–6 percentage
+   points. Anything worse is a signal that you need to tighten
+   `MaxSpreadPips`, raise `MaxSignalAgeMin`, or both.
+2. Open the cBot parameters and set:
+   - `AllowLive = true`
+   - `LiveOperatorConfirmed = true`
+   - `TelegramBotToken` + `TelegramChatId` (mandatory for live)
+   - Confirm `LiveRiskPctPerTrade` (default 0.25%) is what you want
+   - Confirm `LiveMaxOpenPositions` (default 2) is what you want
+   - Confirm `LiveDailyLossPctLimit` (default 2.0%) is what you want
+3. Switch the cTrader workspace from the demo account to the live
+   account. Attach the same cBot instance. **Don't recompile** — the
+   binary is identical between modes; the runtime account type is
+   what flips the override.
+4. Click **Play**. The bot runs preflight; if any check fails it
+   refuses to start AND Telegrams you with the report.
+5. Watch the first 5 trades in real time. Reconcile each one in the
+   dashboard's Performance trade log within 10 minutes of close.
+6. If the slippage profile holds, scale up over the following month:
+   - Week 2: raise `LiveMaxOpenPositions` to 3
+   - Week 3: raise `LiveRiskPctPerTrade` to 0.35
+   - Week 4: revisit `LiveDailyLossPctLimit` based on actual realized
+     drawdown distribution
+
+### Emergency stop
+
+Any of these halt new orders within ~30 seconds:
+
+1. **Kill-switch** (Phase 2) — Actions tab → "Set Kill Switch" → run
+   workflow → killed=true. Stops globally; existing positions managed
+   by the broker's SL/TP.
+2. **Stop the cBot** — cTrader → right-click the cBot → Stop. No new
+   orders, no new dispatch events. Existing positions keep their
+   broker-side SL/TP. Telegram still receives the close alerts because
+   cTrader keeps the listeners running for graceful shutdown.
+3. **Revoke the GitHub PAT** — kills the auto-publish path immediately.
+   Local JSONL on the VPS still captures the events for manual import
+   later.
+4. **Daily loss limit auto-fires** — once hit, the brake stays on until
+   00:00 UTC. Override by manually setting `_dailyLimitHit = false`
+   only in code (intentionally not a parameter — the brake should be
+   hard to bypass).
+
+## Going live (eventually) — original quick-start kept for reference
 
 When you're ready to move from demo → live:
 

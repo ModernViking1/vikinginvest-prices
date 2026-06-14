@@ -679,6 +679,21 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   background:rgba(26,122,74,0.06);border-color:var(--bull);border-left-color:var(--bull);
   color:var(--bull);
 }
+/* Phase 4 — broker strip: live-mode badge + daily R + last-seen */
+.pf-broker-strip{
+  margin-top:10px;padding:8px 12px;display:flex;align-items:center;gap:10px;
+  flex-wrap:wrap;border-radius:3px;background:var(--sf2);border:1px solid var(--rule);
+  font-size:9.5px;color:var(--inkm);font-family:'Mukta',sans-serif;letter-spacing:0.2px;
+}
+.pf-broker-strip .pf-broker-tag{
+  font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1px;
+  text-transform:uppercase;font-weight:700;padding:2px 7px;border-radius:2px;border:1px solid;
+}
+.pf-broker-strip .pf-broker-tag.live{color:var(--bear);border-color:var(--bear);background:rgba(192,40,26,0.05);}
+.pf-broker-strip .pf-broker-tag.demo{color:var(--bull);border-color:var(--bull);background:rgba(26,122,74,0.05);}
+.pf-broker-strip .pf-broker-R.pos{color:var(--bull);font-weight:700;}
+.pf-broker-strip .pf-broker-R.neg{color:var(--bear);font-weight:700;}
+.pf-broker-strip strong{color:var(--ink);font-weight:600;}
 
 /* ── INVESTOR FOOTER — contact / deck / IR routing ── */
 .pf-investor{
@@ -1246,6 +1261,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       </div>
       <div id="pf-live-host"><div class="pf-empty">scanning…</div></div>
       <div id="pf-kill-banner" class="pf-kill-banner" style="display:none;"></div>
+      <div id="pf-broker-strip" class="pf-broker-strip" style="display:none;"></div>
       <div id="pf-sig-log-strip" class="pf-sig-log-strip" title="Phase 0–3 of the broker auto-execution roadmap — every detector transition is persisted with a stable idempotency key (pair:creatorTs). Broker fills imported from the cTrader cBot are merged in.">
         <span class="pf-sig-log-tag">📡 Signal Log</span>
         <span id="pf-sig-log-summary">initialising…</span>
@@ -11689,7 +11705,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-14yy';
+var RULES_VERSION = '2026-06-14zz';
 var RULES_VERSION_NOTES = [
   '2026-06-13kk — DAX 30 (de40) DROPPED from the active universe. Chronic structural underperformance confirmed across the full optimisation phase: 9 SR gating variants (1: window-only / 2: broken-only / 3: tier-only / 4: SR break ignoring 4/4 / 5: ORB Failure / 6: ORB+strength filter / 7: VWAP pullback / 8: Silver Bullet) PLUS the news + vol-spike blackout filter PLUS the per-class R:R sweep (1:0.5, 1:0.75, 1:1, 1:1.5, 1:2). DE40 produced NEGATIVE expected R on every tested combination — most generous read was 1:1 at −0.17R per trade over n=12 decided trades, with smaller targets making it WORSE (1:0.5 at −0.25R because the WR uplift didn\'t offset the smaller win size). Same pattern as the prior DROPPED_PAIRS additions where instrument microstructure simply doesn\'t map to the 4/4 confluence + close-beyond detector. Added to DROPPED_PAIRS deny-list so caches flush on next page load. DJ30 stays in the universe at +0.07R/trade (marginal but positive; reassess in 6 months with more data). Active universe: 40 instruments + DXY anchor.',
   '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
@@ -20235,6 +20251,10 @@ function _renderCCIVariantPanel(host, commodityKeys){
       return r.json();
     }).then(function(d){
       if(!d || !Array.isArray(d.executions)) return;
+      // Stash so the broker strip can compute today-UTC stats without
+      // re-fetching.
+      window._brokerExecutions = d.executions;
+      try { _renderBrokerStrip(); } catch(_){}
       // Early-out if the count hasn't changed since last poll.
       var total = d.counts && d.counts.total != null ? d.counts.total : d.executions.length;
       if(total === _execLastTotal) return;
@@ -20265,6 +20285,48 @@ function _renderCCIVariantPanel(host, commodityKeys){
       // Silent — executions.json may not exist yet if no cBot has
       // published anything. Don't spam the console.
     });
+  }
+  // Phase 4 — broker strip. Reads window._brokerExecutions (set by the
+  // executions auto-fetch) and renders a small live-vs-demo badge plus
+  // today's running R. Independent of the historical backtest cache
+  // and the live-detector card; this strip is "what the cBot has been
+  // doing in the last few hours".
+  function _renderBrokerStrip(){
+    var el = document.getElementById('pf-broker-strip');
+    if(!el) return;
+    var execs = window._brokerExecutions || [];
+    if(!execs.length){ el.style.display = 'none'; return; }
+    // Last seen + dominant mode (most recent row's mode)
+    var newest = execs[execs.length - 1];
+    var mode = (newest && newest.account_mode) || 'demo';
+    // Today's R (UTC) — sum realized_r across closed rows whose ts
+    // falls inside today's UTC window.
+    var now = new Date();
+    var midnightUtcMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    var todayR = 0, todayWins = 0, todayLosses = 0, todayPlaced = 0;
+    execs.forEach(function(r){
+      if(!r || !r.ts) return;
+      if(r.ts < midnightUtcMs) return;
+      if(r.event === 'closed' && typeof r.realized_r === 'number') todayR += r.realized_r;
+      if(r.event === 'closed' && r.realized_r > 0) todayWins++;
+      if(r.event === 'closed' && r.realized_r < 0) todayLosses++;
+      if(r.event === 'placed') todayPlaced++;
+    });
+    var fmtT = function(ms){
+      try {
+        var d = new Date(ms);
+        var hh = String(d.getUTCHours()).padStart(2,'0');
+        var mm = String(d.getUTCMinutes()).padStart(2,'0');
+        return hh + ':' + mm + 'Z';
+      } catch(e){ return '?'; }
+    };
+    var lastSeen = fmtT(newest.ts);
+    var rClass = todayR > 0 ? 'pos' : (todayR < 0 ? 'neg' : '');
+    var rText = todayR === 0 ? '0R' : (todayR > 0 ? '+' : '') + todayR.toFixed(2) + 'R';
+    el.innerHTML = '<span class="pf-broker-tag '+mode+'">'+(mode === 'live' ? '🔴 LIVE' : '🟢 DEMO')+'</span>'
+                 + '<span>cTrader bridge active &middot; last event ' + lastSeen + '</span>'
+                 + '<span>Today UTC: <strong>'+todayPlaced+'</strong> placed &middot; <strong>'+todayWins+'</strong>W / <strong>'+todayLosses+'</strong>L &middot; <span class="pf-broker-R '+rClass+'">'+rText+'</span></span>';
+    el.style.display = 'flex';
   }
   function _fetchKillSwitchFromSignals(){
     // signals.json is built every ~10 min by build_signals_json.py and

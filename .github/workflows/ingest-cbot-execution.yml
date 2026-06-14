@@ -117,3 +117,63 @@ jobs:
           # paths so the next Performance tab open sees the fresh row.
           curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/executions.json" || echo "purge gh executions failed"
           curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/executions.json" || echo "purge npm executions failed"
+
+      - name: Telegram alert (Phase 4 — non-fatal)
+        # Sends one Telegram message per ingested execution. The cBot
+        # also sends its own Telegram on close events (for redundancy
+        # against a workflow outage), but this server-side path is the
+        # canonical "this is what landed in the repo" notification —
+        # it only fires after successful ingestion, so it cannot lie.
+        # Both TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are existing
+        # secrets shared with the detect_triggers Telegram path.
+        if: ${{ env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != '' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+        run: |
+          set +e
+          python3 - <<'PY'
+          import json, os, urllib.parse, urllib.request
+
+          payload = json.loads(os.environ["PAYLOAD"])
+          event = payload.get("event", "?")
+          sig_id = payload.get("signal_id", "?")
+          pair = (payload.get("pair") or "?").upper()
+          d = payload.get("dir") or "?"
+          mode = payload.get("account_mode", "?")
+          prefix = "🔴" if mode == "live" else "🟢"
+
+          if event == "placed":
+              entry = payload.get("entry_filled") or payload.get("entry_attempt") or 0
+              vol = payload.get("volume_units") or 0
+              slip = payload.get("slippage_pips") or 0
+              text = f"{prefix} [Viking cBot · ingested] 📤 PLACED {d.upper()} {pair} {vol:.0f} units @ {entry:.5f} (slippage {slip:+.2f} pips)\nid: {sig_id}"
+          elif event == "closed":
+              netp = payload.get("net_profit") or 0
+              r    = payload.get("realized_r") or 0
+              reason = payload.get("reason") or "?"
+              emoji = "✅" if r > 0 else ("❌" if r < 0 else "↔")
+              text = f"{prefix} [Viking cBot · ingested] {emoji} CLOSED {pair} {d.upper()} — net {netp:+.2f} ({r:+.2f}R) · {reason}\nid: {sig_id}"
+          elif event == "rejected":
+              reason = payload.get("reason") or "?"
+              text = f"{prefix} [Viking cBot · ingested] ⚠️ REJECTED {d.upper()} {pair}\nReason: {reason}\nid: {sig_id}"
+          else:
+              text = f"{prefix} [Viking cBot · ingested] event={event} id={sig_id}"
+
+          # Cap to Telegram's 4096-char limit with a healthy buffer.
+          if len(text) > 3500:
+              text = text[:3500] + "…"
+
+          data = urllib.parse.urlencode({
+              "chat_id": os.environ["TELEGRAM_CHAT_ID"],
+              "text":    text,
+              "disable_web_page_preview": "true",
+          }).encode()
+          url = f"https://api.telegram.org/bot{os.environ['TELEGRAM_BOT_TOKEN']}/sendMessage"
+          try:
+              urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=10).read()
+              print("[telegram] sent")
+          except Exception as e:
+              print(f"::warning::Telegram send failed (non-fatal): {e}")
+          PY
