@@ -68,6 +68,25 @@ namespace cAlgo.Robots
         [Parameter("Verbose logging", DefaultValue = true, Group = "Debug")]
         public bool VerboseLog { get; set; }
 
+        // ── Phase 3.5 — auto-publish executions back to the repo ──
+        // When configured with a fine-scoped GitHub PAT, the cBot fires
+        // a repository_dispatch event for every placed/rejected/closed
+        // event. The dashboard then sees broker fills in near-real-time
+        // without the manual JSONL import step. Leave the PAT blank to
+        // run in local-only mode (executions.jsonl still written on the
+        // VPS — manual import path remains the fallback).
+        [Parameter("GitHub repo owner", DefaultValue = "ModernViking1", Group = "Auto-publish")]
+        public string GhRepoOwner { get; set; }
+
+        [Parameter("GitHub repo name", DefaultValue = "vikinginvest-prices", Group = "Auto-publish")]
+        public string GhRepoName { get; set; }
+
+        [Parameter("GitHub PAT (fine-scoped: contents:write)", DefaultValue = "", Group = "Auto-publish")]
+        public string GhPersonalAccessToken { get; set; }
+
+        [Parameter("Auto-publish to repo", DefaultValue = false, Group = "Auto-publish")]
+        public bool AutoPublishToRepo { get; set; }
+
         // ───────────── State ──────────────────────────────────────────
         private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         private HashSet<string> _seenIds = new HashSet<string>();
@@ -547,11 +566,15 @@ namespace cAlgo.Robots
 
         private void WriteExecution(ExecutionRow r)
         {
+            // 2026-06-14yy: stamp ts once so the local JSONL row and the
+            // GitHub dispatch payload carry the identical timestamp —
+            // that's what the workflow's dedup key relies on.
+            long tsMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             try
             {
                 var sb = new StringBuilder(360);
                 sb.Append('{');
-                F(sb, "ts",            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); sb.Append(',');
+                F(sb, "ts",            tsMs);                                            sb.Append(',');
                 F(sb, "event",         r.Event);                                         sb.Append(',');
                 F(sb, "signal_id",     r.SignalId);                                      sb.Append(',');
                 F(sb, "position_id",   r.PositionId);                                    sb.Append(',');
@@ -574,11 +597,55 @@ namespace cAlgo.Robots
                 F(sb, "account_mode",  r.AccountMode);                                   sb.Append(',');
                 F(sb, "account",       r.Account);
                 sb.Append('}');
-                File.AppendAllText(_executionsPath, sb.ToString() + Environment.NewLine);
+                var line = sb.ToString();
+                File.AppendAllText(_executionsPath, line + Environment.NewLine);
+                // Phase 3.5 — fire-and-forget dispatch to GitHub. The
+                // local JSONL is the source of truth + audit trail; the
+                // dispatch is best-effort. If it fails (network, rate-
+                // limit, expired PAT) the row is still on disk for a
+                // manual import.
+                if (AutoPublishToRepo && !string.IsNullOrEmpty(GhPersonalAccessToken))
+                {
+                    _ = DispatchExecutionAsync(line);
+                }
             }
             catch (Exception ex)
             {
                 Print($"⚠️ [VikingInvest] Could not write execution row: {ex.Message}");
+            }
+        }
+
+        // Phase 3.5 — POST a repository_dispatch event to GitHub. One
+        // dispatch per execution, fire-and-forget. The PAT must have
+        // contents:write scope on the target repo (fine-scoped, 90-day
+        // rotation cadence documented in the README).
+        private async Task DispatchExecutionAsync(string executionJsonLine)
+        {
+            try
+            {
+                var url = $"https://api.github.com/repos/{GhRepoOwner}/{GhRepoName}/dispatches";
+                // Wrap the execution line as the client_payload. The line
+                // is already valid JSON for one object — we just nest it.
+                var body = "{\"event_type\":\"cbot-execution\",\"client_payload\":" + executionJsonLine + "}";
+                using var req = new HttpRequestMessage(HttpMethod.Post, url);
+                req.Headers.Add("Accept", "application/vnd.github+json");
+                req.Headers.Add("User-Agent", "VikingInvest-cTrader-Bot/1.0");
+                req.Headers.Add("Authorization", $"Bearer {GhPersonalAccessToken}");
+                req.Content = new StringContent(body, Encoding.UTF8, "application/json");
+                var resp = await _http.SendAsync(req);
+                if ((int)resp.StatusCode == 204)
+                {
+                    if (VerboseLog) Print($"📤 [VikingInvest] Dispatched execution to GitHub (204 No Content — accepted)");
+                }
+                else
+                {
+                    var bodyText = await resp.Content.ReadAsStringAsync();
+                    Print($"⚠️ [VikingInvest] Dispatch returned {(int)resp.StatusCode}: {bodyText}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Print($"⚠️ [VikingInvest] Dispatch failed (non-fatal — local JSONL still has the row): {ex.Message}");
             }
         }
         // F = compact JSON field writer
