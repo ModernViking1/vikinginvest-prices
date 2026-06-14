@@ -31,8 +31,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ALERT_STATE_PATH = Path("alerts-state.json")
+KILL_SWITCH_PATH = Path("kill-switch.json")
 SIGNALS_OUT_PATH = Path("signals.json")
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # bumped 2026-06-14 — adds kill_switch field to envelope
 
 # Per-class methodology — keep parity with _btMethodFor() in the
 # dashboard JS. Wick pairs trade at 1.0R, Fib pairs at 0.5R.
@@ -209,11 +210,32 @@ def build_signals(state: dict) -> dict:
     triggered = sum(1 for r in out if r["state"] == "triggered")
     invalidated = sum(1 for r in out if r["state"] == "invalidated")
 
+    # Phase 2 — kill-switch mirror. The cBot polls kill-switch.json
+    # directly, so the canonical "should I trade" answer lives there.
+    # We also mirror the state into signals.json so the dashboard can
+    # surface "bot paused" without an extra CDN fetch.
+    ks_payload = {"killed": False, "reason": None, "updated": None, "updated_by": None}
+    if KILL_SWITCH_PATH.exists():
+        try:
+            ks = json.loads(KILL_SWITCH_PATH.read_text(encoding="utf-8"))
+            ks_payload = {
+                "killed":     bool(ks.get("killed")),
+                "reason":     ks.get("reason"),
+                "updated":    ks.get("updated"),
+                "updated_by": ks.get("updated_by"),
+            }
+        except Exception:
+            # Tolerate parse failures — broker bridge stays operational
+            # even if the kill-switch file is malformed (fail-open by
+            # design; explicit kill is the safer default to require).
+            pass
+
     return {
         "schema_version": SCHEMA_VERSION,
         "generated": datetime.now(timezone.utc).isoformat(),
         "generated_ms": now_ms,
         "detector_last_check": state.get("updated"),
+        "kill_switch": ks_payload,
         "counts": {
             "total": len(out),
             "armed": armed,

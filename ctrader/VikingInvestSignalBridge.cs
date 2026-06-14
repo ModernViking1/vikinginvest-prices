@@ -38,6 +38,9 @@ namespace cAlgo.Robots
         [Parameter("Signals URL", DefaultValue = "https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/signals.json", Group = "Feed")]
         public string SignalsUrl { get; set; }
 
+        [Parameter("Kill-switch URL", DefaultValue = "https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/kill-switch.json", Group = "Feed")]
+        public string KillSwitchUrl { get; set; }
+
         [Parameter("Poll seconds", DefaultValue = 30, MinValue = 10, MaxValue = 300, Group = "Feed")]
         public int PollSeconds { get; set; }
 
@@ -69,7 +72,16 @@ namespace cAlgo.Robots
         private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         private HashSet<string> _seenIds = new HashSet<string>();
         private string _seenIdsPath;
-        private int _signalsSeen, _ordersPlaced, _ordersSkipped;
+        private string _executionsPath;
+        private string _vikingDir;
+        private bool _killed = false;
+        private string _killReason = null;
+        private string _killUpdated = null;
+        private int _signalsSeen, _ordersPlaced, _ordersSkipped, _killBlockedCount;
+        // Track which signal id placed each open position so the close
+        // event can write a clean execution row tying broker P&L back
+        // to the detector signal that created it. positionId → signal id.
+        private Dictionary<long, string> _positionIdToSignalId = new Dictionary<long, string>();
 
         // ───────────── Lifecycle ──────────────────────────────────────
         protected override void OnStart()
@@ -83,11 +95,19 @@ namespace cAlgo.Robots
                 return;
             }
 
-            _seenIdsPath = Path.Combine(Environment.GetFolderPath(
-                Environment.SpecialFolder.LocalApplicationData),
-                "VikingInvest", "seen_ids.txt");
-            Directory.CreateDirectory(Path.GetDirectoryName(_seenIdsPath));
+            _vikingDir = Path.Combine(Environment.GetFolderPath(
+                Environment.SpecialFolder.LocalApplicationData), "VikingInvest");
+            Directory.CreateDirectory(_vikingDir);
+            _seenIdsPath    = Path.Combine(_vikingDir, "seen_ids.txt");
+            _executionsPath = Path.Combine(_vikingDir, "executions.jsonl");
             LoadSeenIds();
+
+            // Phase 3 — subscribe to broker close events so each settled
+            // position writes one execution row to the JSONL file. We
+            // listen on the global Positions collection (not just our
+            // own) and filter inside the handler so the cBot still sees
+            // closures that happened across a restart.
+            Positions.Closed += OnPositionClosed;
 
             _http.DefaultRequestHeaders.UserAgent.ParseAdd("VikingInvest-cTrader-Bot/1.0");
 
@@ -110,13 +130,19 @@ namespace cAlgo.Robots
         protected override void OnStop()
         {
             Timer.Stop();
+            Positions.Closed -= OnPositionClosed;
             SaveSeenIds();
-            Print($"👋 [VikingInvest] Bridge stopped. Signals seen: {_signalsSeen} · Orders placed: {_ordersPlaced} · Skipped: {_ordersSkipped}");
+            Print($"👋 [VikingInvest] Bridge stopped. Signals seen: {_signalsSeen} · Orders placed: {_ordersPlaced} · Skipped: {_ordersSkipped} · Kill-blocked: {_killBlockedCount}");
         }
 
         // ───────────── Poll loop ──────────────────────────────────────
         private async Task PollAndProcess()
         {
+            // Phase 2 — fetch kill-switch FIRST. If killed, we still
+            // need to poll signals (so the dashboard can see we're
+            // alive + reading state) but we skip placement entirely.
+            await FetchKillSwitch();
+
             string body;
             try
             {
@@ -136,11 +162,42 @@ namespace cAlgo.Robots
             }
 
             if (VerboseLog && signals.Count > 0)
-                Print($"📡 [VikingInvest] Polled {signals.Count} signals from feed.");
+                Print($"📡 [VikingInvest] Polled {signals.Count} signals from feed. " +
+                      $"Kill-switch: {(_killed ? "🛑 KILLED" : "✅ active")}");
 
             foreach (var sig in signals)
             {
                 ProcessOneSignal(sig);
+            }
+        }
+
+        // Phase 2 — kill-switch fetch + parse. The file is tiny
+        // (~250 bytes) so the extra HTTP round-trip per cycle is
+        // negligible. We fail OPEN: if the fetch fails we keep the
+        // last-known state, which avoids accidentally pausing the
+        // bot during a CDN hiccup. To make the bot fail CLOSED on
+        // network failure, set FailClosedOnKillFetchError=true.
+        private async Task FetchKillSwitch()
+        {
+            string body;
+            try
+            {
+                body = await _http.GetStringAsync(KillSwitchUrl);
+            }
+            catch (Exception ex)
+            {
+                if (VerboseLog) Print($"ℹ️ [VikingInvest] Kill-switch fetch failed (keeping last state '{_killed}'): {ex.Message}");
+                return;
+            }
+            var wasKilled = _killed;
+            _killed       = JsonNum(body, "killed") > 0 || JsonStr(body, "killed") == "true";
+            _killReason   = JsonStr(body, "reason");
+            _killUpdated  = JsonStr(body, "updated");
+            if (wasKilled != _killed)
+            {
+                Print(_killed
+                    ? $"🛑 [VikingInvest] KILL-SWITCH ENGAGED — pausing new orders. Reason: {_killReason ?? "(unspecified)"}"
+                    : $"✅ [VikingInvest] KILL-SWITCH RELEASED — resuming new orders. Last reason: {_killReason ?? "(unspecified)"}");
             }
         }
 
@@ -161,6 +218,19 @@ namespace cAlgo.Robots
 
             // Dedup — already-placed signals never fire twice.
             if (_seenIds.Contains(sig.Id)) return;
+
+            // Phase 2 — kill-switch gate. We DON'T mark the id as seen
+            // when the kill is the reason: that way the moment the
+            // switch is released the bot picks up the still-active
+            // setup on the very next poll. The signal does, however,
+            // need to still be inside its stale-age window.
+            if (_killed)
+            {
+                _killBlockedCount++;
+                if (VerboseLog)
+                    Print($"🛑 [VikingInvest] Kill-switch blocking order for id={sig.Id} (reason: {_killReason ?? "n/a"})");
+                return;
+            }
 
             // Stale-signal filter.
             if (sig.ArmedAtMs > 0)
@@ -231,14 +301,133 @@ namespace cAlgo.Robots
                 Print($"✅ [VikingInvest] Order placed {direction} {symbol.Name} {volume:F0} units · " +
                       $"id={sig.Id} position-id={result.Position.Id}");
                 _ordersPlaced++;
+                // Phase 3 — remember which signal opened this position
+                // so the close handler can write a properly-linked
+                // execution row. The dictionary stays small (≤ open
+                // position count) so we don't bother capping it.
+                _positionIdToSignalId[result.Position.Id] = sig.Id;
+                WriteExecution(new ExecutionRow
+                {
+                    Event       = "placed",
+                    SignalId    = sig.Id,
+                    PositionId  = result.Position.Id,
+                    Pair        = sig.Pair,
+                    Symbol      = symbol.Name,
+                    Dir         = sig.Dir,
+                    VolumeUnits = volume,
+                    EntryAttempt= sig.Entry,
+                    EntryFilled = result.Position.EntryPrice,
+                    Stop        = sig.Stop,
+                    Target      = sig.Target,
+                    RSize       = sig.RSize,
+                    SlippagePips= (sig.Entry > 0 && symbol.PipSize > 0)
+                                  ? (result.Position.EntryPrice - sig.Entry) / symbol.PipSize * (sig.Dir == "bull" ? 1 : -1)
+                                  : 0,
+                    AccountMode = Account.IsLive ? "live" : "demo",
+                    Account     = Account.Number,
+                });
             }
             else
             {
                 Print($"❌ [VikingInvest] Order REJECTED {direction} {symbol.Name} · " +
                       $"error={result.Error} id={sig.Id}");
                 _ordersSkipped++;
+                WriteExecution(new ExecutionRow
+                {
+                    Event       = "rejected",
+                    SignalId    = sig.Id,
+                    Pair        = sig.Pair,
+                    Symbol      = symbol.Name,
+                    Dir         = sig.Dir,
+                    VolumeUnits = volume,
+                    EntryAttempt= sig.Entry,
+                    Stop        = sig.Stop,
+                    Target      = sig.Target,
+                    RSize       = sig.RSize,
+                    Reason      = result.Error.ToString(),
+                    AccountMode = Account.IsLive ? "live" : "demo",
+                    Account     = Account.Number,
+                });
             }
             MarkSeen(sig.Id);
+        }
+
+        // ───────────── Phase 3 — Position closed handler ─────────────
+        // Writes one closed-trade row per resolved position. The cBot
+        // computes realized R by dividing realised P&L by the risk-amount
+        // implied by stop distance, which matches the dashboard's
+        // backtest math (1R risk per wick trade, 0.5R per fib trade).
+        private void OnPositionClosed(PositionClosedEventArgs args)
+        {
+            var p = args.Position;
+            if (p == null) return;
+            if (p.Label != OrderLabel) return; // not one of ours
+
+            string sigId = null;
+            _positionIdToSignalId.TryGetValue(p.Id, out sigId);
+
+            double realizedR = 0;
+            try
+            {
+                // Risk in account ccy implied by stop distance at fill.
+                double stopDistPx = (p.StopLoss.HasValue && p.EntryPrice > 0)
+                                    ? Math.Abs(p.EntryPrice - p.StopLoss.Value)
+                                    : 0;
+                if (stopDistPx > 0 && p.Symbol.PipSize > 0 && p.Symbol.PipValue > 0)
+                {
+                    var stopPips = stopDistPx / p.Symbol.PipSize;
+                    var riskAmt  = stopPips * p.Symbol.PipValue * p.VolumeInUnits;
+                    if (riskAmt > 0) realizedR = p.NetProfit / riskAmt;
+                }
+            }
+            catch { /* defensive — never let stats math crash the bot */ }
+
+            WriteExecution(new ExecutionRow
+            {
+                Event       = "closed",
+                SignalId    = sigId,
+                PositionId  = p.Id,
+                Pair        = sigId != null ? sigId.Split(':')[0] : p.SymbolName.ToLowerInvariant(),
+                Symbol      = p.SymbolName,
+                Dir         = p.TradeType == TradeType.Buy ? "bull" : "bear",
+                VolumeUnits = p.VolumeInUnits,
+                EntryFilled = p.EntryPrice,
+                ExitPrice   = p.Symbol?.Bid ?? 0,  // close price = current quote; broker journal is authoritative
+                Stop        = p.StopLoss ?? 0,
+                Target      = p.TakeProfit ?? 0,
+                NetProfit   = p.NetProfit,
+                Commissions = p.Commissions,
+                Swap        = p.Swap,
+                RealizedR   = realizedR,
+                Reason      = ClassifyCloseReason(p),
+                AccountMode = Account.IsLive ? "live" : "demo",
+                Account     = Account.Number,
+            });
+            if (sigId != null) _positionIdToSignalId.Remove(p.Id);
+            Print($"📒 [VikingInvest] Position closed {p.SymbolName} {p.TradeType} · " +
+                  $"net={p.NetProfit:F2} R={realizedR:F2} signal={sigId ?? "(unlinked)"}");
+        }
+
+        private string ClassifyCloseReason(Position p)
+        {
+            // cTrader doesn't expose a structured close reason, but we
+            // can infer it from where the exit price lands vs the SL/TP.
+            try
+            {
+                var exit = p.Symbol?.Bid ?? p.EntryPrice;
+                if (p.TakeProfit.HasValue)
+                {
+                    var tpDist = Math.Abs(exit - p.TakeProfit.Value);
+                    if (tpDist < p.Symbol.PipSize * 2) return "target-hit";
+                }
+                if (p.StopLoss.HasValue)
+                {
+                    var slDist = Math.Abs(exit - p.StopLoss.Value);
+                    if (slDist < p.Symbol.PipSize * 2) return "stop-hit";
+                }
+            }
+            catch { }
+            return "manual-or-broker";
         }
 
         // ───────────── Symbol resolution ──────────────────────────────
@@ -323,6 +512,96 @@ namespace cAlgo.Robots
             {
                 Print($"⚠️ [VikingInvest] Could not save seen-ids file: {ex.Message}");
             }
+        }
+
+        // ───────────── Phase 3 — Execution writer (JSONL) ────────────
+        // Every execution row is one line in executions.jsonl — line-
+        // delimited JSON. The dashboard's "📥 Import Executions" button
+        // accepts this exact file as-is so reconciliation is trivial.
+        // JSONL (not a JSON array) so append-on-each-event is O(1) and
+        // a crash mid-write only loses one row, not the whole journal.
+        private class ExecutionRow
+        {
+            public string Event;            // "placed" | "rejected" | "closed"
+            public string SignalId;         // from the feed — links to dashboard log
+            public long?  PositionId;
+            public string Pair;
+            public string Symbol;
+            public string Dir;
+            public double VolumeUnits;
+            public double EntryAttempt;     // what we asked for (signal entry)
+            public double EntryFilled;      // what we got (broker fill)
+            public double ExitPrice;
+            public double Stop;
+            public double Target;
+            public double RSize;
+            public double SlippagePips;
+            public double NetProfit;
+            public double Commissions;
+            public double Swap;
+            public double RealizedR;
+            public string Reason;
+            public string AccountMode;      // "demo" | "live"
+            public long   Account;
+        }
+
+        private void WriteExecution(ExecutionRow r)
+        {
+            try
+            {
+                var sb = new StringBuilder(360);
+                sb.Append('{');
+                F(sb, "ts",            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); sb.Append(',');
+                F(sb, "event",         r.Event);                                         sb.Append(',');
+                F(sb, "signal_id",     r.SignalId);                                      sb.Append(',');
+                F(sb, "position_id",   r.PositionId);                                    sb.Append(',');
+                F(sb, "pair",          r.Pair);                                          sb.Append(',');
+                F(sb, "symbol",        r.Symbol);                                        sb.Append(',');
+                F(sb, "dir",           r.Dir);                                           sb.Append(',');
+                F(sb, "volume_units",  r.VolumeUnits);                                   sb.Append(',');
+                F(sb, "entry_attempt", r.EntryAttempt);                                  sb.Append(',');
+                F(sb, "entry_filled",  r.EntryFilled);                                   sb.Append(',');
+                F(sb, "exit_price",    r.ExitPrice);                                     sb.Append(',');
+                F(sb, "stop",          r.Stop);                                          sb.Append(',');
+                F(sb, "target",        r.Target);                                        sb.Append(',');
+                F(sb, "r_size",        r.RSize);                                         sb.Append(',');
+                F(sb, "slippage_pips", r.SlippagePips);                                  sb.Append(',');
+                F(sb, "net_profit",    r.NetProfit);                                     sb.Append(',');
+                F(sb, "commissions",   r.Commissions);                                   sb.Append(',');
+                F(sb, "swap",          r.Swap);                                          sb.Append(',');
+                F(sb, "realized_r",    r.RealizedR);                                     sb.Append(',');
+                F(sb, "reason",        r.Reason);                                        sb.Append(',');
+                F(sb, "account_mode",  r.AccountMode);                                   sb.Append(',');
+                F(sb, "account",       r.Account);
+                sb.Append('}');
+                File.AppendAllText(_executionsPath, sb.ToString() + Environment.NewLine);
+            }
+            catch (Exception ex)
+            {
+                Print($"⚠️ [VikingInvest] Could not write execution row: {ex.Message}");
+            }
+        }
+        // F = compact JSON field writer
+        private static void F(StringBuilder sb, string k, string v)
+        {
+            sb.Append('"').Append(k).Append("\":");
+            if (v == null) sb.Append("null");
+            else sb.Append('"').Append(v.Replace("\\", "\\\\").Replace("\"", "\\\"")).Append('"');
+        }
+        private static void F(StringBuilder sb, string k, double v)
+        {
+            sb.Append('"').Append(k).Append("\":")
+              .Append(v.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+        }
+        private static void F(StringBuilder sb, string k, long v)
+        {
+            sb.Append('"').Append(k).Append("\":").Append(v.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+        private static void F(StringBuilder sb, string k, long? v)
+        {
+            sb.Append('"').Append(k).Append("\":");
+            if (v.HasValue) sb.Append(v.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            else sb.Append("null");
         }
 
         // ───────────── Minimal JSON parser ────────────────────────────

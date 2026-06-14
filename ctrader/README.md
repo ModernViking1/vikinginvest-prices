@@ -130,6 +130,74 @@ fresh cTrader install never causes a re-fire on the same setup.
    structural levels that don't need millisecond execution. Any
    commodity VPS will do.
 
+## Phase 2 — Kill-switch
+
+The cBot polls `kill-switch.json` from the CDN on every cycle. When
+the `killed` flag is `true` the cBot **stops placing new orders** but
+keeps polling so the dashboard can still see the bot is alive. Existing
+positions continue to be managed by the broker (the SL/TP were attached
+at order time so they survive without the bot running).
+
+**Flipping the switch:**
+
+1. Repo → Actions tab → **"Set Kill Switch"** workflow → **Run workflow**
+2. Set `killed = true` and fill in a `reason` (mandatory — goes into the
+   audit trail AND surfaces on the dashboard's Performance tab so
+   investors see why the bot is paused).
+3. Click **Run workflow**. CDN purges automatically. The cBot picks up
+   the new state within ~30 seconds of the next poll.
+4. To resume, run the workflow again with `killed = false`.
+
+**Failure mode:** if the kill-switch fetch itself fails (CDN hiccup,
+network blip), the cBot **keeps the last-known state** rather than
+flipping to a default. This is "fail-open": a transient network issue
+shouldn't pause a healthy bot. To make the bot fail closed on fetch
+error, edit `FetchKillSwitch()` in the .cs file.
+
+## Phase 3 — Executions journal
+
+Every action the cBot takes is appended to
+`%LocalAppData%\VikingInvest\executions.jsonl` (Windows) on the VPS.
+Line-delimited JSON, one event per line, append-only, never rewritten.
+
+**Three event types:**
+
+| `event` | When | Key fields |
+|---|---|---|
+| `placed` | Order accepted by broker | `signal_id`, `position_id`, `entry_attempt`, `entry_filled`, `slippage_pips`, `volume_units` |
+| `rejected` | Order rejected | `signal_id`, `reason` |
+| `closed` | Position closed (TP / SL / manual) | `signal_id`, `position_id`, `exit_price`, `net_profit`, `realized_r`, `reason` |
+
+Plus shared fields on every row: `ts`, `pair`, `symbol`, `dir`,
+`stop`, `target`, `r_size`, `account_mode` (`demo` / `live`),
+`account` (the broker account number).
+
+**Reconciliation into the dashboard:**
+
+1. Copy `executions.jsonl` off the VPS (RDP file transfer, shared
+   folder, or just open it in Notepad and copy/paste the content).
+2. On the dashboard's Performance tab, click **📥 Import Executions**
+   in the signal-log strip.
+3. Pick the file. The dashboard parses every line, merges each event
+   into the in-browser signal log (matched by `signal_id`), and the
+   Performance tab's Trade Log immediately shows broker fills alongside
+   detector predictions.
+
+After import you'll see per-trade fields you can't get from the
+backtest alone:
+
+- **Slippage**: difference between detector entry and broker fill
+- **Realized R**: actual P&L divided by risk amount, vs the predicted
+  ±1R from the backtest
+- **Stop-hit vs target-hit attribution**: ground-truth resolution
+  reason, not the detector's inference
+
+Phase 3.5 (future): auto-publish executions.json to the repo via a
+small GitHub Action triggered by `repository_dispatch` from the cBot.
+Removes the manual copy/paste step. Documented but not built — the
+manual flow is enough to validate the full loop for the first 2 weeks
+of demo trading.
+
 ## Going live (eventually)
 
 When you're ready to move from demo → live:

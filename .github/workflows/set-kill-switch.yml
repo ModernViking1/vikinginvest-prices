@@ -1,0 +1,104 @@
+name: Set Kill Switch
+
+# Phase 2 of the broker-bridge roadmap. Manual workflow_dispatch that
+# flips kill-switch.json — the file the cTrader cBot polls every cycle
+# to decide whether to place new orders.
+#
+# This is the ONLY audited write path for the kill switch. Editing the
+# file directly via the GitHub UI also works but bypasses the schema
+# guard + audit trail this workflow provides.
+#
+# To use:
+#   1. Actions tab → "Set Kill Switch" → "Run workflow"
+#   2. Set killed=true to pause all new cBot order placement (existing
+#      positions keep running on the broker's SL/TP)
+#   3. Set killed=false to resume
+#   4. Always include a reason — it goes into the audit trail and is
+#      surfaced on the dashboard's Live Intraday card so investors
+#      see why the bot is paused
+#
+# CDN purge: this workflow purges kill-switch.json from jsDelivr so the
+# cBot picks up the new state on its next 30s poll.
+
+on:
+  workflow_dispatch:
+    inputs:
+      killed:
+        description: 'Kill the cBot (pause all new orders)?'
+        required: true
+        type: choice
+        default: 'true'
+        options:
+          - 'true'
+          - 'false'
+      reason:
+        description: 'Why are you flipping the switch? (audit trail + dashboard display)'
+        required: true
+        default: 'Manual pause'
+
+permissions:
+  contents: write
+
+jobs:
+  flip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Write kill-switch.json
+        run: |
+          python3 <<'PY'
+          import json
+          from datetime import datetime, timezone
+
+          killed = "${{ inputs.killed }}".lower() == "true"
+          reason = """${{ inputs.reason }}"""[:240]   # trim to a sane length
+          payload = {
+              "schema_version": 1,
+              "killed": killed,
+              "reason": reason if killed else None,
+              "updated": datetime.now(timezone.utc).isoformat(),
+              "updated_by": "workflow-dispatch:${{ github.actor }}",
+              "notes": "Flip via .github/workflows/set-kill-switch.yml — that workflow is the only audited write path.",
+          }
+          with open("kill-switch.json", "w") as f:
+              json.dump(payload, f, indent=2)
+          print(f"[set-kill-switch] killed={killed} reason={reason!r}")
+          PY
+
+      - name: Commit & push
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kill-switch.json
+          if git diff --staged --quiet; then
+            echo "kill-switch.json already matches requested state — nothing to commit"
+            exit 0
+          fi
+          ACTION=$([ "${{ inputs.killed }}" = "true" ] && echo "KILL" || echo "RESUME")
+          git commit -m "kill-switch: $ACTION — ${{ inputs.reason }}"
+          # Same race-retry pattern the other data workflows use.
+          MAX_ATTEMPTS=5
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            if git push origin main 2>&1; then
+              echo "✅ kill-switch flip pushed on attempt $attempt"
+              exit 0
+            fi
+            if [ "$attempt" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::Push failed after $MAX_ATTEMPTS attempts"
+              exit 1
+            fi
+            git fetch origin main
+            git rebase origin/main || git rebase --abort
+            sleep $((attempt * 2))
+          done
+
+      - name: Purge CDN
+        run: |
+          curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/kill-switch.json" || echo "purge gh kill-switch failed"
+          curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/kill-switch.json" || echo "purge npm kill-switch failed"
+          echo "✅ kill-switch.json purged from CDN — cBot picks up new state within seconds"
