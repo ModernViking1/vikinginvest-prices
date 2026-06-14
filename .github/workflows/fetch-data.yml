@@ -295,7 +295,14 @@ jobs:
           # dashboard reads instead of the 90 MB historical-ohlc.json.
           curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/directions.json" || echo "purge npm directions failed"
           # signals.json — broker-bridge contract (Phase 1, 2026-06-14).
-          # Both CDN paths purged so the MT5 EA on a VPS sees the new
-          # signal set within seconds of the workflow committing.
+          # Both CDN paths purged so the cTrader cBot on a VPS sees the
+          # new signal set within seconds of the workflow committing.
           curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/signals.json" || echo "purge gh signals failed"
           curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/signals.json" || echo "purge npm signals failed"
+          # kill-switch.json — Phase 2 broker pause control. Polled
+          # independently of signals.json by the cBot every cycle, so
+          # both paths need their own purge call here (the set-kill-switch
+          # workflow does its own purge too, but a stale CDN copy
+          # during the fetch-data cron window would be confusing).
+          curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/kill-switch.json" || echo "purge gh kill-switch failed"
+          curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/kill-switch.json" || echo "purge npm kill-switch failed"

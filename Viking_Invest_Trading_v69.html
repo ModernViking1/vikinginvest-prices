@@ -660,6 +660,25 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   background:rgba(200,134,10,0.06);
 }
 .pf-sig-log-strip strong{color:var(--ink);font-weight:600;}
+.pf-sig-log-actions{margin-left:auto;display:flex;gap:6px;}
+.pf-sig-log-btn{
+  font-family:'Orbitron',monospace;font-size:8px;letter-spacing:0.8px;
+  text-transform:uppercase;font-weight:700;padding:4px 9px;border-radius:2px;
+  border:1px solid var(--rule);background:var(--sf);color:var(--inkm);
+  cursor:pointer;transition:all .15s;
+}
+.pf-sig-log-btn:hover{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+/* Kill-switch banner: red bar that surfaces when the cBot pause is engaged */
+.pf-kill-banner{
+  margin-top:10px;padding:10px 14px;border-radius:4px;
+  background:rgba(192,40,26,0.10);border:1px solid var(--bear);border-left:3px solid var(--bear);
+  font-size:11px;line-height:1.5;color:var(--bear);font-family:'Mukta',sans-serif;
+}
+.pf-kill-banner strong{font-family:'Orbitron',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;}
+.pf-kill-banner-ok{
+  background:rgba(26,122,74,0.06);border-color:var(--bull);border-left-color:var(--bull);
+  color:var(--bull);
+}
 
 /* ── INVESTOR FOOTER — contact / deck / IR routing ── */
 .pf-investor{
@@ -1214,9 +1233,14 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
         <span class="pf-card-hd-r" id="pf-live-meta">current 4/4 setups across the universe</span>
       </div>
       <div id="pf-live-host"><div class="pf-empty">scanning…</div></div>
-      <div id="pf-sig-log-strip" class="pf-sig-log-strip" title="Phase 0 of the broker auto-execution roadmap — every detector transition is persisted with a stable idempotency key (pair:creatorTs).">
+      <div id="pf-kill-banner" class="pf-kill-banner" style="display:none;"></div>
+      <div id="pf-sig-log-strip" class="pf-sig-log-strip" title="Phase 0–3 of the broker auto-execution roadmap — every detector transition is persisted with a stable idempotency key (pair:creatorTs). Broker fills imported from the cTrader cBot are merged in.">
         <span class="pf-sig-log-tag">📡 Signal Log</span>
         <span id="pf-sig-log-summary">initialising…</span>
+        <span class="pf-sig-log-actions">
+          <input type="file" id="pf-exec-import-input" accept=".jsonl,.json,.txt,application/json" style="display:none;" onchange="window._performanceImportExecutions && window._performanceImportExecutions(this)">
+          <button type="button" class="pf-sig-log-btn" onclick="document.getElementById('pf-exec-import-input').click()" title="Import the executions.jsonl file written by the cTrader cBot on your VPS to reconcile broker fills against detector predictions.">📥 Import Executions</button>
+        </span>
       </div>
     </div>
 
@@ -11647,7 +11671,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-14vv';
+var RULES_VERSION = '2026-06-14ww';
 var RULES_VERSION_NOTES = [
   '2026-06-13kk — DAX 30 (de40) DROPPED from the active universe. Chronic structural underperformance confirmed across the full optimisation phase: 9 SR gating variants (1: window-only / 2: broken-only / 3: tier-only / 4: SR break ignoring 4/4 / 5: ORB Failure / 6: ORB+strength filter / 7: VWAP pullback / 8: Silver Bullet) PLUS the news + vol-spike blackout filter PLUS the per-class R:R sweep (1:0.5, 1:0.75, 1:1, 1:1.5, 1:2). DE40 produced NEGATIVE expected R on every tested combination — most generous read was 1:1 at −0.17R per trade over n=12 decided trades, with smaller targets making it WORSE (1:0.5 at −0.25R because the WR uplift didn\'t offset the smaller win size). Same pattern as the prior DROPPED_PAIRS additions where instrument microstructure simply doesn\'t map to the 4/4 confluence + close-beyond detector. Added to DROPPED_PAIRS deny-list so caches flush on next page load. DJ30 stays in the universe at +0.07R/trade (marginal but positive; reassess in 6 months with more data). Active universe: 40 instruments + DXY anchor.',
   '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
@@ -20154,6 +20178,156 @@ function _renderCCIVariantPanel(host, commodityKeys){
       + '</div>';
     _renderSignalLogStrip();
   }
+  // Phase 2 — Kill-switch banner. Read from signals.json envelope (the
+  // server transformer mirrors kill-switch.json into the signals payload)
+  // so we don't need a separate CDN fetch.
+  function _renderKillBanner(){
+    var el = document.getElementById('pf-kill-banner');
+    if(!el) return;
+    var ks = window._brokerKillSwitch || null;
+    if(!ks){ el.style.display = 'none'; return; }
+    if(ks.killed){
+      el.classList.remove('pf-kill-banner-ok');
+      el.innerHTML = '<strong>🛑 Broker Bridge — KILL-SWITCH ENGAGED.</strong> '
+                   + 'New cBot orders are paused. Existing positions continue to be managed by the broker (SL/TP attached at order time). '
+                   + '<br>Reason: <strong>'+(ks.reason || '(not specified)')+'</strong> '
+                   + '· Updated <em>'+(ks.updated || '?')+'</em> by '+(ks.updated_by || '?')+'. '
+                   + 'Flip via Actions → "Set Kill Switch" → Run workflow.';
+      el.style.display = 'block';
+    } else {
+      el.style.display = 'none';
+    }
+  }
+  function _fetchKillSwitchFromSignals(){
+    // signals.json is built every ~10 min by build_signals_json.py and
+    // includes the kill_switch payload in its envelope. Fetch + cache so
+    // we don't hammer the CDN.
+    var url = 'https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/signals.json?t=' + Math.floor(Date.now()/300000);
+    fetch(url, {cache:'no-store'}).then(function(r){
+      if(!r.ok) throw new Error('HTTP'+r.status);
+      return r.json();
+    }).then(function(d){
+      window._brokerKillSwitch = d && d.kill_switch ? d.kill_switch : null;
+      window._brokerSignalsEnvelope = d || null;
+      _renderKillBanner();
+    }).catch(function(){
+      // Silent — if fetch fails (offline, CDN hiccup) we just don't
+      // render the banner. Better than a noisy console error.
+    });
+  }
+
+  // Phase 3 — Executions importer. Reads the JSONL file produced by the
+  // cTrader cBot (one event per line) and merges each row into the
+  // in-browser signal log so the Performance tab's Trade Log shows
+  // broker fills alongside backtest trades.
+  function _performanceImportExecutions(input){
+    if(!input || !input.files || input.files.length === 0) return;
+    var file = input.files[0];
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      try {
+        var text = String(ev.target.result || '');
+        var summary = _mergeExecutionsJSONL(text);
+        var msg = '✅ Imported '+summary.parsed+' rows · '
+                + summary.placed+' placed · '
+                + summary.closed+' closed ('+summary.targetHits+' target / '+summary.stopHits+' stop) · '
+                + summary.rejected+' rejected · '
+                + summary.merged+' linked to existing signals';
+        // Re-render so the new merged data shows up immediately
+        try { _renderLiveSignals(); } catch(_){}
+        try { window.buildPerformance && window.buildPerformance(); } catch(_){}
+        try { alert(msg); } catch(_){}
+      } catch(e){
+        try { alert('❌ Import failed: ' + (e && e.message || e)); } catch(_){}
+      }
+      input.value = ''; // reset so re-selecting the same file fires onchange again
+    };
+    reader.readAsText(file);
+  }
+  function _mergeExecutionsJSONL(text){
+    var summary = {parsed:0, placed:0, closed:0, rejected:0, targetHits:0, stopHits:0, merged:0};
+    if(!text) return summary;
+    var lines = text.split(/\r?\n/);
+    var log = (typeof _loadSignalLogRaw === 'function') ? _loadSignalLogRaw() : null;
+    if(!log) throw new Error('signal-log module not initialised');
+    var sigs = log.signals;
+    var dirty = false;
+    lines.forEach(function(ln){
+      if(!ln || ln.trim().length === 0) return;
+      var row;
+      try { row = JSON.parse(ln); } catch(_){ return; }
+      if(!row || !row.event) return;
+      summary.parsed++;
+      if(row.event === 'placed') summary.placed++;
+      else if(row.event === 'closed') summary.closed++;
+      else if(row.event === 'rejected') summary.rejected++;
+      // Reason classification
+      if(row.event === 'closed'){
+        if(row.reason === 'target-hit') summary.targetHits++;
+        else if(row.reason === 'stop-hit') summary.stopHits++;
+      }
+      // Merge into the signal log keyed by signal_id. cBot signal ids
+      // are "{pair}:{creatorTs}:{wick|fib}" — the in-browser log uses
+      // "{pair}:{creatorTs}" — strip the suffix when looking up.
+      var sigId = row.signal_id;
+      if(!sigId) return;
+      var browserId = sigId.replace(/:(wick|fib)$/, '');
+      var existing  = sigs[browserId];
+      if(existing){
+        summary.merged++;
+        // Stamp broker outcome onto the existing row
+        if(row.event === 'placed' && !existing.brokerPlacedAt){
+          existing.brokerPlacedAt = row.ts;
+          existing.brokerEntry    = row.entry_filled;
+          existing.slippagePips   = row.slippage_pips;
+        }
+        if(row.event === 'closed'){
+          existing.brokerClosedAt = row.ts;
+          existing.brokerExit     = row.exit_price;
+          existing.netProfit      = row.net_profit;
+          existing.realizedR      = row.realized_r;
+          if(row.reason === 'target-hit') existing.outcome = 'target-hit';
+          else if(row.reason === 'stop-hit') existing.outcome = 'stop-hit';
+          existing.resolvedAt = row.ts;
+          existing.resolution = row.reason || existing.resolution;
+          existing.state = 'triggered';
+        }
+        dirty = true;
+      } else if(row.event === 'placed' || row.event === 'closed'){
+        // No matching browser-recorded signal — create a stub so the
+        // import is non-destructive. Marked source='cbot-only' so the
+        // dashboard can distinguish browser-recorded vs broker-only.
+        sigs[browserId] = {
+          id: browserId,
+          pair: row.pair,
+          sym:  (row.pair || '').toUpperCase(),
+          dir:  row.dir,
+          state: row.event === 'closed' ? 'triggered' : 'armed',
+          outcome: row.event === 'closed' ? (row.reason === 'target-hit' ? 'target-hit'
+                                            : row.reason === 'stop-hit' ? 'stop-hit'
+                                            : null) : null,
+          entry:  row.entry_filled || row.entry_attempt,
+          stop:   row.stop,
+          target: row.target,
+          armedAt:     row.ts,
+          triggeredAt: row.event === 'placed' ? row.ts : null,
+          resolvedAt:  row.event === 'closed' ? row.ts : null,
+          resolution:  row.reason || null,
+          brokerEntry: row.entry_filled,
+          brokerExit:  row.exit_price,
+          netProfit:   row.net_profit,
+          realizedR:   row.realized_r,
+          source:      'cbot-only',
+          lastSeenAt:  Date.now()
+        };
+        dirty = true;
+      }
+    });
+    if(dirty && typeof _saveSignalLog === 'function') _saveSignalLog();
+    return summary;
+  }
+  window._performanceImportExecutions = _performanceImportExecutions;
+
   function _renderSignalLogStrip(){
     var el = document.getElementById('pf-sig-log-summary');
     if(!el) return;
@@ -20191,6 +20365,10 @@ function _renderCCIVariantPanel(host, commodityKeys){
         return;
       }
       try { _renderLiveSignals(); } catch(e){}
+      // Re-poll the kill-switch every couple of cycles (matches the
+      // 60–120s window the cBot itself polls on). _fetchKillSwitchFromSignals
+      // is rate-limited by the 5-min cache-buster in the URL.
+      try { _fetchKillSwitchFromSignals(); } catch(e){}
     }, 30000);
   }
 
@@ -20240,6 +20418,10 @@ function _renderCCIVariantPanel(host, commodityKeys){
     // a 30s interval keeps them current while this tab stays active.
     try { _renderLiveSignals(); } catch(e){}
     _startLiveSignalRefresh();
+    // Phase 2 — pull the broker kill-switch state from the signals.json
+    // envelope and render the banner if engaged. Refreshes alongside the
+    // live signal interval (the 30s cadence is plenty for a switch state).
+    try { _fetchKillSwitchFromSignals(); } catch(e){}
     if(!cacheReady) _ensureCacheBuilding();
   }
 
