@@ -591,6 +591,101 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 .pf-trades-scroll{max-height:520px;overflow-y:auto;border:1px solid var(--rule);border-radius:4px;}
 .pf-trades-scroll .pf-tbl{font-size:10.5px;}
 .pf-trades-scroll .pf-tbl th{background:var(--sf);}
+/* ── LIVE INTRADAY SIGNALS — surfaced separately from the historical
+   backtest cache so investors see "what's armed right now" before the
+   YTD / All-time numbers. Independent of the timeframe selector. ── */
+.pf-live-card{border-left:3px solid var(--gold);}
+.pf-live-dot{
+  display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:var(--bull);margin-left:8px;vertical-align:middle;
+  box-shadow:0 0 0 0 rgba(26,122,74,0.6);
+  animation:pf-live-pulse 1.8s ease-out infinite;
+}
+@keyframes pf-live-pulse{
+  0%{box-shadow:0 0 0 0 rgba(26,122,74,0.55);}
+  70%{box-shadow:0 0 0 9px rgba(26,122,74,0);}
+  100%{box-shadow:0 0 0 0 rgba(26,122,74,0);}
+}
+.pf-live-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;}
+.pf-live-row{
+  background:var(--sf2);border:1px solid var(--rule);border-radius:5px;
+  padding:9px 11px;display:flex;flex-direction:column;gap:5px;
+  border-left:3px solid var(--gold);
+}
+.pf-live-row.bull{border-left-color:var(--bull);}
+.pf-live-row.bear{border-left-color:var(--bear);}
+.pf-live-row.cancelled{border-left-color:var(--neu);opacity:0.65;}
+.pf-live-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.pf-live-sym{
+  font-family:'Orbitron',monospace;font-size:12px;font-weight:700;
+  color:var(--ink);letter-spacing:0.4px;
+}
+.pf-live-state{
+  font-family:'Orbitron',monospace;font-size:7.5px;letter-spacing:0.6px;
+  text-transform:uppercase;padding:2px 6px;border-radius:2px;font-weight:700;
+}
+.pf-live-state.armed{background:var(--goldt);color:var(--gold);}
+.pf-live-state.triggered{background:var(--bullt);color:var(--bull);}
+.pf-live-state.cancelled{background:var(--neut);color:var(--neu);}
+.pf-live-dir{
+  font-family:'Orbitron',monospace;font-size:8.5px;font-weight:700;
+  letter-spacing:0.5px;
+}
+.pf-live-dir.bull{color:var(--bull);}
+.pf-live-dir.bear{color:var(--bear);}
+.pf-live-px{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:4px;
+  font-size:9.5px;color:var(--inkm);font-family:'Orbitron',monospace;
+  border-top:1px dashed var(--rule);padding-top:5px;
+}
+.pf-live-px-lbl{font-size:7px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;display:block;margin-bottom:2px;}
+.pf-live-meta-row{font-size:8.5px;color:var(--inkd);letter-spacing:0.3px;}
+.pf-live-summary{
+  display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;
+  font-size:10px;font-family:'Orbitron',monospace;letter-spacing:0.5px;
+}
+.pf-live-summary span{padding:4px 10px;border-radius:3px;border:1px solid var(--rule);background:var(--sf2);}
+.pf-live-summary .pf-live-sum-armed{border-color:var(--gold);color:var(--gold);font-weight:700;}
+.pf-live-summary .pf-live-sum-trig{border-color:var(--bull);color:var(--bull);font-weight:700;}
+.pf-live-summary .pf-live-sum-cancel{color:var(--inkd);}
+
+/* ── INVESTOR FOOTER — contact / deck / IR routing ── */
+.pf-investor{
+  margin-top:18px;padding:22px 24px;
+  background:linear-gradient(135deg,#1a7a4a 0%,#0d5a36 100%);
+  color:#fff;border-radius:6px;box-shadow:var(--shad);
+  position:relative;overflow:hidden;
+}
+.pf-investor::after{
+  content:'';position:absolute;top:-40%;right:-15%;width:240px;height:180%;
+  background:radial-gradient(circle at 50% 50%,rgba(255,255,255,0.08) 0%,transparent 60%);
+  pointer-events:none;
+}
+.pf-investor-eyebrow{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:3px;color:rgba(255,255,255,0.85);text-transform:uppercase;margin-bottom:6px;position:relative;}
+.pf-investor h2{font-family:'Orbitron',monospace;font-size:16px;font-weight:900;letter-spacing:1px;margin:0 0 8px 0;position:relative;}
+.pf-investor p{font-size:11.5px;color:rgba(255,255,255,0.88);line-height:1.6;margin:0 0 12px 0;position:relative;}
+.pf-investor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;position:relative;}
+.pf-investor-tile{
+  background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);
+  border-radius:4px;padding:10px 12px;
+}
+.pf-investor-tile strong{font-family:'Orbitron',monospace;font-size:8.5px;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,0.95);display:block;margin-bottom:4px;}
+.pf-investor-tile span{font-size:11px;color:rgba(255,255,255,0.85);line-height:1.45;}
+.pf-investor-tile a{color:#fff;text-decoration:underline;text-underline-offset:2px;}
+.pf-investor-tile a:hover{opacity:0.8;}
+.pf-investor-buttons{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;position:relative;}
+.pf-investor-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:1px;
+  text-transform:uppercase;padding:10px 16px;border-radius:4px;
+  border:1.5px solid rgba(255,255,255,0.85);background:#fff;color:#0d5a36;
+  text-decoration:none;transition:all .15s;cursor:pointer;
+}
+.pf-investor-btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,0.18);}
+.pf-investor-btn.outline{background:transparent;color:#fff;}
+.pf-investor-btn.outline:hover{background:rgba(255,255,255,0.10);}
+.pf-investor-fine{font-size:9.5px;color:rgba(255,255,255,0.70);margin-top:12px;line-height:1.55;position:relative;}
+
 .pf-disclosure{font-size:10px;color:var(--inkd);text-align:center;padding:18px 14px 4px;line-height:1.55;font-family:'Mukta',sans-serif;letter-spacing:0.3px;}
 .pf-disclosure strong{color:var(--inkm);}
 .pf-loadhint{font-size:10px;color:var(--inkd);margin-top:6px;font-style:italic;}
@@ -1101,6 +1196,14 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       <div class="pf-mast-sub" id="pf-mast-sub">Same backtest engine as the Backtest tab · target 1R · stop at structural extreme</div>
     </div>
 
+    <div class="pf-card pf-live-card">
+      <div class="pf-card-hd">
+        <span>▸ Live Intraday Signals <span class="pf-live-dot" title="Updates every 30 seconds"></span></span>
+        <span class="pf-card-hd-r" id="pf-live-meta">current 4/4 setups across the universe</span>
+      </div>
+      <div id="pf-live-host"><div class="pf-empty">scanning…</div></div>
+    </div>
+
     <div class="pf-tf" id="pf-tf-host">
       <button type="button" class="pf-tf-btn" data-tf="weekly">Weekly<small>last 7 days</small></button>
       <button type="button" class="pf-tf-btn" data-tf="monthly">Monthly<small>this calendar month</small></button>
@@ -1133,8 +1236,40 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       <div id="pf-trades-host"><div class="pf-empty">awaiting backtest cache…</div></div>
     </div>
 
+    <div class="pf-investor">
+      <div class="pf-investor-eyebrow">⚓ Investor Relations</div>
+      <h2>Talking to Viking Invest</h2>
+      <p>The Viking Invest Trading Platform is operated by <strong>Viking Invest Ltd</strong>, a Nordic consultancy founded in 2011, with twenty years of senior delivery inside Tier-1 investment banks. For investor materials — pitch deck, traction summary, methodology white paper, current cap-table snapshot, or a structured walkthrough of the live platform — reach out via the channels below.</p>
+      <div class="pf-investor-grid">
+        <div class="pf-investor-tile">
+          <strong>Direct contact</strong>
+          <span><a href="mailto:investors@vikinginvest.ai">investors@vikinginvest.ai</a></span>
+        </div>
+        <div class="pf-investor-tile">
+          <strong>General enquiries</strong>
+          <span><a href="mailto:hello@vikinginvest.ai">hello@vikinginvest.ai</a></span>
+        </div>
+        <div class="pf-investor-tile">
+          <strong>Entity &amp; jurisdiction</strong>
+          <span>Viking Invest Ltd · UK-registered · est. 2011</span>
+        </div>
+        <div class="pf-investor-tile">
+          <strong>Platform technology</strong>
+          <span>Designed and built with Claude AI · open-source dashboard, proprietary signal engine</span>
+        </div>
+      </div>
+      <div class="pf-investor-buttons">
+        <a class="pf-investor-btn" href="mailto:investors@vikinginvest.ai?subject=Investor%20Deck%20%E2%80%94%20Viking%20Invest%20Trading%20Platform&amp;body=Hello%20Viking%20Invest%20team%2C%0A%0AI%27d%20like%20to%20receive%20the%20current%20investor%20deck%20and%20any%20supporting%20materials%20you%20can%20share%20on%20the%20Viking%20Invest%20Trading%20Platform.%0A%0AContext%20on%20me%20%2F%20my%20fund%3A%20%5B...%5D%0A%0AThank%20you.">📊 Request Investor Deck</a>
+        <a class="pf-investor-btn outline" href="mailto:investors@vikinginvest.ai?subject=Live%20Platform%20Walkthrough%20%E2%80%94%20Viking%20Invest&amp;body=Hello%20Viking%20Invest%20team%2C%0A%0AI%27d%20like%20to%20schedule%20a%20live%20walkthrough%20of%20the%20Viking%20Invest%20Trading%20Platform.%0A%0AAvailable%20windows%3A%20%5B...%5D%0A%0AThank%20you.">📞 Book a Walkthrough</a>
+        <a class="pf-investor-btn outline" href="https://vikinginvest.ai" target="_blank" rel="noopener">🌐 vikinginvest.ai</a>
+      </div>
+      <div class="pf-investor-fine">
+        Materials shared on request typically include: company overview &amp; team background, the 4/4 confluence methodology white paper, 12-month backtest summary across all 39 active pairs, current production WR &amp; net-R figures, technology stack &amp; data-pipeline architecture, and roadmap. All requests are responded to within two business days.
+      </div>
+    </div>
+
     <div class="pf-disclosure">
-      <strong>Data integrity.</strong> Every figure on this page is regenerated from the same auto-EW backtest cache that powers the Backtest tab — there's no separate datastore, so the Investor Brief and the Trader view can never disagree. WR is wins ÷ (wins + losses); invalidated setups are excluded from WR but listed in the trade log. Net R assumes 1R risk per trade and the configured per-pair entry methodology (wick for FX/crypto, fib half-size for commodities/indices). Methodology, sample sizes, and rule fingerprint live on the Backtest tab.<br>
+      <strong>Data integrity.</strong> Every figure on this page is regenerated from the same auto-EW backtest cache that powers the Backtest tab — there's no separate datastore, so the Investor Brief and the Trader view can never disagree. WR is wins ÷ (wins + losses); invalidated setups are excluded from WR but listed in the trade log. Net R assumes 1R risk per trade and the configured per-pair entry methodology (wick for FX/crypto, fib half-size for commodities/indices). Methodology, sample sizes, and rule fingerprint live on the Backtest tab. Live Intraday Signals at the top of this page reflect the current dashboard state in real time (not the backtest cache) and update every 30 seconds.<br>
       Educational simulation · not financial advice.
     </div>
   </div>
@@ -11489,7 +11624,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-14tt';
+var RULES_VERSION = '2026-06-14uu';
 var RULES_VERSION_NOTES = [
   '2026-06-13kk — DAX 30 (de40) DROPPED from the active universe. Chronic structural underperformance confirmed across the full optimisation phase: 9 SR gating variants (1: window-only / 2: broken-only / 3: tier-only / 4: SR break ignoring 4/4 / 5: ORB Failure / 6: ORB+strength filter / 7: VWAP pullback / 8: Silver Bullet) PLUS the news + vol-spike blackout filter PLUS the per-class R:R sweep (1:0.5, 1:0.75, 1:1, 1:1.5, 1:2). DE40 produced NEGATIVE expected R on every tested combination — most generous read was 1:1 at −0.17R per trade over n=12 decided trades, with smaller targets making it WORSE (1:0.5 at −0.25R because the WR uplift didn\'t offset the smaller win size). Same pattern as the prior DROPPED_PAIRS additions where instrument microstructure simply doesn\'t map to the 4/4 confluence + close-beyond detector. Added to DROPPED_PAIRS deny-list so caches flush on next page load. DJ30 stays in the universe at +0.07R/trade (marginal but positive; reassess in 6 months with more data). Active universe: 40 instruments + DXY anchor.',
   '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
@@ -19694,6 +19829,112 @@ function _renderCCIVariantPanel(host, commodityKeys){
     host.innerHTML = html;
   }
 
+  // ── Live Intraday Signals (independent of timeframe slice) ──
+  // Iterates every pair, calls the existing detectIntradaySignal()
+  // detector, and renders a small grid of "what's armed right now"
+  // tiles. Independent of the historical-backtest cache — uses STATE[k]
+  // + the latest intraday bars in memory. Refreshes on a 30s interval
+  // while the Performance tab is the active page.
+  var _liveSigInterval = null;
+  function _fmtPxLive(k, v){
+    if(v == null || !isFinite(v)) return '—';
+    var m = MKTS[k];
+    var dec = m && typeof m.d === 'number' ? m.d : (Math.abs(v) < 10 ? 4 : (Math.abs(v) < 100 ? 3 : 2));
+    try { return Number(v).toFixed(dec); } catch(e){ return String(v); }
+  }
+  function _fmtTimeShort(ts){
+    if(!ts) return '—';
+    try {
+      var d = new Date(ts);
+      var hh = String(d.getHours()).padStart(2,'0');
+      var mm = String(d.getMinutes()).padStart(2,'0');
+      var today = new Date();
+      if(d.getDate() !== today.getDate() || d.getMonth() !== today.getMonth()){
+        return d.toLocaleString('en-US',{month:'short',day:'numeric'}) + ' ' + hh + ':' + mm;
+      }
+      return hh + ':' + mm;
+    } catch(e){ return '?'; }
+  }
+  function _renderLiveSignals(){
+    var host = document.getElementById('pf-live-host');
+    var meta = document.getElementById('pf-live-meta');
+    if(!host) return;
+    if(typeof detectIntradaySignal !== 'function'){
+      host.innerHTML = '<div class="pf-empty">Intraday detector not loaded yet — give the dashboard a moment to initialise.</div>';
+      return;
+    }
+    var armed = [], triggered = [], cancelled = [];
+    Object.keys(MKTS || {}).forEach(function(k){
+      if(_classOfPair(k) == null) return;
+      var sig;
+      try { sig = detectIntradaySignal(k); } catch(e){ return; }
+      if(!sig) return;
+      var bucket = sig.state === 'armed' ? armed
+                : sig.state === 'triggered' ? triggered
+                : sig.state === 'invalidated' ? cancelled
+                : null;
+      if(!bucket) return;
+      bucket.push({k:k, sig:sig});
+    });
+    if(meta){
+      var totalLive = armed.length + triggered.length;
+      meta.textContent = totalLive > 0
+        ? (totalLive + ' live · ' + cancelled.length + ' cancelled today')
+        : 'no live signals · refreshes every 30s';
+    }
+    if(armed.length === 0 && triggered.length === 0 && cancelled.length === 0){
+      host.innerHTML = '<div class="pf-empty">No live intraday signals across the 39-pair universe right now — every 4/4 setup is either pending CHoCH confirmation or hasn\'t aligned to its macro direction yet. The detector re-scans every 30 seconds.</div>';
+      return;
+    }
+    var summary = '<div class="pf-live-summary">'
+      + (triggered.length ? '<span class="pf-live-sum-trig">⚡ '+triggered.length+' triggered</span>' : '')
+      + (armed.length ? '<span class="pf-live-sum-armed">⏳ '+armed.length+' armed</span>' : '')
+      + (cancelled.length ? '<span class="pf-live-sum-cancel">⊘ '+cancelled.length+' cancelled</span>' : '')
+      + '</div>';
+    var rowHTML = function(item){
+      var k = item.k, sig = item.sig, m = MKTS[k] || {};
+      var stateCls = sig.state === 'armed' ? 'armed'
+                   : sig.state === 'triggered' ? 'triggered'
+                   : 'cancelled';
+      var stateLabel = sig.state === 'armed' ? 'Armed'
+                     : sig.state === 'triggered' ? (sig.outcome === 'target-hit' ? 'Target hit' : sig.outcome === 'stop-hit' ? 'Stop hit' : 'In trade')
+                     : 'Cancelled';
+      var dirCls = sig.dir === 'bull' ? 'bull' : 'bear';
+      var dirTxt = sig.dir === 'bull' ? '▲ BUY' : '▼ SELL';
+      var rowCls = sig.state === 'invalidated' ? 'cancelled' : dirCls;
+      var armedAt = sig.creatorTs ? _fmtTimeShort(sig.creatorTs) : '—';
+      return '<div class="pf-live-row '+rowCls+'">'
+        + '<div class="pf-live-top">'
+        +   '<span class="pf-live-sym">'+(m.sym||k.toUpperCase())+'</span>'
+        +   '<span class="pf-live-state '+stateCls+'">'+stateLabel+'</span>'
+        + '</div>'
+        + '<div class="pf-live-meta-row"><span class="pf-live-dir '+dirCls+'">'+dirTxt+'</span> · armed '+armedAt+'</div>'
+        + '<div class="pf-live-px">'
+        +   '<div><span class="pf-live-px-lbl">Entry</span>'+_fmtPxLive(k, sig.entry)+'</div>'
+        +   '<div><span class="pf-live-px-lbl">Stop</span>'+_fmtPxLive(k, sig.stop)+'</div>'
+        +   '<div><span class="pf-live-px-lbl">Target</span>'+_fmtPxLive(k, sig.target)+'</div>'
+        + '</div>'
+        + '</div>';
+    };
+    var all = triggered.concat(armed).concat(cancelled);
+    host.innerHTML = summary
+      + '<div class="pf-live-grid">'
+      +   all.map(rowHTML).join('')
+      + '</div>';
+  }
+  function _startLiveSignalRefresh(){
+    if(_liveSigInterval) return;
+    _liveSigInterval = setInterval(function(){
+      var pPerf = document.getElementById('page-performance');
+      if(!pPerf || !pPerf.classList.contains('active')){
+        clearInterval(_liveSigInterval);
+        _liveSigInterval = null;
+        return;
+      }
+      try { _renderLiveSignals(); } catch(e){}
+    }, 30000);
+  }
+
   function buildPerformance(){
     // Toggle active button to match _currentTF
     document.querySelectorAll('#pf-tf-host .pf-tf-btn').forEach(function(b){
@@ -19736,6 +19977,10 @@ function _renderCCIVariantPanel(host, commodityKeys){
     // 80ms timeout matches the original switchPage('bt') hook so the
     // canvas is laid out before we read offsetWidth.
     if(typeof drawEquity === 'function') setTimeout(drawEquity, 80);
+    // Live intraday signals (top of page) — render immediately, then
+    // a 30s interval keeps them current while this tab stays active.
+    try { _renderLiveSignals(); } catch(e){}
+    _startLiveSignalRefresh();
     if(!cacheReady) _ensureCacheBuilding();
   }
 
