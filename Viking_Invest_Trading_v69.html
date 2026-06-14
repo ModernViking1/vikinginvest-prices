@@ -11489,7 +11489,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-14ss';
+var RULES_VERSION = '2026-06-14tt';
 var RULES_VERSION_NOTES = [
   '2026-06-13kk — DAX 30 (de40) DROPPED from the active universe. Chronic structural underperformance confirmed across the full optimisation phase: 9 SR gating variants (1: window-only / 2: broken-only / 3: tier-only / 4: SR break ignoring 4/4 / 5: ORB Failure / 6: ORB+strength filter / 7: VWAP pullback / 8: Silver Bullet) PLUS the news + vol-spike blackout filter PLUS the per-class R:R sweep (1:0.5, 1:0.75, 1:1, 1:1.5, 1:2). DE40 produced NEGATIVE expected R on every tested combination — most generous read was 1:1 at −0.17R per trade over n=12 decided trades, with smaller targets making it WORSE (1:0.5 at −0.25R because the WR uplift didn\'t offset the smaller win size). Same pattern as the prior DROPPED_PAIRS additions where instrument microstructure simply doesn\'t map to the 4/4 confluence + close-beyond detector. Added to DROPPED_PAIRS deny-list so caches flush on next page load. DJ30 stays in the universe at +0.07R/trade (marginal but positive; reassess in 6 months with more data). Active universe: 40 instruments + DXY anchor.',
   '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
@@ -11603,22 +11603,60 @@ function _loadRecentBtCache(mode){
 // visible.
 function _saveRecentBtCache(data, mode){
   var slim = {};
+  // 2026-06-14tt: per-trade arrays used to be stripped entirely (full
+  // objects with maxFavorable/failureMode/etc are ~500 bytes each →
+  // blows the 5 MB localStorage quota at ~22 pairs × 1k trades). The
+  // Performance tab's windowed views (Weekly/Monthly/YTD/Trade Log)
+  // need at least the timestamp + outcome to slice, so we now keep
+  // a SLIMMED snapshot — just the 5 fields the Performance tab reads,
+  // capped to the last TRADE_CACHE_CAP trades per pair. At 22 pairs ×
+  // 250 trades × ~80 bytes that's ~440 KB, comfortably under quota
+  // while still giving the Performance tab a useful trade-level view.
+  var TRADE_CACHE_CAP = 250;
+  var slimTrade = function(t){
+    if(!t) return null;
+    return {
+      creatorTs: t.creatorTs,
+      outcome:   t.outcome,
+      dir:       t.dir,
+      entry:     t.entry,
+      target:    t.target,
+      triggered: t.triggered !== false
+    };
+  };
+  var slimTradesArr = function(arr){
+    if(!Array.isArray(arr) || arr.length === 0) return [];
+    // Sort newest-first if we need to truncate, then re-sort by ts ASC
+    // so the saved order is stable. arr in production is already in
+    // chronological order (the backtest walks forward in time), so we
+    // just take the tail when capping.
+    var src = arr.length > TRADE_CACHE_CAP ? arr.slice(-TRADE_CACHE_CAP) : arr;
+    var out = [];
+    for(var i = 0; i < src.length; i++){
+      var s = slimTrade(src[i]);
+      if(s) out.push(s);
+    }
+    return out;
+  };
   Object.keys(data || {}).forEach(function(k){
     // Skip dropped pairs so the cache never persists zombie entries.
     if(DROPPED_PAIRS.has(k)) return;
     var rb = data[k];
     if(!rb){ slim[k] = null; return; }
-    // Shallow copy everything except the heavy per-trade arrays.
-    // hybrid.midTrades (2026-06-11gg) is also stripped — it's only
-    // materialised on demand for the SR gating dry-run on DE40/DJ30,
-    // not part of the cached aggregate stats.
     var copy = {};
     Object.keys(rb).forEach(function(field){
-      if(field === 'trades') return;
+      if(field === 'trades'){
+        copy.trades = slimTradesArr(rb.trades);
+        return;
+      }
       if(field === 'hybrid' && rb.hybrid){
         var hybCopy = {};
         Object.keys(rb.hybrid).forEach(function(hf){
-          if(hf !== 'midTrades') hybCopy[hf] = rb.hybrid[hf];
+          if(hf === 'midTrades'){
+            hybCopy.midTrades = slimTradesArr(rb.hybrid.midTrades);
+          } else {
+            hybCopy[hf] = rb.hybrid[hf];
+          }
         });
         copy.hybrid = hybCopy;
         return;
