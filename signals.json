@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-14T04:05:47.411977+00:00",
-  "generated_ms": 1781409947411,
-  "detector_last_check": "2026-06-14T04:05:47.296936+00:00",
+  "generated": "2026-06-14T04:10:59.933992+00:00",
+  "generated_ms": 1781410259933,
+  "detector_last_check": "2026-06-14T04:10:59.829817+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,10 +10,53 @@
     "updated_by": "initial-deploy"
   },
   "counts": {
-    "total": 0,
-    "armed": 0,
-    "triggered": 0,
+    "total": 2,
+    "armed": 1,
+    "triggered": 1,
     "invalidated": 0
   },
-  "signals": []
+  "signals": [
+    {
+      "id": "ondousd:1781407800000:wick",
+      "pair": "ondousd",
+      "sym": "ONDOUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 0.36258,
+      "stop": null,
+      "target": null,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1781407800000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781410259933,
+      "source": "server-detector"
+    },
+    {
+      "id": "ondousd:1780596000000:fib",
+      "pair": "ondousd",
+      "sym": "ONDOUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 0.36135636,
+      "stop": null,
+      "target": null,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1780596000000,
+      "triggeredAt": 1781409600000,
+      "lastSeenAt": 1781410259933,
+      "source": "server-detector"
+    }
+  ]
 }
