@@ -1332,12 +1332,12 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
         <a class="pf-investor-btn outline" href="https://vikinginvest.ai" target="_blank" rel="noopener">🌐 vikinginvest.ai</a>
       </div>
       <div class="pf-investor-fine">
-        Materials shared on request typically include: company overview &amp; team background, the 4/4 confluence methodology white paper, 12-month backtest summary across all 39 active pairs, current production WR &amp; net-R figures, technology stack &amp; data-pipeline architecture, and roadmap. All requests are responded to within two business days.
+        Materials shared on request typically include: company overview &amp; team background, the proprietary strategy methodology white paper (under NDA), 12-month backtest summary across all 39 active pairs, current production WR &amp; net-R figures, technology stack &amp; data-pipeline architecture, and roadmap. All requests are responded to within two business days.
       </div>
     </div>
 
     <div class="pf-disclosure">
-      <strong>Data integrity.</strong> Every figure on this page is regenerated from the same auto-EW backtest cache that powers the Backtest tab — there's no separate datastore, so the Investor Brief and the Trader view can never disagree. WR is wins ÷ (wins + losses); invalidated setups are excluded from WR but listed in the trade log. Net R assumes 1R risk per trade and the configured per-pair entry methodology (wick for FX/crypto, fib half-size for commodities/indices). Methodology, sample sizes, and rule fingerprint live on the Backtest tab. Live Intraday Signals at the top of this page reflect the current dashboard state in real time (not the backtest cache) and update every 30 seconds.<br>
+      <strong>Data integrity.</strong> Every figure on this page is regenerated from the same backtest cache that powers the Backtest tab — there's no separate datastore, so the Investor Brief and the Trader view can never disagree. WR is wins ÷ (wins + losses); cancelled setups are excluded from WR but listed in the trade log. Net R assumes 1R risk per trade, sized per the platform's per-class methodology (full methodology and rule fingerprint available under NDA). Live Intraday Signals at the top of this page reflect the current dashboard state in real time (not the backtest cache) and update every 30 seconds.<br>
       Educational simulation · not financial advice.
     </div>
   </div>
@@ -11705,7 +11705,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-14zz';
+var RULES_VERSION = '2026-06-14aaa';
 var RULES_VERSION_NOTES = [
   '2026-06-13kk — DAX 30 (de40) DROPPED from the active universe. Chronic structural underperformance confirmed across the full optimisation phase: 9 SR gating variants (1: window-only / 2: broken-only / 3: tier-only / 4: SR break ignoring 4/4 / 5: ORB Failure / 6: ORB+strength filter / 7: VWAP pullback / 8: Silver Bullet) PLUS the news + vol-spike blackout filter PLUS the per-class R:R sweep (1:0.5, 1:0.75, 1:1, 1:1.5, 1:2). DE40 produced NEGATIVE expected R on every tested combination — most generous read was 1:1 at −0.17R per trade over n=12 decided trades, with smaller targets making it WORSE (1:0.5 at −0.25R because the WR uplift didn\'t offset the smaller win size). Same pattern as the prior DROPPED_PAIRS additions where instrument microstructure simply doesn\'t map to the 4/4 confluence + close-beyond detector. Added to DROPPED_PAIRS deny-list so caches flush on next page load. DJ30 stays in the universe at +0.07R/trade (marginal but positive; reassess in 6 months with more data). Active universe: 40 instruments + DXY anchor.',
   '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
