@@ -875,7 +875,6 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 <div class="nav">
   <button class="ntab active" onclick="switchPage('dash')">📊 Dashboard</button>
   <button class="ntab" onclick="switchPage('performance')">📈 Performance</button>
-  <button class="ntab" onclick="switchPage('journal')">📓 Journal</button>
   <button class="ntab" onclick="switchPage('newsletter')">📨 Newsletter</button>
   <button class="ntab" onclick="switchPage('bt')">🧪 Backtest / Signal Log</button>
 </div>
@@ -924,6 +923,71 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       </div>
     </div>
   </div>
+  <!-- ── JOURNAL (relocated from its own nav tab 2026-06-14xx) ──
+       Sits between the per-pair detail panel and the economic calendar
+       per user request. Collapsed by default so it doesn't dominate
+       the dashboard above the fold; expanding it reveals the same form
+       + trade list the old Journal tab had. -->
+  <details id="dashJournalHost" style="background:var(--sf);border:1px solid var(--rule);border-radius:4px;margin:12px 0 10px;box-shadow:var(--shad);">
+    <summary style="cursor:pointer;padding:11px 14px;font-family:'Orbitron',monospace;font-size:11px;letter-spacing:1px;color:var(--ink);list-style:none;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      <span>📓 Trade Journal — log your real trades</span>
+      <span style="font-size:8.5px;color:var(--inkd);font-weight:400;letter-spacing:0.5px;">expand to add / review entries</span>
+    </summary>
+    <div id="dashJournalSlot" style="padding:14px;border-top:1px solid var(--rule);">
+      <p style="font-size:10px;color:var(--inkd);margin:0 0 12px 0;line-height:1.5;">
+        Record actual trades you took based on dashboard signals. Track outcomes vs predictions over time.
+        Stored locally in your browser (no server). Use Export / Import to move entries between browsers or dashboard versions.
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+        <div id="journalSaveBadge" style="font-family:Orbitron,monospace;font-size:8.5px;letter-spacing:0.4px;padding:6px 10px;background:rgba(0,0,0,0.025);border:1px solid var(--rule);border-radius:3px;flex:1;min-width:200px;">Loading journal&hellip;</div>
+        <button onclick="exportJournal()" style="font-family:Orbitron,monospace;font-size:9px;padding:6px 12px;border:1px solid var(--bull);background:transparent;color:var(--bull);border-radius:3px;cursor:pointer;letter-spacing:0.5px;font-weight:700;">⬇ Export</button>
+        <button onclick="document.getElementById('journalImportFile').click()" style="font-family:Orbitron,monospace;font-size:9px;padding:6px 12px;border:1px solid var(--gold);background:transparent;color:var(--gold);border-radius:3px;cursor:pointer;letter-spacing:0.5px;font-weight:700;">⬆ Import</button>
+        <input type="file" id="journalImportFile" accept=".json,application/json" style="display:none;" onchange="importJournalFromFile(event)">
+      </div>
+      <div id="journalStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;"></div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+        <div>
+          <label style="font-size:9px;color:var(--inkd);font-family:Orbitron,monospace;letter-spacing:0.5px;">PAIR</label>
+          <select id="jPair" style="width:100%;padding:6px;border:1px solid var(--rule);border-radius:3px;font-family:Orbitron,monospace;font-size:11px;background:#fff;"></select>
+        </div>
+        <div>
+          <label style="font-size:9px;color:var(--inkd);font-family:Orbitron,monospace;letter-spacing:0.5px;">DIRECTION</label>
+          <select id="jDir" style="width:100%;padding:6px;border:1px solid var(--rule);border-radius:3px;font-family:Orbitron,monospace;font-size:11px;background:#fff;">
+            <option value="bull">BULL (BUY)</option>
+            <option value="bear">BEAR (SELL)</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:9px;color:var(--inkd);font-family:Orbitron,monospace;letter-spacing:0.5px;">ENTRY PRICE</label>
+          <input id="jEntry" type="text" placeholder="e.g. 1.17225" style="width:100%;padding:6px;border:1px solid var(--rule);border-radius:3px;font-family:Orbitron,monospace;font-size:11px;background:#fff;box-sizing:border-box;" />
+        </div>
+        <div>
+          <label style="font-size:9px;color:var(--inkd);font-family:Orbitron,monospace;letter-spacing:0.5px;">STOP PRICE</label>
+          <input id="jStop" type="text" placeholder="e.g. 1.16500" style="width:100%;padding:6px;border:1px solid var(--rule);border-radius:3px;font-family:Orbitron,monospace;font-size:11px;background:#fff;box-sizing:border-box;" />
+        </div>
+        <div>
+          <label style="font-size:9px;color:var(--inkd);font-family:Orbitron,monospace;letter-spacing:0.5px;">TARGET PRICE</label>
+          <input id="jTarget" type="text" placeholder="e.g. 1.22000" style="width:100%;padding:6px;border:1px solid var(--rule);border-radius:3px;font-family:Orbitron,monospace;font-size:11px;background:#fff;box-sizing:border-box;" />
+        </div>
+        <div>
+          <label style="font-size:9px;color:var(--inkd);font-family:Orbitron,monospace;letter-spacing:0.5px;">SIZE (R)</label>
+          <input id="jSize" type="text" placeholder="e.g. 1" value="1" style="width:100%;padding:6px;border:1px solid var(--rule);border-radius:3px;font-family:Orbitron,monospace;font-size:11px;background:#fff;box-sizing:border-box;" />
+        </div>
+        <div style="grid-column:span 2;">
+          <label style="font-size:9px;color:var(--inkd);font-family:Orbitron,monospace;letter-spacing:0.5px;">NOTES</label>
+          <input id="jNotes" type="text" placeholder="e.g. Took at 15m OB retest, RSI bull div" style="width:100%;padding:6px;border:1px solid var(--rule);border-radius:3px;font-size:11px;background:#fff;box-sizing:border-box;" />
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button onclick="addJournalEntry()" style="flex:1;padding:8px;background:var(--bull);color:#fff;border:none;border-radius:3px;font-family:Orbitron,monospace;font-size:11px;font-weight:700;letter-spacing:0.5px;cursor:pointer;">+ ADD TRADE</button>
+        <button onclick="exportJournal()" style="padding:8px 14px;background:var(--gold);color:#fff;border:none;border-radius:3px;font-family:Orbitron,monospace;font-size:11px;font-weight:700;letter-spacing:0.5px;cursor:pointer;">⬇ EXPORT CSV</button>
+      </div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--rule);">
+        <h4 style="font-family:Orbitron,monospace;font-size:10px;letter-spacing:1px;margin:0 0 8px 0;color:var(--ink);">📋 OPEN &amp; CLOSED TRADES</h4>
+        <div id="journalList" style="max-height:400px;overflow-y:auto;"></div>
+      </div>
+    </div>
+  </details>
   <!-- ── ECONOMIC EVENTS CALENDAR — next 7 days, moved from Backtest tab ── -->
   <div id="eventsSummary" style="background:rgba(200,134,10,0.04);border:1px solid rgba(200,134,10,0.2);border-radius:4px;padding:10px 12px;margin:12px 0 10px;font-family:'Orbitron',monospace;font-size:9px;"></div>
 </div>
@@ -1158,73 +1222,21 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
      been merged into page-bt above. switchPage('log') aliases to 'bt'.) -->
 <div class="page" id="page-log" style="display:none;"></div>
 
-<!-- ════ JOURNAL ════ -->
-<div class="page" id="page-journal">
-  <div style="background:var(--sf);border:1px solid var(--rule);border-radius:4px;padding:14px;margin-bottom:12px;box-shadow:var(--shad);">
-    <h3 style="font-family:Orbitron,monospace;font-size:13px;letter-spacing:1px;margin:0 0 10px 0;color:var(--ink);">📓 Trade Journal — Log your real trades</h3>
-    <p style="font-size:10px;color:var(--inkd);margin:0 0 14px 0;line-height:1.5;">
-      Record actual trades you took based on dashboard signals. Track outcomes vs predictions over time.
-      Stored locally in your browser (no server). Use this to validate which dashboard setups actually work for you.
-      <strong style="color:var(--gold);">Note:</strong> localStorage is per-browser and per-filename. When you download a new dashboard version, journal entries don't auto-migrate. Use Export/Import below to move them between versions.
-    </p>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
-      <div id="journalSaveBadge" style="font-family:Orbitron,monospace;font-size:8.5px;letter-spacing:0.4px;padding:6px 10px;background:rgba(0,0,0,0.025);border:1px solid var(--rule);border-radius:3px;flex:1;min-width:200px;">Loading journal&hellip;</div>
-      <button onclick="exportJournal()" style="font-family:Orbitron,monospace;font-size:9px;padding:6px 12px;border:1px solid var(--bull);background:transparent;color:var(--bull);border-radius:3px;cursor:pointer;letter-spacing:0.5px;font-weight:700;">⬇ Export</button>
-      <button onclick="document.getElementById('journalImportFile').click()" style="font-family:Orbitron,monospace;font-size:9px;padding:6px 12px;border:1px solid var(--gold);background:transparent;color:var(--gold);border-radius:3px;cursor:pointer;letter-spacing:0.5px;font-weight:700;">⬆ Import</button>
-      <input type="file" id="journalImportFile" accept=".json,application/json" style="display:none;" onchange="importJournalFromFile(event)">
-    </div>
-    <div id="journalStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;"></div>
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
-      <div>
-        <label style="font-size:9px;color:var(--inkd);font-family:Orbitron,monospace;letter-spacing:0.5px;">PAIR</label>
-        <select id="jPair" style="width:100%;padding:6px;border:1px solid var(--rule);border-radius:3px;font-family:Orbitron,monospace;font-size:11px;background:#fff;"></select>
-      </div>
-      <div>
-        <label style="font-size:9px;color:var(--inkd);font-family:Orbitron,monospace;letter-spacing:0.5px;">DIRECTION</label>
-        <select id="jDir" style="width:100%;padding:6px;border:1px solid var(--rule);border-radius:3px;font-family:Orbitron,monospace;font-size:11px;background:#fff;">
-          <option value="bull">BULL (BUY)</option>
-          <option value="bear">BEAR (SELL)</option>
-        </select>
-      </div>
-      <div>
-        <label style="font-size:9px;color:var(--inkd);font-family:Orbitron,monospace;letter-spacing:0.5px;">ENTRY PRICE</label>
-        <input id="jEntry" type="text" placeholder="e.g. 1.17225" style="width:100%;padding:6px;border:1px solid var(--rule);border-radius:3px;font-family:Orbitron,monospace;font-size:11px;background:#fff;box-sizing:border-box;" />
-      </div>
-      <div>
-        <label style="font-size:9px;color:var(--inkd);font-family:Orbitron,monospace;letter-spacing:0.5px;">STOP PRICE</label>
-        <input id="jStop" type="text" placeholder="e.g. 1.16500" style="width:100%;padding:6px;border:1px solid var(--rule);border-radius:3px;font-family:Orbitron,monospace;font-size:11px;background:#fff;box-sizing:border-box;" />
-      </div>
-      <div>
-        <label style="font-size:9px;color:var(--inkd);font-family:Orbitron,monospace;letter-spacing:0.5px;">TARGET PRICE</label>
-        <input id="jTarget" type="text" placeholder="e.g. 1.22000" style="width:100%;padding:6px;border:1px solid var(--rule);border-radius:3px;font-family:Orbitron,monospace;font-size:11px;background:#fff;box-sizing:border-box;" />
-      </div>
-      <div>
-        <label style="font-size:9px;color:var(--inkd);font-family:Orbitron,monospace;letter-spacing:0.5px;">SIZE (R)</label>
-        <input id="jSize" type="text" placeholder="e.g. 1" value="1" style="width:100%;padding:6px;border:1px solid var(--rule);border-radius:3px;font-family:Orbitron,monospace;font-size:11px;background:#fff;box-sizing:border-box;" />
-      </div>
-      <div style="grid-column:span 2;">
-        <label style="font-size:9px;color:var(--inkd);font-family:Orbitron,monospace;letter-spacing:0.5px;">NOTES</label>
-        <input id="jNotes" type="text" placeholder="e.g. Took at 15m OB retest, RSI bull div" style="width:100%;padding:6px;border:1px solid var(--rule);border-radius:3px;font-size:11px;background:#fff;box-sizing:border-box;" />
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:12px;">
-      <button onclick="addJournalEntry()" style="flex:1;padding:8px;background:var(--bull);color:#fff;border:none;border-radius:3px;font-family:Orbitron,monospace;font-size:11px;font-weight:700;letter-spacing:0.5px;cursor:pointer;">+ ADD TRADE</button>
-      <button onclick="exportJournal()" style="padding:8px 14px;background:var(--gold);color:#fff;border:none;border-radius:3px;font-family:Orbitron,monospace;font-size:11px;font-weight:700;letter-spacing:0.5px;cursor:pointer;">⬇ EXPORT CSV</button>
-    </div>
-  </div>
-  <div style="background:var(--sf);border:1px solid var(--rule);border-radius:4px;padding:14px;box-shadow:var(--shad);">
-    <h3 style="font-family:Orbitron,monospace;font-size:11px;letter-spacing:1px;margin:0 0 10px 0;color:var(--ink);">📋 OPEN &amp; CLOSED TRADES</h3>
-    <div id="journalList" style="max-height:500px;overflow-y:auto;"></div>
-  </div>
-</div>
+<!-- ════ JOURNAL ════ — relocated 2026-06-14xx. Content moved into
+     the Dashboard's <details id="dashJournalHost"> collapsible (sits
+     between the per-pair detail panel and the economic calendar).
+     The page stub stays so switchPage('journal') routing aliases
+     keep working — the route is redirected to 'dash' in switchPage().
+     -->
+<div class="page" id="page-journal" style="display:none;"></div>
 
 <!-- ════ PERFORMANCE ════ -->
 <div class="page" id="page-performance">
   <div class="pf-wrap" id="performanceRoot">
     <div class="pf-mast">
-      <div class="pf-mast-eyebrow">⚓ Viking Invest · Performance Report</div>
-      <h1 id="pf-mast-title">4/4 Confluence — Investor Brief</h1>
-      <div class="pf-mast-sub" id="pf-mast-sub">Same backtest engine as the Backtest tab · target 1R · stop at structural extreme</div>
+      <div class="pf-mast-eyebrow">⚓ Viking Invest Trading · Performance Report</div>
+      <h1 id="pf-mast-title">Investor Brief</h1>
+      <div class="pf-mast-sub" id="pf-mast-sub">Intraday signals now automated &middot; same backtest engine as the Backtest tab &middot; target 1R &middot; stop at structural extreme</div>
     </div>
 
     <div class="pf-card pf-live-card">
@@ -1279,7 +1291,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <div class="pf-investor">
       <div class="pf-investor-eyebrow">⚓ Investor Relations</div>
       <h2>Talking to Viking Invest</h2>
-      <p>The Viking Invest Trading Platform is operated by <strong>Viking Invest Ltd</strong>, a Nordic consultancy founded in 2011, with twenty years of senior delivery inside Tier-1 investment banks. For investor materials — pitch deck, traction summary, methodology white paper, current cap-table snapshot, or a structured walkthrough of the live platform — reach out via the channels below.</p>
+      <p>The Viking Invest Trading Platform is operated by <strong>Viking Invest Ltd</strong>, established in 2011, with twenty years of senior delivery inside Tier-1 investment banks. For investor materials — pitch deck, traction summary, methodology white paper, current cap-table snapshot, or a structured walkthrough of the live platform — reach out via the channels below.</p>
       <div class="pf-investor-grid">
         <div class="pf-investor-tile">
           <strong>Direct contact</strong>
@@ -9138,6 +9150,12 @@ function switchPage(p){
   // old 'log' route so existing call-sites + bookmarks still land on
   // the combined page instead of a blank screen.
   if(p === 'log') p = 'bt';
+  // 2026-06-14xx: Journal nav tab removed; the journal form is now
+  // an in-line collapsible on the Dashboard between the per-pair
+  // detail panel and the economic calendar. Alias the old route so
+  // any "Journal" links land on the dashboard with the section in
+  // view rather than on a blank screen.
+  if(p === 'journal') p = 'dash';
   document.querySelectorAll('.page').forEach(function(el){el.classList.remove('active');});
   document.querySelectorAll('.ntab').forEach(function(t){
     t.classList.remove('active');
@@ -11671,7 +11689,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-14ww';
+var RULES_VERSION = '2026-06-14xx';
 var RULES_VERSION_NOTES = [
   '2026-06-13kk — DAX 30 (de40) DROPPED from the active universe. Chronic structural underperformance confirmed across the full optimisation phase: 9 SR gating variants (1: window-only / 2: broken-only / 3: tier-only / 4: SR break ignoring 4/4 / 5: ORB Failure / 6: ORB+strength filter / 7: VWAP pullback / 8: Silver Bullet) PLUS the news + vol-spike blackout filter PLUS the per-class R:R sweep (1:0.5, 1:0.75, 1:1, 1:1.5, 1:2). DE40 produced NEGATIVE expected R on every tested combination — most generous read was 1:1 at −0.17R per trade over n=12 decided trades, with smaller targets making it WORSE (1:0.5 at −0.25R because the WR uplift didn\'t offset the smaller win size). Same pattern as the prior DROPPED_PAIRS additions where instrument microstructure simply doesn\'t map to the 4/4 confluence + close-beyond detector. Added to DROPPED_PAIRS deny-list so caches flush on next page load. DJ30 stays in the universe at +0.07R/trade (marginal but positive; reassess in 6 months with more data). Active universe: 40 instruments + DXY anchor.',
   '2026-06-12jj — Backtest cards now split the `XX inv` count into pre-trigger and post-trigger cohorts. Pre-trigger invalidations are setups cancelled before the user could enter (zero R impact). Post-trigger invalidations are exit signals after entry (real partial-loss impact — typically -0.2R to -0.5R depending on where the user exits). Card label reads `43 inv (28 pre · 15 post)` with a tooltip explaining the breakdown. New `invalidatedPre` / `invalidatedPost` counters on both the wick walker (top level) and the fib walker (rb.hybrid.*) — sum equals the existing `invalidated`. Math unchanged; this is a disclosure split, not a recategorisation. Win-rate denominator still W+L; net-R figures still treat invalidations as zero-R. Cache invalidates so existing cards refresh with the new counters on next page load.',
