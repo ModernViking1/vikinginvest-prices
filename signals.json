@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-14T12:31:14.064936+00:00",
-  "generated_ms": 1781440274064,
-  "detector_last_check": "2026-06-14T12:31:13.972517+00:00",
+  "generated": "2026-06-14T12:36:04.455130+00:00",
+  "generated_ms": 1781440564455,
+  "detector_last_check": "2026-06-14T12:36:04.354401+00:00",
   "kill_switch": {
     "killed": true,
     "reason": "Manual pause",
@@ -10,10 +10,53 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 0,
-    "armed": 0,
+    "total": 2,
+    "armed": 2,
     "triggered": 0,
     "invalidated": 0
   },
-  "signals": []
+  "signals": [
+    {
+      "id": "xrpusd:1781440200000:wick",
+      "pair": "xrpusd",
+      "sym": "XRPUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 1.1424,
+      "stop": null,
+      "target": null,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1781440200000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781440564455,
+      "source": "server-detector"
+    },
+    {
+      "id": "xrpusd:1780326900000:fib",
+      "pair": "xrpusd",
+      "sym": "XRPUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 1.1412876,
+      "stop": null,
+      "target": null,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1780326900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781440564455,
+      "source": "server-detector"
+    }
+  ]
 }
