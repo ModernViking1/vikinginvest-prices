@@ -29,12 +29,13 @@ using System.Threading.Tasks;
 using cAlgo.API;
 using cAlgo.API.Internals;
 
-// 2026-06-14ccc — cAlgo.API.File and cAlgo.API.Directory collide with
-// System.IO.File and System.IO.Directory. Aliases pin the imports to
-// the .NET runtime types we want for read / write / exist checks on the
-// VPS-local cache, dedup, and executions files.
+// 2026-06-14ccc / ddd — cAlgo.API ships its own File / Directory / HttpMethod
+// types that collide with the .NET runtime types we want for VPS-local
+// I/O and the GitHub-dispatch + Telegram POST calls. Aliases pin every
+// call site to the System.* version unambiguously.
 using IOFile      = System.IO.File;
 using IODirectory = System.IO.Directory;
+using HttpMethod  = System.Net.Http.HttpMethod;
 
 namespace cAlgo.Robots
 {
