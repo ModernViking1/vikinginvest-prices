@@ -3439,7 +3439,31 @@ function shouldShow(k){
 
 function buildUI(){
   buildOvGrid();buildScroller();buildPanels();buildBacktest();seedLog();initJournal();
-  Object.keys(MKTS).forEach(function(k){refreshAlert(k);});
+  // 2026-06-15fff (mobile HOTFIX): per-pair refreshAlert burst chunked
+  // across requestAnimationFrame instead of a single sync forEach.
+  // Was a 39-pair sync loop where each call ran the intraday detector
+  // + 4 layer-detail HTML generators + intra-card render. On mobile CPUs
+  // that block totals ~3-5s — long enough that browsers throw
+  // "page not responding" or "page not loading" mid-init even in a
+  // private tab (no cache helps with main-thread blocking). Chunking
+  // to 4 pairs per rAF gives the renderer ~6ms windows between bursts
+  // so the dashboard paints incrementally and stays responsive.
+  var _refreshKeys = Object.keys(MKTS);
+  var _refreshIdx = 0;
+  var _refreshChunk = 4;
+  function _refreshChunkStep(){
+    var end = Math.min(_refreshIdx + _refreshChunk, _refreshKeys.length);
+    for(var i = _refreshIdx; i < end; i++){
+      try { refreshAlert(_refreshKeys[i]); } catch(_){}
+    }
+    _refreshIdx = end;
+    if(_refreshIdx < _refreshKeys.length){
+      if(typeof requestAnimationFrame === 'function') requestAnimationFrame(_refreshChunkStep);
+      else setTimeout(_refreshChunkStep, 0);
+    }
+  }
+  if(typeof requestAnimationFrame === 'function') requestAnimationFrame(_refreshChunkStep);
+  else setTimeout(_refreshChunkStep, 0);
   // Dynamic pair-count labels — single source of truth is Object.keys(MKTS).length.
   // Avoids stale hardcoded "21 Markets" strings drifting after new pairs are added.
   try {
@@ -3748,7 +3772,10 @@ function buildPanel(k){
     +   '<div class="lttl">Intraday Signal</div>'
     +   '<div class="ltf">1:1 R:R</div>'
     + '</div>'
-    + '<div class="lbdy" id="intra-body-' + k + '">' + getIntraSignalHTML(k) + '</div>';
+    // 2026-06-15fff (mobile HOTFIX): inline getIntraSignalHTML(k) call
+    // replaced with placeholder. The chunked refreshAlert burst in
+    // buildUI fills in the actual intra-card body within ~10 frames.
+    + '<div class="lbdy" id="intra-body-' + k + '">&hellip;</div>';
   frag.appendChild(iCard);
   // 2026-06-13oo (revised pp): legacy "▸ Workflow — how to take this
   // trade" collapsible was removed. User confirmed (2026-06-13pp)
@@ -3772,7 +3799,12 @@ function buildPanel(k){
     // tag on the macro card body.)
     var card=document.createElement('div');card.className='lcard '+(sig==='bear'?'ab':sig==='bull'?'ag':'an');card.id='lc-'+k+'-'+ld.key;
     var pc=sig==='bear'?'pb':sig==='bull'?'pg':'pn',pt=sig==='bear'?'&#9660; BEAR':sig==='bull'?'&#9650; BULL':'&#9679; NEUTRAL';
-    card.innerHTML='<div class="lhd"><div class="lnum">'+(i+1)+'</div><div class="lttl">'+ld.ttl+'</div><div class="ltf">'+ld.tf+'</div></div><div class="lbdy"><div class="lpill '+pc+'" id="lp-'+k+'-'+ld.key+'">'+pt+'</div><div class="ldet" id="ld-'+k+'-'+ld.key+'">'+getLayerDet(k,ld.key,sig)+'</div></div>';
+    // 2026-06-15fff (mobile HOTFIX): inline getLayerDet(k, ld.key, sig)
+    // call replaced with an "…" placeholder. The chunked refreshAlert
+    // burst (buildUI) populates the real detail body within ~10 frames
+    // of first paint. Cuts ~156 sync detector + HTML-generation calls
+    // out of buildPanels' boot cost.
+    card.innerHTML='<div class="lhd"><div class="lnum">'+(i+1)+'</div><div class="lttl">'+ld.ttl+'</div><div class="ltf">'+ld.tf+'</div></div><div class="lbdy"><div class="lpill '+pc+'" id="lp-'+k+'-'+ld.key+'">'+pt+'</div><div class="ldet" id="ld-'+k+'-'+ld.key+'">&hellip;</div></div>';
     lg.appendChild(card);
   });
   frag.appendChild(lg);
@@ -11717,7 +11749,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-14eee';
+var RULES_VERSION = '2026-06-15fff';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
