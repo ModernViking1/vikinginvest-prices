@@ -272,6 +272,41 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 }
 </style>
 <script>
+// 2026-06-15mmm — localStorage quota self-heal. MUST run before any
+// other JS so subsequent boot writes don't trip QuotaExceededError.
+//
+// User-reported symptom: dashboard only loads in a fresh private tab;
+// reloading an existing tab hangs indefinitely. Root cause: DEEP_HIST
+// cached entry can be 30-50 MB (full 365d OHLC across 40 pairs) which
+// pushes the per-origin localStorage quota (5-10 MB on most browsers)
+// over the line. Once that happens, EVERY future setItem throws,
+// boot-time signal log + journal + auth-session writes fail, init
+// hangs. Fresh private tab has empty quota so it loads fine.
+//
+// Recovery: write-test 2 KB; if it throws, drop the largest known
+// cache keys. They rebuild on next page-data fetch.
+(function _viQuotaSelfHeal(){
+  try {
+    var T = '__vi_quota_probe__';
+    try {
+      localStorage.setItem(T, '0'.repeat(2048));
+      localStorage.removeItem(T);
+      return;
+    } catch(_){}
+    ['vit_deep_hist_v1',
+     'vit_recent_bt_v1_auto-ew',
+     'vit_recent_bt_v1_structural',
+     'vit_signal_log_v1',
+     'vit_intraday_state_v1',
+     'vit_historical_buffer_v1'
+    ].forEach(function(k){
+      try { localStorage.removeItem(k); } catch(_){}
+    });
+    try { console.warn('[VI] localStorage quota pressure detected at boot — heavy caches cleared.'); } catch(_){}
+  } catch(e){}
+})();
+</script>
+<script>
 // Unique-visitor beacon — fires once per browser via localStorage flag.
 (function(){
   try {
@@ -11873,7 +11908,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-15lll';
+var RULES_VERSION = '2026-06-15mmm';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
