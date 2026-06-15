@@ -1908,6 +1908,34 @@ function _filterDroppedPairs(obj){
 // source = 'carried':  placeholder pending chart read
 // tp1/tp2Override:     use for Wave 5 terminus beyond 0.618 extension
 // ─────────────────────────────────────────────────────────────────────
+// 2026-06-15iii — Staleness fallback for hand-curated macro seeds.
+// All entries below were authored around 2026-04 (Wickator chart
+// review). When a seed crosses both gates — calendar age >90 days
+// AND live price has diverged >30% from the seed's `anchor` — we
+// silently return null from _seedIfFresh(k), causing the dashboard's
+// macro target resolution to fall through to auto-derived (mechanical
+// 60-day swing high/low ± Fib retrace). No "stale" badge — the
+// macroSourceBadge() output simply changes to 🟠 auto-derived which
+// is the standard low-confidence signal.
+//
+// To refresh a specific seed, update its entry below AND bump
+// `_seedAtMs` (or add it if missing — default is SEED_PUBLISHED_AT_MS).
+var SEED_PUBLISHED_AT_MS = Date.parse('2026-04-15T00:00:00Z');
+var SEED_MAX_AGE_DAYS    = 90;
+var SEED_MAX_DIVERGENCE  = 0.30;  // 30% absolute deviation from anchor
+function _seedIfFresh(k){
+  var seed = (typeof WICKATOR_EW !== 'undefined') ? WICKATOR_EW[k] : null;
+  if(!seed) return null;
+  var publishedMs = seed._seedAtMs || SEED_PUBLISHED_AT_MS;
+  var ageDays = (Date.now() - publishedMs) / (24*3600*1000);
+  if(ageDays <= SEED_MAX_AGE_DAYS) return seed;
+  // Past 90 days — check price divergence from anchor before retiring.
+  var m = (typeof MKTS !== 'undefined') ? MKTS[k] : null;
+  var px = m && m.p;
+  if(!px || !seed.anchor) return seed;  // can't compute divergence — keep seed
+  var div = Math.abs(px - seed.anchor) / Math.max(1e-9, Math.abs(seed.anchor));
+  return (div > SEED_MAX_DIVERGENCE) ? null : seed;
+}
 var WICKATOR_EW = {
   // ─── DXY MACRO ANCHOR ────────────────────────────────────────────────
   // DXY is the regime gate for all USD pairs. Wicktator expects DXY
@@ -2000,7 +2028,8 @@ function calcWickatorTPs(k){
     // moving away from seed dependence) — no more auto-EW-backs-seed
     // carve-out, since a stale seed shouldn't override the engine even
     // when the pattern detector happens to agree with the seed.
-    var seed = WICKATOR_EW[k];
+    // 2026-06-15iii: _seedIfFresh enforces 90d + 30%-divergence staleness.
+    var seed = (typeof _seedIfFresh === 'function') ? _seedIfFresh(k) : null;
     var seedStale = (seed && seed.dir && (engineDir === 'bull' || engineDir === 'bear') && seed.dir !== engineDir);
     if(seed && !seedStale) w = seed;
   }
@@ -2796,7 +2825,11 @@ function getSetupStrings(k){
   // Returns { entry, stop, tgt, inv, rr } derived from WICKATOR_EW[k].
   // Falls back to legacy MKTS static fields if WICKATOR_EW lacks an entry.
   var m = MKTS[k];
-  var w = (typeof WICKATOR_EW !== 'undefined') ? WICKATOR_EW[k] : null;
+  // 2026-06-15iii — _seedIfFresh enforces 90d + 30%-divergence staleness
+  // fallback. When a hand-curated seed has gone stale, w === null here
+  // and the function falls through to MKTS legacy fields, which the
+  // dashboard then overrides with the auto-derived path via getAutoSetup.
+  var w = (typeof _seedIfFresh === 'function') ? _seedIfFresh(k) : null;
   if(!w || !m){
     // No EW data — return legacy fields
     return {
@@ -2949,7 +2982,9 @@ function macroSourceBadge(k){
       + '% confidence. Pattern-grounded — high-confidence target.">🟢 auto-EW '
       + auto.pattern.replace(/-/g, '‑') + '</span>';
   }
-  var seed = (typeof WICKATOR_EW !== 'undefined') ? WICKATOR_EW[k] : null;
+  // _seedIfFresh returns null for seeds past 90d + >30% diverged from
+  // anchor → macro badge falls through to "auto-derived" automatically.
+  var seed = (typeof _seedIfFresh === 'function') ? _seedIfFresh(k) : null;
   if(seed && (engineDir !== 'bull' && engineDir !== 'bear' || seed.dir === engineDir)){
     if(seed.source === 'inferred'){
       return '<span title="Macro TPs come from an inferred WICKATOR_EW seed (reasoned from correlated pairs, not directly chart-verified). Medium-low confidence — stale-risk grows over time.">🟡 inferred seed</span>';
@@ -2986,7 +3021,7 @@ function setupField(k, field){
   // 2026-05-29 — engine takes priority over seed; a stale seed
   // shouldn't override the engine even when auto-EW happens to agree
   // with the seed).
-  var seed = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k]) || null;
+  var seed = (typeof _seedIfFresh === 'function') ? _seedIfFresh(k) : null;
   var engineDir = (typeof STATE !== 'undefined' && STATE[k] && STATE[k].ew) || null;
   var seedStale = (seed && seed.dir && (engineDir === 'bull' || engineDir === 'bear') && seed.dir !== engineDir);
   var isTBD = m && /^TBD/i.test(String(m.entry || ''));
@@ -6415,7 +6450,7 @@ function detectFifteenMinOB(k, dailyZoneLo, dailyZoneHi, direction){
 // Called from the 4/4 alert renderer to enhance the watch-zone display.
 function renderOBSuggestion(k, direction){
   if(!INTRADAY_READY) return '';
-  var wew = WICKATOR_EW[k];
+  var wew = (typeof _seedIfFresh === 'function') ? _seedIfFresh(k) : null;
   if(!wew || !wew.w2Zone) return '';
   var zoneLo = Math.min(wew.w2Zone[0], wew.w2Zone[1]);
   var zoneHi = Math.max(wew.w2Zone[0], wew.w2Zone[1]);
@@ -6986,7 +7021,7 @@ function renderSetupDriftDiagnostic(){
   Object.keys(MKTS).forEach(function(k){
     var m = MKTS[k];
     if(!m) return;
-    var w = (typeof WICKATOR_EW !== 'undefined') ? WICKATOR_EW[k] : null;
+    var w = (typeof _seedIfFresh === 'function') ? _seedIfFresh(k) : null;
     if(!w){
       rows.push({k:k, sym:m.sym, status:'no-seed', diffs:[], severity:'none'});
       return;
@@ -8475,7 +8510,7 @@ function captureTradingSnapshot(k, dir){
 
   var m = MKTS[k];
   var st = STATE[k];
-  var w = (typeof WICKATOR_EW !== 'undefined' && WICKATOR_EW[k]) ? WICKATOR_EW[k] : null;
+  var w = (typeof _seedIfFresh === 'function') ? _seedIfFresh(k) : null;
   var setup = (typeof getSetupStrings === 'function') ? getSetupStrings(k) : null;
   var buildVersion = (function(){
     try { var sub = document.querySelector('#releaseNotes'); return sub ? sub.textContent.trim() : ''; }
@@ -11822,7 +11857,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-15iii';
+var RULES_VERSION = '2026-06-15jjj';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
