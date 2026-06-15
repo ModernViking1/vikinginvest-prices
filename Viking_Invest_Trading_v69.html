@@ -3744,7 +3744,7 @@ function updateOV(k){
           } else if(iSig.alignmentBroken){
             iTip = 'Intraday 1:1 CANCELLED — 15m structure flipped vs macro; setup no longer valid';
           } else {
-            iTip = 'Intraday 1:1 CANCELLED — opposing CHoCH printed before retest, setup no longer valid';
+            iTip = 'Intraday CANCELLED — opposing structure printed before retest, setup no longer valid';
           }
         } else if(iSig.state === 'armed'){
           iColor = 'var(--gold)'; iAnim = '';
@@ -3764,14 +3764,14 @@ function updateOV(k){
           if(iSig.rsiBlocked){
             iTip = 'Intraday 1:1 INVALIDATED — 1H RSI ' + (iSig.rsi1H != null ? iSig.rsi1H.toFixed(0) : '?') + ' hit ' + (iSig.dir === 'bull' ? 'overbought (≥' + iSig.rsiGateHi + ')' : 'oversold (≤' + iSig.rsiGateLo + ')') + ' extreme; A1 per-class gate';
           } else if(iSig.alignmentBroken){
-            iTip = 'Intraday 1:1 INVALIDATED — 15m structure flipped vs macro, exit at CHoCH flip';
+            iTip = 'Intraday INVALIDATED — 15m structure flipped vs macro, exit at structure flip';
           } else {
-            iTip = 'Intraday 1:1 INVALIDATED — opposing CHoCH printed, structure flipped';
+            iTip = 'Intraday INVALIDATED — opposing structure printed, direction flipped';
           }
         } else if(iSig.outcome === 'stale-expired'){
           iColor = 'var(--inkd)'; iAnim = '';
           iIcon = '⌛';
-          iTip = 'Intraday 1:1 EXPIRED — triggered >4h ago without target/stop/CHoCH; treat as stale';
+          iTip = 'Intraday EXPIRED — triggered >4h ago without target/stop resolution; treat as stale';
         } else {
           // Default "triggered, in trade" branch. If the underlying 15m
           // data is more than 15 min behind real time, don't show the
@@ -3965,7 +3965,7 @@ function buildPanel(k){
       '<div class="lhd" style="background:rgba(200,134,10,0.10);border-bottom:1px solid var(--rule);">'
     +   '<div class="lnum" style="background:var(--gold);color:#fff;">⚡</div>'
     +   '<div class="lttl">Intraday Signal</div>'
-    +   '<div class="ltf">1:1 R:R</div>'
+    +   '<div class="ltf">Quick trade</div>'
     + '</div>'
     // 2026-06-15fff (mobile HOTFIX): inline getIntraSignalHTML(k) call
     // replaced with placeholder. The chunked refreshAlert burst in
@@ -4272,7 +4272,7 @@ function getLayerDet(k,layer,sig){
           var pipsLabel = (pipsR * pipMult).toFixed(1) + ' pips';
           var pipsTarget = (pipsR * pipMult).toFixed(1) + ' pips';
           var actionVerb = iDir === 'bull' ? 'BUY' : 'SELL';
-          var entryDescriptor = iDir === 'bull' ? 'creator low / wick' : 'creator high / wick';
+          var entryDescriptor = iDir === 'bull' ? 'setup low' : 'setup high';
           // EW-carrier badge — per-pattern backtest WRs documented in
           // RULES_VERSION_NOTES 2026-06-10d. The "structural" control bar
           // (55.9% over n_decided=463) is the baseline; auto-EW patterns
@@ -4329,9 +4329,9 @@ function getLayerDet(k,layer,sig){
             } else if(iSig.invalidationReason === 'stop-breached'){
               reasonLabel = 'stop breached pre-trigger';
             } else if(iSig.invalidationReason === 'opposing-choch'){
-              reasonLabel = 'opposing CHoCH (swing flip)';
+              reasonLabel = 'opposing structure (direction flip)';
             } else {
-              reasonLabel = 'opposing CHoCH pre-trigger';
+              reasonLabel = 'opposing structure pre-trigger';
             }
             stateLabel = 'CANCELLED &middot; ' + reasonLabel;
             stateColor = 'var(--bear)';
@@ -4352,9 +4352,9 @@ function getLayerDet(k,layer,sig){
               } else if(iSig.invalidationReason === 'counter-bars'){
                 postReason = '2 counter-bars (momentum reversal)';
               } else if(iSig.invalidationReason === 'opposing-choch'){
-                postReason = 'opposing CHoCH (swing flip)';
+                postReason = 'opposing structure (direction flip)';
               } else {
-                postReason = 'opposing CHoCH';
+                postReason = 'opposing structure';
               }
               stateLabel = 'INVALIDATED &middot; ' + postReason;
               stateColor = 'var(--bear)'; stateIcon = '⊘';
@@ -4433,7 +4433,7 @@ function getLayerDet(k,layer,sig){
           } else if(iSig.outcome === 'stop-hit'){
             liveDescriptor = '-1R realised';
           } else if(iSig.outcome === 'choch-invalidated'){
-            liveDescriptor = 'exit @ CHoCH flip';
+            liveDescriptor = 'exit @ structure flip';
           } else if(iSig.outcome === 'stale-expired'){
             liveDescriptor = 'expired — no resolution';
           } else if(dataIsStale){
@@ -4443,7 +4443,7 @@ function getLayerDet(k,layer,sig){
           }
           intraMsg = '<br><div style="margin-top:6px;padding:6px 8px;background:rgba(200,134,10,0.06);border-left:2px solid var(--gold);border-radius:2px;font-size:9px;line-height:1.5;">'
             + '<div style="font-weight:700;color:'+stateColor+';letter-spacing:0.5px;text-transform:uppercase;font-size:8px;">'
-            +   stateIcon + ' INTRADAY SIGNAL (1:1 R:R) &middot; '+stateLabel + armedAtTxt + _ewCarrierBadge
+            +   stateIcon + ' INTRADAY SIGNAL &middot; '+stateLabel + armedAtTxt + _ewCarrierBadge
             +   (function(){
                   // School Run tier badge — adds ⭐/🟡/🟠 prefix when an
                   // intraday signal on DE40 or DJ30 fires inside the
@@ -4494,8 +4494,8 @@ function getLayerDet(k,layer,sig){
                 if(R <= 0) return '';
                 var rr = reward / R;
                 var extPips = (reward * pipMult).toFixed(0) + ' pips';
-                return '<div style="margin-top:2px;color:var(--ink);font-size:9.5px;" title="1.618 Fib extension — projected from the 60-bar (15h) swing high/low ending at the creator. Same value the Telegram alert quotes under the 1:1 R:R target. Advisory stretch target — the algorithm still resolves on the 1:1 stop/target above.">'
-                  + '<span style="color:var(--purple);">🪜 <strong>Fib 1.618:</strong></span> '
+                return '<div style="margin-top:2px;color:var(--ink);font-size:9.5px;" title="Extended target projected from the recent 60-bar swing range. Same value surfaced under the primary 1R target. Advisory stretch — the algorithm still resolves on the primary stop/target above.">'
+                  + '<span style="color:var(--purple);">🪜 <strong>Extended target:</strong></span> '
                   + fmt(ext)
                   + ' <span style="color:var(--inkd);font-size:8px;">(' + extPips + ' &middot; ' + rr.toFixed(2) + ':1 R:R)</span>'
                   + '</div>';
@@ -4529,12 +4529,12 @@ function getLayerDet(k,layer,sig){
             var ext2618 = (iDir === 'bear')
               ? fa.swingLow - 1.618 * fa.leg
               : fa.swingHigh + 1.618 * fa.leg;
-            intraMsg += '<div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(0,0,0,0.08);color:var(--inkd);font-size:7.5px;line-height:1.5;" title="TradingView Auto Fib Retracement levels — advisory only. The wick trade still resolves on the 1:1 R:R target above.">'
-              + '<span style="font-family:Orbitron,monospace;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--purple);">🪜 TV Auto Fib (advisory):</span> '
-              + 'Swing High '+fmt(fa.swingHigh)+' &rarr; Swing Low '+fmt(fa.swingLow)+' (leg '+legPips+') &middot; '
-              + '<strong>1.272</strong> '+fmt(ext1272)+' ('+fibDistPips(ext1272)+') &middot; '
-              + '<strong>1.618</strong> '+fmt(ext1618)+' ('+fibDistPips(ext1618)+') &middot; '
-              + '<strong>2.618</strong> '+fmt(ext2618)+' ('+fibDistPips(ext2618)+')'
+            intraMsg += '<div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(0,0,0,0.08);color:var(--inkd);font-size:7.5px;line-height:1.5;" title="Advisory stretch targets projected from the recent swing range. The primary trade still resolves on the stop/target above.">'
+              + '<span style="font-family:Orbitron,monospace;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--purple);">🪜 Stretch targets (advisory):</span> '
+              + 'Range '+fmt(fa.swingHigh)+' &rarr; '+fmt(fa.swingLow)+' (leg '+legPips+') &middot; '
+              + '<strong>T1</strong> '+fmt(ext1272)+' ('+fibDistPips(ext1272)+') &middot; '
+              + '<strong>T2</strong> '+fmt(ext1618)+' ('+fibDistPips(ext1618)+') &middot; '
+              + '<strong>T3</strong> '+fmt(ext2618)+' ('+fibDistPips(ext2618)+')'
               + '</div>';
           }
 
@@ -4554,10 +4554,10 @@ function getLayerDet(k,layer,sig){
                 + ' bodies w/ '
                 + (iSig.dir === 'bear' ? 'rising' : 'falling')
                 + ' closes &middot; 2nd bar closed at ' + invBarTs
-                + ' (verify on TradingView; tighter rule fires before full CHoCH swing pattern)';
+                + ' (verify on TradingView; tighter rule fires before full structure-flip pattern)';
             } else if(iSig.invalidationReason === 'opposing-choch'){
-              invDescr = '🔎 Fired by opposing CHoCH at ' + invBarTs
-                + ' (swing peak/trough + close-through pattern formed)';
+              invDescr = '🔎 Fired by opposing structure at ' + invBarTs
+                + ' (direction flip pattern formed)';
             } else if(iSig.invalidationReason === 'stop-breached'){
               invDescr = '🔎 Fired by close beyond stop pre-trigger at ' + invBarTs;
             } else if(iSig.invalidationReason === 'alignment-broken'){
@@ -7382,7 +7382,7 @@ function renderFailureModeAnalysis(){
     var cleanPct = pct(c['stop-clean-broke'] || 0);
     var progressPct = pct(c['stopped-after-progress'] || 0);
     if(neverPct >= 35){
-      hints.push('<strong>' + neverPct + '% never retested</strong> — price walked away from the creator wick without coming back. Worth backtesting: a wider 38–62% fib entry zone, midpoint entry as a half-size fallback, or extending expiry from 8 → 12 bars.');
+      hints.push('<strong>' + neverPct + '% never retested</strong> — price walked away from the setup extreme without coming back. Worth backtesting: a wider entry zone, midpoint entry as a half-size fallback, or extending expiry.');
     }
     if(invalPct >= 25){
       hints.push('<strong>' + invalPct + '% invalidated pre-trigger</strong> — 4/4 alignment broke before retest. The 4/4 gate is doing its job protecting you here; widening the entry won\'t help. Consider tightening the alignment freshness window (only trade if 4/4 has held ≥ N bars).');
@@ -11949,7 +11949,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-15nnn';
+var RULES_VERSION = '2026-06-15ooo';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
