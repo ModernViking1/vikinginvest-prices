@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-15T11:16:01.478236+00:00",
-  "generated_ms": 1781522161478,
-  "detector_last_check": "2026-06-15T11:16:01.380390+00:00",
+  "generated": "2026-06-15T11:21:00.239026+00:00",
+  "generated_ms": 1781522460238,
+  "detector_last_check": "2026-06-15T11:21:00.148788+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,31 +10,52 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 8,
-    "armed": 0,
+    "total": 10,
+    "armed": 4,
     "triggered": 0,
-    "invalidated": 8
+    "invalidated": 6
   },
   "signals": [
     {
-      "id": "btcusd:1781520300000:wick",
+      "id": "btcusd:1781522100000:wick",
       "pair": "btcusd",
       "sym": "BTCUSD",
       "cls": "crypto",
       "method": "wick",
       "r_size": 1.0,
       "dir": "bull",
-      "state": "invalidated",
-      "entry": null,
+      "state": "armed",
+      "entry": 65884.71,
       "stop": null,
       "target": null,
       "ew": "bull",
       "tl": "bull",
       "nw": "bull",
       "cl": "bull",
-      "armedAt": 1781520300000,
+      "armedAt": 1781522100000,
       "triggeredAt": null,
-      "lastSeenAt": 1781522161478,
+      "lastSeenAt": 1781522460238,
+      "source": "server-detector"
+    },
+    {
+      "id": "dj30:1781522100000:wick",
+      "pair": "dj30",
+      "sym": "DJ30",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 51685.8,
+      "stop": null,
+      "target": null,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1781522100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781522460238,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,7 @@
       "cl": "bull",
       "armedAt": 1781520300000,
       "triggeredAt": null,
-      "lastSeenAt": 1781522161478,
+      "lastSeenAt": 1781522460238,
       "source": "server-detector"
     },
     {
@@ -76,7 +97,7 @@
       "cl": "bull",
       "armedAt": 1781520300000,
       "triggeredAt": null,
-      "lastSeenAt": 1781522161478,
+      "lastSeenAt": 1781522460238,
       "source": "server-detector"
     },
     {
@@ -97,7 +118,28 @@
       "cl": "bull",
       "armedAt": 1781520300000,
       "triggeredAt": null,
-      "lastSeenAt": 1781522161478,
+      "lastSeenAt": 1781522460238,
+      "source": "server-detector"
+    },
+    {
+      "id": "dj30:1781474400000:fib",
+      "pair": "dj30",
+      "sym": "DJ30",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 51711.138000000006,
+      "stop": null,
+      "target": null,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1781474400000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781522460238,
       "source": "server-detector"
     },
     {
@@ -118,7 +160,7 @@
       "cl": "bull",
       "armedAt": 1780596000000,
       "triggeredAt": null,
-      "lastSeenAt": 1781522161478,
+      "lastSeenAt": 1781522460238,
       "source": "server-detector"
     },
     {
@@ -129,8 +171,8 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bull",
-      "state": "invalidated",
-      "entry": null,
+      "state": "armed",
+      "entry": 66117.8814,
       "stop": null,
       "target": null,
       "ew": "bull",
@@ -139,7 +181,7 @@
       "cl": "bull",
       "armedAt": 1780440300000,
       "triggeredAt": null,
-      "lastSeenAt": 1781522161478,
+      "lastSeenAt": 1781522460238,
       "source": "server-detector"
     },
     {
@@ -160,7 +202,7 @@
       "cl": "bull",
       "armedAt": 1780433100000,
       "triggeredAt": null,
-      "lastSeenAt": 1781522161478,
+      "lastSeenAt": 1781522460238,
       "source": "server-detector"
     },
     {
@@ -181,7 +223,7 @@
       "cl": "bull",
       "armedAt": 1780326900000,
       "triggeredAt": null,
-      "lastSeenAt": 1781522161478,
+      "lastSeenAt": 1781522460238,
       "source": "server-detector"
     }
   ]
