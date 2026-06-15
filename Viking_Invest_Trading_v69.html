@@ -829,54 +829,60 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 <div id="viauth-modal" class="viauth-overlay" style="display:none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="viauth-title">
   <div class="viauth-card vipro-card">
     <button type="button" class="viauth-close" onclick="window.__viAuthClose&&window.__viAuthClose()" aria-label="Close">&times;</button>
-    <div class="viauth-eyebrow">Restricted access &mdash; register to view</div>
-    <h2 id="viauth-title">Register to view Performance, Signals &amp; Backtest</h2>
-    <p>Registration is free and takes 30 seconds. We use the details below to personalise your dashboard and route the right alert categories to the right traders. <strong>Your details are never shared with third parties.</strong></p>
+    <div class="viauth-eyebrow" id="viauth-eyebrow">Restricted access</div>
+    <h2 id="viauth-title">Sign in to view Performance, Signals &amp; Backtest</h2>
+    <p id="viauth-intro">Already registered? Enter your email and we&rsquo;ll send a one-tap sign-in link. First time here? <a href="#" id="viauth-switch-to-register" onclick="event.preventDefault();window.__viAuthSetMode&&window.__viAuthSetMode('register');">Register instead</a>.</p>
     <form id="viauth-form" class="vipro-form">
       <label>Email <span class="vipro-req">*</span><input type="email" id="viauth-email" placeholder="you@example.com" autocomplete="email" required></label>
-      <div class="vipro-row">
-        <label>First name <span class="vipro-req">*</span><input type="text" id="viauth-firstname" autocomplete="given-name" maxlength="60" required></label>
-        <label>Last name <span class="vipro-req">*</span><input type="text" id="viauth-lastname" autocomplete="family-name" maxlength="60" required></label>
+      <!-- ── Fields below show only in register mode (viauth-mode=register) ── -->
+      <div id="viauth-register-fields" style="display:none;">
+        <div class="vipro-row">
+          <label>First name <span class="vipro-req">*</span><input type="text" id="viauth-firstname" autocomplete="given-name" maxlength="60"></label>
+          <label>Last name <span class="vipro-req">*</span><input type="text" id="viauth-lastname" autocomplete="family-name" maxlength="60"></label>
+        </div>
+        <label>Country <span class="vipro-req">*</span><input type="text" id="viauth-country" placeholder="e.g. United Kingdom, Denmark, United States" autocomplete="country-name" maxlength="60"></label>
+        <label>Company / firm <span class="vipro-opt">(optional)</span><input type="text" id="viauth-company" autocomplete="organization" maxlength="80"></label>
+        <label>Role <span class="vipro-req">*</span>
+          <select id="viauth-role">
+            <option value="">&mdash; select &mdash;</option>
+            <option value="portfolio_manager">Portfolio Manager</option>
+            <option value="day_trader">Day / Independent Trader</option>
+            <option value="risk_analyst">Risk Analyst</option>
+            <option value="treasury">Treasury / FX</option>
+            <option value="quant">Quant / Researcher</option>
+            <option value="consultant">Consultant / Advisor</option>
+            <option value="investor">Investor / Allocator</option>
+            <option value="student">Student</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label>Trading experience <span class="vipro-opt">(optional)</span>
+          <select id="viauth-experience">
+            <option value="">&mdash; select &mdash;</option>
+            <option value="beginner">Beginner (&lt; 1 year)</option>
+            <option value="intermediate">Intermediate (1&ndash;3 years)</option>
+            <option value="advanced">Advanced (3&ndash;10 years)</option>
+            <option value="professional">Professional / Institutional (10+ years)</option>
+          </select>
+        </label>
+        <label>Telegram ID <span class="vipro-opt">(optional &mdash; for real-time signal alerts)</span><input type="text" id="viauth-telegram" placeholder="e.g. 123456789" autocomplete="off" inputmode="numeric" maxlength="60"></label>
+        <div class="viauth-hint">Get your ID from <a href="https://t.me/userinfobot" target="_blank" rel="noopener">@userinfobot</a> on Telegram.</div>
+        <label class="vipro-check">
+          <input type="checkbox" id="viauth-newsletter">
+          <span>I'd like occasional newsletters about the dashboard, methodology updates, and new pair / strategy releases.</span>
+        </label>
+        <label class="vipro-check">
+          <input type="checkbox" id="viauth-terms">
+          <span>I have read and accept the platform's <a href="https://vikinginvest.ai" target="_blank" rel="noopener">terms</a> and <a href="https://vikinginvest.ai" target="_blank" rel="noopener">privacy notice</a>, and confirm the platform is for <strong>educational simulation</strong> &mdash; not financial advice. <span class="vipro-req">*</span></span>
+        </label>
+        <div class="vipro-privacy">
+          We process the details above to personalise your trading experience and route the right alert categories to the right traders. Lawful basis: consent (newsletter) and legitimate interest (personalisation). You can edit or delete this data at any time by signing in and using the <em>Edit profile</em> link in the topbar, or by emailing <a href="mailto:hello@vikinginvest.ai">hello@vikinginvest.ai</a>.
+        </div>
       </div>
-      <label>Country <span class="vipro-req">*</span><input type="text" id="viauth-country" placeholder="e.g. United Kingdom, Denmark, United States" autocomplete="country-name" maxlength="60" required></label>
-      <label>Company / firm <span class="vipro-opt">(optional)</span><input type="text" id="viauth-company" autocomplete="organization" maxlength="80"></label>
-      <label>Role <span class="vipro-req">*</span>
-        <select id="viauth-role" required>
-          <option value="">&mdash; select &mdash;</option>
-          <option value="portfolio_manager">Portfolio Manager</option>
-          <option value="day_trader">Day / Independent Trader</option>
-          <option value="risk_analyst">Risk Analyst</option>
-          <option value="treasury">Treasury / FX</option>
-          <option value="quant">Quant / Researcher</option>
-          <option value="consultant">Consultant / Advisor</option>
-          <option value="investor">Investor / Allocator</option>
-          <option value="student">Student</option>
-          <option value="other">Other</option>
-        </select>
-      </label>
-      <label>Trading experience <span class="vipro-opt">(optional)</span>
-        <select id="viauth-experience">
-          <option value="">&mdash; select &mdash;</option>
-          <option value="beginner">Beginner (&lt; 1 year)</option>
-          <option value="intermediate">Intermediate (1&ndash;3 years)</option>
-          <option value="advanced">Advanced (3&ndash;10 years)</option>
-          <option value="professional">Professional / Institutional (10+ years)</option>
-        </select>
-      </label>
-      <label>Telegram ID <span class="vipro-opt">(optional &mdash; for real-time signal alerts)</span><input type="text" id="viauth-telegram" placeholder="e.g. 123456789" autocomplete="off" inputmode="numeric" maxlength="60"></label>
-      <div class="viauth-hint">Get your ID from <a href="https://t.me/userinfobot" target="_blank" rel="noopener">@userinfobot</a> on Telegram.</div>
-      <label class="vipro-check">
-        <input type="checkbox" id="viauth-newsletter">
-        <span>I'd like occasional newsletters about the dashboard, methodology updates, and new pair / strategy releases.</span>
-      </label>
-      <label class="vipro-check">
-        <input type="checkbox" id="viauth-terms" required>
-        <span>I have read and accept the platform's <a href="https://vikinginvest.ai" target="_blank" rel="noopener">terms</a> and <a href="https://vikinginvest.ai" target="_blank" rel="noopener">privacy notice</a>, and confirm the platform is for <strong>educational simulation</strong> &mdash; not financial advice. <span class="vipro-req">*</span></span>
-      </label>
-      <div class="vipro-privacy">
-        We process the details above to personalise your trading experience and route the right alert categories to the right traders. Lawful basis: consent (newsletter) and legitimate interest (personalisation). You can edit or delete this data at any time by signing in and using the <em>Edit profile</em> link in the topbar, or by emailing <a href="mailto:hello@vikinginvest.ai">hello@vikinginvest.ai</a>.
+      <button type="submit" id="viauth-btn">Send sign-in link</button>
+      <div style="text-align:center;font-size:11px;color:var(--inkd);margin-top:6px;" id="viauth-switch-row">
+        <a href="#" id="viauth-switch-to-signin" style="display:none;" onclick="event.preventDefault();window.__viAuthSetMode&&window.__viAuthSetMode('signin');">&larr; Already have an account? Sign in</a>
       </div>
-      <button type="submit" id="viauth-btn">Register &amp; send access link</button>
     </form>
     <div id="viauth-msg" class="viauth-msg"></div>
   </div>
@@ -11949,7 +11955,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-15ooo';
+var RULES_VERSION = '2026-06-15ppp';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -19053,9 +19059,49 @@ function _renderCCIVariantPanel(host, commodityKeys){
     }
   }
 
+  // 2026-06-15ppp — modal opens in SIGN-IN mode by default. Existing
+  // users only need to enter their email; new users tap the "Register
+  // instead" link to expose the full registration fields. Mode is
+  // remembered per browser so a returning visitor never sees register
+  // again after their first sign-in.
+  var _viAuthMode = 'signin';
+  window.__viAuthSetMode = function(mode){
+    _viAuthMode = (mode === 'register') ? 'register' : 'signin';
+    try { localStorage.setItem('vi_auth_last_mode', _viAuthMode); } catch(_){}
+    var registerBlock = document.getElementById('viauth-register-fields');
+    var btn           = document.getElementById('viauth-btn');
+    var eyebrow       = document.getElementById('viauth-eyebrow');
+    var title         = document.getElementById('viauth-title');
+    var intro         = document.getElementById('viauth-intro');
+    var switchToReg   = document.getElementById('viauth-switch-to-register');
+    var switchToSign  = document.getElementById('viauth-switch-to-signin');
+    if(_viAuthMode === 'register'){
+      if(registerBlock) registerBlock.style.display = '';
+      if(btn) btn.textContent = 'Register & send access link';
+      if(eyebrow) eyebrow.textContent = 'Restricted access — register to view';
+      if(title) title.textContent = 'Register to view Performance, Signals & Backtest';
+      if(intro) intro.innerHTML = 'Registration is free and takes 30 seconds. We use the details below to personalise your dashboard and route the right alert categories to the right traders. <strong>Your details are never shared with third parties.</strong>';
+      if(switchToReg) switchToReg.style.display = 'none';
+      if(switchToSign) switchToSign.style.display = '';
+    } else {
+      if(registerBlock) registerBlock.style.display = 'none';
+      if(btn) btn.textContent = 'Send sign-in link';
+      if(eyebrow) eyebrow.textContent = 'Restricted access';
+      if(title) title.textContent = 'Sign in to view Performance, Signals & Backtest';
+      if(intro) intro.innerHTML = 'Already registered? Enter your email and we&rsquo;ll send a one-tap sign-in link. First time here? <a href="#" onclick="event.preventDefault();window.__viAuthSetMode&&window.__viAuthSetMode(\'register\');">Register instead</a>.';
+      if(switchToReg) switchToReg.style.display = '';
+      if(switchToSign) switchToSign.style.display = 'none';
+    }
+  };
   window.__viAuthOpen = function(){
     var m = document.getElementById('viauth-modal');
     if(!m) return;
+    // Default to whichever mode the user last used; first-time visitors
+    // see the cheaper sign-in path (just email) so we don't ask them
+    // to register before they even know what's behind the gate.
+    var pref = null;
+    try { pref = localStorage.getItem('vi_auth_last_mode'); } catch(_){}
+    window.__viAuthSetMode(pref === 'register' ? 'register' : 'signin');
     m.style.display='flex'; m.setAttribute('aria-hidden','false');
     setTimeout(function(){
       var i = document.getElementById('viauth-email');
@@ -19448,22 +19494,29 @@ function _renderCCIVariantPanel(host, commodityKeys){
         var msg = document.getElementById('viauth-msg');
         var btn = document.getElementById('viauth-btn');
 
-        // Field-level validation. The HTML `required` attribute already
-        // catches most cases via the browser's native message — the
-        // explicit checks below mirror it so we have a deterministic
-        // error path if a browser somehow bypasses the constraint.
-        if(!email || !firstName || !lastName || !country || !role){
+        // 2026-06-15ppp — only require profile fields in REGISTER mode.
+        // SIGN-IN mode just needs the email — Supabase issues a magic
+        // link and the user lands back signed in (no questionnaire).
+        var isRegister = (_viAuthMode === 'register');
+        if(!email){
           msg.className='viauth-msg viauth-err';
-          msg.textContent = 'Please complete all required fields (marked *).';
+          msg.textContent = 'Email is required.';
           return;
         }
-        if(!termsOk){
-          msg.className='viauth-msg viauth-err';
-          msg.textContent = 'Please accept the terms and privacy notice to register.';
-          return;
+        if(isRegister){
+          if(!firstName || !lastName || !country || !role){
+            msg.className='viauth-msg viauth-err';
+            msg.textContent = 'Please complete all required fields (marked *).';
+            return;
+          }
+          if(!termsOk){
+            msg.className='viauth-msg viauth-err';
+            msg.textContent = 'Please accept the terms and privacy notice to register.';
+            return;
+          }
         }
 
-        msg.className='viauth-msg'; msg.textContent='Sending market access link…';
+        msg.className='viauth-msg'; msg.textContent = isRegister ? 'Sending market access link…' : 'Sending sign-in link…';
         btn.disabled = true;
 
         // 2026-06-15hhh — full registration payload bundled into the
@@ -19476,7 +19529,10 @@ function _renderCCIVariantPanel(host, commodityKeys){
         // path can re-apply the profile for users whose OTP call
         // landed in the "already exists" branch (where signInWithOtp's
         // data argument is silently dropped by Supabase).
-        var meta = {
+        // 2026-06-15ppp — sign-in mode sends NO profile data so we don't
+        // overwrite existing user metadata with empty strings. Register
+        // mode bundles the full profile.
+        var meta = isRegister ? {
           telegram_id:  telegram || null,
           first_name:   firstName,
           last_name:    lastName,
@@ -19486,21 +19542,23 @@ function _renderCCIVariantPanel(host, commodityKeys){
           experience:   experience || null,
           newsletter:   newsletter,
           terms_accepted_at: new Date().toISOString()
-        };
-        try {
-          var pending = {
-            telegram: telegram,
-            firstName: firstName,
-            lastName: lastName,
-            country: country,
-            company: company,
-            role: role,
-            experience: experience,
-            newsletter: newsletter
-          };
-          localStorage.setItem('vi_pending_profile', JSON.stringify(pending));
-          if(telegram) localStorage.setItem('vi_pending_telegram', telegram);
-        } catch(e){}
+        } : {};
+        if(isRegister){
+          try {
+            var pending = {
+              telegram: telegram,
+              firstName: firstName,
+              lastName: lastName,
+              country: country,
+              company: company,
+              role: role,
+              experience: experience,
+              newsletter: newsletter
+            };
+            localStorage.setItem('vi_pending_profile', JSON.stringify(pending));
+            if(telegram) localStorage.setItem('vi_pending_telegram', telegram);
+          } catch(e){}
+        }
 
         sb.auth.signInWithOtp({
           email: email,
@@ -19515,7 +19573,9 @@ function _renderCCIVariantPanel(host, commodityKeys){
             msg.textContent = r.error.message || 'Could not send link.';
           } else {
             msg.className='viauth-msg viauth-ok';
-            msg.textContent = '✓ Registration complete — access link sent to ' + email + '. Check your inbox to sign in.';
+            msg.textContent = isRegister
+              ? ('✓ Registration complete — access link sent to ' + email + '. Check your inbox to sign in.')
+              : ('✓ Sign-in link sent to ' + email + '. Check your inbox.');
           }
         }).catch(function(err){
           btn.disabled = false;
