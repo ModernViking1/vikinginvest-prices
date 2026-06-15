@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-15T07:01:25.126580+00:00",
-  "generated_ms": 1781506885126,
-  "detector_last_check": "2026-06-15T07:01:25.047081+00:00",
+  "generated": "2026-06-15T07:06:03.203973+00:00",
+  "generated_ms": 1781507163203,
+  "detector_last_check": "2026-06-15T07:06:02.531417+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 6,
-    "armed": 3,
-    "triggered": 1,
-    "invalidated": 2
+    "total": 8,
+    "armed": 2,
+    "triggered": 2,
+    "invalidated": 4
   },
   "signals": [
+    {
+      "id": "eurnok:1781506800000:wick",
+      "pair": "eurnok",
+      "sym": "EURNOK",
+      "cls": "minor",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 11.03213,
+      "stop": null,
+      "target": null,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1781506800000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781507163203,
+      "source": "server-detector"
+    },
     {
       "id": "solusd:1781504100000:wick",
       "pair": "solusd",
@@ -24,7 +45,7 @@
       "method": "wick",
       "r_size": 1.0,
       "dir": "bull",
-      "state": "armed",
+      "state": "triggered",
       "entry": 71.13,
       "stop": null,
       "target": null,
@@ -33,8 +54,8 @@
       "nw": "bull",
       "cl": "bull",
       "armedAt": 1781504100000,
-      "triggeredAt": null,
-      "lastSeenAt": 1781506885126,
+      "triggeredAt": 1781506800000,
+      "lastSeenAt": 1781507163203,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,7 @@
       "cl": "bull",
       "armedAt": 1781504100000,
       "triggeredAt": null,
-      "lastSeenAt": 1781506885126,
+      "lastSeenAt": 1781507163203,
       "source": "server-detector"
     },
     {
@@ -76,7 +97,28 @@
       "cl": "bull",
       "armedAt": 1781500500000,
       "triggeredAt": null,
-      "lastSeenAt": 1781506885126,
+      "lastSeenAt": 1781507163203,
+      "source": "server-detector"
+    },
+    {
+      "id": "eurnok:1780989300000:fib",
+      "pair": "eurnok",
+      "sym": "EURNOK",
+      "cls": "minor",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 11.04475574,
+      "stop": null,
+      "target": null,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780989300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781507163203,
       "source": "server-detector"
     },
     {
@@ -97,7 +139,7 @@
       "cl": "bull",
       "armedAt": 1780433100000,
       "triggeredAt": null,
-      "lastSeenAt": 1781506885126,
+      "lastSeenAt": 1781507163203,
       "source": "server-detector"
     },
     {
@@ -118,7 +160,7 @@
       "cl": "bull",
       "armedAt": 1780326900000,
       "triggeredAt": 1781505900000,
-      "lastSeenAt": 1781506885126,
+      "lastSeenAt": 1781507163203,
       "source": "server-detector"
     },
     {
@@ -139,7 +181,7 @@
       "cl": "bull",
       "armedAt": 1780254900000,
       "triggeredAt": null,
-      "lastSeenAt": 1781506885126,
+      "lastSeenAt": 1781507163203,
       "source": "server-detector"
     }
   ]
