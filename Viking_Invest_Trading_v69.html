@@ -272,6 +272,47 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 }
 </style>
 <script>
+// 2026-06-15nnn — load-hang watchdog.
+//
+// User-reported symptom: refreshing an existing tab leaves the
+// dashboard hanging indefinitely; only opening a fresh private tab
+// works. localStorage quota fix (commit 69061b16) ruled out local
+// state — even Clear Site Data + reload still hangs. That leaves
+// the HTML / dependency download as the culprit: Pages → Fastly
+// edge occasionally serves a connection that opens but never delivers
+// the body to certain routes/networks, AND the browser sometimes
+// reuses a stuck connection across refreshes.
+//
+// Watchdog: if DOMContentLoaded hasn't fired within GRACE_MS, force
+// a hard reload with a cache-bust query param. That breaks the stuck
+// connection by changing the URL (browser cannot reuse the cached
+// response) and forces a fresh DNS lookup + TCP handshake. The
+// sessionStorage flag prevents an infinite reload loop — watchdog
+// fires at most ONCE per session.
+(function _viLoadWatchdog(){
+  try {
+    var FIRED_KEY = '__vi_wd_fired__';
+    var GRACE_MS  = 12000;  // ~12s — generous for slow mobile networks
+    // If we just force-reloaded, clear the flag and let the page run.
+    if (sessionStorage.getItem(FIRED_KEY)) {
+      try { sessionStorage.removeItem(FIRED_KEY); } catch(_){}
+      return;
+    }
+    var done = false;
+    var clearWatchdog = function(){ done = true; };
+    document.addEventListener('DOMContentLoaded', clearWatchdog);
+    document.addEventListener('load', clearWatchdog);
+    setTimeout(function(){
+      if (done) return;
+      try { sessionStorage.setItem(FIRED_KEY, '1'); } catch(_){}
+      try { console.warn('[VI] Load hang detected — force-reloading with cache bust'); } catch(_){}
+      var base = location.href.split('?')[0].split('#')[0];
+      location.replace(base + '?vi_wd=' + Date.now());
+    }, GRACE_MS);
+  } catch(e){}
+})();
+</script>
+<script>
 // 2026-06-15mmm — localStorage quota self-heal. MUST run before any
 // other JS so subsequent boot writes don't trip QuotaExceededError.
 //
@@ -11908,7 +11949,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-15mmm';
+var RULES_VERSION = '2026-06-15nnn';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
