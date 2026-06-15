@@ -3,7 +3,7 @@
 Phase 1 prototype of the broker auto-execution roadmap. A **cTrader cBot**
 (C#) that polls the public `signals.json` feed every 30 seconds and
 places **demo-account** market orders for newly-triggered intraday
-signals from the Viking Invest 4/4 confluence detector.
+signals from the **Viking Edge** signal engine.
 
 cTrader was picked over MT5 because:
 - **IC Markets** offers cTrader natively as one of their three primary
@@ -102,7 +102,7 @@ distribution should track the backtest within slippage tolerance.
 
 | Concern | Lives on |
 |---|---|
-| 4/4 confluence detection | GitHub Action (Python: `detect_triggers.py`) |
+| Viking Edge detection | GitHub Action (Python: `detect_triggers.py`) |
 | Signal lifecycle (armed → triggered → invalidated) | GitHub Action |
 | Public `signals.json` contract | GitHub Action → jsDelivr |
 | Dedup by idempotency key | cBot (persisted to disk) |

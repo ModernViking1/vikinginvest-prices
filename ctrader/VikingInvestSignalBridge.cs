@@ -4,7 +4,7 @@
 //  Polls https://cdn.jsdelivr.net/.../signals.json every 30 seconds,
 //  dedupes via the idempotency key, and places demo-account market
 //  orders for newly-triggered intraday signals from the Viking Invest
-//  4/4 confluence detector.
+//  Viking Edge signal engine.
 //
 //  Schema contract:  build_signals_json.py in the same repo
 //  Roadmap doc:      ctrader/README.md (Phase 1)
