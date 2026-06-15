@@ -741,10 +741,53 @@ namespace cAlgo.Robots
         // IC Markets cTrader uses uppercase bare symbols (EURUSD, BTCUSD).
         // We try the canonical form first, then a couple of common
         // suffix variants used by other brokers.
+        // Maps our internal pair keys → broker-specific symbol candidates.
+        // IC Markets cTrader uses different naming for commodities + indices
+        // than the dashboard's pair identifiers. Each entry lists the most
+        // likely broker symbol first, then known aliases. Add more candidates
+        // here as new broker quirks surface.
+        private static readonly Dictionary<string, string[]> _symbolAliases = new Dictionary<string, string[]>
+        {
+            // Commodities
+            { "usoil",  new[] { "XBRUSD", "BRENT",   "BRENTOIL", "UKOIL",   "USOIL" } },
+            { "wtiusd", new[] { "XTIUSD", "WTI",     "USOIL",    "OIL",     "WTIUSD" } },
+            { "natgas", new[] { "XNGUSD", "NATGAS",  "NGAS",     "NG" } },
+            // Indices
+            { "de40",   new[] { "DE30",   "GER40",   "GER30",    "DAX40",   "DAX30",   "DE40" } },
+            { "dj30",   new[] { "US30",   "DJI",     "DJ30" } },
+            { "nas100", new[] { "USTEC",  "NAS100",  "NASDAQ",   "NQ" } },
+            { "spx500", new[] { "US500",  "SPX500",  "SP500",    "ES" } },
+            { "ftse100",new[] { "UK100",  "FTSE100", "FTSE" } },
+            { "jp225",  new[] { "JPN225", "JP225",   "NIKKEI",   "N225" } },
+            // Crypto — IC Markets uses uppercase bare, fall back to suffixed
+            // variants for the few brokers that append qualifiers.
+        };
+
         private Symbol ResolveSymbol(string pair)
         {
             var upper = pair.ToUpperInvariant();
-            var candidates = new[] { upper, upper + ".r", upper + ".pro", upper + ".raw" };
+            // 2026-06-15mmm: try broker-specific aliases first (commodities
+            // + indices have wildly different names across MT5/cTrader
+            // brokers). If no alias entry, fall back to the generic
+            // "uppercase ± common suffix" sweep.
+            List<string> candidates = new List<string>();
+            if (_symbolAliases.ContainsKey(pair))
+            {
+                foreach (var name in _symbolAliases[pair])
+                {
+                    candidates.Add(name);
+                    candidates.Add(name + ".r");
+                    candidates.Add(name + ".pro");
+                    candidates.Add(name + ".raw");
+                }
+            }
+            else
+            {
+                candidates.Add(upper);
+                candidates.Add(upper + ".r");
+                candidates.Add(upper + ".pro");
+                candidates.Add(upper + ".raw");
+            }
             foreach (var name in candidates)
             {
                 try { var s = Symbols.GetSymbol(name); if (s != null) return s; }
