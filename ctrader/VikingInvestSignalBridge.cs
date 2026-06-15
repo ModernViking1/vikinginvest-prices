@@ -507,12 +507,20 @@ namespace cAlgo.Robots
             }
 
             // Stale-signal filter.
-            if (sig.ArmedAtMs > 0)
+            // 2026-06-15ggg: prefer TriggeredAtMs over ArmedAtMs when
+            // present. ArmedAtMs measures "how old is the original
+            // setup creator" — which can be 1-3 hours old while the
+            // actual TRIGGER event is fresh. Using ArmedAtMs caused
+            // the cBot to silently skip valid triggers in normal
+            // market action (signals visible on the dashboard but
+            // never converted to orders, never reaching Telegram).
+            var stalenessAnchor = sig.TriggeredAtMs > 0 ? sig.TriggeredAtMs : sig.ArmedAtMs;
+            if (stalenessAnchor > 0)
             {
-                var ageMin = (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - sig.ArmedAtMs) / 60000.0;
+                var ageMin = (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - stalenessAnchor) / 60000.0;
                 if (ageMin > MaxSignalAgeMin)
                 {
-                    Print($"⏭ [VikingInvest] Skipping stale signal id={sig.Id} (armed {ageMin:F0} min ago)");
+                    Print($"⏭ [VikingInvest] Skipping stale signal id={sig.Id} ({(sig.TriggeredAtMs > 0 ? "triggered" : "armed")} {ageMin:F0} min ago, cap {MaxSignalAgeMin})");
                     MarkSeen(sig.Id); _ordersSkipped++;
                     return;
                 }
@@ -969,6 +977,7 @@ namespace cAlgo.Robots
             public string Id, Pair, State, Dir;
             public double Entry, Stop, Target, RSize;
             public long ArmedAtMs;
+            public long TriggeredAtMs;
         }
 
         private List<Signal> ParseSignals(string body)
@@ -1001,7 +1010,8 @@ namespace cAlgo.Robots
                     Stop      = JsonNum(obj, "stop"),
                     Target    = JsonNum(obj, "target"),
                     RSize     = JsonNum(obj, "r_size"),
-                    ArmedAtMs = (long)JsonNum(obj, "armedAt"),
+                    ArmedAtMs     = (long)JsonNum(obj, "armedAt"),
+                    TriggeredAtMs = (long)JsonNum(obj, "triggeredAt"),
                 });
                 pos = objEnd + 1;
             }
