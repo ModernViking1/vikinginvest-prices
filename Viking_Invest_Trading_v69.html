@@ -1969,8 +1969,12 @@ var WICKATOR_EW = {
   de40:  {dir:'bear', invalid:25512,  anchor:21863,  pivot:25512,  w2Zone:[24600,24000],   phase:'Bounce extending — into deeper SELL zone', source:'inferred'},
 
   // ─── CRYPTO (partial DXY correlation) ───────────────────────────────
-  btcusd:{dir:'bear', invalid:90000, anchor:62000, pivot:90000, w2Zone:[77000,83000],   phase:'SELL ZONE for next leg → target ~50,000 BUY ZONE then 42,000', source:'wickator', tp1Override:50000, tp2Override:42000},
-  suiusd:{dir:'bear', invalid:1.0700, anchor:0.8000, pivot:1.0500, w2Zone:[1.0000,1.0500], phase:'Bounce zone for next leg down — wait for tag of 1.00-1.05 sell zone (38.2% Fib of A-wave from 5.35 ATH)', source:'inferred', tp1Override:0.85, tp2Override:0.65}
+  btcusd:{dir:'bear', invalid:90000, anchor:62000, pivot:90000, w2Zone:[77000,83000],   phase:'SELL ZONE for next leg → target ~50,000 BUY ZONE then 42,000', source:'wickator', tp1Override:50000, tp2Override:42000}
+  // suiusd seed removed 2026-06-15jjj per user direction. SUI never had
+  // a Wickator chart — seed was inferred from ATH Fib math at $5.35 ATH.
+  // Now uses auto-derived targets (60-day swing high/low ± Fib retrace)
+  // like NEAR and the other unsedded crypto pairs. To restore, re-add
+  // the entry above with current macro view + `_seedAtMs: Date.now()`.
 };
 
 // ─ Wickator Take Profit calculator (Fib extension method from charts) ────
@@ -11857,7 +11861,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-15jjj';
+var RULES_VERSION = '2026-06-15kkk';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
