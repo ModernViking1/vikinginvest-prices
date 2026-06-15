@@ -63,6 +63,10 @@ PAIR_DISPLAY = {
     'xauusd': 'XAU/USD', 'xagusd': 'XAG/USD', 'usoil': 'BRENT',
     'wtiusd': 'WTI', 'natgas': 'NAT GAS', 'xptusd': 'XPT/USD',
     'ftse100': 'FTSE 100',
+    # de40 reinstated 2026-06-15lll — inferred macro seed retired
+    # client-side, targets auto-derived. Re-evaluate WR after one
+    # full backtest cycle.
+    'de40':   'DAX 40',
     'dj30':   'DJ 30',   'nas100':  'NAS 100', 'spx500':  'S&P 500',
     # v7 FX minors (2026-06-03)
     # nzdcad removed 2026-06-10 — low win-rate drag.
@@ -115,6 +119,7 @@ PAIR_CLASS = {
     # classified for completeness so any lookup gets a deterministic
     # answer instead of falling back to 80/20).
     'ftse100': 'index', 'dj30': 'index',
+    'de40': 'index',  # reinstated 2026-06-15lll
     'nas100': 'index', 'spx500': 'index', 'jp225': 'index',
     # fra40 removed 2026-06-10 — low win-rate drag.
     'dxy': 'index',
@@ -156,13 +161,18 @@ def rsi_gate_for(pair):
 
 
 # ── School Run (SR) — Tom Hougaard's opening-range pattern adapted as
-# a 5th confluence layer for DE40 and DJ30 only. (RULES_VERSION
-# 2026-06-10k.) Mirror of getSRTier / _findRefCandle / _computeSRState
+# a 5th confluence layer. DE40 + DJ30 — the two indices with reliable
+# cash-session opens that match the SR mechanic. (RULES_VERSION
+# 2026-06-10k; DE40 reinstated 2026-06-15lll after seed retirement.)
+# Mirror of getSRTier / _findRefCandle / _computeSRState
 # in Viking_Invest_Trading_v69.html — kept lockstep so the Telegram
 # alert tier (written to directions.json) matches the dashboard pill
 # the user sees.
 SR_REF_TIMES = {
-    # de40 removed 2026-06-13kk — only DJ30 now has SR coverage.
+    # de40 reinstated 2026-06-15lll. SR window times unchanged from the
+    # original 2026-06-10k spec — opens 09:00 / 10:00 Frankfurt local
+    # (08:00 / 09:00 UTC during summertime).
+    'de40': {'open_times': ('08:00', '09:00'), 'session_label': 'DE40 09:00 CET', 'window_bars': 8},
     'dj30': {'open_times': ('13:30', '14:30'), 'session_label': 'DJ30 09:30 ET', 'window_bars': 8},
 }
 
@@ -1313,7 +1323,12 @@ FIB_ENTRY_PAIRS = {
     # auto-EW-driven sample. Awaiting auto-EW-integrated backtest before
     # any further methodology change.
     # de40 dropped 2026-06-13kk (chronic negative E[R]).
-    'nas100', 'dj30', 'ftse100', 'spx500',
+    # de40 REINSTATED 2026-06-15lll — earlier drop was driven in part by
+    # the stale `dir:'bear'` inferred macro seed forcing aggressive bear
+    # targets that didn't match recent price action. With the seed
+    # retired client-side and auto-derived targets in play, re-evaluate
+    # WR after one full backtest cycle.
+    'de40', 'nas100', 'dj30', 'ftse100', 'spx500',
     # v7 additions (2026-06-03)
     'jp225',
     # fra40 (CAC 40) removed 2026-06-10 — low win-rate drag.
