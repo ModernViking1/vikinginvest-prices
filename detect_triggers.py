@@ -2654,9 +2654,24 @@ def main():
             'sig_state': cur_sig_state,
             'sig_creator_ts': cur_creator_ts,
             'sig_entry': info.get('sig_entry'),
+            # 2026-06-15mmm — sig_stop / sig_target were previously
+            # collected in `out[pair]` at the top of the loop but DROPPED
+            # at this new_state[pair] assembly. build_signals_json.py
+            # reads alerts-state.json and propagates these to signals.json
+            # as the cBot's stop / target — when they're missing the
+            # cBot's lot-sizing math returns 0 and the order is silently
+            # skipped. Same for sig_fib_stop / sig_fib_target.
+            'sig_stop':       info.get('sig_stop'),
+            'sig_target':     info.get('sig_target'),
             'sig_trigger_ts': info.get('sig_trigger_ts'),
             'sig_fib_state': cur_fib_state,
-            'sig_fib_entry': info.get('sig_fib_entry'),
+            'sig_fib_entry':   info.get('sig_fib_entry'),
+            # Fib variant shares the wick variant's stop (same structural
+            # extreme — only the entry level differs between the two).
+            # Fall back to sig_stop if the detector didn't surface a
+            # separate sig_fib_stop.
+            'sig_fib_stop':    info.get('sig_fib_stop') or info.get('sig_stop'),
+            'sig_fib_target':  info.get('sig_fib_target'),
             'sig_fib_trigger_ts': info.get('sig_fib_trigger_ts'),
             'alerted_trigger_creator_ts': alerted_creator,
             'alerted_fib_creator_ts': alerted_fib,
