@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-15T12:46:11.025975+00:00",
-  "generated_ms": 1781527571025,
-  "detector_last_check": "2026-06-15T12:46:10.932231+00:00",
+  "generated": "2026-06-15T12:51:06.294259+00:00",
+  "generated_ms": 1781527866294,
+  "detector_last_check": "2026-06-15T12:51:06.204121+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,14 +10,14 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 11,
-    "armed": 6,
+    "total": 15,
+    "armed": 4,
     "triggered": 0,
-    "invalidated": 5
+    "invalidated": 11
   },
   "signals": [
     {
-      "id": "btcusd:1781526600000:wick",
+      "id": "btcusd:1781527500000:wick",
       "pair": "btcusd",
       "sym": "BTCUSD",
       "cls": "crypto",
@@ -25,7 +25,28 @@
       "r_size": 1.0,
       "dir": "bull",
       "state": "armed",
-      "entry": 66146.33,
+      "entry": 66378.45,
+      "stop": null,
+      "target": null,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1781527500000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781527866294,
+      "source": "server-detector"
+    },
+    {
+      "id": "solusd:1781526600000:wick",
+      "pair": "solusd",
+      "sym": "SOLUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 72.37,
       "stop": null,
       "target": null,
       "ew": "bull",
@@ -34,7 +55,7 @@
       "cl": "bull",
       "armedAt": 1781526600000,
       "triggeredAt": null,
-      "lastSeenAt": 1781527571025,
+      "lastSeenAt": 1781527866294,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,28 @@
       "cl": "bear",
       "armedAt": 1781526600000,
       "triggeredAt": null,
-      "lastSeenAt": 1781527571025,
+      "lastSeenAt": 1781527866294,
+      "source": "server-detector"
+    },
+    {
+      "id": "xrpusd:1781526600000:wick",
+      "pair": "xrpusd",
+      "sym": "XRPUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 1.2308,
+      "stop": null,
+      "target": null,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1781526600000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781527866294,
       "source": "server-detector"
     },
     {
@@ -66,7 +108,7 @@
       "method": "wick",
       "r_size": 1.0,
       "dir": "bull",
-      "state": "armed",
+      "state": "invalidated",
       "entry": 279.96,
       "stop": null,
       "target": null,
@@ -76,7 +118,7 @@
       "cl": "bull",
       "armedAt": 1781525700000,
       "triggeredAt": null,
-      "lastSeenAt": 1781527571025,
+      "lastSeenAt": 1781527866294,
       "source": "server-detector"
     },
     {
@@ -97,28 +139,7 @@
       "cl": "bull",
       "armedAt": 1781523900000,
       "triggeredAt": null,
-      "lastSeenAt": 1781527571025,
-      "source": "server-detector"
-    },
-    {
-      "id": "solusd:1781522100000:wick",
-      "pair": "solusd",
-      "sym": "SOLUSD",
-      "cls": "crypto",
-      "method": "wick",
-      "r_size": 1.0,
-      "dir": "bull",
-      "state": "invalidated",
-      "entry": 71.99,
-      "stop": null,
-      "target": null,
-      "ew": "bull",
-      "tl": "bull",
-      "nw": "bull",
-      "cl": "bull",
-      "armedAt": 1781522100000,
-      "triggeredAt": null,
-      "lastSeenAt": 1781527571025,
+      "lastSeenAt": 1781527866294,
       "source": "server-detector"
     },
     {
@@ -139,7 +160,49 @@
       "cl": "bull",
       "armedAt": 1781522100000,
       "triggeredAt": null,
-      "lastSeenAt": 1781527571025,
+      "lastSeenAt": 1781527866294,
+      "source": "server-detector"
+    },
+    {
+      "id": "ondousd:1781520300000:wick",
+      "pair": "ondousd",
+      "sym": "ONDOUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": null,
+      "stop": null,
+      "target": null,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1781520300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781527866294,
+      "source": "server-detector"
+    },
+    {
+      "id": "ondousd:1780596000000:fib",
+      "pair": "ondousd",
+      "sym": "ONDOUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": null,
+      "stop": null,
+      "target": null,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780596000000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781527866294,
       "source": "server-detector"
     },
     {
@@ -151,7 +214,7 @@
       "r_size": 0.5,
       "dir": "bull",
       "state": "armed",
-      "entry": 66327.84277999999,
+      "entry": 66470.34042,
       "stop": null,
       "target": null,
       "ew": "bull",
@@ -160,7 +223,7 @@
       "cl": "bull",
       "armedAt": 1780440300000,
       "triggeredAt": null,
-      "lastSeenAt": 1781527571025,
+      "lastSeenAt": 1781527866294,
       "source": "server-detector"
     },
     {
@@ -181,7 +244,7 @@
       "cl": "bull",
       "armedAt": 1780433100000,
       "triggeredAt": null,
-      "lastSeenAt": 1781527571025,
+      "lastSeenAt": 1781527866294,
       "source": "server-detector"
     },
     {
@@ -202,7 +265,7 @@
       "cl": "bull",
       "armedAt": 1780424100000,
       "triggeredAt": null,
-      "lastSeenAt": 1781527571025,
+      "lastSeenAt": 1781527866294,
       "source": "server-detector"
     },
     {
@@ -214,7 +277,7 @@
       "r_size": 0.5,
       "dir": "bull",
       "state": "invalidated",
-      "entry": 72.48440000000001,
+      "entry": 72.74080000000001,
       "stop": null,
       "target": null,
       "ew": "bull",
@@ -223,7 +286,28 @@
       "cl": "bull",
       "armedAt": 1780326900000,
       "triggeredAt": null,
-      "lastSeenAt": 1781527571025,
+      "lastSeenAt": 1781527866294,
+      "source": "server-detector"
+    },
+    {
+      "id": "xrpusd:1780326900000:fib",
+      "pair": "xrpusd",
+      "sym": "XRPUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 1.241306,
+      "stop": null,
+      "target": null,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780326900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781527866294,
       "source": "server-detector"
     },
     {
@@ -234,7 +318,7 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bull",
-      "state": "armed",
+      "state": "invalidated",
       "entry": 282.76572,
       "stop": null,
       "target": null,
@@ -244,7 +328,7 @@
       "cl": "bull",
       "armedAt": 1780254900000,
       "triggeredAt": null,
-      "lastSeenAt": 1781527571025,
+      "lastSeenAt": 1781527866294,
       "source": "server-detector"
     }
   ]
