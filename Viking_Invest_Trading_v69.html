@@ -3438,32 +3438,18 @@ function shouldShow(k){
 
 
 function buildUI(){
-  buildOvGrid();buildScroller();buildPanels();buildBacktest();seedLog();initJournal();
-  // 2026-06-15fff (mobile HOTFIX): per-pair refreshAlert burst chunked
-  // across requestAnimationFrame instead of a single sync forEach.
-  // Was a 39-pair sync loop where each call ran the intraday detector
-  // + 4 layer-detail HTML generators + intra-card render. On mobile CPUs
-  // that block totals ~3-5s — long enough that browsers throw
-  // "page not responding" or "page not loading" mid-init even in a
-  // private tab (no cache helps with main-thread blocking). Chunking
-  // to 4 pairs per rAF gives the renderer ~6ms windows between bursts
-  // so the dashboard paints incrementally and stays responsive.
-  var _refreshKeys = Object.keys(MKTS);
-  var _refreshIdx = 0;
-  var _refreshChunk = 4;
-  function _refreshChunkStep(){
-    var end = Math.min(_refreshIdx + _refreshChunk, _refreshKeys.length);
-    for(var i = _refreshIdx; i < end; i++){
-      try { refreshAlert(_refreshKeys[i]); } catch(_){}
-    }
-    _refreshIdx = end;
-    if(_refreshIdx < _refreshKeys.length){
-      if(typeof requestAnimationFrame === 'function') requestAnimationFrame(_refreshChunkStep);
-      else setTimeout(_refreshChunkStep, 0);
-    }
-  }
-  if(typeof requestAnimationFrame === 'function') requestAnimationFrame(_refreshChunkStep);
-  else setTimeout(_refreshChunkStep, 0);
+  // 2026-06-15fff (mobile HOTFIX pt 2+3+4): heavy per-pair work
+  // deferred. The sync init chain now only does the cheap shell setup
+  // (overview grid + scroller + seed log + journal); buildBacktest()
+  // is lazy on first switchPage('bt'); buildPanels() chunks its own
+  // DOM construction across rAF. refreshAlert per pair is interleaved
+  // with the panel build so a pair always has its DOM ready by the
+  // time its detail body is populated. See _ppKick below.
+  buildOvGrid();buildScroller();seedLog();initJournal();
+  buildPanels();  // self-chunked, see function definition
+  // Per-pair refreshAlert chunked AFTER buildPanels has had a chance
+  // to start. We pair-by-pair build+refresh inside buildPanels' rAF
+  // tick (added there directly) so there's no ordering risk.
   // Dynamic pair-count labels — single source of truth is Object.keys(MKTS).length.
   // Avoids stale hardcoded "21 Markets" strings drifting after new pairs are added.
   try {
@@ -3728,7 +3714,48 @@ function updateTab(k){var tab=document.getElementById('tab-'+k);if(!tab)return;v
   tab.innerHTML=fdot+'<div class="tsym">'+m.sym+'</div><div class="tpx" style="color:'+(m.up?'var(--bull)':'var(--bear)')+'">'+m.px+'</div><div class="tsig '+cls+'">'+sig+' '+m.wr+'%</div>';}
 
 // ── Panels ────────────────────────────────────────────────────
-function buildPanels(){var c=document.getElementById('mPanels');Object.keys(MKTS).forEach(function(k){var p=document.createElement('div');p.className='mpanel';p.id='mp-'+k;p.appendChild(buildPanel(k));c.appendChild(p);});}
+function buildPanels(){
+  // 2026-06-15fff (mobile HOTFIX pt 3): chunked across rAF instead of
+  // a single forEach of 39 sync buildPanel() calls. Each buildPanel
+  // creates ~15 DOM elements (alert banner, setup zone, intra-card,
+  // 4 layer cards, chart canvas, controls) so a single burst was
+  // ~500 sync DOM ops blocking the renderer. Chunking 4 pairs per
+  // rAF gives ~6ms breathing room between bursts — page can paint
+  // the overview grid immediately while the (hidden) detail panels
+  // build in the background.
+  var c = document.getElementById('mPanels');
+  if(!c) return;
+  var keys = Object.keys(MKTS);
+  var idx = 0;
+  var CHUNK = 4;
+  function step(){
+    var end = Math.min(idx + CHUNK, keys.length);
+    for(var i = idx; i < end; i++){
+      try {
+        var k = keys[i];
+        var p = document.createElement('div');
+        p.className = 'mpanel';
+        p.id = 'mp-' + k;
+        p.appendChild(buildPanel(k));
+        c.appendChild(p);
+        // Refresh the just-built panel in the same chunk so the
+        // detail bodies (layer cards, intra-card) are populated
+        // before the next rAF — no two-phase race between build
+        // and refresh.
+        if(typeof refreshAlert === 'function'){
+          try { refreshAlert(k); } catch(_){}
+        }
+      } catch(_){}
+    }
+    idx = end;
+    if(idx < keys.length){
+      if(typeof requestAnimationFrame === 'function') requestAnimationFrame(step);
+      else setTimeout(step, 0);
+    }
+  }
+  if(typeof requestAnimationFrame === 'function') requestAnimationFrame(step);
+  else setTimeout(step, 0);
+}
 function buildPanel(k){
   var m=MKTS[k],frag=document.createDocumentFragment();
   // Price row
@@ -9227,6 +9254,11 @@ function switchPage(p){
   if(p === 'dash' && activeMkt !== 'overview') setTimeout(function(){drawChart(activeMkt);}, 60);
   if(p === 'newsletter' && typeof buildNewsletter === 'function') setTimeout(buildNewsletter, 30);
   if(p === 'performance' && typeof buildPerformance === 'function') setTimeout(buildPerformance, 30);
+  // 2026-06-15fff: lazy-build the Backtest tab the first time the user
+  // (signed in) lands on it. Removed from boot init to cut ~2-4s off
+  // the mobile cold-start path. buildBacktest is idempotent so the
+  // re-entry on subsequent navigations is a clean re-render.
+  if(p === 'bt' && typeof buildBacktest === 'function') setTimeout(buildBacktest, 30);
 }
 window.addEventListener('resize',function(){if(activeMkt!=='overview')drawChart(activeMkt);var pPerf=document.getElementById('page-performance');if(pPerf && pPerf.classList.contains('active'))drawEquity();});
 
@@ -11749,7 +11781,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-15fff';
+var RULES_VERSION = '2026-06-15ggg';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
