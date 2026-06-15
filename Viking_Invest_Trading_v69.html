@@ -1672,6 +1672,13 @@ var MKTS = {
     ew:'neutral',tl:'neutral',nw:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
     entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  // de40 reinstated 2026-06-15kkk — inferred bear seed retired, targets
+  // now auto-derived. Same baked-baseline pattern as dj30 / ftse100 /
+  // spx500 — actual win-rate refreshes once the backtest cache rebuilds.
+  de40:{sym:'DAX 40',t:'index',px:'24,000',p:24000,d:1,sc:120,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
   ftse100:{sym:'FTSE 100',t:'index',px:'8,200',p:8200,d:1,sc:50,up:true,chg:'+0.00%',
     ew:'neutral',tl:'neutral',nw:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
@@ -1841,8 +1848,12 @@ var DROPPED_PAIRS = new Set([
   'nzdcad',                                      // 2026-06-10c
   'hypeusd',                                     // 2026-06-10g
   'gbpaud',                                      // 2026-06-10h
-  'audcad',                                      // 2026-06-10i
-  'de40'                                         // 2026-06-13kk — chronic negative E[R] across 9+ variants
+  'audcad'                                       // 2026-06-10i
+  // de40 reinstated 2026-06-15kkk — earlier drop was driven in part by
+  // the stale "bear" inferred seed forcing aggressive bear targets that
+  // didn't match recent price action. With the seed removed (see
+  // WICKATOR_EW de40 entry removed below) the auto-derived target path
+  // takes over; rerun the backtest with a clean cache to validate.
 ]);
 function _filterDroppedPairs(obj){
   if(!obj || typeof obj !== 'object') return obj;
@@ -1959,14 +1970,15 @@ var WICKATOR_EW = {
   // ─── CROSS EUR/xxx — partial DXY decoupling ─────────────────────────
   eurnzd:{dir:'bear', invalid:2.0400, anchor:1.9500, pivot:2.0400, w2Zone:[2.0000,2.0200], phase:'Bounce — sell zone for target 1.92, extension 1.88', source:'wickator', tp1Override:1.92, tp2Override:1.88},
   // gbpaud removed 2026-06-10h — chronic ~50% WR.
-  euraud:{dir:'bear', invalid:1.7150, anchor:1.5600, pivot:1.7150, w2Zone:[1.6600,1.6900], phase:'AUD outperforming EUR on DXY weakness', source:'inferred', tp1Override:1.60, tp2Override:1.56},
-  audnzd:{dir:'bull', invalid:1.1850, anchor:1.1500, pivot:1.2200, w2Zone:[1.1950,1.2100], phase:'AUD outperforming NZD — pullback retest expected', source:'inferred', tp1Override:1.25, tp2Override:1.28},
-  eurgbp:{dir:'bear', invalid:0.8900, anchor:0.8300, pivot:0.8900, w2Zone:[0.8700,0.8800], phase:'Continuation down active per multiple sources', source:'inferred', tp1Override:0.85, tp2Override:0.83},
+  // euraud, audnzd, eurgbp, cadjpy inferred seeds removed 2026-06-15kkk
+  //   — never had Wickator chart backing; SUI-style stale-thesis risk.
+  //   Auto-derived (60-day swing ± Fib retrace) now drives the macro
+  //   targets on these crosses.
   // audchf removed 2026-06-08 — low win-rate drag on aggregate.
-  cadjpy:{dir:'bear', invalid:117.20, anchor:109.0, pivot:117.20, w2Zone:[115.80,116.50], phase:'Wave B retest of broken structure — Wave C target 109-112', source:'inferred', tp1Override:112.0, tp2Override:109.0},
   // ─── CDS / COMMODITIES ───────────────────────────────────────────────
   usoil: {dir:'bull', invalid:58.00,  anchor:58.00,  pivot:106.00, w2Zone:[100.00,95.00], phase:'Extension leg — peak forecast $115 (EIA Q2 2026)', source:'wickator', tp1Override:115, tp2Override:130},
-  de40:  {dir:'bear', invalid:25512,  anchor:21863,  pivot:25512,  w2Zone:[24600,24000],   phase:'Bounce extending — into deeper SELL zone', source:'inferred'},
+  // de40 inferred seed removed 2026-06-15kkk — see DROPPED_PAIRS comment.
+  //   Pair reinstated to the universe; targets now auto-derived.
 
   // ─── CRYPTO (partial DXY correlation) ───────────────────────────────
   btcusd:{dir:'bear', invalid:90000, anchor:62000, pivot:90000, w2Zone:[77000,83000],   phase:'SELL ZONE for next leg → target ~50,000 BUY ZONE then 42,000', source:'wickator', tp1Override:50000, tp2Override:42000}
@@ -11861,7 +11873,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-15kkk';
+var RULES_VERSION = '2026-06-15lll';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -11905,7 +11917,7 @@ function RULES_FINGERPRINT(){
           return c + ':' + RSI_GATE_BY_CLASS[c].hi + '/' + RSI_GATE_BY_CLASS[c].lo;
         }).join(',')
       : '80/20',
-    fibPairs: ['xauusd','xagusd','usoil','wtiusd','natgas','xptusd','nas100','dj30','ftse100','spx500','jp225'].sort().join(','),
+    fibPairs: ['xauusd','xagusd','usoil','wtiusd','natgas','xptusd','nas100','dj30','de40','ftse100','spx500','jp225'].sort().join(','),
     // Active pair universe (hash of sorted MKTS keys) — bump on any
     // add/remove so dropped pairs are flushed from localStorage caches
     // on the next page load, not the next TTL expiry. Without this the
