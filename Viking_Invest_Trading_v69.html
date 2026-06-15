@@ -375,6 +375,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 .vipro-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
 @media(max-width:520px){ .vipro-row{grid-template-columns:1fr;} }
 .vipro-opt{color:#9a9088;font-weight:400;font-size:11px;margin-left:4px;}
+.vipro-req{color:#c0281a;font-weight:700;font-size:12px;margin-left:2px;}
 .vipro-check{
   flex-direction:row;align-items:flex-start;gap:9px;
   background:rgba(200,134,10,0.06);padding:10px 12px;border-radius:7px;
@@ -750,16 +751,56 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 
 <!-- ── AUTH MODAL (magic-link sign-in) ── -->
 <div id="viauth-modal" class="viauth-overlay" style="display:none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="viauth-title">
-  <div class="viauth-card">
+  <div class="viauth-card vipro-card">
     <button type="button" class="viauth-close" onclick="window.__viAuthClose&&window.__viAuthClose()" aria-label="Close">&times;</button>
-    <div class="viauth-eyebrow">Restricted access</div>
-    <h2 id="viauth-title">Sign in to view Performance, Signals &amp; Backtest</h2>
-    <p>The Performance, Signal Log and Backtest tabs are for registered users. Sign in with your email &mdash; and optionally add your Telegram ID to receive real-time signal alerts as they fire.</p>
-    <form id="viauth-form">
-      <input type="email" id="viauth-email" placeholder="you@example.com" autocomplete="email" required>
-      <input type="text" id="viauth-telegram" placeholder="Telegram ID (optional)" autocomplete="off" inputmode="numeric">
-      <div class="viauth-hint">For real-time alerts. Get your ID from <a href="https://t.me/userinfobot" target="_blank" rel="noopener">@userinfobot</a> on Telegram.</div>
-      <button type="submit" id="viauth-btn">Send market access link</button>
+    <div class="viauth-eyebrow">Restricted access &mdash; register to view</div>
+    <h2 id="viauth-title">Register to view Performance, Signals &amp; Backtest</h2>
+    <p>Registration is free and takes 30 seconds. We use the details below to personalise your dashboard and route the right alert categories to the right traders. <strong>Your details are never shared with third parties.</strong></p>
+    <form id="viauth-form" class="vipro-form">
+      <label>Email <span class="vipro-req">*</span><input type="email" id="viauth-email" placeholder="you@example.com" autocomplete="email" required></label>
+      <div class="vipro-row">
+        <label>First name <span class="vipro-req">*</span><input type="text" id="viauth-firstname" autocomplete="given-name" maxlength="60" required></label>
+        <label>Last name <span class="vipro-req">*</span><input type="text" id="viauth-lastname" autocomplete="family-name" maxlength="60" required></label>
+      </div>
+      <label>Country <span class="vipro-req">*</span><input type="text" id="viauth-country" placeholder="e.g. United Kingdom, Denmark, United States" autocomplete="country-name" maxlength="60" required></label>
+      <label>Company / firm <span class="vipro-opt">(optional)</span><input type="text" id="viauth-company" autocomplete="organization" maxlength="80"></label>
+      <label>Role <span class="vipro-req">*</span>
+        <select id="viauth-role" required>
+          <option value="">&mdash; select &mdash;</option>
+          <option value="portfolio_manager">Portfolio Manager</option>
+          <option value="day_trader">Day / Independent Trader</option>
+          <option value="risk_analyst">Risk Analyst</option>
+          <option value="treasury">Treasury / FX</option>
+          <option value="quant">Quant / Researcher</option>
+          <option value="consultant">Consultant / Advisor</option>
+          <option value="investor">Investor / Allocator</option>
+          <option value="student">Student</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+      <label>Trading experience <span class="vipro-opt">(optional)</span>
+        <select id="viauth-experience">
+          <option value="">&mdash; select &mdash;</option>
+          <option value="beginner">Beginner (&lt; 1 year)</option>
+          <option value="intermediate">Intermediate (1&ndash;3 years)</option>
+          <option value="advanced">Advanced (3&ndash;10 years)</option>
+          <option value="professional">Professional / Institutional (10+ years)</option>
+        </select>
+      </label>
+      <label>Telegram ID <span class="vipro-opt">(optional &mdash; for real-time signal alerts)</span><input type="text" id="viauth-telegram" placeholder="e.g. 123456789" autocomplete="off" inputmode="numeric" maxlength="60"></label>
+      <div class="viauth-hint">Get your ID from <a href="https://t.me/userinfobot" target="_blank" rel="noopener">@userinfobot</a> on Telegram.</div>
+      <label class="vipro-check">
+        <input type="checkbox" id="viauth-newsletter">
+        <span>I'd like occasional newsletters about the dashboard, methodology updates, and new pair / strategy releases.</span>
+      </label>
+      <label class="vipro-check">
+        <input type="checkbox" id="viauth-terms" required>
+        <span>I have read and accept the platform's <a href="https://vikinginvest.ai" target="_blank" rel="noopener">terms</a> and <a href="https://vikinginvest.ai" target="_blank" rel="noopener">privacy notice</a>, and confirm the platform is for <strong>educational simulation</strong> &mdash; not financial advice. <span class="vipro-req">*</span></span>
+      </label>
+      <div class="vipro-privacy">
+        We process the details above to personalise your trading experience and route the right alert categories to the right traders. Lawful basis: consent (newsletter) and legitimate interest (personalisation). You can edit or delete this data at any time by signing in and using the <em>Edit profile</em> link in the topbar, or by emailing <a href="mailto:hello@vikinginvest.ai">hello@vikinginvest.ai</a>.
+      </div>
+      <button type="submit" id="viauth-btn">Register &amp; send access link</button>
     </form>
     <div id="viauth-msg" class="viauth-msg"></div>
   </div>
@@ -11781,7 +11822,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-15ggg';
+var RULES_VERSION = '2026-06-15hhh';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -18939,15 +18980,39 @@ function _renderCCIVariantPanel(host, commodityKeys){
     } catch(e){}
     updateStatus();
     if(session){
-      // If a Telegram ID was entered before the magic-link round-trip and
-      // the user already existed (so signInWithOtp.data was ignored),
-      // apply it now via updateUser so it lands on raw_user_meta_data.
+      // 2026-06-15hhh — Re-apply the full registration profile if it
+      // was captured on the auth modal pre-signin but landed in the
+      // "user already existed" branch (Supabase silently drops the
+      // OTP data arg for existing users). Re-apply via updateUser so
+      // the profile fields land on raw_user_meta_data even on repeat
+      // sign-ins. Backwards-compatible with the older
+      // `vi_pending_telegram`-only stash.
       try {
-        var pending = localStorage.getItem('vi_pending_telegram');
-        if(pending){
-          sb.auth.updateUser({data:{telegram_id: pending}}).then(function(){
+        var pendingRaw = localStorage.getItem('vi_pending_profile');
+        if(pendingRaw){
+          var pending = JSON.parse(pendingRaw);
+          var data = {
+            telegram_id: pending.telegram || null,
+            first_name:  pending.firstName || null,
+            last_name:   pending.lastName  || null,
+            country:     pending.country   || null,
+            company:     pending.company   || null,
+            role:        pending.role      || null,
+            experience:  pending.experience|| null,
+            newsletter:  !!pending.newsletter
+          };
+          sb.auth.updateUser({data: data}).then(function(){
+            try { localStorage.removeItem('vi_pending_profile'); } catch(e){}
             try { localStorage.removeItem('vi_pending_telegram'); } catch(e){}
           }).catch(function(){});
+        } else {
+          // Legacy path — only Telegram was captured.
+          var pendingTg = localStorage.getItem('vi_pending_telegram');
+          if(pendingTg){
+            sb.auth.updateUser({data:{telegram_id: pendingTg}}).then(function(){
+              try { localStorage.removeItem('vi_pending_telegram'); } catch(e){}
+            }).catch(function(){});
+          }
         }
       } catch(e){}
       window.__viAuthClose();
@@ -18955,7 +19020,11 @@ function _renderCCIVariantPanel(host, commodityKeys){
         var p = wantedPage; wantedPage = null;
         setTimeout(function(){ window.switchPage(p); }, 100);
       }
-      // Post-sign-in profile prompt — fires once per session.
+      // Post-sign-in profile prompt — fires once per session. Now that
+      // registration captures the profile fields upfront, _viProMaybeShow
+      // should detect populated metadata and self-suppress; it stays
+      // wired so legacy users (who signed up before registration was
+      // required) still see the completion prompt.
       try { setTimeout(_viProMaybeShow, 800); } catch(e){}
     }
   });
@@ -19231,25 +19300,81 @@ function _renderCCIVariantPanel(host, commodityKeys){
     if(form){
       form.addEventListener('submit', function(e){
         e.preventDefault();
-        var email = (document.getElementById('viauth-email').value || '').trim();
-        var telegramEl = document.getElementById('viauth-telegram');
-        var telegram = telegramEl ? (telegramEl.value || '').trim() : '';
+        var val = function(id){
+          var el = document.getElementById(id);
+          return el ? (el.value || '').trim() : '';
+        };
+        var chk = function(id){
+          var el = document.getElementById(id);
+          return !!(el && el.checked);
+        };
+        var email      = val('viauth-email');
+        var firstName  = val('viauth-firstname');
+        var lastName   = val('viauth-lastname');
+        var country    = val('viauth-country');
+        var company    = val('viauth-company');
+        var role       = val('viauth-role');
+        var experience = val('viauth-experience');
+        var telegram   = val('viauth-telegram');
+        var newsletter = chk('viauth-newsletter');
+        var termsOk    = chk('viauth-terms');
         var msg = document.getElementById('viauth-msg');
         var btn = document.getElementById('viauth-btn');
-        if(!email) return;
+
+        // Field-level validation. The HTML `required` attribute already
+        // catches most cases via the browser's native message — the
+        // explicit checks below mirror it so we have a deterministic
+        // error path if a browser somehow bypasses the constraint.
+        if(!email || !firstName || !lastName || !country || !role){
+          msg.className='viauth-msg viauth-err';
+          msg.textContent = 'Please complete all required fields (marked *).';
+          return;
+        }
+        if(!termsOk){
+          msg.className='viauth-msg viauth-err';
+          msg.textContent = 'Please accept the terms and privacy notice to register.';
+          return;
+        }
+
         msg.className='viauth-msg'; msg.textContent='Sending market access link…';
         btn.disabled = true;
-        // Stash optional Telegram ID as Supabase user metadata so it's
-        // visible in Authentication > Users alongside the email. New
-        // users get it on first sign-up; for existing users it's a no-op
-        // (Supabase preserves existing metadata on subsequent OTP calls).
-        var meta = {};
-        if(telegram){
-          meta.telegram_id = telegram;
-          // Stash so existing users (where signInWithOtp.data is ignored)
-          // get the Telegram ID applied via updateUser after sign-in.
-          try { localStorage.setItem('vi_pending_telegram', telegram); } catch(e){}
-        }
+
+        // 2026-06-15hhh — full registration payload bundled into the
+        // signInWithOtp metadata. New users get the full profile on
+        // first sign-up; for existing users Supabase preserves the
+        // metadata it already has (so re-registration doesn't blow
+        // away data captured earlier).
+        //
+        // Backup-stash to localStorage so the post-signin updateUser
+        // path can re-apply the profile for users whose OTP call
+        // landed in the "already exists" branch (where signInWithOtp's
+        // data argument is silently dropped by Supabase).
+        var meta = {
+          telegram_id:  telegram || null,
+          first_name:   firstName,
+          last_name:    lastName,
+          country:      country,
+          company:      company || null,
+          role:         role,
+          experience:   experience || null,
+          newsletter:   newsletter,
+          terms_accepted_at: new Date().toISOString()
+        };
+        try {
+          var pending = {
+            telegram: telegram,
+            firstName: firstName,
+            lastName: lastName,
+            country: country,
+            company: company,
+            role: role,
+            experience: experience,
+            newsletter: newsletter
+          };
+          localStorage.setItem('vi_pending_profile', JSON.stringify(pending));
+          if(telegram) localStorage.setItem('vi_pending_telegram', telegram);
+        } catch(e){}
+
         sb.auth.signInWithOtp({
           email: email,
           options: {
@@ -19263,7 +19388,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
             msg.textContent = r.error.message || 'Could not send link.';
           } else {
             msg.className='viauth-msg viauth-ok';
-            msg.textContent = '✓ Market access link sent to ' + email + ' — check your inbox.';
+            msg.textContent = '✓ Registration complete — access link sent to ' + email + '. Check your inbox to sign in.';
           }
         }).catch(function(err){
           btn.disabled = false;
