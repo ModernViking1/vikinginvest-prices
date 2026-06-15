@@ -1,0 +1,98 @@
+name: Deploy to Netlify (backup CDN)
+
+# Mirrors the same _site bundle as the existing Deploy Pages workflow,
+# but pushes to Netlify instead of GitHub Pages. Gives the dashboard
+# a second URL that hits a completely different CDN (Netlify's
+# edge) so when GitHub Pages' Fastly stalls for a specific route, the
+# Netlify URL stays responsive.
+#
+# Setup (one-time, ~4 minutes):
+#   1. Sign up at https://netlify.com (free, GitHub auth fine)
+#   2. New site → "Deploy manually" → drag any folder (creates empty site)
+#   3. Site settings → copy the API ID (looks like "abc-12345-xxx")
+#   4. User settings → Applications → Personal access tokens →
+#      "New access token" → copy the value (starts with `nfp_...`)
+#   5. In this repo: Settings → Secrets and variables → Actions →
+#      "New repository secret" twice:
+#        NETLIFY_AUTH_TOKEN  = the nfp_... token
+#        NETLIFY_SITE_ID     = the abc-12345-xxx site ID
+#   6. Trigger this workflow once via Actions → Deploy to Netlify →
+#      Run workflow, OR push any change to a tracked HTML file.
+#   7. Netlify gives you a `vikinginvest-backup.netlify.app` URL (or
+#      whatever you named your site). Bookmark it for desktop use.
+#
+# After setup, the workflow auto-deploys on every push that touches
+# the same paths as the Pages deploy — they stay in sync without
+# manual intervention.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'stats.html'
+      - 'Viking_Invest_Trading_v*.html'
+      - 'font-samples/**/*.html'
+      - 'CNAME'
+      - '.github/workflows/deploy-netlify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: netlify-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build _site (mirror of deploy-pages.yml's build step)
+        run: |
+          mkdir -p _site
+          cp Viking_Invest_Trading_v*.html _site/ 2>/dev/null || true
+          LATEST=$(ls -1 _site/Viking_Invest_Trading_v*.html 2>/dev/null | sort -V | tail -1)
+          if [ -n "$LATEST" ]; then
+            cp "$LATEST" _site/dashboard.html
+            echo "Generated _site/dashboard.html from $(basename "$LATEST")"
+          else
+            echo "::error::No Viking_Invest_Trading_v*.html source found"
+            exit 1
+          fi
+          cp index.html _site/ 2>/dev/null || true
+          cp stats.html _site/ 2>/dev/null || true
+          if [ -d font-samples ]; then
+            mkdir -p _site/font-samples
+            cp font-samples/*.html _site/font-samples/ 2>/dev/null || true
+          fi
+          # Stamp build time so we can verify which deploy a user is on.
+          STAMP="$(date -u '+%Y-%m-%d %H:%M UTC')"
+          for f in _site/dashboard.html _site/Viking_Invest_Trading_v*.html; do
+            [ -f "$f" ] && sed -i "s/BUILD_TIMESTAMP_UTC/$STAMP/g" "$f"
+          done
+          ls -lh _site
+
+      - name: Deploy to Netlify
+        if: ${{ secrets.NETLIFY_AUTH_TOKEN != '' && secrets.NETLIFY_SITE_ID != '' }}
+        uses: nwtgck/actions-netlify@v3
+        with:
+          publish-dir: './_site'
+          production-deploy: true
+          deploy-message: 'Auto-deploy ${{ github.sha }}'
+          enable-pull-request-comment: false
+          enable-commit-comment: false
+          overwrites-pull-request-comment: false
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        timeout-minutes: 5
+
+      - name: Skip notice (secrets missing)
+        if: ${{ secrets.NETLIFY_AUTH_TOKEN == '' || secrets.NETLIFY_SITE_ID == '' }}
+        run: |
+          echo "::warning::NETLIFY_AUTH_TOKEN and/or NETLIFY_SITE_ID not configured — skipping Netlify deploy."
+          echo "Add the secrets in repo settings to activate this mirror. The workflow file is in place; only secrets are missing."
