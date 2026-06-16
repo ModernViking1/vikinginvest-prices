@@ -38,10 +38,15 @@ permissions:
   pages: write
   id-token: write
 
-# Only one Pages deploy at a time; don't cancel in-progress ones.
+# Coalesce rapid-fire pushes: if a new push arrives while a run is
+# waiting in the debounce step (or building), the in-flight run is
+# cancelled and the new push restarts the 5-min countdown. Only the
+# LAST commit in a quiet window actually deploys. Cancelling a deploy
+# mid-publish is safe — the previous successful deploy stays live and
+# the new run replaces it on completion.
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -50,6 +55,19 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
+      - name: Debounce — coalesce rapid commits into one deploy
+        # Pushes within 5 min of each other collapse to a single deploy.
+        # The leading sleep gives the concurrency policy a window in
+        # which to cancel this run if a newer push lands. Net effect:
+        # 10 commits in 5 min → 1 Pages deploy, 1 Fastly purge, no
+        # edge-cache thrash. Without this, every push purged Fastly
+        # and surfaced POP-to-POP cache inconsistency.
+        run: |
+          echo "Debouncing for 5 minutes. If another push to main"
+          echo "arrives during this wait, this run will be cancelled"
+          echo "and only the latest commit deploys."
+          sleep 300
+
       - name: Checkout
         uses: actions/checkout@v4
 
