@@ -105,6 +105,16 @@ jobs:
           for f in _site/dashboard.html _site/Viking_Invest_Trading_v*.html; do
             [ -f "$f" ] && sed -i "s/BUILD_TIMESTAMP_UTC/$STAMP/g" "$f"
           done
+          # Netlify-only: redirect `/` to the dashboard. The whole point of
+          # this mirror is the dashboard fallback when Pages misbehaves —
+          # bookmarking the bare netlify.app URL should land users straight
+          # on the trading dashboard, not the consultancy landing page.
+          # The `!` forces the redirect even though index.html exists at the
+          # same path (default Netlify shadowing serves the static file
+          # first). This file is Netlify-specific and is intentionally not
+          # copied into the GitHub Pages bundle, so vikinginvest.ai/
+          # continues to serve the consultancy page unchanged.
+          echo "/  /dashboard.html  302!" > _site/_redirects
           ls -lh _site
 
       - name: Deploy to Netlify
