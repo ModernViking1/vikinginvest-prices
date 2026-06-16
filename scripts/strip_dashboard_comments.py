@@ -76,10 +76,14 @@ def strip_script_block(script: str) -> str:
 def slim_file(path: Path) -> tuple[int, int]:
     src = path.read_text(encoding='utf-8')
 
-    def replace(m: re.Match) -> str:
-        return '<script>\n' + strip_script_block(m.group(1)) + '\n</script>'
-
-    out = re.sub(r'<script>([\s\S]*?)</script>', replace, src)
+    if path.suffix == '.js':
+        # Plain JS file — strip the whole body once
+        out = strip_script_block(src)
+    else:
+        # HTML — strip each <script> block independently
+        def replace(m: re.Match) -> str:
+            return '<script>\n' + strip_script_block(m.group(1)) + '\n</script>'
+        out = re.sub(r'<script>([\s\S]*?)</script>', replace, src)
 
     open_b_src = src.count('{')
     close_b_src = src.count('}')

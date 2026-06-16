@@ -28,9 +28,11 @@ on:
       # from the rest of the site and marked noindex/nofollow.
       - 'stats.html'
       - 'Viking_Invest_Trading_v*.html'
+      - 'dashboard-tests.js'
       - 'font-samples/**/*.html'
       - 'CNAME'
       - '.github/workflows/deploy-pages.yml'
+      - 'scripts/strip_dashboard_comments.py'
   workflow_dispatch:
 
 permissions:
@@ -74,6 +76,11 @@ jobs:
           fi
           # Optional landing page if present
           cp index.html _site/ 2>/dev/null || true
+          # Lazy-loaded test harnesses (extracted from the dashboard
+          # 2026-06-16 for ~98 KB smaller cold load). The main HTML
+          # fetches this via a dynamic <script> tag on first test-button
+          # click — see _ensureBacktestTestsLoaded() in the HTML.
+          cp dashboard-tests.js _site/ 2>/dev/null || true
           # Private visitor-stats page (unlinked, noindex). Gated by
           # Supabase market-access-link sign-in against the admin
           # email allowlist.
@@ -108,7 +115,8 @@ jobs:
           # smaller without touching the repo copy.
           python3 scripts/strip_dashboard_comments.py \
             _site/dashboard.html \
-            _site/Viking_Invest_Trading_v*.html
+            _site/Viking_Invest_Trading_v*.html \
+            _site/dashboard-tests.js
 
           echo "Files staged for Pages:"
           ls -la _site
