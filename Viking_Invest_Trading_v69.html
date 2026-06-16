@@ -1254,7 +1254,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <button id="bt3of4TestBtn"
             onclick="run3of4RsiMacdTest();"
             style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid #b369e6;background:rgba(179,105,230,0.08);color:#b369e6;border-radius:3px;cursor:pointer;">
-      🧪 TEST: 3-OF-4 + MACD + RSI EXTREME
+      🧪 TEST: 3-OF-4 &amp; 2-OF-4 + MACD + RSI EXTREME
     </button>
     <span id="bt3of4TestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
   </div>
@@ -10904,6 +10904,7 @@ var RECENT_BT_CACHE_KEY_AUTO_MACD = 'vit_recent_backtest_v9_auto_macd';
 // dissenting) under MACD-cross + deep RSI extreme. Separate cache so
 // the standard caches stay clean while we evaluate.
 var RECENT_BT_CACHE_KEY_3OF4 = 'vit_recent_backtest_v9_3of4_rsi_macd';
+var RECENT_BT_CACHE_KEY_2OF4 = 'vit_recent_backtest_v9_2of4_rsi_macd';
 var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // Previously 4 hours. Bumped 2026-05-30: with the per-pair-class
 // routing (struct for majors except AUD/USD, auto-EW for everything
@@ -10993,6 +10994,7 @@ function _cacheKeyForMode(mode){
   if(mode === 'structural-macd') return RECENT_BT_CACHE_KEY_STRUCT_MACD;
   if(mode === 'auto-ew-macd') return RECENT_BT_CACHE_KEY_AUTO_MACD;
   if(mode === '3of4-rsi-macd') return RECENT_BT_CACHE_KEY_3OF4;
+  if(mode === '2of4-rsi-macd') return RECENT_BT_CACHE_KEY_2OF4;
   return RECENT_BT_CACHE_KEY;
 }
 
@@ -11334,7 +11336,7 @@ function calcRecentBacktest(k, mode){
   // extra filter requiring the 4H 50/200 EMA cloud direction to agree
   // with the macro direction at the same historical timestamp).
   mode = mode || 'structural';
-  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime' || mode === 'auto-ew-macd' || mode === '3of4-rsi-macd');
+  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime' || mode === 'auto-ew-macd' || mode === '3of4-rsi-macd' || mode === '2of4-rsi-macd');
   var _btUseRegime = (mode === 'auto-ew-regime');
   // 2026-06-16c — 3-of-4 + RSI-extreme + MACD-cross exploratory mode.
   // Relaxes the standard 4/4 alignment to allow setups where the 15m
@@ -11345,6 +11347,12 @@ function calcRecentBacktest(k, mode){
   // (deeply overbought mean-reversion sell). Hypothesis: the strong
   // momentum + extreme RSI compensates for the missing 15m alignment.
   var _btUse3of4 = (mode === '3of4-rsi-macd');
+  // 2026-06-16d — 2-of-4 sister mode for the same exploratory test.
+  // Even looser alignment: EW has direction, exactly ONE of TL/NW/CL
+  // agrees, the other two don't. Same MACD + extreme RSI gates apply.
+  // Larger expansion cohort than 3-of-4 so we get a usable sample
+  // size; trades off macro-confirmation strength for trade count.
+  var _btUse2of4 = (mode === '2of4-rsi-macd');
   // 2026-06-16b — MACD-cross hard gate. Three activation paths:
   //   1. Test modes: `structural-macd` / `auto-ew-macd` enable the gate
   //      for ALL pairs (used by the per-class A/B test button).
@@ -11356,7 +11364,7 @@ function calcRecentBacktest(k, mode){
   //   The test flags STAY working so we can re-A/B if data drifts.
   var _btPairClass = (typeof _classOf === 'function') ? _classOf(k) : null;
   var _btUseMACDCross = (mode === 'structural-macd' || mode === 'auto-ew-macd')
-                        || (_btPairClass === 'index') || _btUse3of4;
+                        || (_btPairClass === 'index') || _btUse3of4 || _btUse2of4;
   var MACD_CROSS_LB = 3;
   // Need both timeframes
   if(!HISTORY[k]) loadHistory(k);
@@ -11671,6 +11679,17 @@ function calcRecentBacktest(k, mode){
       // want the EXPANSION cohort only, not double-count production setups.
       if(ewDir !== tlDir || tlDir !== clDir){ i++; continue; }
       if(nwDir === ewDir){ i++; continue; }
+    } else if(_btUse2of4){
+      // 2-of-4 mode: EW has a direction, and EXACTLY ONE of TL/NW/CL
+      // agrees. The other two dissent (bear if EW=bull, or neutral).
+      // Strict "exactly one" excludes the 3-of-4 cohort (tested in the
+      // parallel mode) so the two tests measure disjoint expansion sets.
+      if(ewDir !== 'bull' && ewDir !== 'bear'){ i++; continue; }
+      var _btSupport = 0;
+      if(tlDir === ewDir) _btSupport++;
+      if(nwDir === ewDir) _btSupport++;
+      if(clDir === ewDir) _btSupport++;
+      if(_btSupport !== 1){ i++; continue; }
     } else {
       if(ewDir !== tlDir || tlDir !== nwDir || nwDir !== clDir){ i++; continue; }
     }
@@ -11682,11 +11701,12 @@ function calcRecentBacktest(k, mode){
     // class — see RSI_GATE_BY_CLASS. Null RSI (warm-up) falls through.
     if(h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length){
       var rsiAt = h1RsiAtH1Idx[h1Idx];
-      if(_btUse3of4){
-        // 3of4 mode: REQUIRE deep RSI extreme — bull setup needs RSI < 25
-        // (oversold mean-reversion), bear setup needs RSI > 75. Skip the
-        // bar conservatively if RSI is in warm-up (null) — better to
-        // under-count than fabricate signals in the no-data window.
+      if(_btUse3of4 || _btUse2of4){
+        // 3of4 / 2of4 modes: REQUIRE deep RSI extreme — bull setup needs
+        // RSI < 25 (oversold mean-reversion), bear setup needs RSI > 75.
+        // Skip the bar conservatively if RSI is in warm-up (null) —
+        // better to under-count than fabricate signals in the no-data
+        // window.
         if(rsiAt == null || !isFinite(rsiAt)){ i++; continue; }
         if(ewDir === 'bull' && rsiAt >= 25){ i++; continue; }
         if(ewDir === 'bear' && rsiAt <= 75){ i++; continue; }
