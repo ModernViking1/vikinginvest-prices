@@ -8246,7 +8246,7 @@ function updateStatusBar(){
     var col = dxyReg.dir === 'bull' ? 'var(--bull)' : 'var(--bear)';
     var arrow = dxyReg.dir === 'bull' ? '&#9650;' : '&#9660;';
     var regimeWord = dxyReg.dir === 'bull' ? 'BULL' : 'BEAR';
-    dxyPrefix = '<span style="display:inline-block;padding:1px 6px;margin-right:6px;background:rgba(107,63,160,0.12);color:var(--purple);border:1px solid var(--purple);border-radius:2px;font-size:9px;letter-spacing:.5px;">DXY '+regimeWord+' '+dxyReg.strength+'/3 '+arrow+' '+dxyPx+'</span>';
+    dxyPrefix = '<span style="display:inline-block;padding:1px 6px;margin-right:6px;background:rgba(107,63,160,0.12);color:var(--purple);border:1px solid var(--purple);border-radius:2px;font-size:9px;letter-spacing:.5px;">DXY '+regimeWord+' '+dxyReg.strength+'/4 '+arrow+' '+dxyPx+'</span>';
   } else {
     dxyPrefix = '<span style="display:inline-block;padding:1px 6px;margin-right:6px;background:rgba(154,144,136,0.12);color:var(--neu);border:1px solid var(--neu);border-radius:2px;font-size:9px;letter-spacing:.5px;">DXY NEUTRAL '+dxyPx+'</span>';
   }
