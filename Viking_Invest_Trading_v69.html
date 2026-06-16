@@ -7327,6 +7327,14 @@ function renderFailureModeAnalysis(){
   var rsiGateBlockRate = rsiGateConsidered > 0
                           ? (rsiGateStats.filtered / rsiGateConsidered) * 100
                           : null;
+  // m15 MACD-cross gate: same shape as RSI gate above. Higher block rate
+  // = more losing trades that a 'fresh same-direction MACD cross within
+  // 3 m15 bars' filter would have caught.
+  var macdGateStats = v.macdCross || {filtered:0, wouldStillFire:0, unresolved:0};
+  var macdGateConsidered = macdGateStats.filtered + macdGateStats.wouldStillFire;
+  var macdGateBlockRate = macdGateConsidered > 0
+                          ? (macdGateStats.filtered / macdGateConsidered) * 100
+                          : null;
 
   // Sort classifications by count, descending
   var classEntries = Object.keys(c).map(function(k){return {label:k, count:c[k]};})
@@ -7379,6 +7387,15 @@ function renderFailureModeAnalysis(){
     // is rare-by-design, so even 10% catch rate is interesting.
     if(rsiGateBlockRate !== null && rsiGateBlockRate >= 10 && rsiGateConsidered >= 10){
       recs.push('<strong>1H RSI 80/20 gate</strong> would have blocked ' + Math.round(rsiGateBlockRate) + '% of losing trades pre-entry (n=' + rsiGateConsidered + '). Adding this as a hard filter (no signal if hourly RSI &gt; 80 on bull setups or &lt; 20 on bear) trades off some winners for fewer losses — measure on the next 20+ live signals before adopting.');
+    }
+    // 15m MACD cross gate: experimental. Surface when block rate is
+    // meaningful AND we have a credible sample. NOTE this is a "would
+    // have blocked among non-wins" rate — it doesn't tell us how many
+    // winners the gate would also have killed. Read together with the
+    // per-pair WR table to gauge whether the gate is selective for
+    // losers or just generally suppresses signal volume.
+    if(macdGateBlockRate !== null && macdGateBlockRate >= 15 && macdGateConsidered >= 10){
+      recs.push('<strong>15m MACD cross gate</strong> would have blocked ' + Math.round(macdGateBlockRate) + '% of non-win trades (n=' + macdGateConsidered + '). Requires a same-direction MACD/Signal cross within 3 m15 bars before the trigger. Promising if winners survive the cut — verify by re-running the backtest with the gate active before promoting.');
     }
 
     // Diagnostic-driven hints (separate from variant rescues). Surface the
@@ -7585,7 +7602,7 @@ function renderFailureModeAnalysis(){
   // Variants section
   var variantHTML = '<div style="margin-top:10px;padding-top:8px;border-top:1px dashed rgba(0,0,0,0.08);">'
     + '<div style="font-size:8.5px;color:var(--inkd);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-bottom:5px;">Rule variant tests (only on non-wins)</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:8px;">'
     + '  <div style="background:rgba(0,0,0,0.02);padding:6px 8px;border-radius:2px;">'
     + '    <div style="font-size:8px;color:var(--inkm);font-weight:700;">+25% wider stop</div>'
     + '    <div style="font-size:9px;color:'+(stopPlus25Success > 50 ? 'var(--bull)' : 'var(--inkd)')+';font-weight:700;">'
@@ -7608,6 +7625,16 @@ function renderFailureModeAnalysis(){
     + '    <div style="font-size:7.5px;color:var(--inkd);">'
     +       rsiGateStats.filtered + ' blocked / ' + rsiGateStats.wouldStillFire + ' still fire'
     +       (rsiGateStats.unresolved > 0 ? ' &middot; ' + rsiGateStats.unresolved + ' no-data' : '')
+    + '    </div>'
+    + '  </div>'
+    + '  <div style="background:rgba(0,0,0,0.02);padding:6px 8px;border-radius:2px;" title="Pre-entry filter — requires a same-direction MACD/Signal cross on the 15m chart within 3 bars (45 min) before the trigger. Bull setups need MACD crossing ABOVE Signal; bear setups need MACD crossing BELOW Signal. Higher % = more non-win trades the filter would have blocked. Higher is better only if winners survive the cut too; check the same metric on wins-only via the per-pair table below if results look promising.">'
+    + '    <div style="font-size:8px;color:var(--inkm);font-weight:700;">15m MACD cross gate <span style="color:var(--inkd);font-weight:400;font-style:italic;">· pre-entry filter</span></div>'
+    + '    <div style="font-size:9px;color:'+(macdGateBlockRate !== null && macdGateBlockRate >= 10 ? 'var(--bull)' : 'var(--inkd)')+';font-weight:700;">'
+    +       (macdGateBlockRate === null ? 'no data' : Math.round(macdGateBlockRate) + '% would be blocked')
+    + '    </div>'
+    + '    <div style="font-size:7.5px;color:var(--inkd);">'
+    +       macdGateStats.filtered + ' blocked / ' + macdGateStats.wouldStillFire + ' still fire'
+    +       (macdGateStats.unresolved > 0 ? ' &middot; ' + macdGateStats.unresolved + ' no-data' : '')
     + '    </div>'
     + '  </div>'
     + '</div>'
@@ -11959,7 +11986,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-15qqq';
+var RULES_VERSION = '2026-06-16a';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -11968,6 +11995,7 @@ var RULES_VERSION_NOTES = [
   // The full internal changelog lives in private engineering docs;
   // signed-in advisors / investors can request the full version
   // under NDA via the Investor Relations panel on the Performance tab.
+  '2026-06-16 — Added a 15-minute momentum-confirm filter to the failure-mode panel as a candidate rule under test. Surfaces what fraction of losing trades a momentum cross-gate would have blocked pre-entry. Live trades are unchanged while the data accumulates.',
   '2026-06-14 — Live broker bridge to cTrader demo accounts via a publicly-versioned signal feed. Persistent broker-side dedup, daily-loss limiter, kill-switch contract, Telegram alert routing. Auto-publish of broker fills back to the dashboard so investor numbers and broker numbers are reconciled in real time.',
   '2026-06-13 — Investor-grade Performance tab consolidating equity curve, expectancy, max drawdown, longest streaks, top/bottom pair attribution and a per-trade log. Backtest + Signal Log tabs merged. Journal relocated to the Dashboard as an in-context collapsible.',
   '2026-06-12 — Backtest cards now distinguish between pre-trigger and post-trigger cancellations so a single number doesn\'t conflate "setup cancelled before entry" with "active trade closed early".',
@@ -17527,7 +17555,16 @@ function analyseIntradayFailures(){
     // `wouldStillFire` counts non-wins that the gate doesn't catch.
     // The metric to read is filtered / (filtered + wouldStillFire) —
     // the fraction of losing trades the gate WOULD have prevented.
-    rsiGate80_20:  {filtered:0, wouldStillFire:0, unresolved:0}
+    rsiGate80_20:  {filtered:0, wouldStillFire:0, unresolved:0},
+    // m15 MACD(12,26,9) cross gate hypothesis (2026-06-16). Mirrors the
+    // RSI gate above but with a different filter: a trade would have
+    // been BLOCKED unless a same-direction MACD/Signal cross occurred
+    // within MACD_CROSS_LB m15 bars before the signal (bull setup needs
+    // MACD crossing above Signal; bear setup needs the inverse). The
+    // hypothesis under test: requiring fresh 15-min momentum confirm
+    // filters out triggers that fire against fading momentum, lifting
+    // WR without changing the structural entry rules.
+    macdCross:     {filtered:0, wouldStillFire:0, unresolved:0}
   };
   var aggTotals = {wins:0, losses:0, expired:0, invalidated:0, all:0};
   // Per-class win/loss tally — populated alongside aggTotals so the panel
@@ -17672,7 +17709,48 @@ function analyseIntradayFailures(){
       return h1Rsi[idx];
     }
 
-    var pair = { trades: trades.length, classification: {}, variants: {stopPlus25: {wins:0, losses:0}, midpointEntry: {wins:0, losses:0}, rsiGate80_20: {filtered:0, wouldStillFire:0}} };
+    // ── m15 MACD(12,26,9) cross series for the macdCross gate ──
+    // Lookback: a same-direction cross within MACD_CROSS_LB m15 bars
+    // before the trigger keeps the trade. No cross → blocked. 3 bars
+    // = 45-min window, tight enough that the cross is "fresh momentum"
+    // not stale, loose enough that the cross has room to print on the
+    // bar before the trigger.
+    var MACD_CROSS_LB = 3;
+    var m15Closes = [], m15Times = [];
+    if(HISTORY[k] && HISTORY[k].m15){
+      HISTORY[k].m15.forEach(function(b){
+        var c = b.c != null ? b.c : b.p;
+        if(c != null && isFinite(c)){
+          m15Closes.push(c);
+          m15Times.push(b.t || null);
+        }
+      });
+    }
+    var m15Macd = (m15Closes.length >= 35 && typeof _macdSeries === 'function')
+                    ? _macdSeries(m15Closes, 12, 26, 9) : null;
+    function _macdCrossAtSignal(signalTs, dir){
+      if(!m15Macd || !signalTs || (dir !== 'bull' && dir !== 'bear')) return null;
+      var ts = new Date(signalTs).getTime();
+      if(!isFinite(ts)) return null;
+      var idx = -1;
+      for(var i = 0; i < m15Times.length; i++){
+        var bt = new Date(m15Times[i]).getTime();
+        if(!isFinite(bt)) continue;
+        if(bt <= ts) idx = i; else break;
+      }
+      if(idx < 1) return null;
+      var start = Math.max(1, idx - MACD_CROSS_LB + 1);
+      for(var j = start; j <= idx; j++){
+        var m0 = m15Macd.macd[j-1], m1 = m15Macd.macd[j];
+        var s0 = m15Macd.signal[j-1], s1 = m15Macd.signal[j];
+        if(m0 == null || m1 == null || s0 == null || s1 == null) return null;
+        if(dir === 'bull' && m0 <= s0 && m1 > s1) return true;
+        if(dir === 'bear' && m0 >= s0 && m1 < s1) return true;
+      }
+      return false;
+    }
+
+    var pair = { trades: trades.length, classification: {}, variants: {stopPlus25: {wins:0, losses:0}, midpointEntry: {wins:0, losses:0}, rsiGate80_20: {filtered:0, wouldStillFire:0}, macdCross: {filtered:0, wouldStillFire:0}} };
     var _kClassSim = _classOf(k);
     trades.forEach(function(t){
       pair.classification[t.classification] = (pair.classification[t.classification]||0) + 1;
@@ -17730,6 +17808,21 @@ function analyseIntradayFailures(){
             pair.variants.rsiGate80_20.wouldStillFire++;
             aggVariants.rsiGate80_20.wouldStillFire++;
           }
+        }
+
+        // m15 MACD/Signal cross gate hypothesis. Blocks trades whose
+        // entry direction wasn't confirmed by a fresh (≤3 m15 bars)
+        // same-direction MACD cross. Returns true (fires anyway),
+        // false (gate would have blocked) or null (warm-up / no data).
+        var macdFires = _macdCrossAtSignal(t.signalTs, t.dir);
+        if(macdFires == null){
+          aggVariants.macdCross.unresolved++;
+        } else if(macdFires){
+          pair.variants.macdCross.wouldStillFire++;
+          aggVariants.macdCross.wouldStillFire++;
+        } else {
+          pair.variants.macdCross.filtered++;
+          aggVariants.macdCross.filtered++;
         }
       }
     });
@@ -18780,6 +18873,53 @@ function _rsiSeries(closes, period){
     out[i] = avgLoss === 0 ? 100 : (100 - 100 / (1 + avgGain / avgLoss));
   }
   return out;
+}
+
+// EMA series with SMA seed for the first `period` bars — matches the
+// TradingView default so MACD computed downstream lines up bar-for-bar
+// with what the user sees on a chart. Returns null for warm-up bars.
+function _emaSeries(values, period){
+  var n = (values || []).length;
+  var out = new Array(n).fill(null);
+  if(n < period) return out;
+  var seed = 0;
+  for(var i = 0; i < period; i++){
+    if(values[i] == null || !isFinite(values[i])) return out;
+    seed += values[i];
+  }
+  out[period - 1] = seed / period;
+  var mult = 2 / (period + 1);
+  for(var i = period; i < n; i++){
+    var v = values[i];
+    if(v == null || !isFinite(v)){ out[i] = out[i-1]; continue; }
+    out[i] = (v - out[i-1]) * mult + out[i-1];
+  }
+  return out;
+}
+
+// MACD(fast=12, slow=26, signal=9) — returns aligned {macd, signal}
+// arrays with nulls during warm-up. Signal is a 9-EMA of the MACD
+// line, seeded from the first non-null MACD bar so the offsets match
+// TradingView's behaviour exactly. The dashboard never computes its
+// own MACD elsewhere — this helper is consumed by the same-direction
+// cross filter on the failure-mode panel (RULES_VERSION 2026-06-16).
+function _macdSeries(closes, fast, slow, signal){
+  fast = fast || 12; slow = slow || 26; signal = signal || 9;
+  var n = (closes || []).length;
+  var emaFast = _emaSeries(closes, fast);
+  var emaSlow = _emaSeries(closes, slow);
+  var macd = new Array(n).fill(null);
+  for(var i = 0; i < n; i++){
+    if(emaFast[i] != null && emaSlow[i] != null) macd[i] = emaFast[i] - emaSlow[i];
+  }
+  var firstMacd = -1;
+  for(var j = 0; j < n; j++){ if(macd[j] != null){ firstMacd = j; break; } }
+  var sig = new Array(n).fill(null);
+  if(firstMacd >= 0 && (n - firstMacd) >= signal){
+    var sigOnSlice = _emaSeries(macd.slice(firstMacd), signal);
+    for(var s = 0; s < sigOnSlice.length; s++) sig[firstMacd + s] = sigOnSlice[s];
+  }
+  return {macd: macd, signal: sig};
 }
 
 // Main strategy walker. Returns {wins, losses, expired, total,
