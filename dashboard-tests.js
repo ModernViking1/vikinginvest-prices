@@ -1866,3 +1866,118 @@ function _renderMacdCrossTestResults(loaded, statusEl, resultEl){
   }
 }
 if(typeof window !== 'undefined'){ window._renderMacdCrossTestResults = _renderMacdCrossTestResults; }
+
+
+// ── 3-of-4 + MACD CROSS + RSI EXTREME (2026-06-16c) ────────────
+// Runs the deep walker once with mode='3of4-rsi-macd' across all pairs,
+// aggregates wins/losses per asset class and total, and renders a
+// per-class table. Unlike the MACD-only test there's NO production
+// baseline column — this mode trades a DIFFERENT cohort (3/4 with NW
+// dissenting) that the production engine rejects, so there's no apples-
+// to-apples comparison to draw. The table reports the absolute WR of
+// this expansion cohort so the user can decide whether to promote
+// per-class.
+function run3of4RsiMacdTest(){
+  var btn = document.getElementById('bt3of4TestBtn');
+  var statusEl = document.getElementById('bt3of4TestStatus');
+  var resultEl = document.getElementById('bt3of4TestResult');
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '🧪 RUNNING...'; }
+  if(resultEl) resultEl.innerHTML = '';
+
+  if(typeof computeAllRecentBacktestsAsync !== 'function'){
+    if(statusEl) statusEl.textContent = 'Backtest engine not loaded';
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🧪 TEST: 3-OF-4 + MACD + RSI EXTREME'; }
+    return;
+  }
+
+  if(statusEl) statusEl.textContent = 'Computing 3-of-4 expansion cohort…';
+  computeAllRecentBacktestsAsync(true, function(done, total){
+    if(statusEl) statusEl.textContent = 'Computing 3-of-4 expansion cohort — ' + done + '/' + total;
+  }, function(results){
+    _render3of4Results(results || {}, statusEl, resultEl);
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🧪 TEST: 3-OF-4 + MACD + RSI EXTREME'; }
+  }, '3of4-rsi-macd');
+}
+if(typeof window !== 'undefined'){ window.run3of4RsiMacdTest = run3of4RsiMacdTest; }
+
+function _render3of4Results(loaded, statusEl, resultEl){
+  if(!resultEl){ if(statusEl) statusEl.textContent = '⚠ result host missing'; return; }
+  var classes = ['major','minor','comm','index','crypto'];
+  var agg = {};
+  classes.forEach(function(cls){ agg[cls] = {W:0, L:0, N:0, pairs:0}; });
+  var totals = {W:0, L:0, N:0};
+
+  Object.keys(MKTS).forEach(function(k){
+    var cls = (MKTS[k] && MKTS[k].t) || 'unknown';
+    if(!agg[cls]) return;
+    var rb = loaded[k];
+    if(rb && typeof rb.wins === 'number'){
+      var w = rb.wins;
+      var l = rb.losses || 0;
+      agg[cls].W += w;
+      agg[cls].L += l;
+      agg[cls].N += (w + l);
+      if((w + l) > 0) agg[cls].pairs++;
+      totals.W += w;
+      totals.L += l;
+      totals.N += (w + l);
+    }
+  });
+
+  function wr(W, N){ return N > 0 ? (W / N * 100) : null; }
+  function wrFmt(p){ return p == null ? '—' : p.toFixed(1) + '%'; }
+  function wrColor(p, N){
+    if(p == null) return 'var(--inkd)';
+    if(N < 10) return 'var(--inkd)';  // too small to colour
+    return p >= 70 ? 'var(--bull)' : p >= 60 ? 'var(--gold)' : 'var(--bear)';
+  }
+  function deployLabel(p, N){
+    if(p == null || N < 10) return {txt: 'INSUFFICIENT SAMPLE', col: 'var(--inkd)'};
+    if(p >= 72 && N >= 20) return {txt: 'DEPLOY-READY', col: 'var(--bull)'};
+    if(p >= 65) return {txt: 'WATCH', col: 'var(--gold)'};
+    return {txt: 'DO NOT DEPLOY', col: 'var(--bear)'};
+  }
+
+  var rows = classes.map(function(cls){
+    var a = agg[cls];
+    var w = wr(a.W, a.N);
+    var dep = deployLabel(w, a.N);
+    return '<tr style="border-top:1px dashed rgba(0,0,0,0.08);">'
+      + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">' + cls + '</td>'
+      + '<td style="padding:5px 8px;text-align:right;color:' + wrColor(w, a.N) + ';font-weight:700;">' + wrFmt(w) + '</td>'
+      + '<td style="padding:5px 8px;text-align:right;color:var(--inkd);font-size:8.5px;">' + a.W + 'W / ' + a.L + 'L</td>'
+      + '<td style="padding:5px 8px;text-align:right;color:var(--inkd);font-size:8.5px;">' + a.N + '</td>'
+      + '<td style="padding:5px 8px;text-align:right;color:' + dep.col + ';font-weight:700;font-size:8.5px;">' + dep.txt + '</td>'
+      + '</tr>';
+  }).join('');
+
+  var totWR = wr(totals.W, totals.N);
+  var totDep = deployLabel(totWR, totals.N);
+  var totalRow = '<tr style="border-top:2px solid var(--rule);background:rgba(0,0,0,0.02);">'
+    + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">ALL</td>'
+    + '<td style="padding:5px 8px;text-align:right;color:' + wrColor(totWR, totals.N) + ';font-weight:700;">' + wrFmt(totWR) + '</td>'
+    + '<td style="padding:5px 8px;text-align:right;color:var(--inkd);font-size:8.5px;">' + totals.W + 'W / ' + totals.L + 'L</td>'
+    + '<td style="padding:5px 8px;text-align:right;color:var(--inkd);font-size:8.5px;">' + totals.N + '</td>'
+    + '<td style="padding:5px 8px;text-align:right;color:' + totDep.col + ';font-weight:700;font-size:8.5px;">' + totDep.txt + '</td>'
+    + '</tr>';
+
+  resultEl.innerHTML =
+    '<div style="margin-top:8px;padding:10px 12px;border:1px solid rgba(179,105,230,0.30);background:rgba(179,105,230,0.04);border-radius:4px;">'
+    + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#b369e6;margin-bottom:6px;">3-OF-4 + MACD CROSS + RSI EXTREME — EXPANSION COHORT WR</div>'
+    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:8px;">Setups where EW = TL = CL but NW dissents (the "missing 15m" cohort that 4/4 normally rejects). Promoted IF and only if a same-direction MACD(12,26,9)/Signal cross prints within 3 m15 bars AND 1H RSI is at a deep extreme (&lt;25 on bull setups, &gt;75 on bear). Production engine unchanged. Deploy gates: ≥72% WR with ≥20 sample per class.</div>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:9px;">'
+    + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
+    + '<th style="padding:5px 8px;text-align:left;">Class</th>'
+    + '<th style="padding:5px 8px;text-align:right;">3-of-4 WR</th>'
+    + '<th style="padding:5px 8px;text-align:right;">W/L</th>'
+    + '<th style="padding:5px 8px;text-align:right;">n</th>'
+    + '<th style="padding:5px 8px;text-align:right;">Verdict</th>'
+    + '</tr></thead><tbody>' + rows + totalRow + '</tbody></table>'
+    + '<div style="margin-top:8px;font-size:8.5px;color:var(--inkd);line-height:1.5;"><strong>Read:</strong> any class showing DEPLOY-READY (≥72% on ≥20 trades) is a candidate. WATCH (65-72%) needs more samples before deploying. DO NOT DEPLOY classes degrade the equity curve and should stay rejected by the production 4/4 gate.</div>'
+    + '</div>';
+  if(statusEl){
+    var ts = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    statusEl.textContent = '✓ Simulation ready · ' + ts;
+  }
+}
+if(typeof window !== 'undefined'){ window._render3of4Results = _render3of4Results; }

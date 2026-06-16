@@ -311,6 +311,37 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     }, GRACE_MS);
   } catch(e){}
 })();
+
+// 2026-06-16 — Service Worker registration. Caches dashboard HTML +
+// lazy-loaded JS chunks so the 2nd-and-onwards visits are instant on
+// slow mobile networks. HTML uses network-first (deploys propagate
+// immediately when online) with cache fallback (dashboard still
+// opens when offline). Data JSONs (signals.json, kill-switch.json)
+// are NEVER cached — they bypass the SW entirely.
+//
+// Escape hatch: window._unregisterSW() in devtools console blows
+// away the SW + all caches and reloads. Handy if a deploy ever ships
+// a broken bundle that survives in the cache.
+(function _viRegisterSW(){
+  if (!('serviceWorker' in navigator)) return;
+  // Skip on the consultancy landing page — only useful on dashboard.html
+  // where the heavy JS lives. The landing page is small enough.
+  var p = location.pathname;
+  if (p !== '/' && !/dashboard|Viking_Invest_Trading|stats/.test(p)) return;
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('/sw.js').catch(function(err){
+      // Non-fatal — page still works without the SW.
+      console.warn('[sw] register failed:', err);
+    });
+  });
+  window._unregisterSW = function(){
+    return navigator.serviceWorker.getRegistrations()
+      .then(function(rs){ return Promise.all(rs.map(function(r){ return r.unregister(); })); })
+      .then(function(){ return caches.keys(); })
+      .then(function(keys){ return Promise.all(keys.map(function(k){ return caches.delete(k); })); })
+      .then(function(){ location.reload(); });
+  };
+})();
 </script>
 <script>
 // 2026-06-15mmm — localStorage quota self-heal. MUST run before any
@@ -1212,6 +1243,22 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <span id="btMacdTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
   </div>
   <div id="btMacdTestResult" style="margin:0 0 12px 0;"></div>
+
+  <!-- ── 1d. 3-OF-4 + MACD CROSS + RSI EXTREME (2026-06-16c) ─────────
+       Exploratory expansion mode. Standard 4/4 alignment normally rejects
+       setups where the 15m direction (NW) dissents from EW/TL/CL. This
+       test asks: does that cohort become profitable if we ALSO require a
+       same-direction MACD cross + an extreme 1H RSI (<25 bull, >75 bear)?
+       Result table shows per-class WR + total. Production unchanged. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="bt3of4TestBtn"
+            onclick="run3of4RsiMacdTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid #b369e6;background:rgba(179,105,230,0.08);color:#b369e6;border-radius:3px;cursor:pointer;">
+      🧪 TEST: 3-OF-4 + MACD + RSI EXTREME
+    </button>
+    <span id="bt3of4TestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="bt3of4TestResult" style="margin:0 0 12px 0;"></div>
 
   <!-- ── DRY-RUN TEST PANEL (hidden 2026-06-13qq) ─────────────────────
        Buttons + variant selectors for the 4 in-page rule-test harnesses
@@ -10853,6 +10900,10 @@ var RECENT_BT_CACHE_KEY_AUTO_REGIME = 'vit_recent_backtest_v9_auto_regime';
 // disturb the production WR cards.
 var RECENT_BT_CACHE_KEY_STRUCT_MACD = 'vit_recent_backtest_v9_struct_macd';
 var RECENT_BT_CACHE_KEY_AUTO_MACD = 'vit_recent_backtest_v9_auto_macd';
+// 2026-06-16c — exploratory mode that captures the 3-of-4 cohort (NW
+// dissenting) under MACD-cross + deep RSI extreme. Separate cache so
+// the standard caches stay clean while we evaluate.
+var RECENT_BT_CACHE_KEY_3OF4 = 'vit_recent_backtest_v9_3of4_rsi_macd';
 var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // Previously 4 hours. Bumped 2026-05-30: with the per-pair-class
 // routing (struct for majors except AUD/USD, auto-EW for everything
@@ -10941,6 +10992,7 @@ function _cacheKeyForMode(mode){
   if(mode === 'auto-ew-regime') return RECENT_BT_CACHE_KEY_AUTO_REGIME;
   if(mode === 'structural-macd') return RECENT_BT_CACHE_KEY_STRUCT_MACD;
   if(mode === 'auto-ew-macd') return RECENT_BT_CACHE_KEY_AUTO_MACD;
+  if(mode === '3of4-rsi-macd') return RECENT_BT_CACHE_KEY_3OF4;
   return RECENT_BT_CACHE_KEY;
 }
 
@@ -11282,20 +11334,29 @@ function calcRecentBacktest(k, mode){
   // extra filter requiring the 4H 50/200 EMA cloud direction to agree
   // with the macro direction at the same historical timestamp).
   mode = mode || 'structural';
-  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime' || mode === 'auto-ew-macd');
+  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime' || mode === 'auto-ew-macd' || mode === '3of4-rsi-macd');
   var _btUseRegime = (mode === 'auto-ew-regime');
-  // 2026-06-16b — MACD-cross hard gate. Two activation paths:
+  // 2026-06-16c — 3-of-4 + RSI-extreme + MACD-cross exploratory mode.
+  // Relaxes the standard 4/4 alignment to allow setups where the 15m
+  // direction (NW) dissents from the macro stack (EW = TL = CL). Then
+  // imposes two compensating filters: a same-direction MACD cross
+  // within MACD_CROSS_LB m15 bars AND a 1H RSI extreme — < 25 on bull
+  // setups (deeply oversold mean-reversion buy) / > 75 on bear setups
+  // (deeply overbought mean-reversion sell). Hypothesis: the strong
+  // momentum + extreme RSI compensates for the missing 15m alignment.
+  var _btUse3of4 = (mode === '3of4-rsi-macd');
+  // 2026-06-16b — MACD-cross hard gate. Three activation paths:
   //   1. Test modes: `structural-macd` / `auto-ew-macd` enable the gate
   //      for ALL pairs (used by the per-class A/B test button).
   //   2. Production deploy: index class only. The per-class A/B
   //      (16/6/16 test) showed +4.3pp on indices with 31 filtered
   //      trades vs −7.4pp on majors, −0.5pp on minors, −6.1pp on
-  //      commodities, −2.1pp on crypto. Only indices clear the gate;
-  //      everyone else gets blocked by it more often than helped.
+  //      commodities, −2.1pp on crypto. Only indices clear the gate.
+  //   3. The 3of4-rsi-macd mode also requires the cross (always).
   //   The test flags STAY working so we can re-A/B if data drifts.
   var _btPairClass = (typeof _classOf === 'function') ? _classOf(k) : null;
   var _btUseMACDCross = (mode === 'structural-macd' || mode === 'auto-ew-macd')
-                        || (_btPairClass === 'index');
+                        || (_btPairClass === 'index') || _btUse3of4;
   var MACD_CROSS_LB = 3;
   // Need both timeframes
   if(!HISTORY[k]) loadHistory(k);
@@ -11603,7 +11664,16 @@ function calcRecentBacktest(k, mode){
 
     // 4/4 alignment check (v6: added 4H EMA21/55 cloud as Layer 4).
     if(!ewDir || !tlDir || !nwDir || !clDir){ i++; continue; }
-    if(ewDir !== tlDir || tlDir !== nwDir || nwDir !== clDir){ i++; continue; }
+    if(_btUse3of4){
+      // 3-of-4 mode: EW = TL = CL but NW MUST dissent. Trade direction = EW.
+      // Hypothesis: the missing 15m alignment is recoverable via MACD + RSI
+      // extreme. If NW already agrees (it's the full 4/4 case), skip — we
+      // want the EXPANSION cohort only, not double-count production setups.
+      if(ewDir !== tlDir || tlDir !== clDir){ i++; continue; }
+      if(nwDir === ewDir){ i++; continue; }
+    } else {
+      if(ewDir !== tlDir || tlDir !== nwDir || nwDir !== clDir){ i++; continue; }
+    }
     if(ewDir !== 'bull' && ewDir !== 'bear'){ i++; continue; }
 
     // A1 hard gate (refined per-class 2026-06-10) — 1H RSI extreme
@@ -11612,7 +11682,15 @@ function calcRecentBacktest(k, mode){
     // class — see RSI_GATE_BY_CLASS. Null RSI (warm-up) falls through.
     if(h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length){
       var rsiAt = h1RsiAtH1Idx[h1Idx];
-      if(rsiAt != null && isFinite(rsiAt)){
+      if(_btUse3of4){
+        // 3of4 mode: REQUIRE deep RSI extreme — bull setup needs RSI < 25
+        // (oversold mean-reversion), bear setup needs RSI > 75. Skip the
+        // bar conservatively if RSI is in warm-up (null) — better to
+        // under-count than fabricate signals in the no-data window.
+        if(rsiAt == null || !isFinite(rsiAt)){ i++; continue; }
+        if(ewDir === 'bull' && rsiAt >= 25){ i++; continue; }
+        if(ewDir === 'bear' && rsiAt <= 75){ i++; continue; }
+      } else if(rsiAt != null && isFinite(rsiAt)){
         var _btGate = _rsiGateFor(k);
         if(ewDir === 'bull' && rsiAt >= _btGate.hi){ i++; continue; }
         if(ewDir === 'bear' && rsiAt <= _btGate.lo){ i++; continue; }
@@ -12298,6 +12376,7 @@ function _ensureBacktestTestsLoaded(){
 // overwrites window.X when the file executes, so subsequent direct
 // calls (after first click) bypass this stub entirely.
 function runMacdCrossTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runMacdCrossTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
+function run3of4RsiMacdTest(){ _ensureBacktestTestsLoaded().then(function(){ window.run3of4RsiMacdTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runCounterBarRuleTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runCounterBarRuleTest(opts); }); }
 function runSRGatingTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runSRGatingTest(opts); }); }
 function runNewsBlackoutTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runNewsBlackoutTest(opts); }); }
@@ -12309,6 +12388,7 @@ function compareRRPerClass(opts){ return _ensureBacktestTestsLoaded().then(funct
 if(typeof window !== "undefined"){
   window._ensureBacktestTestsLoaded = _ensureBacktestTestsLoaded;
   window.runMacdCrossTest        = runMacdCrossTest;
+  window.run3of4RsiMacdTest      = run3of4RsiMacdTest;
   window.runCounterBarRuleTest   = runCounterBarRuleTest;
   window.runSRGatingTest         = runSRGatingTest;
   window.runNewsBlackoutTest     = runNewsBlackoutTest;

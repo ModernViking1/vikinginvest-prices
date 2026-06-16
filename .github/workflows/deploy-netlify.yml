@@ -37,6 +37,7 @@ on:
       - 'Viking_Invest_Trading_v*.html'
       - 'dashboard-tests.js'
       - 'dashboard-backtest-ui.js'
+      - 'sw.js'
       - 'font-samples/**/*.html'
       - 'CNAME'
       - '.github/workflows/deploy-netlify.yml'
@@ -102,13 +103,16 @@ jobs:
           # Lazy-loaded test harnesses — mirror of deploy-pages.yml.
           cp dashboard-tests.js _site/ 2>/dev/null || true
           cp dashboard-backtest-ui.js _site/ 2>/dev/null || true
+          # Service Worker — same as Pages.
+          cp sw.js _site/ 2>/dev/null || true
           if [ -d font-samples ]; then
             mkdir -p _site/font-samples
             cp font-samples/*.html _site/font-samples/ 2>/dev/null || true
           fi
           # Stamp build time so we can verify which deploy a user is on.
+          # Also stamps sw.js so each deploy produces a unique cache name.
           STAMP="$(date -u '+%Y-%m-%d %H:%M UTC')"
-          for f in _site/dashboard.html _site/Viking_Invest_Trading_v*.html; do
+          for f in _site/dashboard.html _site/Viking_Invest_Trading_v*.html _site/sw.js; do
             [ -f "$f" ] && sed -i "s/BUILD_TIMESTAMP_UTC/$STAMP/g" "$f"
           done
           # Deploy-time JS comment strip — mirrors deploy-pages.yml. Source

@@ -30,6 +30,7 @@ on:
       - 'Viking_Invest_Trading_v*.html'
       - 'dashboard-tests.js'
       - 'dashboard-backtest-ui.js'
+      - 'sw.js'
       - 'font-samples/**/*.html'
       - 'CNAME'
       - '.github/workflows/deploy-pages.yml'
@@ -87,6 +88,11 @@ jobs:
           # renderFailureModeAnalysis / renderAutoEWDiagnostic is first
           # invoked.
           cp dashboard-backtest-ui.js _site/ 2>/dev/null || true
+          # Service Worker (2026-06-16). Served at site root so its scope
+          # covers the whole domain. Build timestamp gets substituted in
+          # alongside the dashboard HTML so each deploy produces a fresh
+          # cache name and old caches are evicted on activate.
+          cp sw.js _site/ 2>/dev/null || true
           # Private visitor-stats page (unlinked, noindex). Gated by
           # Supabase market-access-link sign-in against the admin
           # email allowlist.
@@ -110,7 +116,7 @@ jobs:
           # so a stale cache was indistinguishable from a fresh load.
           STAMP="$(date -u '+%Y-%m-%d %H:%M UTC')"
           echo "Build stamp: $STAMP"
-          for f in _site/dashboard.html _site/Viking_Invest_Trading_v*.html; do
+          for f in _site/dashboard.html _site/Viking_Invest_Trading_v*.html _site/sw.js; do
             [ -f "$f" ] && sed -i "s/BUILD_TIMESTAMP_UTC/$STAMP/g" "$f"
           done
 
