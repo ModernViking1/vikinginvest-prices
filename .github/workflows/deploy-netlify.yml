@@ -50,20 +50,8 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 6
     steps:
-      - name: Debounce — coalesce rapid commits into one deploy
-        # Mirrors the Pages debounce: 5-min quiet window before deploy.
-        # Concurrency above cancels this run if a newer push arrives,
-        # so only the LAST commit in a quiet window publishes. Keeps
-        # the two CDNs in sync and avoids burning Netlify build minutes
-        # on commits that are going to be superseded seconds later.
-        run: |
-          echo "Debouncing for 5 minutes. If another push to main"
-          echo "arrives during this wait, this run will be cancelled"
-          echo "and only the latest commit deploys."
-          sleep 300
-
       - name: Check secrets
         # 2026-06-16: switched from per-step `if: secrets.X != ''` guards
         # to a single bash-level check that writes a step output. The
