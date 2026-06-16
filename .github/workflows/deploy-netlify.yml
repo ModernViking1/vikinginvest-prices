@@ -2,9 +2,9 @@ name: Deploy to Netlify (backup CDN)
 
 # Mirrors the same _site bundle as the existing Deploy Pages workflow,
 # but pushes to Netlify instead of GitHub Pages. Gives the dashboard
-# a second URL that hits a completely different CDN (Netlify's
-# edge) so when GitHub Pages' Fastly stalls for a specific route, the
-# Netlify URL stays responsive.
+# a second URL that hits a completely different CDN (Netlify's edge,
+# Cloudflare under the hood) so when GitHub Pages' Fastly stalls
+# for a specific route, the Netlify URL stays responsive.
 #
 # Setup (one-time, ~4 minutes):
 #   1. Sign up at https://netlify.com (free, GitHub auth fine)
@@ -18,12 +18,15 @@ name: Deploy to Netlify (backup CDN)
 #        NETLIFY_SITE_ID     = the abc-12345-xxx site ID
 #   6. Trigger this workflow once via Actions → Deploy to Netlify →
 #      Run workflow, OR push any change to a tracked HTML file.
-#   7. Netlify gives you a `vikinginvest-backup.netlify.app` URL (or
-#      whatever you named your site). Bookmark it for desktop use.
+#   7. Netlify gives you a `<your-site-name>.netlify.app` URL.
+#      Bookmark it for desktop / mobile use.
 #
 # After setup, the workflow auto-deploys on every push that touches
 # the same paths as the Pages deploy — they stay in sync without
 # manual intervention.
+#
+# Before secrets are configured, the workflow runs cleanly to "success"
+# with a warning step explaining the setup. No more "Run failed" emails.
 
 on:
   push:
@@ -49,9 +52,37 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
+      - name: Check secrets
+        # 2026-06-16: switched from per-step `if: secrets.X != ''` guards
+        # to a single bash-level check that writes a step output. The
+        # old approach produced "No jobs were run" failures when the
+        # secrets weren't set because GitHub's expression evaluator
+        # treated missing secrets in a way that skipped every guarded
+        # step, leaving the job with zero successful steps → marked
+        # as failed. This step ALWAYS runs and decides downstream
+        # gating via outputs.
+        id: secrets
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID:    ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "have_secrets=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Netlify secrets not configured — skipping deploy gracefully."
+            echo ""
+            echo "To enable the Netlify mirror, follow the setup instructions"
+            echo "at the top of .github/workflows/deploy-netlify.yml (~4 min)."
+            echo "Until then, this workflow is a no-op and exits clean."
+          else
+            echo "have_secrets=true" >> "$GITHUB_OUTPUT"
+            echo "Netlify secrets present — proceeding with deploy."
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.secrets.outputs.have_secrets == 'true'
 
       - name: Build _site (mirror of deploy-pages.yml's build step)
+        if: steps.secrets.outputs.have_secrets == 'true'
         run: |
           mkdir -p _site
           cp Viking_Invest_Trading_v*.html _site/ 2>/dev/null || true
@@ -77,7 +108,7 @@ jobs:
           ls -lh _site
 
       - name: Deploy to Netlify
-        if: ${{ secrets.NETLIFY_AUTH_TOKEN != '' && secrets.NETLIFY_SITE_ID != '' }}
+        if: steps.secrets.outputs.have_secrets == 'true'
         uses: nwtgck/actions-netlify@v3
         with:
           publish-dir: './_site'
@@ -88,11 +119,5 @@ jobs:
           overwrites-pull-request-comment: false
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_SITE_ID:    ${{ secrets.NETLIFY_SITE_ID }}
         timeout-minutes: 5
-
-      - name: Skip notice (secrets missing)
-        if: ${{ secrets.NETLIFY_AUTH_TOKEN == '' || secrets.NETLIFY_SITE_ID == '' }}
-        run: |
-          echo "::warning::NETLIFY_AUTH_TOKEN and/or NETLIFY_SITE_ID not configured — skipping Netlify deploy."
-          echo "Add the secrets in repo settings to activate this mirror. The workflow file is in place; only secrets are missing."
