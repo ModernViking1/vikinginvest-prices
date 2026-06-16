@@ -10925,7 +10925,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-16d';
+var RULES_VERSION = '2026-06-16e';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -10978,6 +10978,11 @@ function RULES_FINGERPRINT(){
     // caches. The values here MUST match what calcRecentBacktest reads.
     macdCrossLB: 3,
     macdParams: '12/26/9',
+    // 2026-06-16e — RSI-extreme thresholds for the 3of4/2of4 expansion
+    // modes. Loosened from 25/75 → 30/70 after 25/75 produced zero
+    // qualifying trades. Future tweaks here auto-invalidate caches.
+    rsiExtremeBull: 30,
+    rsiExtremeBear: 70,
     // Active pair universe (hash of sorted MKTS keys) — bump on any
     // add/remove so dropped pairs are flushed from localStorage caches
     // on the next page load, not the next TTL expiry. Without this the
@@ -11702,14 +11707,15 @@ function calcRecentBacktest(k, mode){
     if(h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length){
       var rsiAt = h1RsiAtH1Idx[h1Idx];
       if(_btUse3of4 || _btUse2of4){
-        // 3of4 / 2of4 modes: REQUIRE deep RSI extreme — bull setup needs
-        // RSI < 25 (oversold mean-reversion), bear setup needs RSI > 75.
-        // Skip the bar conservatively if RSI is in warm-up (null) —
-        // better to under-count than fabricate signals in the no-data
-        // window.
+        // 3of4 / 2of4 modes: REQUIRE RSI extreme — bull setup needs
+        // RSI < 30 (oversold mean-reversion), bear setup needs RSI > 70.
+        // 2026-06-16e: loosened from 25/75 → 30/70 after the strict
+        // bounds produced zero qualifying trades across both cohorts.
+        // 30/70 is still mean-reversion territory but prints often
+        // enough to give us a sample to evaluate.
         if(rsiAt == null || !isFinite(rsiAt)){ i++; continue; }
-        if(ewDir === 'bull' && rsiAt >= 25){ i++; continue; }
-        if(ewDir === 'bear' && rsiAt <= 75){ i++; continue; }
+        if(ewDir === 'bull' && rsiAt >= 30){ i++; continue; }
+        if(ewDir === 'bear' && rsiAt <= 70){ i++; continue; }
       } else if(rsiAt != null && isFinite(rsiAt)){
         var _btGate = _rsiGateFor(k);
         if(ewDir === 'bull' && rsiAt >= _btGate.hi){ i++; continue; }

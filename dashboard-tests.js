@@ -1978,7 +1978,7 @@ function _render3of4Results(loaded, statusEl, resultEl){
   resultEl.innerHTML =
     '<div style="margin-top:8px;padding:10px 12px;border:1px solid rgba(179,105,230,0.30);background:rgba(179,105,230,0.04);border-radius:4px;">'
     + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#b369e6;margin-bottom:6px;">3-OF-4 &amp; 2-OF-4 + MACD CROSS + RSI EXTREME — EXPANSION COHORTS</div>'
-    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:8px;">Two relaxed-alignment cohorts that the production 4/4 gate normally rejects. <strong>3-of-4</strong>: EW = TL = CL, NW dissents. <strong>2-of-4</strong>: EW direction with exactly one of TL/NW/CL agreeing, the other two dissenting. Both gated by same-direction MACD(12,26,9)/Signal cross within 3 m15 bars AND 1H RSI extreme (&lt;25 bull, &gt;75 bear). Deploy thresholds: ≥72% WR on ≥20 trades.</div>'
+    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:8px;">Two relaxed-alignment cohorts that the production 4/4 gate normally rejects. <strong>3-of-4</strong>: EW = TL = CL, NW dissents. <strong>2-of-4</strong>: EW direction with exactly one of TL/NW/CL agreeing, the other two dissenting. Both gated by same-direction MACD(12,26,9)/Signal cross within 3 m15 bars AND 1H RSI extreme (&lt;30 bull, &gt;70 bear — loosened from 25/75 on 16/06 after that produced zero qualifying trades). Deploy thresholds: ≥72% WR on ≥20 trades.</div>'
     + '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:9px;min-width:560px;">'
     + '<thead>'
     + '<tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
