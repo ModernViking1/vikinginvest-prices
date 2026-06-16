@@ -392,6 +392,25 @@ namespace cAlgo.Robots
         }
 
         // ───────────── Poll loop ──────────────────────────────────────
+        // Cache-bust helper. Appends ?t=<unix-minute> (or &t= if the URL
+        // already has a query string) so every poll fetches a unique URL
+        // that no CDN, proxy, or HttpClient handler can serve from cache.
+        // Resolution is one minute — fine-grained enough that any edge
+        // cache TTL ≤ 60s is bypassed, while still letting two requests
+        // within the same minute hit a warm cache if anything in between
+        // chooses to cache. raw.githubusercontent.com sends max-age=300
+        // and jsDelivr can hold @main refs for hours; this neutralises
+        // both. URL parsing is intentionally string-level (no Uri()) so
+        // a malformed user-supplied URL fails cleanly downstream rather
+        // than throwing during the bust.
+        private static string CacheBust(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return url;
+            var t = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 60;
+            var sep = url.Contains("?") ? "&" : "?";
+            return $"{url}{sep}t={t}";
+        }
+
         private async Task PollAndProcess()
         {
             // Phase 2 — fetch kill-switch FIRST. If killed, we still
@@ -402,7 +421,7 @@ namespace cAlgo.Robots
             string body;
             try
             {
-                body = await _http.GetStringAsync(SignalsUrl);
+                body = await _http.GetStringAsync(CacheBust(SignalsUrl));
             }
             catch (Exception ex)
             {
@@ -438,7 +457,7 @@ namespace cAlgo.Robots
             string body;
             try
             {
-                body = await _http.GetStringAsync(KillSwitchUrl);
+                body = await _http.GetStringAsync(CacheBust(KillSwitchUrl));
             }
             catch (Exception ex)
             {
