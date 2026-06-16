@@ -10905,6 +10905,7 @@ var RECENT_BT_CACHE_KEY_AUTO_MACD = 'vit_recent_backtest_v9_auto_macd';
 // the standard caches stay clean while we evaluate.
 var RECENT_BT_CACHE_KEY_3OF4 = 'vit_recent_backtest_v9_3of4_rsi_macd';
 var RECENT_BT_CACHE_KEY_2OF4 = 'vit_recent_backtest_v9_2of4_rsi_macd';
+var RECENT_BT_CACHE_KEY_1OF4 = 'vit_recent_backtest_v9_1of4_rsi_macd';
 var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // Previously 4 hours. Bumped 2026-05-30: with the per-pair-class
 // routing (struct for majors except AUD/USD, auto-EW for everything
@@ -10925,7 +10926,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-16e';
+var RULES_VERSION = '2026-06-16f';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -11000,6 +11001,7 @@ function _cacheKeyForMode(mode){
   if(mode === 'auto-ew-macd') return RECENT_BT_CACHE_KEY_AUTO_MACD;
   if(mode === '3of4-rsi-macd') return RECENT_BT_CACHE_KEY_3OF4;
   if(mode === '2of4-rsi-macd') return RECENT_BT_CACHE_KEY_2OF4;
+  if(mode === '1of4-rsi-macd') return RECENT_BT_CACHE_KEY_1OF4;
   return RECENT_BT_CACHE_KEY;
 }
 
@@ -11341,7 +11343,7 @@ function calcRecentBacktest(k, mode){
   // extra filter requiring the 4H 50/200 EMA cloud direction to agree
   // with the macro direction at the same historical timestamp).
   mode = mode || 'structural';
-  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime' || mode === 'auto-ew-macd' || mode === '3of4-rsi-macd' || mode === '2of4-rsi-macd');
+  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime' || mode === 'auto-ew-macd' || mode === '3of4-rsi-macd' || mode === '2of4-rsi-macd' || mode === '1of4-rsi-macd');
   var _btUseRegime = (mode === 'auto-ew-regime');
   // 2026-06-16c — 3-of-4 + RSI-extreme + MACD-cross exploratory mode.
   // Relaxes the standard 4/4 alignment to allow setups where the 15m
@@ -11358,6 +11360,14 @@ function calcRecentBacktest(k, mode){
   // Larger expansion cohort than 3-of-4 so we get a usable sample
   // size; trades off macro-confirmation strength for trade count.
   var _btUse2of4 = (mode === '2of4-rsi-macd');
+  // 2026-06-16f — 1-of-4 contrarian mode. EW has direction but NONE of
+  // TL/NW/CL agree (all dissent or are neutral). This is the weakest
+  // possible macro signal — essentially "EW says one thing, everything
+  // else says the opposite". Hypothesis: under extreme oversold/
+  // overbought + a momentum cross, even this contrarian cohort might
+  // produce profitable mean-reversion setups. Likely sparse but worth
+  // measuring before concluding the expansion-cohort path is dead.
+  var _btUse1of4 = (mode === '1of4-rsi-macd');
   // 2026-06-16b — MACD-cross hard gate. Three activation paths:
   //   1. Test modes: `structural-macd` / `auto-ew-macd` enable the gate
   //      for ALL pairs (used by the per-class A/B test button).
@@ -11369,7 +11379,7 @@ function calcRecentBacktest(k, mode){
   //   The test flags STAY working so we can re-A/B if data drifts.
   var _btPairClass = (typeof _classOf === 'function') ? _classOf(k) : null;
   var _btUseMACDCross = (mode === 'structural-macd' || mode === 'auto-ew-macd')
-                        || (_btPairClass === 'index') || _btUse3of4 || _btUse2of4;
+                        || (_btPairClass === 'index') || _btUse3of4 || _btUse2of4 || _btUse1of4;
   var MACD_CROSS_LB = 3;
   // Need both timeframes
   if(!HISTORY[k]) loadHistory(k);
@@ -11695,6 +11705,15 @@ function calcRecentBacktest(k, mode){
       if(nwDir === ewDir) _btSupport++;
       if(clDir === ewDir) _btSupport++;
       if(_btSupport !== 1){ i++; continue; }
+    } else if(_btUse1of4){
+      // 1-of-4 contrarian: EW has direction, ZERO of TL/NW/CL agree.
+      // Disjoint from the 2-of-4 and 3-of-4 cohorts above.
+      if(ewDir !== 'bull' && ewDir !== 'bear'){ i++; continue; }
+      var _btSupport1 = 0;
+      if(tlDir === ewDir) _btSupport1++;
+      if(nwDir === ewDir) _btSupport1++;
+      if(clDir === ewDir) _btSupport1++;
+      if(_btSupport1 !== 0){ i++; continue; }
     } else {
       if(ewDir !== tlDir || tlDir !== nwDir || nwDir !== clDir){ i++; continue; }
     }
@@ -11706,9 +11725,9 @@ function calcRecentBacktest(k, mode){
     // class — see RSI_GATE_BY_CLASS. Null RSI (warm-up) falls through.
     if(h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length){
       var rsiAt = h1RsiAtH1Idx[h1Idx];
-      if(_btUse3of4 || _btUse2of4){
-        // 3of4 / 2of4 modes: REQUIRE RSI extreme — bull setup needs
-        // RSI < 30 (oversold mean-reversion), bear setup needs RSI > 70.
+      if(_btUse3of4 || _btUse2of4 || _btUse1of4){
+        // 3of4 / 2of4 / 1of4 modes: REQUIRE RSI extreme — bull setup
+        // needs RSI < 30 (oversold mean-reversion), bear needs RSI > 70.
         // 2026-06-16e: loosened from 25/75 → 30/70 after the strict
         // bounds produced zero qualifying trades across both cohorts.
         // 30/70 is still mean-reversion territory but prints often

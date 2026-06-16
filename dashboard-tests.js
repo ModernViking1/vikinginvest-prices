@@ -1891,7 +1891,7 @@ function run3of4RsiMacdTest(){
     return;
   }
 
-  var modes = ['3of4-rsi-macd', '2of4-rsi-macd'];
+  var modes = ['3of4-rsi-macd', '2of4-rsi-macd', '1of4-rsi-macd'];
   var loaded = {};
   var mIdx = 0;
   function runNext(){
@@ -1917,7 +1917,7 @@ if(typeof window !== 'undefined'){ window.run3of4RsiMacdTest = run3of4RsiMacdTes
 function _render3of4Results(loaded, statusEl, resultEl){
   if(!resultEl){ if(statusEl) statusEl.textContent = '⚠ result host missing'; return; }
   var classes = ['major','minor','comm','index','crypto'];
-  var modes = ['3of4-rsi-macd', '2of4-rsi-macd'];
+  var modes = ['3of4-rsi-macd', '2of4-rsi-macd', '1of4-rsi-macd'];
   // Build per-class agg for each mode independently.
   var agg = {}; var totals = {};
   modes.forEach(function(m){
@@ -1961,36 +1961,43 @@ function _render3of4Results(loaded, statusEl, resultEl){
       + '<td style="padding:5px 8px;text-align:right;color:' + dep.col + ';font-weight:700;font-size:8px;">' + dep.txt + '</td>';
   }
 
+  var cohortMeta = [
+    {key: '3of4-rsi-macd', label: '3-of-4 (NW dissents)',           bg: 'rgba(179,105,230,0.10)'},
+    {key: '2of4-rsi-macd', label: '2-of-4 (1 supports EW)',          bg: 'rgba(179,105,230,0.06)'},
+    {key: '1of4-rsi-macd', label: '1-of-4 (none support EW)',        bg: 'rgba(179,105,230,0.03)'},
+  ];
   var rows = classes.map(function(cls){
     return '<tr style="border-top:1px dashed rgba(0,0,0,0.08);">'
       + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">' + cls + '</td>'
-      + cellFor(agg['3of4-rsi-macd'][cls])
-      + cellFor(agg['2of4-rsi-macd'][cls])
+      + cohortMeta.map(function(c){ return cellFor(agg[c.key][cls]); }).join('')
       + '</tr>';
   }).join('');
-
   var totalRow = '<tr style="border-top:2px solid var(--rule);background:rgba(0,0,0,0.02);">'
     + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">ALL</td>'
-    + cellFor(totals['3of4-rsi-macd'])
-    + cellFor(totals['2of4-rsi-macd'])
+    + cohortMeta.map(function(c){ return cellFor(totals[c.key]); }).join('')
+    + '</tr>';
+
+  var headerTop = '<tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
+    + '<th rowspan="2" style="padding:5px 8px;text-align:left;vertical-align:bottom;">Class</th>'
+    + cohortMeta.map(function(c){
+        return '<th colspan="4" style="padding:5px 8px;text-align:center;background:' + c.bg + ';border-left:1px solid rgba(0,0,0,0.06);">' + c.label + '</th>';
+      }).join('')
+    + '</tr>';
+  var headerBot = '<tr style="border-bottom:1px solid var(--rule);font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;">'
+    + cohortMeta.map(function(){
+        return '<th style="padding:4px 8px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">WR</th>'
+             + '<th style="padding:4px 8px;text-align:right;">W/L</th>'
+             + '<th style="padding:4px 8px;text-align:right;">n</th>'
+             + '<th style="padding:4px 8px;text-align:right;">Verdict</th>';
+      }).join('')
     + '</tr>';
 
   resultEl.innerHTML =
     '<div style="margin-top:8px;padding:10px 12px;border:1px solid rgba(179,105,230,0.30);background:rgba(179,105,230,0.04);border-radius:4px;">'
-    + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#b369e6;margin-bottom:6px;">3-OF-4 &amp; 2-OF-4 + MACD CROSS + RSI EXTREME — EXPANSION COHORTS</div>'
-    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:8px;">Two relaxed-alignment cohorts that the production 4/4 gate normally rejects. <strong>3-of-4</strong>: EW = TL = CL, NW dissents. <strong>2-of-4</strong>: EW direction with exactly one of TL/NW/CL agreeing, the other two dissenting. Both gated by same-direction MACD(12,26,9)/Signal cross within 3 m15 bars AND 1H RSI extreme (&lt;30 bull, &gt;70 bear — loosened from 25/75 on 16/06 after that produced zero qualifying trades). Deploy thresholds: ≥72% WR on ≥20 trades.</div>'
-    + '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:9px;min-width:560px;">'
-    + '<thead>'
-    + '<tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
-    + '<th rowspan="2" style="padding:5px 8px;text-align:left;vertical-align:bottom;">Class</th>'
-    + '<th colspan="4" style="padding:5px 8px;text-align:center;background:rgba(179,105,230,0.08);border-left:1px solid rgba(0,0,0,0.06);">3-of-4 (NW dissents)</th>'
-    + '<th colspan="4" style="padding:5px 8px;text-align:center;background:rgba(179,105,230,0.04);border-left:1px solid rgba(0,0,0,0.06);">2-of-4 (only 1 supports EW)</th>'
-    + '</tr>'
-    + '<tr style="border-bottom:1px solid var(--rule);font-size:7.5px;color:var(--inkd);letter-spacing:0.5px;">'
-    + '<th style="padding:4px 8px;text-align:right;">WR</th><th style="padding:4px 8px;text-align:right;">W/L</th><th style="padding:4px 8px;text-align:right;">n</th><th style="padding:4px 8px;text-align:right;">Verdict</th>'
-    + '<th style="padding:4px 8px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">WR</th><th style="padding:4px 8px;text-align:right;">W/L</th><th style="padding:4px 8px;text-align:right;">n</th><th style="padding:4px 8px;text-align:right;">Verdict</th>'
-    + '</tr>'
-    + '</thead><tbody>' + rows + totalRow + '</tbody></table></div>'
+    + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#b369e6;margin-bottom:6px;">3-OF-4 / 2-OF-4 / 1-OF-4 + MACD CROSS + RSI EXTREME — EXPANSION COHORTS</div>'
+    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:8px;">Three relaxed-alignment cohorts that the production 4/4 gate normally rejects. <strong>3-of-4</strong>: EW = TL = CL, NW dissents. <strong>2-of-4</strong>: EW direction with exactly ONE of TL/NW/CL agreeing. <strong>1-of-4</strong>: EW direction with ZERO support — fully contrarian. All gated by same-direction MACD(12,26,9)/Signal cross within 3 m15 bars AND 1H RSI extreme (&lt;30 bull, &gt;70 bear). Scroll horizontally on mobile to see all three cohorts. Deploy thresholds: ≥72% WR on ≥20 trades.</div>'
+    + '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table style="width:100%;border-collapse:collapse;font-size:9px;min-width:780px;">'
+    + '<thead>' + headerTop + headerBot + '</thead><tbody>' + rows + totalRow + '</tbody></table></div>'
     + '<div style="margin-top:8px;font-size:8.5px;color:var(--inkd);line-height:1.5;"><strong>Read:</strong> any class showing DEPLOY-READY (≥72% WR on ≥20 trades) is a promotion candidate. WATCH (65–72%) needs more data. INSUFFICIENT (&lt;10 trades) means the gate is too restrictive on this cohort to produce a sample — that\'s information too: this combination of conditions simply doesn\'t print often.</div>'
     + '</div>';
   if(statusEl){
