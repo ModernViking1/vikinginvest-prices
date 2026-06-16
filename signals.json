@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-16T07:11:13.234160+00:00",
-  "generated_ms": 1781593873234,
-  "detector_last_check": "2026-06-16T07:11:13.127776+00:00",
+  "generated": "2026-06-16T07:16:06.626101+00:00",
+  "generated_ms": 1781594166626,
+  "detector_last_check": "2026-06-16T07:16:06.544678+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
-    "armed": 2,
+    "total": 4,
+    "armed": 4,
     "triggered": 0,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "ftse100:1781593200000:wick",
+      "pair": "ftse100",
+      "sym": "FTSE100",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 10433.4,
+      "stop": 10412.025,
+      "target": 10454.775,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1781593200000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781594166626,
+      "source": "server-detector"
+    },
     {
       "id": "wtiusd:1781593200000:wick",
       "pair": "wtiusd",
@@ -34,7 +55,7 @@
       "cl": "bear",
       "armedAt": 1781593200000,
       "triggeredAt": null,
-      "lastSeenAt": 1781593873234,
+      "lastSeenAt": 1781594166626,
       "source": "server-detector"
     },
     {
@@ -46,16 +67,37 @@
       "r_size": 0.5,
       "dir": "bear",
       "state": "armed",
-      "entry": 80.987116,
+      "entry": 80.89627,
       "stop": 81.475,
-      "target": 80.499232,
+      "target": 80.31754000000001,
       "ew": "bear",
       "tl": "bear",
       "nw": "bear",
       "cl": "bear",
       "armedAt": 1781586900000,
       "triggeredAt": null,
-      "lastSeenAt": 1781593873234,
+      "lastSeenAt": 1781594166626,
+      "source": "server-detector"
+    },
+    {
+      "id": "ftse100:1781275500000:fib",
+      "pair": "ftse100",
+      "sym": "FTSE100",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 10446.8724,
+      "stop": 10412.025,
+      "target": 10481.7198,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1781275500000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781594166626,
       "source": "server-detector"
     }
   ]
