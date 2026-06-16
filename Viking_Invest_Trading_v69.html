@@ -1194,6 +1194,25 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <span id="btForceRerunStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
   </div>
 
+  <!-- ── 1c. MACD-CROSS FILTER TEST (2026-06-16) ──────────────────────
+       Runs the deep walker twice in parallel: native profile vs native
+       profile + same-direction 15m MACD(12,26,9) cross within 3 bars
+       of the trigger. Aggregates wins/losses by asset class and
+       renders a side-by-side comparison so we can decide whether to
+       promote the filter for some classes, all classes, or none.
+       Production cards + caches are untouched while this runs — the
+       results live in dedicated 'structural-macd' / 'auto-ew-macd'
+       cache slots until explicitly promoted. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btMacdTestBtn"
+            onclick="runMacdCrossTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid #4da2ff;background:rgba(77,162,255,0.08);color:#4da2ff;border-radius:3px;cursor:pointer;">
+      🧪 TEST: 15M MACD CROSS FILTER
+    </button>
+    <span id="btMacdTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btMacdTestResult" style="margin:0 0 12px 0;"></div>
+
   <!-- ── DRY-RUN TEST PANEL (hidden 2026-06-13qq) ─────────────────────
        Buttons + variant selectors for the 4 in-page rule-test harnesses
        (counter-bar, SR gating, news blackout, R:R per class). User
@@ -11966,6 +11985,14 @@ function refreshHourlyRSI(k){
 var RECENT_BT_CACHE_KEY = 'vit_recent_backtest_v9';
 var RECENT_BT_CACHE_KEY_AUTO = 'vit_recent_backtest_v9_auto';
 var RECENT_BT_CACHE_KEY_AUTO_REGIME = 'vit_recent_backtest_v9_auto_regime';
+// 2026-06-16 — MACD-cross filter test (15m). Two cache slots so we can
+// score the filter against EITHER native profile and route per-pair
+// for the asset-class deploy decision. Each is the existing mode +
+// a same-direction MACD(12,26,9) cross gate within MACD_CROSS_LB m15
+// bars before the trigger. Cache-isolated so toggling the test doesn't
+// disturb the production WR cards.
+var RECENT_BT_CACHE_KEY_STRUCT_MACD = 'vit_recent_backtest_v9_struct_macd';
+var RECENT_BT_CACHE_KEY_AUTO_MACD = 'vit_recent_backtest_v9_auto_macd';
 var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // Previously 4 hours. Bumped 2026-05-30: with the per-pair-class
 // routing (struct for majors except AUD/USD, auto-EW for everything
@@ -11986,7 +12013,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-16a';
+var RULES_VERSION = '2026-06-16b';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -12032,6 +12059,12 @@ function RULES_FINGERPRINT(){
         }).join(',')
       : '80/20',
     fibPairs: ['xauusd','xagusd','usoil','wtiusd','natgas','xptusd','nas100','de40','ftse100','spx500','jp225'].sort().join(','),
+    // 2026-06-16 — MACD-cross test parameters baked into the fingerprint
+    // so any future tweak to the lookback window or EMA settings
+    // automatically busts both the structural-macd and auto-ew-macd
+    // caches. The values here MUST match what calcRecentBacktest reads.
+    macdCrossLB: 3,
+    macdParams: '12/26/9',
     // Active pair universe (hash of sorted MKTS keys) — bump on any
     // add/remove so dropped pairs are flushed from localStorage caches
     // on the next page load, not the next TTL expiry. Without this the
@@ -12045,6 +12078,8 @@ function RULES_FINGERPRINT(){
 function _cacheKeyForMode(mode){
   if(mode === 'auto-ew') return RECENT_BT_CACHE_KEY_AUTO;
   if(mode === 'auto-ew-regime') return RECENT_BT_CACHE_KEY_AUTO_REGIME;
+  if(mode === 'structural-macd') return RECENT_BT_CACHE_KEY_STRUCT_MACD;
+  if(mode === 'auto-ew-macd') return RECENT_BT_CACHE_KEY_AUTO_MACD;
   return RECENT_BT_CACHE_KEY;
 }
 
@@ -12386,8 +12421,14 @@ function calcRecentBacktest(k, mode){
   // extra filter requiring the 4H 50/200 EMA cloud direction to agree
   // with the macro direction at the same historical timestamp).
   mode = mode || 'structural';
-  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime');
+  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime' || mode === 'auto-ew-macd');
   var _btUseRegime = (mode === 'auto-ew-regime');
+  // 2026-06-16 — MACD-cross hard gate (15m). Enabled when the mode ends
+  // in '-macd' so we can A/B the filter against either native profile.
+  // Requires a same-direction MACD/Signal cross within MACD_CROSS_LB
+  // m15 bars before the trigger; otherwise the bar is skipped (i++).
+  var _btUseMACDCross = (mode === 'structural-macd' || mode === 'auto-ew-macd');
+  var MACD_CROSS_LB = 3;
   // Need both timeframes
   if(!HISTORY[k]) loadHistory(k);
   // Prefer deep historical (12 months) when available — Option D
@@ -12620,6 +12661,17 @@ function calcRecentBacktest(k, mode){
     return _rsiSeries(closes, 14);
   })();
 
+  // m15 MACD(12,26,9) series for the MACD-cross hard gate. Only computed
+  // when the mode requires it — the EMA + signal calc is ~3× m15Bars.length
+  // floating-point ops, so we skip it entirely on production modes.
+  var m15MacdAtIdx = (_btUseMACDCross && typeof _macdSeries === 'function')
+    ? (function(){
+        var closes = new Array(m15Bars.length);
+        for(var mi = 0; mi < m15Bars.length; mi++) closes[mi] = m15Bars[mi].c;
+        return _macdSeries(closes, 12, 26, 9);
+      })()
+    : null;
+
   // Pre-compute h1 swing-high/swing-low rolling windows so we can update
   // tlBreakDir whenever a new h1 bar comes into view.
   var updateTLDir = function(h1Idx){
@@ -12706,6 +12758,30 @@ function calcRecentBacktest(k, mode){
     if(_btUseRegime){
       var regDir = regimeDirAtTime(k, curTs);
       if(regDir !== ewDir){ i++; continue; }
+    }
+
+    // Optional m15 MACD-cross hard gate (structural-macd / auto-ew-macd
+    // modes only). Skip the bar unless MACD crossed Signal in the same
+    // direction as ewDir within the last MACD_CROSS_LB m15 bars. Walks
+    // backwards from `i` looking for the most recent same-direction
+    // cross; warm-up bars (null MACD/Signal) → skip conservatively (no
+    // signal entry, same as if the cross never fired). This is the
+    // hard-gate version of the variant-stat that the failure-mode panel
+    // surfaces — promoted here so users can A/B the filter against
+    // production WR cards via the dedicated test button.
+    if(_btUseMACDCross){
+      if(!m15MacdAtIdx){ i++; continue; }
+      var crossFound = false;
+      var lbStart = Math.max(1, i - MACD_CROSS_LB + 1);
+      var warmUp = false;
+      for(var cj = lbStart; cj <= i; cj++){
+        var m0 = m15MacdAtIdx.macd[cj-1], m1 = m15MacdAtIdx.macd[cj];
+        var s0 = m15MacdAtIdx.signal[cj-1], s1 = m15MacdAtIdx.signal[cj];
+        if(m0 == null || m1 == null || s0 == null || s1 == null){ warmUp = true; break; }
+        if(ewDir === 'bull' && m0 <= s0 && m1 > s1){ crossFound = true; break; }
+        if(ewDir === 'bear' && m0 >= s0 && m1 < s1){ crossFound = true; break; }
+      }
+      if(warmUp || !crossFound){ i++; continue; }
     }
 
     // Now check if THIS m15 bar is a creator (broke prior swing in alignedDir).
@@ -15040,6 +15116,150 @@ function runRRPerClassTest(opts){
   }, 50);
 }
 if(typeof window !== 'undefined'){ window.runRRPerClassTest = runRRPerClassTest; }
+
+// 2026-06-16 — MACD-cross filter test (15m). Mirrors the runRRPerClassTest
+// pattern: kicks the backtest engine twice (native profile, native + MACD
+// hard gate), aggregates wins/losses by asset class, renders a side-by-
+// side comparison table. The production WR cards + caches are untouched
+// — results live in dedicated cache slots until the user decides whether
+// to promote the filter for some classes, all classes, or none.
+//
+// Per-pair routing: structural-profile pairs (FX majors except AUD/USD)
+// score under 'structural' vs 'structural-macd'; auto-EW-profile pairs
+// score under 'auto-ew' vs 'auto-ew-macd'. The native cache is reused
+// when fresh so only the MACD-extended variants need fresh compute.
+function runMacdCrossTest(){
+  var btn = document.getElementById('btMacdTestBtn');
+  var statusEl = document.getElementById('btMacdTestStatus');
+  var resultEl = document.getElementById('btMacdTestResult');
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '🧪 RUNNING...'; }
+  if(resultEl) resultEl.innerHTML = '';
+
+  if(typeof computeAllRecentBacktestsAsync !== 'function'){
+    if(statusEl) statusEl.textContent = 'Backtest engine not loaded';
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🧪 TEST: 15M MACD CROSS FILTER'; }
+    return;
+  }
+
+  var modes = ['structural', 'structural-macd', 'auto-ew', 'auto-ew-macd'];
+  var loaded = {};
+  var mIdx = 0;
+  function runNext(){
+    if(mIdx >= modes.length){
+      _renderMacdCrossTestResults(loaded, statusEl, resultEl);
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🧪 TEST: 15M MACD CROSS FILTER'; }
+      return;
+    }
+    var mode = modes[mIdx];
+    if(statusEl) statusEl.textContent = 'Computing ' + mode + ' (' + (mIdx + 1) + '/' + modes.length + ')…';
+    // Force-refresh the two new modes; reuse cache for the production
+    // baselines unless they're missing.
+    var forceRefresh = (mode === 'structural-macd' || mode === 'auto-ew-macd');
+    computeAllRecentBacktestsAsync(forceRefresh, function(done, total){
+      if(statusEl) statusEl.textContent = 'Computing ' + mode + ' — ' + done + '/' + total;
+    }, function(results){
+      loaded[mode] = results || {};
+      mIdx++;
+      setTimeout(runNext, 0);
+    }, mode);
+  }
+  setTimeout(runNext, 0);
+}
+if(typeof window !== 'undefined'){ window.runMacdCrossTest = runMacdCrossTest; }
+
+function _renderMacdCrossTestResults(loaded, statusEl, resultEl){
+  if(!resultEl){ if(statusEl) statusEl.textContent = '⚠ result host missing'; return; }
+  // Aggregate wins/losses per asset class for both production and MACD.
+  // Per-pair routing: use the pair's native profile for both columns.
+  var classes = ['major','minor','comm','index','crypto'];
+  var agg = {};
+  classes.forEach(function(cls){ agg[cls] = {prodW:0, prodL:0, prodN:0, macdW:0, macdL:0, macdN:0}; });
+  var totals = {prodW:0, prodL:0, prodN:0, macdW:0, macdL:0, macdN:0};
+
+  Object.keys(MKTS).forEach(function(k){
+    var cls = (MKTS[k] && MKTS[k].t) || 'unknown';
+    if(!agg[cls]) return;
+    var profile = (typeof _btProfileFor === 'function') ? _btProfileFor(k) : {source:'auto-ew'};
+    var prodMode = profile.source === 'structural' ? 'structural' : 'auto-ew';
+    var macdMode = profile.source === 'structural' ? 'structural-macd' : 'auto-ew-macd';
+    var prodRb = loaded[prodMode] && loaded[prodMode][k];
+    var macdRb = loaded[macdMode] && loaded[macdMode][k];
+    if(prodRb && typeof prodRb.wins === 'number'){
+      agg[cls].prodW += prodRb.wins;
+      agg[cls].prodL += prodRb.losses || 0;
+      agg[cls].prodN += (prodRb.wins + (prodRb.losses || 0));
+      totals.prodW += prodRb.wins;
+      totals.prodL += prodRb.losses || 0;
+      totals.prodN += (prodRb.wins + (prodRb.losses || 0));
+    }
+    if(macdRb && typeof macdRb.wins === 'number'){
+      agg[cls].macdW += macdRb.wins;
+      agg[cls].macdL += macdRb.losses || 0;
+      agg[cls].macdN += (macdRb.wins + (macdRb.losses || 0));
+      totals.macdW += macdRb.wins;
+      totals.macdL += macdRb.losses || 0;
+      totals.macdN += (macdRb.wins + (macdRb.losses || 0));
+    }
+  });
+
+  function wr(W, N){ return N > 0 ? (W / N * 100) : null; }
+  function wrFmt(p){ return p == null ? '—' : p.toFixed(1) + '%'; }
+  function wrColor(p){ return p == null ? 'var(--inkd)' : (p >= 70 ? 'var(--bull)' : p >= 60 ? 'var(--gold)' : 'var(--bear)'); }
+  function deltaFmt(prodWR, macdWR){
+    if(prodWR == null || macdWR == null) return {txt:'—', col:'var(--inkd)'};
+    var d = macdWR - prodWR;
+    var sign = d >= 0 ? '+' : '';
+    return {txt: sign + d.toFixed(1) + 'pp', col: d >= 2 ? 'var(--bull)' : d <= -2 ? 'var(--bear)' : 'var(--inkd)'};
+  }
+
+  var rows = classes.map(function(cls){
+    var a = agg[cls];
+    var pWR = wr(a.prodW, a.prodN);
+    var mWR = wr(a.macdW, a.macdN);
+    var d = deltaFmt(pWR, mWR);
+    return '<tr style="border-top:1px dashed rgba(0,0,0,0.08);">'
+      + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">' + cls + '</td>'
+      + '<td style="padding:5px 8px;text-align:right;color:' + wrColor(pWR) + ';font-weight:700;">' + wrFmt(pWR) + '</td>'
+      + '<td style="padding:5px 8px;text-align:right;color:var(--inkd);font-size:8.5px;">' + a.prodW + 'W / ' + a.prodL + 'L</td>'
+      + '<td style="padding:5px 8px;text-align:right;color:' + wrColor(mWR) + ';font-weight:700;">' + wrFmt(mWR) + '</td>'
+      + '<td style="padding:5px 8px;text-align:right;color:var(--inkd);font-size:8.5px;">' + a.macdW + 'W / ' + a.macdL + 'L</td>'
+      + '<td style="padding:5px 8px;text-align:right;color:' + d.col + ';font-weight:700;">' + d.txt + '</td>'
+      + '</tr>';
+  }).join('');
+
+  var totPWR = wr(totals.prodW, totals.prodN);
+  var totMWR = wr(totals.macdW, totals.macdN);
+  var totD = deltaFmt(totPWR, totMWR);
+  var totalRow = '<tr style="border-top:2px solid var(--rule);background:rgba(0,0,0,0.02);">'
+    + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">ALL</td>'
+    + '<td style="padding:5px 8px;text-align:right;color:' + wrColor(totPWR) + ';font-weight:700;">' + wrFmt(totPWR) + '</td>'
+    + '<td style="padding:5px 8px;text-align:right;color:var(--inkd);font-size:8.5px;">' + totals.prodW + 'W / ' + totals.prodL + 'L</td>'
+    + '<td style="padding:5px 8px;text-align:right;color:' + wrColor(totMWR) + ';font-weight:700;">' + wrFmt(totMWR) + '</td>'
+    + '<td style="padding:5px 8px;text-align:right;color:var(--inkd);font-size:8.5px;">' + totals.macdW + 'W / ' + totals.macdL + 'L</td>'
+    + '<td style="padding:5px 8px;text-align:right;color:' + totD.col + ';font-weight:700;">' + totD.txt + '</td>'
+    + '</tr>';
+
+  resultEl.innerHTML =
+    '<div style="margin-top:8px;padding:10px 12px;border:1px solid rgba(77,162,255,0.30);background:rgba(77,162,255,0.04);border-radius:4px;">'
+    + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#4da2ff;margin-bottom:6px;">15M MACD CROSS FILTER — PER-CLASS WR COMPARISON</div>'
+    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:8px;">Filter: require same-direction MACD(12,26,9) cross within 3 m15 bars before trigger. Each pair scored under its native profile (structural for FX majors except AUD/USD, auto-EW for the rest). Delta column shows the WR change per asset class. Promising classes only deploy after live verification.</div>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:9px;">'
+    + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
+    + '<th style="padding:5px 8px;text-align:left;">Class</th>'
+    + '<th style="padding:5px 8px;text-align:right;">Production WR</th>'
+    + '<th style="padding:5px 8px;text-align:right;">W/L</th>'
+    + '<th style="padding:5px 8px;text-align:right;">MACD-filter WR</th>'
+    + '<th style="padding:5px 8px;text-align:right;">W/L</th>'
+    + '<th style="padding:5px 8px;text-align:right;">Δ</th>'
+    + '</tr></thead><tbody>' + rows + totalRow + '</tbody></table>'
+    + '<div style="margin-top:8px;font-size:8.5px;color:var(--inkd);line-height:1.5;"><strong>Read:</strong> a positive Δ on a class means the MACD filter would lift that class\'s WR. A negative Δ means it kills more winners than losers and should NOT deploy there. Sample size matters — if a class has &lt;20 trades, treat the delta as directional only.</div>'
+    + '</div>';
+  if(statusEl){
+    var ts = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    statusEl.textContent = '✓ Comparison ready · ' + ts;
+  }
+}
+if(typeof window !== 'undefined'){ window._renderMacdCrossTestResults = _renderMacdCrossTestResults; }
 
 // Async version with progress callback. Yields to UI between pairs so the
 // browser can repaint, preventing a frozen-tab experience during compute.
