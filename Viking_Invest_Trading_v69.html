@@ -10873,7 +10873,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-16c';
+var RULES_VERSION = '2026-06-16d';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -10882,6 +10882,7 @@ var RULES_VERSION_NOTES = [
   // The full internal changelog lives in private engineering docs;
   // signed-in advisors / investors can request the full version
   // under NDA via the Investor Relations panel on the Performance tab.
+  '2026-06-16 — Indices now require an additional 15-minute momentum-confirm filter before signals fire. Backtest A/B showed +4.3pp on indices (69.9% → 74.2% over 31 filtered trades) while every other class scored neutral or worse — so the filter ships index-only. Other classes unchanged.',
   '2026-06-16 — Added a 15-minute momentum-confirm filter to the failure-mode panel as a candidate rule under test. Surfaces what fraction of losing trades a momentum cross-gate would have blocked pre-entry. Live trades are unchanged while the data accumulates.',
   '2026-06-14 — Live broker bridge to cTrader demo accounts via a publicly-versioned signal feed. Persistent broker-side dedup, daily-loss limiter, kill-switch contract, Telegram alert routing. Auto-publish of broker fills back to the dashboard so investor numbers and broker numbers are reconciled in real time.',
   '2026-06-13 — Investor-grade Performance tab consolidating equity curve, expectancy, max drawdown, longest streaks, top/bottom pair attribution and a per-trade log. Backtest + Signal Log tabs merged. Journal relocated to the Dashboard as an in-context collapsible.',
@@ -11283,11 +11284,18 @@ function calcRecentBacktest(k, mode){
   mode = mode || 'structural';
   var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime' || mode === 'auto-ew-macd');
   var _btUseRegime = (mode === 'auto-ew-regime');
-  // 2026-06-16 — MACD-cross hard gate (15m). Enabled when the mode ends
-  // in '-macd' so we can A/B the filter against either native profile.
-  // Requires a same-direction MACD/Signal cross within MACD_CROSS_LB
-  // m15 bars before the trigger; otherwise the bar is skipped (i++).
-  var _btUseMACDCross = (mode === 'structural-macd' || mode === 'auto-ew-macd');
+  // 2026-06-16b — MACD-cross hard gate. Two activation paths:
+  //   1. Test modes: `structural-macd` / `auto-ew-macd` enable the gate
+  //      for ALL pairs (used by the per-class A/B test button).
+  //   2. Production deploy: index class only. The per-class A/B
+  //      (16/6/16 test) showed +4.3pp on indices with 31 filtered
+  //      trades vs −7.4pp on majors, −0.5pp on minors, −6.1pp on
+  //      commodities, −2.1pp on crypto. Only indices clear the gate;
+  //      everyone else gets blocked by it more often than helped.
+  //   The test flags STAY working so we can re-A/B if data drifts.
+  var _btPairClass = (typeof _classOf === 'function') ? _classOf(k) : null;
+  var _btUseMACDCross = (mode === 'structural-macd' || mode === 'auto-ew-macd')
+                        || (_btPairClass === 'index');
   var MACD_CROSS_LB = 3;
   // Need both timeframes
   if(!HISTORY[k]) loadHistory(k);
@@ -13562,6 +13570,37 @@ function detectIntradaySignal(k){
   if(!ticks) return null;
   var n = ticks.length;
   var currentPx = ticks[n-1].c != null ? ticks[n-1].c : ticks[n-1].p;
+
+  // ── 2026-06-16 — MACD-cross production gate (INDICES ONLY) ──
+  // Per-class A/B (16/6/16) on the 4/4 walker showed the 15m
+  // MACD(12,26,9) cross gate lifts indices +4.3pp (69.9% → 74.2% on
+  // 31 filtered trades) while every other class scored neutral or
+  // negative — so the gate ships index-only. Requires a same-direction
+  // MACD/Signal cross within MACD_CROSS_LB_LIVE m15 bars before the
+  // current bar. Conservative: missing MACD data → return null
+  // (better to miss a signal than fire without momentum confirm).
+  if((typeof _classOf === 'function') && _classOf(k) === 'index'
+     && (typeof _macdSeries === 'function')){
+    var MACD_CROSS_LB_LIVE = 3;
+    var _mclos = [];
+    for(var _mi = 0; _mi < n; _mi++){
+      var _mc = ticks[_mi].c != null ? ticks[_mi].c : ticks[_mi].p;
+      if(_mc != null && isFinite(_mc)) _mclos.push(_mc);
+    }
+    if(_mclos.length < 35) return null;
+    var _mLive = _macdSeries(_mclos, 12, 26, 9);
+    var _mEnd = _mclos.length - 1;
+    var _mStart = Math.max(1, _mEnd - MACD_CROSS_LB_LIVE + 1);
+    var _macdCrossFound = false;
+    for(var _mj = _mStart; _mj <= _mEnd; _mj++){
+      var _m0 = _mLive.macd[_mj-1], _m1 = _mLive.macd[_mj];
+      var _s0 = _mLive.signal[_mj-1], _s1 = _mLive.signal[_mj];
+      if(_m0 == null || _m1 == null || _s0 == null || _s1 == null) continue;
+      if(dir === 'bull' && _m0 <= _s0 && _m1 > _s1){ _macdCrossFound = true; break; }
+      if(dir === 'bear' && _m0 >= _s0 && _m1 < _s1){ _macdCrossFound = true; break; }
+    }
+    if(!_macdCrossFound) return null;
+  }
 
   // Detect native OHLC vs synthesised
   var hasNative = ticks[n-1].h !== undefined && ticks[n-1].l !== undefined &&

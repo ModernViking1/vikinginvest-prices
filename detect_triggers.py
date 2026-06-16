@@ -760,6 +760,38 @@ def detect_intraday_signal(bars, aligned_dir, lookback=8, search_bars=16,
     if n < lookback + 2:
         return None
 
+    # ── 2026-06-16 — MACD-cross production gate (INDICES ONLY) ──
+    # Per-class A/B (16/6/16) on the 4/4 walker showed the 15m
+    # MACD(12,26,9) cross gate lifts indices +4.3pp (69.9% → 74.2% over
+    # 31 filtered trades) while every other class scored neutral or
+    # negative. Requires a same-direction MACD/Signal cross within 3
+    # m15 bars before the current bar. Conservative: missing MACD data
+    # → return None (better to miss a signal than fire without momentum
+    # confirm). Mirrors the dashboard's gate at the same place.
+    if pair_class == 'index':
+        macd_cross_lb = 3
+        closes = [b.get('c') for b in bars
+                  if b.get('c') is not None]
+        if len(closes) < 35:
+            return None
+        macd_line, sig_line = macd_series(closes, 12, 26, 9)
+        end_idx = len(closes) - 1
+        start_idx = max(1, end_idx - macd_cross_lb + 1)
+        cross_found = False
+        for j in range(start_idx, end_idx + 1):
+            m0, m1 = macd_line[j - 1], macd_line[j]
+            s0, s1 = sig_line[j - 1], sig_line[j]
+            if m0 is None or m1 is None or s0 is None or s1 is None:
+                continue
+            if aligned_dir == 'bull' and m0 <= s0 and m1 > s1:
+                cross_found = True
+                break
+            if aligned_dir == 'bear' and m0 >= s0 and m1 < s1:
+                cross_found = True
+                break
+        if not cross_found:
+            return None
+
     # Find most recent creator bar (close beyond 8-bar swing in alignedDir).
     creator_idx = -1
     search_start = max(lookback, n - search_bars)
@@ -1797,6 +1829,47 @@ def ema(values, period):
     for v in values[period:]:
         e = v * k + e * (1 - k)
     return e
+
+
+def ema_series(values, period):
+    """EMA value at every bar (None during warm-up). Mirrors the dashboard's
+    _emaSeries helper so the MACD computed downstream matches bar-for-bar."""
+    n = len(values or [])
+    out = [None] * n
+    if n < period:
+        return out
+    seed = sum(values[:period]) / period
+    out[period - 1] = seed
+    k = 2.0 / (period + 1)
+    for i in range(period, n):
+        prev = out[i - 1]
+        if prev is None:
+            continue
+        out[i] = (values[i] - prev) * k + prev
+    return out
+
+
+def macd_series(closes, fast=12, slow=26, signal=9):
+    """MACD(fast, slow, signal). Returns (macd_line, signal_line) as
+    same-length lists with None during warm-up. Used by the index-class
+    MACD-cross production gate (2026-06-16) so the Python detector's
+    signal pipeline gives the same entry decisions as the dashboard's
+    backtest walker for the index instruments."""
+    fast_ema = ema_series(closes, fast)
+    slow_ema = ema_series(closes, slow)
+    n = len(closes)
+    macd = [None] * n
+    for i in range(n):
+        if fast_ema[i] is not None and slow_ema[i] is not None:
+            macd[i] = fast_ema[i] - slow_ema[i]
+    first_macd = next((i for i, v in enumerate(macd) if v is not None), -1)
+    sig = [None] * n
+    if first_macd >= 0 and (n - first_macd) >= signal:
+        sub = macd[first_macd:]
+        sig_sub = ema_series(sub, signal)
+        for j, v in enumerate(sig_sub):
+            sig[first_macd + j] = v
+    return macd, sig
 
 
 def calc_4h_cloud_dir(h1_bars, fast=21, slow=55):
