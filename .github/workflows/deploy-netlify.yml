@@ -105,6 +105,12 @@ jobs:
           for f in _site/dashboard.html _site/Viking_Invest_Trading_v*.html; do
             [ -f "$f" ] && sed -i "s/BUILD_TIMESTAMP_UTC/$STAMP/g" "$f"
           done
+          # Deploy-time JS comment strip — mirrors deploy-pages.yml. Source
+          # repo carries ~300 KB of design-history comments; the deployed
+          # bundle ships without them for ~28% smaller HTML.
+          python3 scripts/strip_dashboard_comments.py \
+            _site/dashboard.html \
+            _site/Viking_Invest_Trading_v*.html
           # Netlify-only: redirect `/` to the dashboard. The whole point of
           # this mirror is the dashboard fallback when Pages misbehaves —
           # bookmarking the bare netlify.app URL should land users straight

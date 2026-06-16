@@ -101,6 +101,15 @@ jobs:
             [ -f "$f" ] && sed -i "s/BUILD_TIMESTAMP_UTC/$STAMP/g" "$f"
           done
 
+          # Deploy-time JS comment strip (2026-06-16). The source dashboard
+          # carries ~300 KB of // design-history comments that help the
+          # author navigate the codebase but add latency to every cold
+          # mobile load. Stripped here so the deployed bundle is ~28%
+          # smaller without touching the repo copy.
+          python3 scripts/strip_dashboard_comments.py \
+            _site/dashboard.html \
+            _site/Viking_Invest_Trading_v*.html
+
           echo "Files staged for Pages:"
           ls -la _site
 
