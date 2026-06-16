@@ -82,7 +82,7 @@ const OANDA_PAIRS = {
   // de40 REINSTATED 2026-06-15lll — see detect_triggers.py FIB_ENTRY_PAIRS.
   de40:    'DE30_EUR',   // DAX 40 (OANDA's DE30 instrument actually tracks DAX 40)
   ftse100: 'UK100_GBP',  // FTSE 100
-  dj30:    'US30_USD',   // Dow Jones Industrial Average
+  // dj30 dropped 2026-06-15ppp — persistent 44% WR, exhausted variants.
   nas100:  'NAS100_USD', // Nasdaq 100
   spx500:  'SPX500_USD', // S&P 500
   // Equity index additions (v7)

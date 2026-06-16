@@ -85,7 +85,7 @@ PAIRS = {
     # de40 REINSTATED 2026-06-15lll — see detect_triggers.py FIB_ENTRY_PAIRS.
     "de40":    {"oanda": "DE30_EUR"},
     "ftse100": {"oanda": "UK100_GBP"},
-    "dj30":    {"oanda": "US30_USD"},
+    # dj30 dropped 2026-06-15ppp.
     "nas100":  {"oanda": "NAS100_USD"},
     "spx500":  {"oanda": "SPX500_USD"},  # was missing — present in MKTS, fetch-prices.js, fetch_historical_ohlc.py
     # v7 additions (2026-06-03 — indices)

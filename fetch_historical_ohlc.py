@@ -111,7 +111,7 @@ PAIRS: Dict[str, Dict[str, str]] = {
     # comment for rationale (inferred bear seed retired client-side).
     "de40":    {"oanda": "DE30_EUR"},
     "ftse100": {"oanda": "UK100_GBP"},
-    "dj30":    {"oanda": "US30_USD"},
+    # dj30 dropped 2026-06-15ppp.
     "nas100":  {"oanda": "NAS100_USD"},
     "spx500":  {"oanda": "SPX500_USD"},
     # v7 additions (2026-06-03 — indices)
