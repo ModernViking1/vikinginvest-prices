@@ -1750,10 +1750,9 @@ var MKTS = {
     ew:'neutral',tl:'neutral',nw:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
     entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
-  dj30:{sym:'DJ 30',t:'index',px:'42,000',p:42000,d:1,sc:200,up:true,chg:'+0.00%',
-    ew:'neutral',tl:'neutral',nw:'neutral',
-    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
-    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  // dj30 dropped 2026-06-15ppp — persistent 44% WR with no
+  // remaining improvement vector after the DE40 recovery test.
+  // See DROPPED_PAIRS comment for full rationale.
   // de40 reinstated 2026-06-15kkk — inferred bear seed retired, targets
   // now auto-derived. Same baked-baseline pattern as dj30 / ftse100 /
   // spx500 — actual win-rate refreshes once the backtest cache rebuilds.
@@ -1930,7 +1929,12 @@ var DROPPED_PAIRS = new Set([
   'nzdcad',                                      // 2026-06-10c
   'hypeusd',                                     // 2026-06-10g
   'gbpaud',                                      // 2026-06-10h
-  'audcad'                                       // 2026-06-10i
+  'audcad',                                      // 2026-06-10i
+  'dj30'                                         // 2026-06-15ppp — 44% WR persisted after DE40 recovery validated no
+                                                 // remaining improvement vector; 9 SR-gating + news-blackout + R:R-sweep
+                                                 // variants already tested negative or marginal (release note 2026-06-13kk).
+                                                 // DJ30 was never seeded so the inferred-seed fix that recovered DE40
+                                                 // doesn't apply. Methodology fit issue, no obvious lever left.
   // de40 reinstated 2026-06-15kkk — earlier drop was driven in part by
   // the stale "bear" inferred seed forcing aggressive bear targets that
   // didn't match recent price action. With the seed removed (see
@@ -2497,10 +2501,10 @@ function refreshChartData(k){
 var SR_REF_TIMES = {
   // DAX cash session opens 09:00 CET = 07:00 UTC (CEST summer) or
   // 08:00 UTC (CET winter). 2-hour window = next 8 m15 bars.
-  // de40 removed 2026-06-13kk — only DJ30 now has SR coverage.
-  // NYSE cash session opens 09:30 ET = 13:30 UTC (EDT summer) or
-  // 14:30 UTC (EST winter).
-  dj30: { openTimes: ['13:30', '14:30'], sessionLabel: 'DJ30 09:30 ET', windowBars: 8 }
+  de40: { openTimes: ['07:00', '08:00'], sessionLabel: 'DE40 09:00 CET', windowBars: 8 }
+  // dj30 removed 2026-06-15ppp — pair dropped from universe; SR coverage
+  // no longer applies. Restore alongside the MKTS / DROPPED_PAIRS entry
+  // if DJ30 ever comes back.
 };
 function _findRefCandle(k){
   // Find the most recent reference candle whose 2h window contains
@@ -11955,7 +11959,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-15ppp';
+var RULES_VERSION = '2026-06-15qqq';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -11999,7 +12003,7 @@ function RULES_FINGERPRINT(){
           return c + ':' + RSI_GATE_BY_CLASS[c].hi + '/' + RSI_GATE_BY_CLASS[c].lo;
         }).join(',')
       : '80/20',
-    fibPairs: ['xauusd','xagusd','usoil','wtiusd','natgas','xptusd','nas100','dj30','de40','ftse100','spx500','jp225'].sort().join(','),
+    fibPairs: ['xauusd','xagusd','usoil','wtiusd','natgas','xptusd','nas100','de40','ftse100','spx500','jp225'].sort().join(','),
     // Active pair universe (hash of sorted MKTS keys) — bump on any
     // add/remove so dropped pairs are flushed from localStorage caches
     // on the next page load, not the next TTL expiry. Without this the
