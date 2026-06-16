@@ -36,6 +36,7 @@ on:
       - 'stats.html'
       - 'Viking_Invest_Trading_v*.html'
       - 'dashboard-tests.js'
+      - 'dashboard-backtest-ui.js'
       - 'font-samples/**/*.html'
       - 'CNAME'
       - '.github/workflows/deploy-netlify.yml'
@@ -100,6 +101,7 @@ jobs:
           cp stats.html _site/ 2>/dev/null || true
           # Lazy-loaded test harnesses — mirror of deploy-pages.yml.
           cp dashboard-tests.js _site/ 2>/dev/null || true
+          cp dashboard-backtest-ui.js _site/ 2>/dev/null || true
           if [ -d font-samples ]; then
             mkdir -p _site/font-samples
             cp font-samples/*.html _site/font-samples/ 2>/dev/null || true
@@ -115,7 +117,8 @@ jobs:
           python3 scripts/strip_dashboard_comments.py \
             _site/dashboard.html \
             _site/Viking_Invest_Trading_v*.html \
-            _site/dashboard-tests.js
+            _site/dashboard-tests.js \
+            _site/dashboard-backtest-ui.js
           # Netlify-only: redirect `/` to the dashboard. The whole point of
           # this mirror is the dashboard fallback when Pages misbehaves —
           # bookmarking the bare netlify.app URL should land users straight

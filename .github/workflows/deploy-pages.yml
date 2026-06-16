@@ -29,6 +29,7 @@ on:
       - 'stats.html'
       - 'Viking_Invest_Trading_v*.html'
       - 'dashboard-tests.js'
+      - 'dashboard-backtest-ui.js'
       - 'font-samples/**/*.html'
       - 'CNAME'
       - '.github/workflows/deploy-pages.yml'
@@ -81,6 +82,11 @@ jobs:
           # fetches this via a dynamic <script> tag on first test-button
           # click — see _ensureBacktestTestsLoaded() in the HTML.
           cp dashboard-tests.js _site/ 2>/dev/null || true
+          # Lazy-loaded Backtest-tab UI renderers (~103 KB raw). Loaded
+          # by _ensureBacktestUILoaded() when buildBacktest /
+          # renderFailureModeAnalysis / renderAutoEWDiagnostic is first
+          # invoked.
+          cp dashboard-backtest-ui.js _site/ 2>/dev/null || true
           # Private visitor-stats page (unlinked, noindex). Gated by
           # Supabase market-access-link sign-in against the admin
           # email allowlist.
@@ -116,7 +122,8 @@ jobs:
           python3 scripts/strip_dashboard_comments.py \
             _site/dashboard.html \
             _site/Viking_Invest_Trading_v*.html \
-            _site/dashboard-tests.js
+            _site/dashboard-tests.js \
+            _site/dashboard-backtest-ui.js
 
           echo "Files staged for Pages:"
           ls -la _site
