@@ -2006,3 +2006,112 @@ function _render3of4Results(loaded, statusEl, resultEl){
   }
 }
 if(typeof window !== 'undefined'){ window._render3of4Results = _render3of4Results; }
+
+
+// ── MACD-PRIMARY TEST (2026-06-16h) ────────────────────────────
+// Runs the deep walker once with mode='macd-primary'. Aggregates
+// trades by their `confluence` (0-4) bucket and per asset class.
+// Output: matrix of WR per (class × confluence bucket) so we can
+// see which confluence strength is worth deploying per class.
+function runMacdPrimaryTest(){
+  var btn = document.getElementById('btMacdPrimaryTestBtn');
+  var statusEl = document.getElementById('btMacdPrimaryTestStatus');
+  var resultEl = document.getElementById('btMacdPrimaryTestResult');
+  var origLabel = '🧪 TEST: MACD-PRIMARY (CONFLUENCE BUCKETS)';
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '🧪 RUNNING...'; }
+  if(resultEl) resultEl.innerHTML = '';
+
+  if(typeof computeAllRecentBacktestsAsync !== 'function'){
+    if(statusEl) statusEl.textContent = 'Backtest engine not loaded';
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel; }
+    return;
+  }
+
+  if(statusEl) statusEl.textContent = 'Computing MACD-primary cohort…';
+  computeAllRecentBacktestsAsync(true, function(done, total){
+    if(statusEl) statusEl.textContent = 'Computing MACD-primary cohort — ' + done + '/' + total;
+  }, function(results){
+    _renderMacdPrimaryResults(results || {}, statusEl, resultEl);
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel; }
+  }, 'macd-primary');
+}
+if(typeof window !== 'undefined'){ window.runMacdPrimaryTest = runMacdPrimaryTest; }
+
+function _renderMacdPrimaryResults(loaded, statusEl, resultEl){
+  if(!resultEl){ if(statusEl) statusEl.textContent = '⚠ result host missing'; return; }
+  var classes = ['major','minor','comm','index','crypto'];
+  var buckets = [4, 3, 2, 1, 0];  // 4 = fully aligned, 0 = fully contrarian
+
+  // Initialise: per-class per-bucket {W, L}
+  var agg = {};
+  classes.forEach(function(cls){
+    agg[cls] = {};
+    buckets.forEach(function(b){ agg[cls][b] = {W:0, L:0}; });
+  });
+  var totals = {};
+  buckets.forEach(function(b){ totals[b] = {W:0, L:0}; });
+
+  Object.keys(MKTS).forEach(function(k){
+    var cls = (MKTS[k] && MKTS[k].t) || 'unknown';
+    if(!agg[cls]) return;
+    var rb = loaded[k];
+    if(!rb || !rb.perConfluence) return;
+    buckets.forEach(function(b){
+      var pc = rb.perConfluence[b];
+      if(!pc) return;
+      agg[cls][b].W += pc.W;
+      agg[cls][b].L += pc.L;
+      totals[b].W += pc.W;
+      totals[b].L += pc.L;
+    });
+  });
+
+  function wr(W, L){ var N = W + L; return N > 0 ? (W / N * 100) : null; }
+  function wrFmt(p){ return p == null ? '—' : p.toFixed(1) + '%'; }
+  function wrColor(p, N){
+    if(p == null || N < 10) return 'var(--inkd)';
+    return p >= 72 ? 'var(--bull)' : p >= 60 ? 'var(--gold)' : 'var(--bear)';
+  }
+  function cellFor(s){
+    var w = wr(s.W, s.L);
+    var N = s.W + s.L;
+    return '<td style="padding:5px 8px;text-align:right;color:' + wrColor(w, N) + ';font-weight:700;border-left:1px solid rgba(0,0,0,0.06);">'
+      + wrFmt(w) + '<div style="color:var(--inkd);font-weight:400;font-size:7.5px;">' + N + '</div></td>';
+  }
+
+  var headerCells = '<th style="padding:5px 8px;text-align:left;">Class</th>'
+    + buckets.map(function(b){
+        var lbl = b + '/4';
+        var sub = (b === 4) ? 'fully aligned' : (b === 0) ? 'fully contrarian' : (b + ' agree');
+        return '<th style="padding:5px 8px;text-align:right;background:rgba(38,196,120,0.06);border-left:1px solid rgba(0,0,0,0.06);">'
+          + '<div>' + lbl + '</div><div style="color:var(--inkd);font-weight:400;font-size:7.5px;">' + sub + '</div></th>';
+      }).join('');
+
+  var rows = classes.map(function(cls){
+    return '<tr style="border-top:1px dashed rgba(0,0,0,0.08);">'
+      + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">' + cls + '</td>'
+      + buckets.map(function(b){ return cellFor(agg[cls][b]); }).join('')
+      + '</tr>';
+  }).join('');
+
+  var totalRow = '<tr style="border-top:2px solid var(--rule);background:rgba(0,0,0,0.02);">'
+    + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">ALL</td>'
+    + buckets.map(function(b){ return cellFor(totals[b]); }).join('')
+    + '</tr>';
+
+  resultEl.innerHTML =
+    '<div style="margin-top:8px;padding:10px 12px;border:1px solid rgba(38,196,120,0.30);background:rgba(38,196,120,0.04);border-radius:4px;">'
+    + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#26c478;margin-bottom:6px;">MACD-PRIMARY · WR BY CONFLUENCE BUCKET</div>'
+    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:8px;">Trigger: 15m MACD(12,26,9) / Signal cross. Direction: the cross itself. RSI filter: &lt;40 on bull cross, &gt;60 on bear cross. Each trade is bucketed by how many of EW/TL/NW/CL agree with the MACD cross direction. Cell shows WR / n. Cells with n &lt; 10 are too small to colour. Deploy threshold: ≥72% WR on ≥20 trades per class × bucket.</div>'
+    + '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table style="width:100%;border-collapse:collapse;font-size:9px;min-width:520px;">'
+    + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
+    + headerCells
+    + '</tr></thead><tbody>' + rows + totalRow + '</tbody></table></div>'
+    + '<div style="margin-top:8px;font-size:8.5px;color:var(--inkd);line-height:1.5;"><strong>Read:</strong> a high WR in a high-confluence bucket (3/4 or 4/4) on ≥20 trades = strong deployment candidate. WR holding above 65% across multiple buckets = the MACD cross + RSI filter is doing the work and confluence is a refinement, not a gatekeeper. WR collapsing at low confluence = need at least 2-3 layers of agreement.</div>'
+    + '</div>';
+  if(statusEl){
+    var ts = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    statusEl.textContent = '✓ Simulation ready · ' + ts;
+  }
+}
+if(typeof window !== 'undefined'){ window._renderMacdPrimaryResults = _renderMacdPrimaryResults; }

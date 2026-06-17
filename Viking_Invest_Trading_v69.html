@@ -1260,6 +1260,23 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   </div>
   <div id="bt3of4TestResult" style="margin:0 0 12px 0;"></div>
 
+  <!-- ── 1e. MACD-PRIMARY MODE (2026-06-16h) ─────────────────────────
+       Promotes the 15m MACD/Signal cross to the PRIMARY entry trigger
+       (vs. the current 4/4-aligned creator-candle trigger). Direction
+       comes from the cross, RSI gates loosely (<40 bull, >60 bear),
+       confluence buckets group results by how many of EW/TL/NW/CL
+       agree with the cross direction (0/4 fully contrarian → 4/4 fully
+       aligned). Use to find the WR sweet spot per asset class. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btMacdPrimaryTestBtn"
+            onclick="runMacdPrimaryTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid #26c478;background:rgba(38,196,120,0.08);color:#26c478;border-radius:3px;cursor:pointer;">
+      🧪 TEST: MACD-PRIMARY (CONFLUENCE BUCKETS)
+    </button>
+    <span id="btMacdPrimaryTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btMacdPrimaryTestResult" style="margin:0 0 12px 0;"></div>
+
   <!-- ── DRY-RUN TEST PANEL (hidden 2026-06-13qq) ─────────────────────
        Buttons + variant selectors for the 4 in-page rule-test harnesses
        (counter-bar, SR gating, news blackout, R:R per class). User
@@ -10917,6 +10934,7 @@ var RECENT_BT_CACHE_KEY_AUTO_MACD = 'vit_recent_backtest_v9_auto_macd';
 var RECENT_BT_CACHE_KEY_3OF4 = 'vit_recent_backtest_v9_3of4_rsi_macd';
 var RECENT_BT_CACHE_KEY_2OF4 = 'vit_recent_backtest_v9_2of4_rsi_macd';
 var RECENT_BT_CACHE_KEY_1OF4 = 'vit_recent_backtest_v9_1of4_rsi_macd';
+var RECENT_BT_CACHE_KEY_MACD_PRIMARY = 'vit_recent_backtest_v9_macd_primary';
 var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // Previously 4 hours. Bumped 2026-05-30: with the per-pair-class
 // routing (struct for majors except AUD/USD, auto-EW for everything
@@ -11014,6 +11032,7 @@ function _cacheKeyForMode(mode){
   if(mode === '3of4-rsi-macd') return RECENT_BT_CACHE_KEY_3OF4;
   if(mode === '2of4-rsi-macd') return RECENT_BT_CACHE_KEY_2OF4;
   if(mode === '1of4-rsi-macd') return RECENT_BT_CACHE_KEY_1OF4;
+  if(mode === 'macd-primary') return RECENT_BT_CACHE_KEY_MACD_PRIMARY;
   return RECENT_BT_CACHE_KEY;
 }
 
@@ -11380,6 +11399,16 @@ function calcRecentBacktest(k, mode){
   // produce profitable mean-reversion setups. Likely sparse but worth
   // measuring before concluding the expansion-cohort path is dead.
   var _btUse1of4 = (mode === '1of4-rsi-macd');
+  // 2026-06-16h — MACD-primary mode. Promotes the MACD/Signal cross
+  // itself to the PRIMARY entry trigger instead of using it as a
+  // confirmation gate on top of the 4/4 alignment trigger. Direction
+  // comes from the cross itself (bull cross → buy, bear cross → sell),
+  // RSI gates loosely (<40 / >60 — mean-reversion territory but not
+  // deep extreme). Confluence count (how many of EW/TL/NW/CL agree
+  // with the MACD direction) is recorded per trade so the result
+  // aggregator can bucket WR by confluence strength and tell us which
+  // confluence count is worth deploying per asset class.
+  var _btUseMacdPrimary = (mode === 'macd-primary');
   // 2026-06-16b — MACD-cross hard gate. Three activation paths:
   //   1. Test modes: `structural-macd` / `auto-ew-macd` enable the gate
   //      for ALL pairs (used by the per-class A/B test button).
@@ -11636,7 +11665,7 @@ function calcRecentBacktest(k, mode){
   // m15 MACD(12,26,9) series for the MACD-cross hard gate. Only computed
   // when the mode requires it — the EMA + signal calc is ~3× m15Bars.length
   // floating-point ops, so we skip it entirely on production modes.
-  var m15MacdAtIdx = (_btUseMACDCross && typeof _macdSeries === 'function')
+  var m15MacdAtIdx = ((_btUseMACDCross || _btUseMacdPrimary) && typeof _macdSeries === 'function')
     ? (function(){
         var closes = new Array(m15Bars.length);
         for(var mi = 0; mi < m15Bars.length; mi++) closes[mi] = m15Bars[mi].c;
@@ -11707,35 +11736,71 @@ function calcRecentBacktest(k, mode){
 
     // 4/4 alignment check (v6: added 4H EMA21/55 cloud as Layer 4).
     if(!ewDir || !tlDir || !nwDir || !clDir){ i++; continue; }
-    if(_btUse3of4){
-      // 3-of-4 mode: EW = TL = CL but NW MUST dissent. Trade direction = EW.
-      // Hypothesis: the missing 15m alignment is recoverable via MACD + RSI
-      // extreme. If NW already agrees (it's the full 4/4 case), skip — we
-      // want the EXPANSION cohort only, not double-count production setups.
-      if(ewDir !== tlDir || tlDir !== clDir){ i++; continue; }
-      if(nwDir === ewDir){ i++; continue; }
-    } else if(_btUse2of4){
-      // 2-of-4 mode: EW has a direction, and EXACTLY ONE of TL/NW/CL
-      // agrees. The other two dissent (bear if EW=bull, or neutral).
-      // Strict "exactly one" excludes the 3-of-4 cohort (tested in the
-      // parallel mode) so the two tests measure disjoint expansion sets.
-      if(ewDir !== 'bull' && ewDir !== 'bear'){ i++; continue; }
-      var _btSupport = 0;
-      if(tlDir === ewDir) _btSupport++;
-      if(nwDir === ewDir) _btSupport++;
-      if(clDir === ewDir) _btSupport++;
-      if(_btSupport !== 1){ i++; continue; }
-    } else if(_btUse1of4){
-      // 1-of-4 contrarian: EW has direction, ZERO of TL/NW/CL agree.
-      // Disjoint from the 2-of-4 and 3-of-4 cohorts above.
-      if(ewDir !== 'bull' && ewDir !== 'bear'){ i++; continue; }
-      var _btSupport1 = 0;
-      if(tlDir === ewDir) _btSupport1++;
-      if(nwDir === ewDir) _btSupport1++;
-      if(clDir === ewDir) _btSupport1++;
-      if(_btSupport1 !== 0){ i++; continue; }
-    } else {
-      if(ewDir !== tlDir || tlDir !== nwDir || nwDir !== clDir){ i++; continue; }
+
+    // ── 2026-06-16h — MACD-PRIMARY MODE ─────────────────────────
+    // Promotes the MACD/Signal cross to the PRIMARY entry trigger.
+    // Direction comes from the cross itself. Tracks confluence
+    // (how many of EW/TL/NW/CL agree with the MACD direction) so
+    // the result aggregator can bucket WR by confluence strength.
+    // RSI gates loosely (<40 / >60 = mean-reversion territory).
+    // When this branch handles a bar, it overrides ewDir and sets
+    // _btMacdPrimaryConf; downstream gates honour the flag and skip.
+    var _btMacdPrimaryConf = -1;
+    if(_btUseMacdPrimary){
+      if(!m15MacdAtIdx){ i++; continue; }
+      var _mp0 = m15MacdAtIdx.macd[i-1], _mp1 = m15MacdAtIdx.macd[i];
+      var _sp0 = m15MacdAtIdx.signal[i-1], _sp1 = m15MacdAtIdx.signal[i];
+      if(_mp0 == null || _mp1 == null || _sp0 == null || _sp1 == null){ i++; continue; }
+      var _macdDir = null;
+      if(_mp0 <= _sp0 && _mp1 > _sp1) _macdDir = 'bull';
+      else if(_mp0 >= _sp0 && _mp1 < _sp1) _macdDir = 'bear';
+      if(!_macdDir){ i++; continue; }
+      // RSI 40/60 confirmation — mean-reversion territory.
+      var _rsiAtMp = (h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length) ? h1RsiAtH1Idx[h1Idx] : null;
+      if(_rsiAtMp == null || !isFinite(_rsiAtMp)){ i++; continue; }
+      if(_macdDir === 'bull' && _rsiAtMp >= 40){ i++; continue; }
+      if(_macdDir === 'bear' && _rsiAtMp <= 60){ i++; continue; }
+      // Confluence count
+      _btMacdPrimaryConf = 0;
+      if(ewDir === _macdDir) _btMacdPrimaryConf++;
+      if(tlDir === _macdDir) _btMacdPrimaryConf++;
+      if(nwDir === _macdDir) _btMacdPrimaryConf++;
+      if(clDir === _macdDir) _btMacdPrimaryConf++;
+      // Override ewDir so downstream code uses MACD direction
+      ewDir = _macdDir;
+    }
+
+    if(!_btUseMacdPrimary){
+      if(_btUse3of4){
+        // 3-of-4 mode: EW = TL = CL but NW MUST dissent. Trade direction = EW.
+        // Hypothesis: the missing 15m alignment is recoverable via MACD + RSI
+        // extreme. If NW already agrees (it's the full 4/4 case), skip — we
+        // want the EXPANSION cohort only, not double-count production setups.
+        if(ewDir !== tlDir || tlDir !== clDir){ i++; continue; }
+        if(nwDir === ewDir){ i++; continue; }
+      } else if(_btUse2of4){
+        // 2-of-4 mode: EW has a direction, and EXACTLY ONE of TL/NW/CL
+        // agrees. The other two dissent (bear if EW=bull, or neutral).
+        // Strict "exactly one" excludes the 3-of-4 cohort (tested in the
+        // parallel mode) so the two tests measure disjoint expansion sets.
+        if(ewDir !== 'bull' && ewDir !== 'bear'){ i++; continue; }
+        var _btSupport = 0;
+        if(tlDir === ewDir) _btSupport++;
+        if(nwDir === ewDir) _btSupport++;
+        if(clDir === ewDir) _btSupport++;
+        if(_btSupport !== 1){ i++; continue; }
+      } else if(_btUse1of4){
+        // 1-of-4 contrarian: EW has direction, ZERO of TL/NW/CL agree.
+        // Disjoint from the 2-of-4 and 3-of-4 cohorts above.
+        if(ewDir !== 'bull' && ewDir !== 'bear'){ i++; continue; }
+        var _btSupport1 = 0;
+        if(tlDir === ewDir) _btSupport1++;
+        if(nwDir === ewDir) _btSupport1++;
+        if(clDir === ewDir) _btSupport1++;
+        if(_btSupport1 !== 0){ i++; continue; }
+      } else {
+        if(ewDir !== tlDir || tlDir !== nwDir || nwDir !== clDir){ i++; continue; }
+      }
     }
     if(ewDir !== 'bull' && ewDir !== 'bear'){ i++; continue; }
 
@@ -11743,7 +11808,7 @@ function calcRecentBacktest(k, mode){
     // blocks the setup. Mirror of detectIntradaySignal so the recent
     // backtest reflects the live filter. Thresholds vary by asset
     // class — see RSI_GATE_BY_CLASS. Null RSI (warm-up) falls through.
-    if(h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length){
+    if(!_btUseMacdPrimary && h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length){
       var rsiAt = h1RsiAtH1Idx[h1Idx];
       if(_btUse3of4 || _btUse2of4 || _btUse1of4){
         // 3of4 / 2of4 / 1of4 modes: REQUIRE RSI extreme — bull setup
@@ -11766,7 +11831,7 @@ function calcRecentBacktest(k, mode){
     // Only count signals where the slow trend filter agrees with the
     // macro direction at this point in history. Insufficient h1 history
     // (e.g. newly-added pairs) returns null → skip the bar conservatively.
-    if(_btUseRegime){
+    if(!_btUseMacdPrimary && _btUseRegime){
       var regDir = regimeDirAtTime(k, curTs);
       if(regDir !== ewDir){ i++; continue; }
     }
@@ -11780,7 +11845,7 @@ function calcRecentBacktest(k, mode){
     // hard-gate version of the variant-stat that the failure-mode panel
     // surfaces — promoted here so users can A/B the filter against
     // production WR cards via the dedicated test button.
-    if(_btUseMACDCross){
+    if(!_btUseMacdPrimary && _btUseMACDCross){
       if(!m15MacdAtIdx){ i++; continue; }
       var crossFound = false;
       // Exploratory cohorts use the wider window; production index gate
@@ -11801,7 +11866,9 @@ function calcRecentBacktest(k, mode){
     // Now check if THIS m15 bar is a creator (broke prior swing in alignedDir).
     // swingHigh/swingLow already computed above (incremental direction tracking).
     var alignedDir = ewDir;
-    var brokeStructure = (alignedDir === 'bear' && m15Bars[i].c < swingLow) ||
+    // MACD-primary uses the cross itself as the trigger — the bar where
+    // the cross prints IS the candidate entry, no swing-break required.
+    var brokeStructure = _btUseMacdPrimary || (alignedDir === 'bear' && m15Bars[i].c < swingLow) ||
                          (alignedDir === 'bull' && m15Bars[i].c > swingHigh);
     if(!brokeStructure){ i++; continue; }
     // NOTE (Option A v68+): we used to skip if previous bar also broke,
@@ -12174,7 +12241,11 @@ function calcRecentBacktest(k, mode){
         creatorTsLive: m15Ts[creatorIdxLive],  // final creator timestamp
         resolvedAt: resolvedAt,
         triggered: triggered,
-        maxFavorable: maxFavorable
+        maxFavorable: maxFavorable,
+        // MACD-primary confluence bucket (0-4 layers agreeing). -1 when
+        // the mode isn't macd-primary, so downstream readers can detect
+        // and skip the bucket aggregation cleanly.
+        confluence: _btMacdPrimaryConf
       });
     }
 
@@ -12374,6 +12445,22 @@ function calcRecentBacktest(k, mode){
     days: days,
     dataSource: dataSource,  // 'deep' (12-month) or 'buffer' (~2 weeks)
     trades: trades,  // per-trade outcomes for failure mode analysis
+    // 2026-06-16h — confluence buckets for MACD-primary mode. Aggregates
+    // trades[] by trade.confluence (0-4). Each entry is {W, L}. Null for
+    // non-macd-primary modes since trade.confluence is -1 in those.
+    perConfluence: (function(){
+      var out = {0:{W:0,L:0},1:{W:0,L:0},2:{W:0,L:0},3:{W:0,L:0},4:{W:0,L:0}};
+      var any = false;
+      for(var ti = 0; ti < trades.length; ti++){
+        var tr = trades[ti];
+        var c = tr.confluence;
+        if(c == null || c < 0 || c > 4) continue;
+        any = true;
+        if(tr.outcome === 'win') out[c].W++;
+        else if(tr.outcome === 'loss') out[c].L++;
+      }
+      return any ? out : null;
+    })(),
     // ── HYBRID STATS ──
     hybrid: {
       wickWins: hybWins,         // full-size wick-extreme wins
@@ -12445,6 +12532,7 @@ function _ensureBacktestTestsLoaded(){
 // calls (after first click) bypass this stub entirely.
 function runMacdCrossTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runMacdCrossTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function run3of4RsiMacdTest(){ _ensureBacktestTestsLoaded().then(function(){ window.run3of4RsiMacdTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
+function runMacdPrimaryTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runMacdPrimaryTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runCounterBarRuleTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runCounterBarRuleTest(opts); }); }
 function runSRGatingTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runSRGatingTest(opts); }); }
 function runNewsBlackoutTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runNewsBlackoutTest(opts); }); }
@@ -12457,6 +12545,7 @@ if(typeof window !== "undefined"){
   window._ensureBacktestTestsLoaded = _ensureBacktestTestsLoaded;
   window.runMacdCrossTest        = runMacdCrossTest;
   window.run3of4RsiMacdTest      = run3of4RsiMacdTest;
+  window.runMacdPrimaryTest      = runMacdPrimaryTest;
   window.runCounterBarRuleTest   = runCounterBarRuleTest;
   window.runSRGatingTest         = runSRGatingTest;
   window.runNewsBlackoutTest     = runNewsBlackoutTest;
