@@ -131,6 +131,47 @@ jobs:
             _site/dashboard-tests.js \
             _site/dashboard-backtest-ui.js
 
+      - name: Setup Node (for terser minifier)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Aggressive JS minify (terser)
+        # Step 1 (2026-06-16): variable-mangling minifier on top of the
+        # comment strip. Saves ~30-40% more bytes by renaming locals to
+        # single chars, removing dead code, inlining small functions.
+        # Property names are NEVER mangled — that would break the
+        # MKTS[k].sym / STATE[k].ew access pattern across the file. If
+        # terser ever breaks something, drop this step and the strip
+        # pass alone still ships.
+        run: |
+          npm install --no-save --silent terser@5 html-minifier-terser@7
+          # Standalone JS files first.
+          for f in _site/dashboard-tests.js _site/dashboard-backtest-ui.js _site/sw.js; do
+            [ -f "$f" ] || continue
+            before=$(wc -c < "$f")
+            npx terser "$f" -o "$f" --compress passes=2 --mangle --comments false
+            after=$(wc -c < "$f")
+            echo "  $(basename "$f"): $before -> $after bytes"
+          done
+          # HTML files (inline JS minified via terser, HTML whitespace
+          # collapsed, comments removed).
+          for f in _site/dashboard.html _site/Viking_Invest_Trading_v*.html _site/index.html _site/stats.html; do
+            [ -f "$f" ] || continue
+            before=$(wc -c < "$f")
+            npx html-minifier-terser "$f" -o "$f" \
+              --collapse-whitespace \
+              --conservative-collapse \
+              --minify-js '{"compress":{"passes":2},"mangle":true}' \
+              --remove-comments \
+              --remove-script-type-attributes \
+              --remove-style-link-type-attributes
+            after=$(wc -c < "$f")
+            echo "  $(basename "$f"): $before -> $after bytes"
+          done
+
+      - name: Stage check
+        run: |
           echo "Files staged for Pages:"
           ls -la _site
 

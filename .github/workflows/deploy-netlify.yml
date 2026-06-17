@@ -123,6 +123,37 @@ jobs:
             _site/Viking_Invest_Trading_v*.html \
             _site/dashboard-tests.js \
             _site/dashboard-backtest-ui.js
+          # 2026-06-16 — terser pass on top of the strip. Same settings
+          # as deploy-pages.yml; saves another ~30-40% off JS bytes via
+          # variable mangling + dead-code removal. Property names left
+          # alone to preserve MKTS[k].sym / STATE[k].ew access patterns.
+          # Node was set up in the workflow's checkout step (ubuntu-
+          # latest ships Node 20 by default — no separate setup-node
+          # action needed here since the Netlify workflow doesn't have
+          # the long deps chain that Pages uses).
+          if command -v npx >/dev/null; then
+            npm install --no-save --silent terser@5 html-minifier-terser@7
+            for jsf in _site/dashboard-tests.js _site/dashboard-backtest-ui.js _site/sw.js; do
+              [ -f "$jsf" ] || continue
+              before=$(wc -c < "$jsf")
+              npx terser "$jsf" -o "$jsf" --compress passes=2 --mangle --comments false
+              after=$(wc -c < "$jsf")
+              echo "  $(basename "$jsf"): $before -> $after bytes"
+            done
+            for hf in _site/dashboard.html _site/Viking_Invest_Trading_v*.html _site/index.html _site/stats.html; do
+              [ -f "$hf" ] || continue
+              before=$(wc -c < "$hf")
+              npx html-minifier-terser "$hf" -o "$hf" \
+                --collapse-whitespace \
+                --conservative-collapse \
+                --minify-js '{"compress":{"passes":2},"mangle":true}' \
+                --remove-comments \
+                --remove-script-type-attributes \
+                --remove-style-link-type-attributes
+              after=$(wc -c < "$hf")
+              echo "  $(basename "$hf"): $before -> $after bytes"
+            done
+          fi
           # Netlify-only: redirect `/` to the dashboard. The whole point of
           # this mirror is the dashboard fallback when Pages misbehaves —
           # bookmarking the bare netlify.app URL should land users straight

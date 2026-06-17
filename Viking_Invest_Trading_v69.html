@@ -3499,15 +3499,23 @@ function mainDashboardWrLabel(k, m, mode){
         }
       } catch(e){ /* defensive */ }
       if(typeof addNote === 'function') try { addNote('⚙️ Computing backtests (lazy: auto-EW then struct)... DEEP_HIST='+Object.keys(DEEP_HIST).length+' pairs'+(needsForceRefresh?' [force]':'')); } catch(e){}
-      // setTimeout to defer until after current render completes.
-      // Boot now computes BOTH auto-EW and structural caches in sequence:
-      //   - auto-EW first (covers minors, crypto, commodities, indices,
-      //     AUD/USD)
-      //   - then structural (covers majors except AUD/USD — the user
-      //     decision from 2026-05-29 backtest review)
-      // After each variant finishes, refreshBacktestWR re-applies the
-      // per-pair profile so MKTS[k].wr always reflects the latest data.
-      setTimeout(function(){
+      // 2026-06-16 — Defer the heaviest single piece of cold-start work
+      // (per-pair walker over 12 months of m15 history × ~38 pairs) to
+      // after the page is interactive. requestIdleCallback fires when
+      // the main thread is genuinely free — usually a few hundred ms
+      // after first paint on a healthy load, longer on a slow device.
+      // Falls back to a generous setTimeout if rIC isn't available
+      // (Safari < 16.4). Previously this was setTimeout(0) which
+      // queued behind every other macrotask but still blocked time-
+      // to-interactive on mobile.
+      var _deferToIdle = function(fn){
+        if(typeof requestIdleCallback === 'function'){
+          requestIdleCallback(fn, {timeout: 4000});
+        } else {
+          setTimeout(fn, 1200);
+        }
+      };
+      _deferToIdle(function(){
         try {
           computeAllRecentBacktestsAsync(needsForceRefresh, null, function(){
             if(typeof addNote === 'function') try { addNote('✅ Auto-EW backtest ready'); } catch(e){}
@@ -3521,7 +3529,10 @@ function mainDashboardWrLabel(k, m, mode){
               setTimeout(buildBacktest, 50);
             }
             // Chain the structural compute now that auto-EW has finished.
-            setTimeout(function(){
+            // Same idle-deferred path — the structural cache is rarely
+            // looked at on the headline cards, so wait for genuinely
+            // idle CPU before starting it.
+            _deferToIdle(function(){
               try {
                 computeAllRecentBacktestsAsync(needsForceRefresh, null, function(){
                   if(typeof addNote === 'function') try { addNote('✅ Structural backtest ready · re-rendering'); } catch(e){}
@@ -3538,12 +3549,12 @@ function mainDashboardWrLabel(k, m, mode){
               } catch(e){
                 if(typeof addNote === 'function') try { addNote('❌ Lazy struct compute crashed: '+(e.message||e)); } catch(e2){}
               }
-            }, 200);
+            });
           }, 'auto-ew');
         } catch(e){
           if(typeof addNote === 'function') try { addNote('❌ Lazy backtest compute crashed: '+(e.message||e)); } catch(e2){}
         }
-      }, 100);
+      });
     }
     // SECOND-LEVEL SAFETY NET: if DEEP_HIST is completely empty AND we
     // haven't triggered a fetch already, kick fetchDeepHistorical.
