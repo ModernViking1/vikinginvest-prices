@@ -10937,7 +10937,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-16f';
+var RULES_VERSION = '2026-06-16g';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -10989,6 +10989,7 @@ function RULES_FINGERPRINT(){
     // automatically busts both the structural-macd and auto-ew-macd
     // caches. The values here MUST match what calcRecentBacktest reads.
     macdCrossLB: 3,
+    macdCrossLbExplo: 8,
     macdParams: '12/26/9',
     // 2026-06-16e — RSI-extreme thresholds for the 3of4/2of4 expansion
     // modes. Loosened from 25/75 → 30/70 after 25/75 produced zero
@@ -11392,6 +11393,14 @@ function calcRecentBacktest(k, mode){
   var _btUseMACDCross = (mode === 'structural-macd' || mode === 'auto-ew-macd')
                         || (_btPairClass === 'index') || _btUse3of4 || _btUse2of4 || _btUse1of4;
   var MACD_CROSS_LB = 3;
+  // 2026-06-16 — wider lookback for the exploratory expansion modes
+  // (3of4/2of4/1of4). The 3-bar window produced 0-1 trades across all
+  // cohorts even with RSI loosened to 30/70 — likely the cross window
+  // was too tight to align with the alignment + RSI extremes. Widening
+  // to 8 bars (~2 hours) lets the cross have happened slightly earlier
+  // and still count as "fresh momentum confirm" at trigger time.
+  // Production index gate stays at 3 — that's what tested at +4.3pp.
+  var MACD_CROSS_LB_EXPLO = 8;
   // Need both timeframes
   if(!HISTORY[k]) loadHistory(k);
   // Prefer deep historical (12 months) when available — Option D
@@ -11774,7 +11783,10 @@ function calcRecentBacktest(k, mode){
     if(_btUseMACDCross){
       if(!m15MacdAtIdx){ i++; continue; }
       var crossFound = false;
-      var lbStart = Math.max(1, i - MACD_CROSS_LB + 1);
+      // Exploratory cohorts use the wider window; production index gate
+      // keeps the original 3-bar lookback that tested at +4.3pp.
+      var _macdLb = (_btUse3of4 || _btUse2of4 || _btUse1of4) ? MACD_CROSS_LB_EXPLO : MACD_CROSS_LB;
+      var lbStart = Math.max(1, i - _macdLb + 1);
       var warmUp = false;
       for(var cj = lbStart; cj <= i; cj++){
         var m0 = m15MacdAtIdx.macd[cj-1], m1 = m15MacdAtIdx.macd[cj];
