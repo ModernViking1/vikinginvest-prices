@@ -319,18 +319,61 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 // opens when offline). Data JSONs (signals.json, kill-switch.json)
 // are NEVER cached — they bypass the SW entirely.
 //
-// Escape hatch: window._unregisterSW() in devtools console blows
-// away the SW + all caches and reloads. Handy if a deploy ever ships
-// a broken bundle that survives in the cache.
+// Auto-update path (2026-06-16j — fixes the "stale cache on mobile"
+// problem that previously required clearing site data manually):
+//   1. `updateViaCache: 'none'` forces the BROWSER to re-validate
+//      /sw.js on every page load — no more 24h browser-internal cache
+//      on the SW file itself.
+//   2. registration.update() kicks an explicit version check on load
+//      so a fresh deploy is noticed even if the user's been on the
+//      tab for hours.
+//   3. controllerchange listener auto-reloads ONCE per session when a
+//      new SW takes over — combined with skipWaiting+clients.claim in
+//      sw.js, every cold load self-heals to the latest deploy without
+//      asking the user to do anything.
+//   4. URL param `?sw_reset=1` is the manual escape hatch — append to
+//      any URL on mobile to force a clean reload. Works without
+//      devtools, no Settings dance needed.
 (function _viRegisterSW(){
   if (!('serviceWorker' in navigator)) return;
+  // URL-param manual escape hatch — works on mobile, no devtools needed.
+  if (location.search.indexOf('sw_reset=1') !== -1){
+    navigator.serviceWorker.getRegistrations()
+      .then(function(rs){ return Promise.all(rs.map(function(r){ return r.unregister(); })); })
+      .then(function(){ return ('caches' in window) ? caches.keys() : []; })
+      .then(function(keys){ return Promise.all((keys||[]).map(function(k){ return caches.delete(k); })); })
+      .then(function(){
+        var clean = location.href.split('?')[0].split('#')[0];
+        location.replace(clean);
+      });
+    return;
+  }
   // Skip on the consultancy landing page — only useful on dashboard.html
   // where the heavy JS lives. The landing page is small enough.
   var p = location.pathname;
   if (p !== '/' && !/dashboard|Viking_Invest_Trading|stats/.test(p)) return;
+  // Auto-reload on SW takeover, debounced via sessionStorage so a
+  // bad SW can't reload-loop us into oblivion.
+  var hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', function(){
+    if (!hadController) return;  // first install — nothing to reload
+    try {
+      if (sessionStorage.getItem('__vi_sw_reloaded')) return;
+      sessionStorage.setItem('__vi_sw_reloaded', '1');
+    } catch(_){}
+    location.reload();
+  });
   window.addEventListener('load', function(){
-    navigator.serviceWorker.register('/sw.js').catch(function(err){
-      // Non-fatal — page still works without the SW.
+    navigator.serviceWorker.register('/sw.js', {
+      // Always revalidate the SW file itself — without this the browser
+      // can hold the SW in its HTTP cache for up to 24h, so the auto-
+      // update never fires because the browser doesn't even check.
+      updateViaCache: 'none'
+    }).then(function(reg){
+      // Explicit version check on load — catches the case where the
+      // user keeps the tab open across a deploy.
+      try { reg.update(); } catch(_){}
+    }).catch(function(err){
       console.warn('[sw] register failed:', err);
     });
   });
