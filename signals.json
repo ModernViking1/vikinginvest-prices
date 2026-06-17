@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-17T10:25:57.002161+00:00",
-  "generated_ms": 1781691957002,
-  "detector_last_check": "2026-06-17T10:25:56.909444+00:00",
+  "generated": "2026-06-17T11:35:58.253622+00:00",
+  "generated_ms": 1781696158253,
+  "detector_last_check": "2026-06-17T11:35:58.153329+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
-    "armed": 0,
+    "total": 4,
+    "armed": 2,
     "triggered": 0,
     "invalidated": 2
   },
   "signals": [
+    {
+      "id": "natgas:1781694000000:wick",
+      "pair": "natgas",
+      "sym": "NATGAS",
+      "cls": "comm",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 3.23,
+      "stop": 3.205,
+      "target": 3.255,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1781694000000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781696158253,
+      "source": "server-detector"
+    },
     {
       "id": "gbpnzd:1781690400000:wick",
       "pair": "gbpnzd",
@@ -24,7 +45,7 @@
       "method": "wick",
       "r_size": 1.0,
       "dir": "bull",
-      "state": "invalidated",
+      "state": "armed",
       "entry": 2.30674,
       "stop": 2.3048,
       "target": 2.30868,
@@ -34,7 +55,28 @@
       "cl": "bull",
       "armedAt": 1781690400000,
       "triggeredAt": null,
-      "lastSeenAt": 1781691957002,
+      "lastSeenAt": 1781696158253,
+      "source": "server-detector"
+    },
+    {
+      "id": "natgas:1781618400000:fib",
+      "pair": "natgas",
+      "sym": "NATGAS",
+      "cls": "comm",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 3.241742,
+      "stop": 3.205,
+      "target": 3.2784839999999997,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1781618400000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781696158253,
       "source": "server-detector"
     },
     {
@@ -45,7 +87,7 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bull",
-      "state": "invalidated",
+      "state": "armed",
       "entry": 2.30758048,
       "stop": 2.3048,
       "target": 2.3103609599999997,
@@ -55,7 +97,7 @@
       "cl": "bull",
       "armedAt": 1780560900000,
       "triggeredAt": null,
-      "lastSeenAt": 1781691957002,
+      "lastSeenAt": 1781696158253,
       "source": "server-detector"
     }
   ]
