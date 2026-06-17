@@ -10998,7 +10998,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-16k';
+var RULES_VERSION = '2026-06-16l';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -11782,6 +11782,100 @@ function calcRecentBacktest(k, mode){
 
     // 4/4 alignment check (v6: added 4H EMA21/55 cloud as Layer 4).
     if(!ewDir || !tlDir || !nwDir || !clDir){ i++; continue; }
+
+    // ── 2026-06-16l — MACD-PRIMARY PARALLEL DETECTION ─────────────
+    // For INDEX pairs in PRODUCTION modes (not the explicit -macd /
+    // -rsi-macd test modes), additionally check for a MACD-primary
+    // entry at this bar. Mirrors the live deploy in detect_triggers.py
+    // so the dashboard WR cards reflect what the cBot is actually
+    // executing on indices. Runs INDEPENDENT of the 4/4 alignment path
+    // below — if both fire on the same bar, both trades are recorded.
+    //
+    // Forward simulation here is intentionally simpler than the 4/4
+    // walker (no re-arm semantics, fixed 24-bar resolution window).
+    // Sufficient because MACD-primary trades are by definition fired-
+    // and-forgotten at the cross bar: there's no "armed → triggered"
+    // intermediate state to re-evaluate.
+    if(_btPairClass === 'index'
+       && !_btUseMacdPrimary && !_btUse3of4 && !_btUse2of4 && !_btUse1of4
+       && m15MacdAtIdx){
+      var _mppM0 = m15MacdAtIdx.macd[i-1], _mppM1 = m15MacdAtIdx.macd[i];
+      var _mppS0 = m15MacdAtIdx.signal[i-1], _mppS1 = m15MacdAtIdx.signal[i];
+      if(_mppM0 != null && _mppM1 != null && _mppS0 != null && _mppS1 != null){
+        var _mppDir = null;
+        if(_mppM0 <= _mppS0 && _mppM1 > _mppS1) _mppDir = 'bull';
+        else if(_mppM0 >= _mppS0 && _mppM1 < _mppS1) _mppDir = 'bear';
+        if(_mppDir){
+          var _mppRsi = (h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length) ? h1RsiAtH1Idx[h1Idx] : null;
+          var _mppRsiOk = (_mppRsi != null && isFinite(_mppRsi)
+            && ((_mppDir === 'bull' && _mppRsi < 50) || (_mppDir === 'bear' && _mppRsi > 50)));
+          if(_mppRsiOk){
+            var _mppConf = 0;
+            if(ewDir === _mppDir) _mppConf++;
+            if(tlDir === _mppDir) _mppConf++;
+            if(nwDir === _mppDir) _mppConf++;
+            if(clDir === _mppDir) _mppConf++;
+            // Production gate: confluence >= 1 (skip fully contrarian 0/4)
+            if(_mppConf >= 1){
+              var _mppEntry, _mppStop;
+              var _mppBosSlice = m15Bars.slice(Math.max(0, i - BOS_LB), i);
+              if(_mppDir === 'bull'){
+                _mppEntry = m15Bars[i].l;
+                _mppStop = findStructLow(_mppBosSlice);
+              } else {
+                _mppEntry = m15Bars[i].h;
+                _mppStop = findStructHigh(_mppBosSlice);
+              }
+              var _mppValid = (_mppDir === 'bull' ? _mppStop < _mppEntry : _mppStop > _mppEntry);
+              if(_mppValid){
+                var _mppR = Math.abs(_mppEntry - _mppStop);
+                var _mppTarget = _mppDir === 'bull' ? _mppEntry + _mppR : _mppEntry - _mppR;
+                // Forward sim — walk bars i+1..i+24 looking for stop/target hit.
+                // 24 m15 bars = 6 hours, matches the cBot's 60-min staleness
+                // window + a buffer for the trade to resolve. Conservative
+                // tie-break: if both stop and target hit on the same bar
+                // (bar's high+low straddle both levels), count as LOSS —
+                // mirror the standard backtest convention.
+                var _mppOutcome = null;
+                var _mppFwdEnd = Math.min(m15Bars.length, i + 24);
+                for(var _mfi = i + 1; _mfi < _mppFwdEnd; _mfi++){
+                  var _mpb = m15Bars[_mfi];
+                  if(_mppDir === 'bull'){
+                    if(_mpb.l <= _mppStop){ _mppOutcome = 'loss'; break; }
+                    if(_mpb.h >= _mppTarget){ _mppOutcome = 'win'; break; }
+                  } else {
+                    if(_mpb.h >= _mppStop){ _mppOutcome = 'loss'; break; }
+                    if(_mpb.l <= _mppTarget){ _mppOutcome = 'win'; break; }
+                  }
+                }
+                if(_mppOutcome === 'win'){ wins++; }
+                else if(_mppOutcome === 'loss'){ losses++; }
+                else { expired++; }
+                if(_mppOutcome){
+                  trades.push({
+                    outcome: _mppOutcome,
+                    failureMode: null,
+                    dir: _mppDir,
+                    entry: _mppEntry,
+                    stop: _mppStop,
+                    target: _mppTarget,
+                    entryOriginal: _mppEntry,
+                    rearmCount: 0,
+                    creatorTs: curTs,
+                    creatorTsLive: curTs,
+                    resolvedAt: m15Ts[Math.min(_mfi, m15Ts.length - 1)] || curTs,
+                    triggered: true,
+                    maxFavorable: null,
+                    source: 'macd-primary',
+                    confluence: _mppConf
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
 
     // ── 2026-06-16h — MACD-PRIMARY MODE ─────────────────────────
     // Promotes the MACD/Signal cross to the PRIMARY entry trigger.
