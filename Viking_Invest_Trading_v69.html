@@ -1320,6 +1320,23 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   </div>
   <div id="btMacdPrimaryTestResult" style="margin:0 0 12px 0;"></div>
 
+  <!-- ── 1f. MACD-PRIMARY ON JPY OUTLIERS (2026-06-17) ─────────────
+       USDJPY (major) and CADJPY (minor) are atypical FX pairs that
+       chronically under-perform under the production 4/4+creator
+       trigger. This button runs the MACD-primary backtest on those
+       two pairs specifically + a per-confluence-bucket per-pair
+       breakdown so we can decide whether to deploy MACD-primary
+       per-pair, similar to the index-only deploy. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btMacdJpyTestBtn"
+            onclick="runMacdPrimaryJpyTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid #f0b340;background:rgba(240,179,64,0.08);color:#c8860a;border-radius:3px;cursor:pointer;">
+      🧪 TEST: MACD-PRIMARY ON JPY OUTLIERS (USDJPY · CADJPY)
+    </button>
+    <span id="btMacdJpyTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btMacdJpyTestResult" style="margin:0 0 12px 0;"></div>
+
   <!-- ── DRY-RUN TEST PANEL (hidden 2026-06-13qq) ─────────────────────
        Buttons + variant selectors for the 4 in-page rule-test harnesses
        (counter-bar, SR gating, news blackout, R:R per class). User
@@ -12699,6 +12716,7 @@ function _ensureBacktestTestsLoaded(){
 function runMacdCrossTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runMacdCrossTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function run3of4RsiMacdTest(){ _ensureBacktestTestsLoaded().then(function(){ window.run3of4RsiMacdTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runMacdPrimaryTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runMacdPrimaryTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
+function runMacdPrimaryJpyTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runMacdPrimaryJpyTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runCounterBarRuleTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runCounterBarRuleTest(opts); }); }
 function runSRGatingTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runSRGatingTest(opts); }); }
 function runNewsBlackoutTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runNewsBlackoutTest(opts); }); }
@@ -12712,6 +12730,7 @@ if(typeof window !== "undefined"){
   window.runMacdCrossTest        = runMacdCrossTest;
   window.run3of4RsiMacdTest      = run3of4RsiMacdTest;
   window.runMacdPrimaryTest      = runMacdPrimaryTest;
+  window.runMacdPrimaryJpyTest   = runMacdPrimaryJpyTest;
   window.runCounterBarRuleTest   = runCounterBarRuleTest;
   window.runSRGatingTest         = runSRGatingTest;
   window.runNewsBlackoutTest     = runNewsBlackoutTest;

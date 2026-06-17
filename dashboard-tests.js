@@ -2115,3 +2115,114 @@ function _renderMacdPrimaryResults(loaded, statusEl, resultEl){
   }
 }
 if(typeof window !== 'undefined'){ window._renderMacdPrimaryResults = _renderMacdPrimaryResults; }
+
+
+// ── MACD-PRIMARY ON JPY OUTLIERS (2026-06-17) ──────────────────
+// USDJPY (major) and CADJPY (minor) are chronic 4/4+creator under-
+// performers. This test runs the existing macd-primary backtest mode
+// across all pairs (reuses computeAllRecentBacktestsAsync — same cache
+// slot as the green button so a previous run is reused if fresh) and
+// renders a per-pair × per-confluence-bucket WR matrix specifically
+// for those two pairs. Output mirrors the index deploy decision matrix:
+// 4/4 / 3/4 / 2/4 / 1/4 / 0/4 columns × 2 pair rows + an ALL row.
+function runMacdPrimaryJpyTest(){
+  var btn = document.getElementById('btMacdJpyTestBtn');
+  var statusEl = document.getElementById('btMacdJpyTestStatus');
+  var resultEl = document.getElementById('btMacdJpyTestResult');
+  var origLabel = '🧪 TEST: MACD-PRIMARY ON JPY OUTLIERS (USDJPY · CADJPY)';
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '🧪 RUNNING...'; }
+  if(resultEl) resultEl.innerHTML = '';
+
+  if(typeof computeAllRecentBacktestsAsync !== 'function'){
+    if(statusEl) statusEl.textContent = 'Backtest engine not loaded';
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel; }
+    return;
+  }
+
+  if(statusEl) statusEl.textContent = 'Computing MACD-primary across all pairs (will filter to JPY outliers)…';
+  computeAllRecentBacktestsAsync(true, function(done, total){
+    if(statusEl) statusEl.textContent = 'Computing — ' + done + '/' + total + ' (filtering to USDJPY + CADJPY at the end)';
+  }, function(results){
+    _renderMacdPrimaryJpyResults(results || {}, statusEl, resultEl);
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel; }
+  }, 'macd-primary');
+}
+if(typeof window !== 'undefined'){ window.runMacdPrimaryJpyTest = runMacdPrimaryJpyTest; }
+
+function _renderMacdPrimaryJpyResults(loaded, statusEl, resultEl){
+  if(!resultEl){ if(statusEl) statusEl.textContent = '⚠ result host missing'; return; }
+  var jpyPairs = ['usdjpy', 'cadjpy'];
+  var buckets = [4, 3, 2, 1, 0];
+
+  // Aggregate by (pair × bucket)
+  var agg = {};
+  jpyPairs.forEach(function(p){
+    agg[p] = {};
+    buckets.forEach(function(b){ agg[p][b] = {W:0, L:0}; });
+  });
+  var totals = {};
+  buckets.forEach(function(b){ totals[b] = {W:0, L:0}; });
+
+  jpyPairs.forEach(function(p){
+    var rb = loaded[p];
+    if(!rb || !rb.perConfluence) return;
+    buckets.forEach(function(b){
+      var pc = rb.perConfluence[b];
+      if(!pc) return;
+      agg[p][b].W += pc.W;
+      agg[p][b].L += pc.L;
+      totals[b].W += pc.W;
+      totals[b].L += pc.L;
+    });
+  });
+
+  function wr(W, L){ var N = W + L; return N > 0 ? (W / N * 100) : null; }
+  function wrFmt(p){ return p == null ? '—' : p.toFixed(1) + '%'; }
+  function wrColor(p, N){
+    if(p == null || N < 10) return 'var(--inkd)';
+    return p >= 72 ? 'var(--bull)' : p >= 60 ? 'var(--gold)' : 'var(--bear)';
+  }
+  function cellFor(s){
+    var w = wr(s.W, s.L);
+    var N = s.W + s.L;
+    return '<td style="padding:5px 8px;text-align:right;color:' + wrColor(w, N) + ';font-weight:700;border-left:1px solid rgba(0,0,0,0.06);">'
+      + wrFmt(w) + '<div style="color:var(--inkd);font-weight:400;font-size:7.5px;">' + N + '</div></td>';
+  }
+
+  var headerCells = '<th style="padding:5px 8px;text-align:left;">Pair</th>'
+    + buckets.map(function(b){
+        var lbl = b + '/4';
+        var sub = (b === 4) ? 'fully aligned' : (b === 0) ? 'fully contrarian' : (b + ' agree');
+        return '<th style="padding:5px 8px;text-align:right;background:rgba(240,179,64,0.08);border-left:1px solid rgba(0,0,0,0.06);">'
+          + '<div>' + lbl + '</div><div style="color:var(--inkd);font-weight:400;font-size:7.5px;">' + sub + '</div></th>';
+      }).join('');
+
+  var rows = jpyPairs.map(function(p){
+    var label = (MKTS[p] && MKTS[p].sym) || p.toUpperCase();
+    return '<tr style="border-top:1px dashed rgba(0,0,0,0.08);">'
+      + '<td style="padding:5px 8px;font-weight:700;letter-spacing:0.5px;">' + label + '</td>'
+      + buckets.map(function(b){ return cellFor(agg[p][b]); }).join('')
+      + '</tr>';
+  }).join('');
+
+  var totalRow = '<tr style="border-top:2px solid var(--rule);background:rgba(0,0,0,0.02);">'
+    + '<td style="padding:5px 8px;font-weight:700;letter-spacing:0.5px;">COMBINED</td>'
+    + buckets.map(function(b){ return cellFor(totals[b]); }).join('')
+    + '</tr>';
+
+  resultEl.innerHTML =
+    '<div style="margin-top:8px;padding:10px 12px;border:1px solid rgba(240,179,64,0.30);background:rgba(240,179,64,0.04);border-radius:4px;">'
+    + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#c8860a;margin-bottom:6px;">MACD-PRIMARY · JPY OUTLIERS · PER-CONFLUENCE BUCKET</div>'
+    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:8px;">USDJPY (major) and CADJPY (minor) under the same MACD-primary trigger that ships in production for indices. Trigger: 15m MACD/Signal cross with RSI &lt;50 (bull) / &gt;50 (bear) gate, direction from the cross. Each trade bucketed by how many of the four macro layers agree with the cross direction. Per-pair deploy threshold: ≥72% WR on ≥20 trades. If both pairs show that pattern in 3/4 or 4/4, the deploy mirrors the indices: ship per-pair, skip the contrarian 0/4 bucket.</div>'
+    + '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table style="width:100%;border-collapse:collapse;font-size:9px;min-width:520px;">'
+    + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
+    + headerCells
+    + '</tr></thead><tbody>' + rows + totalRow + '</tbody></table></div>'
+    + '<div style="margin-top:8px;font-size:8.5px;color:var(--inkd);line-height:1.5;"><strong>Read:</strong> any cell ≥72% on ≥20 trades is a per-pair deployment candidate. If USDJPY 4/4 and CADJPY 3/4 both clear the bar, the deploy is per-pair (mirror the index pattern). If only one shows up clean, deploy just that one. If the COMBINED row also clears the bar, the trigger is robust enough that it justifies a class-wide cohort test for the rest of FX.</div>'
+    + '</div>';
+  if(statusEl){
+    var ts = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    statusEl.textContent = '✓ Simulation ready · ' + ts;
+  }
+}
+if(typeof window !== 'undefined'){ window._renderMacdPrimaryJpyResults = _renderMacdPrimaryJpyResults; }
