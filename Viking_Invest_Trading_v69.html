@@ -1894,6 +1894,14 @@ var MKTS = {
     ew:'neutral',tl:'neutral',nw:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
     entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  // dj30 REINSTATED 2026-06-17 — the index-only MACD-cross gate + the
+  // parallel MACD-primary trigger deployed today are exactly the kind of
+  // lever the dropped-DJ30 audit (2026-06-15ppp) couldn't find. Re-add
+  // and let the new gates have a clean shot at the same data.
+  dj30:{sym:'Dow Jones 30',t:'index',px:'42,000',p:42000,d:1,sc:200,up:true,chg:'+0.00%',
+    ew:'neutral',tl:'neutral',nw:'neutral',
+    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
+    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
   ethusd:{sym:'ETH/USD',t:'crypto',px:'3,500',p:3500,d:2,sc:30,up:true,chg:'+0.00%',
     ew:'neutral',tl:'neutral',nw:'neutral',
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
@@ -1917,10 +1925,7 @@ var MKTS = {
     wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
     entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
   // hypeusd removed 2026-06-10 — low win-rate drag on aggregate.
-  ondousd:{sym:'ONDO/USD',t:'crypto',px:'0.85',p:0.85,d:4,sc:0.02,up:true,chg:'+0.00%',
-    ew:'neutral',tl:'neutral',nw:'neutral',cl:'neutral',
-    wr:60.0,g:'B',bw:6,bl:4,brr:1.0,
-    entry:'TBD &mdash; pending baseline',stop:'TBD',tgt:'TBD',inv:'TBD',rr:'1:1.5'},
+  // ondousd dropped 2026-06-17 (user request alongside DJ30 reinstate).
 
   // ── v7 batch (2026-06-03): minors / crypto / additional indices ──
   // All seed directions left 'neutral' so the server-computed
@@ -2056,11 +2061,13 @@ var DROPPED_PAIRS = new Set([
   'hypeusd',                                     // 2026-06-10g
   'gbpaud',                                      // 2026-06-10h
   'audcad',                                      // 2026-06-10i
-  'dj30'                                         // 2026-06-15ppp — 44% WR persisted after DE40 recovery validated no
-                                                 // remaining improvement vector; 9 SR-gating + news-blackout + R:R-sweep
-                                                 // variants already tested negative or marginal (release note 2026-06-13kk).
-                                                 // DJ30 was never seeded so the inferred-seed fix that recovered DE40
-                                                 // doesn't apply. Methodology fit issue, no obvious lever left.
+  // dj30 reinstated 2026-06-17 — see MKTS entry. The index-MACD gates
+  // we shipped today are exactly the lever the 2026-06-15ppp drop audit
+  // couldn't find. Re-adding for a clean shot at the data.
+  'ondousd'                                      // 2026-06-17 — user-removed alongside the DJ30 reinstatement.
+                                                 // ONDO never produced a consistent edge under the auto-EW pattern
+                                                 // detector — high vol + sparse macro context made the 4/4 trigger
+                                                 // unreliable. Universe stays at 39 pairs with the swap.
   // de40 reinstated 2026-06-15kkk — earlier drop was driven in part by
   // the stale "bear" inferred seed forcing aggressive bear targets that
   // didn't match recent price action. With the seed removed (see
@@ -2627,7 +2634,11 @@ function refreshChartData(k){
 var SR_REF_TIMES = {
   // DAX cash session opens 09:00 CET = 07:00 UTC (CEST summer) or
   // 08:00 UTC (CET winter). 2-hour window = next 8 m15 bars.
-  de40: { openTimes: ['07:00', '08:00'], sessionLabel: 'DE40 09:00 CET', windowBars: 8 }
+  de40: { openTimes: ['07:00', '08:00'], sessionLabel: 'DE40 09:00 CET', windowBars: 8 },
+  // dj30 reinstated 2026-06-17 — School Run window mirrors the historic
+  // entry (US session cash open). Confluence n=30 forward-track resumes
+  // from zero since the cohort was wiped on the drop.
+  dj30: { openTimes: ['14:00', '15:00'], sessionLabel: 'DJ30 14:30 NY', windowBars: 8 }
   // dj30 removed 2026-06-15ppp — pair dropped from universe; SR coverage
   // no longer applies. Restore alongside the MKTS / DROPPED_PAIRS entry
   // if DJ30 ever comes back.
@@ -2927,7 +2938,7 @@ var USD_CORRELATION = {
   // Crypto — DXY correlation is WEAK/EPISODIC. Own cycle dominates. Treat as 'cross'.
   btcusd:'cross', suiusd:'cross',
   ethusd:'cross', solusd:'cross', xrpusd:'cross', taousd:'cross',
-  nearusd:'cross', ondousd:'cross',
+  nearusd:'cross',
   // hypeusd removed 2026-06-10 — low win-rate drag.
   // ltcusd removed 2026-06-10 — low win-rate drag.
   // USDxxx (USD is base) — bear when DXY bear, bull when DXY bull
@@ -2945,7 +2956,7 @@ var USD_CORRELATION = {
   // gbpchf removed 2026-06-10 — low win-rate drag.
   // CDS commodities (not USD-correlated directly)
   usoil:'cross', wtiusd:'cross', natgas:'cross',
-  de40:'cross', jp225:'cross',
+  de40:'cross', dj30:'cross', jp225:'cross',
   // fra40 (CAC 40) removed 2026-06-10 — low win-rate drag.
   // The index itself
   dxy:'index'
@@ -3303,7 +3314,7 @@ var VIKING_SRC_MAP = {
   // Coinbase (crypto)
   btcusd:'CB', suiusd:'CB', ethusd:'CB', solusd:'CB',
   xrpusd:'CB', taousd:'CB',
-  nearusd:'CB', ondousd:'CB',
+  nearusd:'CB',
   // hypeusd removed 2026-06-10 — low win-rate drag.
   // ltcusd removed 2026-06-10 — low win-rate drag.
   // Synthesised
@@ -11045,7 +11056,7 @@ function RULES_FINGERPRINT(){
           return c + ':' + RSI_GATE_BY_CLASS[c].hi + '/' + RSI_GATE_BY_CLASS[c].lo;
         }).join(',')
       : '80/20',
-    fibPairs: ['xauusd','xagusd','usoil','wtiusd','natgas','xptusd','nas100','de40','ftse100','spx500','jp225'].sort().join(','),
+    fibPairs: ['xauusd','xagusd','usoil','wtiusd','natgas','xptusd','nas100','de40','dj30','ftse100','spx500','jp225'].sort().join(','),
     // 2026-06-16 — MACD-cross test parameters baked into the fingerprint
     // so any future tweak to the lookback window or EMA settings
     // automatically busts both the structural-macd and auto-ew-macd

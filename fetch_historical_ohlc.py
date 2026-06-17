@@ -111,7 +111,8 @@ PAIRS: Dict[str, Dict[str, str]] = {
     # comment for rationale (inferred bear seed retired client-side).
     "de40":    {"oanda": "DE30_EUR"},
     "ftse100": {"oanda": "UK100_GBP"},
-    # dj30 dropped 2026-06-15ppp.
+    # dj30 reinstated 2026-06-17 alongside the index-MACD gate deploys.
+    "dj30":    {"oanda": "US30_USD"},
     "nas100":  {"oanda": "NAS100_USD"},
     "spx500":  {"oanda": "SPX500_USD"},
     # v7 additions (2026-06-03 — indices)
@@ -131,7 +132,7 @@ PAIRS: Dict[str, Dict[str, str]] = {
     "nearusd": {"coinbase": "NEAR-USD"},
     # hypeusd removed 2026-06-10 — low win-rate drag.
     # Re-add: '"hypeusd": {"coinbase": "HYPE-USD"},'
-    "ondousd": {"coinbase": "ONDO-USD"},
+    # ondousd dropped 2026-06-17 (user). Re-add: '"ondousd": {"coinbase": "ONDO-USD"},'
     # ltcusd removed 2026-06-10 — low win-rate drag.
     # Re-add: '"ltcusd": {"coinbase": "LTC-USD"},'
 }

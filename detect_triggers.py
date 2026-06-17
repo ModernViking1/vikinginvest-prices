@@ -67,8 +67,8 @@ PAIR_DISPLAY = {
     # client-side, targets auto-derived. Re-evaluate WR after one
     # full backtest cycle.
     'de40':   'DAX 40',
-    # dj30 dropped 2026-06-15ppp — see dashboard DROPPED_PAIRS for rationale
-    # (persistent 44% WR, exhausted improvement vectors).
+    # dj30 reinstated 2026-06-17 alongside today's index-MACD gate deploys.
+    'dj30':   'Dow Jones 30',
     'nas100':  'NAS 100', 'spx500':  'S&P 500',
     # v7 FX minors (2026-06-03)
     # nzdcad removed 2026-06-10 — low win-rate drag.
@@ -85,7 +85,7 @@ PAIR_DISPLAY = {
     'btcusd': 'BTC/USD', 'suiusd': 'SUI/USD',
     'ethusd': 'ETH/USD', 'solusd': 'SOL/USD',
     'xrpusd': 'XRP/USD', 'taousd': 'TAO/USD',
-    'nearusd': 'NEAR/USD', 'ondousd': 'ONDO/USD',
+    'nearusd': 'NEAR/USD',  # ondousd dropped 2026-06-17 (user)
     # hypeusd removed 2026-06-10 — low win-rate drag.
     # ltcusd removed 2026-06-10 — low win-rate drag.
     # Re-add: "'ltcusd': 'LTC/USD',"
@@ -121,7 +121,8 @@ PAIR_CLASS = {
     # classified for completeness so any lookup gets a deterministic
     # answer instead of falling back to 80/20).
     'ftse100': 'index',
-    # dj30 dropped 2026-06-15ppp.
+    # dj30 reinstated 2026-06-17 alongside today's index-MACD gate deploys.
+    'dj30': 'index',
     'de40': 'index',  # reinstated 2026-06-15lll
     'nas100': 'index', 'spx500': 'index', 'jp225': 'index',
     # fra40 removed 2026-06-10 — low win-rate drag.
@@ -132,7 +133,7 @@ PAIR_CLASS = {
     # ltcusd removed 2026-06-10 — low win-rate drag.
     'taousd': 'crypto', 'nearusd': 'crypto',
     # hypeusd removed 2026-06-10 — low win-rate drag.
-    'ondousd': 'crypto',
+    # ondousd dropped 2026-06-17 (user).
 }
 
 
@@ -176,7 +177,8 @@ SR_REF_TIMES = {
     # original 2026-06-10k spec — opens 09:00 / 10:00 Frankfurt local
     # (08:00 / 09:00 UTC during summertime).
     'de40': {'open_times': ('08:00', '09:00'), 'session_label': 'DE40 09:00 CET', 'window_bars': 8},
-    # dj30 dropped 2026-06-15ppp.
+    # dj30 reinstated 2026-06-17 — US cash-open School Run window.
+    'dj30': {'open_times': ('14:00', '15:00'), 'session_label': 'DJ30 14:30 NY', 'window_bars': 8},
 }
 
 
@@ -1363,8 +1365,7 @@ FIB_ENTRY_PAIRS = {
     # targets that didn't match recent price action. With the seed
     # retired client-side and auto-derived targets in play, re-evaluate
     # WR after one full backtest cycle.
-    'de40', 'nas100', 'ftse100', 'spx500',
-    # dj30 dropped 2026-06-15ppp.
+    'de40', 'dj30', 'nas100', 'ftse100', 'spx500',
     # v7 additions (2026-06-03)
     'jp225',
     # fra40 (CAC 40) removed 2026-06-10 — low win-rate drag.
