@@ -10998,7 +10998,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-16l';
+var RULES_VERSION = '2026-06-16m';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -11464,7 +11464,16 @@ function calcRecentBacktest(k, mode){
   //      commodities, −2.1pp on crypto. Only indices clear the gate.
   //   3. The 3of4-rsi-macd mode also requires the cross (always).
   //   The test flags STAY working so we can re-A/B if data drifts.
-  var _btPairClass = (typeof _classOf === 'function') ? _classOf(k) : null;
+  // 2026-06-16m — pair-class lookup. The previous code referenced a
+  // global `_classOf` function that never existed at this scope — the
+  // dashboard defines `_classOfPair` locally inside renderFailureMode
+  // / analyseIntradayFailures, but those aren't accessible here. The
+  // bug silently disabled both the morning index-only MACD-cross gate
+  // AND the afternoon MACD-primary parallel detector — neither rule
+  // ever activated because _btPairClass was null for every pair.
+  // Reading directly from MKTS[k].t is the established pattern used
+  // everywhere else in the file.
+  var _btPairClass = (typeof MKTS !== 'undefined' && MKTS[k]) ? MKTS[k].t : null;
   var _btUseMACDCross = (mode === 'structural-macd' || mode === 'auto-ew-macd')
                         || (_btPairClass === 'index') || _btUse3of4 || _btUse2of4 || _btUse1of4;
   var MACD_CROSS_LB = 3;
@@ -13962,7 +13971,9 @@ function detectIntradaySignal(k){
   // MACD/Signal cross within MACD_CROSS_LB_LIVE m15 bars before the
   // current bar. Conservative: missing MACD data → return null
   // (better to miss a signal than fire without momentum confirm).
-  if((typeof _classOf === 'function') && _classOf(k) === 'index'
+  // 2026-06-16m — same _classOf bug as calcRecentBacktest above.
+  // MKTS[k].t is the correct class lookup pattern.
+  if((typeof MKTS !== 'undefined') && MKTS[k] && MKTS[k].t === 'index'
      && (typeof _macdSeries === 'function')){
     var MACD_CROSS_LB_LIVE = 3;
     var _mclos = [];
