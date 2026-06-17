@@ -1872,6 +1872,112 @@ def macd_series(closes, fast=12, slow=26, signal=9):
     return macd, sig
 
 
+def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
+                       h1_rsi, pair_class,
+                       lookback_struct=8):
+    """MACD-primary trigger (2026-06-16k).
+
+    Promotes the 15m MACD(12,26,9) / Signal cross to the primary entry
+    trigger. Direction comes from the cross itself, not from EW. RSI
+    centerline filter (<50 bull, >50 bear). Confluence count = how many
+    of EW/TL/NW/CL agree with the MACD direction at the trigger bar.
+
+    Per-class deploy gates (from the 2026-06-16 backtest A/B):
+      - 'index': DEPLOY when confluence >= 1 (skip fully contrarian
+                 0/4 bucket — 44.2% WR there vs 75-84% at conf 1-4).
+                 Returns a 'triggered' signal with confluence in {1..4}.
+      - 'minor': SHADOW LOG ONLY. The 0/4 contrarian bucket showed
+                 79.3% WR on n=29 — intriguing but the per-bucket
+                 pattern is non-monotonic so don't trade live yet.
+                 Returns a 'shadow-triggered' signal when conf == 0;
+                 the caller logs it to a separate JSON without firing
+                 the cBot or Telegram.
+      - everything else: returns None (no MACD-primary path).
+
+    Returns dict or None. The dict shape mirrors detect_intraday_signal:
+      state: 'triggered' | 'shadow-triggered'
+      dir: 'bull' | 'bear'
+      entry, stop, target: floats (structural)
+      trigger_ts: ISO timestamp of the cross bar
+      confluence: 0-4
+      shadow: bool — True for the MINOR shadow path
+    """
+    if pair_class not in ('index', 'minor'):
+        return None
+    n = len(bars)
+    if n < 35:  # MACD warm-up needs 26 slow + 9 signal
+        return None
+    closes = [b.get('c') for b in bars if b.get('c') is not None]
+    if len(closes) < 35:
+        return None
+    macd_line, sig_line = macd_series(closes, 12, 26, 9)
+    i = len(closes) - 1  # last bar — the candidate trigger
+    m0, m1 = macd_line[i - 1], macd_line[i]
+    s0, s1 = sig_line[i - 1], sig_line[i]
+    if m0 is None or m1 is None or s0 is None or s1 is None:
+        return None
+    if m0 <= s0 and m1 > s1:
+        macd_dir = 'bull'
+    elif m0 >= s0 and m1 < s1:
+        macd_dir = 'bear'
+    else:
+        return None
+    # RSI centerline filter
+    if h1_rsi is None:
+        return None
+    if macd_dir == 'bull' and h1_rsi >= 50:
+        return None
+    if macd_dir == 'bear' and h1_rsi <= 50:
+        return None
+    # Confluence count
+    confluence = 0
+    for layer in (ew_dir, tl_dir, nw_dir, cl_dir):
+        if layer == macd_dir:
+            confluence += 1
+    # Class-specific deploy gate
+    if pair_class == 'index':
+        if confluence < 1:
+            return None  # skip fully contrarian on indices (44.2% WR)
+        state = 'triggered'
+        shadow = False
+    else:  # minor
+        if confluence != 0:
+            return None  # shadow only on the 0/4 cohort
+        state = 'shadow-triggered'
+        shadow = True
+    # Structural entry / stop / target
+    cross_bar = bars[i]
+    if macd_dir == 'bull':
+        entry = cross_bar.get('l')
+        struct_slice = bars[max(0, i - lookback_struct):i]
+        struct_low = min((b.get('l', float('inf')) for b in struct_slice), default=None)
+        if entry is None or struct_low is None or struct_low >= entry:
+            return None
+        stop = struct_low
+        r = entry - stop
+    else:
+        entry = cross_bar.get('h')
+        struct_slice = bars[max(0, i - lookback_struct):i]
+        struct_high = max((b.get('h', float('-inf')) for b in struct_slice), default=None)
+        if entry is None or struct_high is None or struct_high <= entry:
+            return None
+        stop = struct_high
+        r = stop - entry
+    if r <= 0:
+        return None
+    target = entry + r if macd_dir == 'bull' else entry - r
+    return {
+        'state': state,
+        'dir': macd_dir,
+        'entry': entry,
+        'stop': stop,
+        'target': target,
+        'trigger_ts': cross_bar.get('t'),
+        'confluence': confluence,
+        'shadow': shadow,
+    }
+
+
 def calc_4h_cloud_dir(h1_bars, fast=21, slow=55):
     """4H EMA cloud direction (21/55 by default).
 
@@ -2108,6 +2214,27 @@ def scan_pairs(intraday_data, historical_data):
                                          rsi_hi=gate['hi'], rsi_lo=gate['lo'],
                                          pair_class=PAIR_CLASS.get(pair))
 
+        # MACD-primary parallel trigger (2026-06-16k). Runs ALWAYS — not
+        # gated on aligned_dir, since the whole point of MACD-primary is
+        # to catch setups that 4/4 alignment misses. Returns:
+        #   - None for non-eligible classes (only 'index' + 'minor')
+        #   - A 'triggered' signal for INDEX with confluence >= 1 (live)
+        #   - A 'shadow-triggered' signal for MINOR confluence == 0
+        #     (logged for forward-test, NOT routed to cBot/Telegram)
+        macdp_sig = None
+        macdp_pair_class = PAIR_CLASS.get(pair)
+        if macdp_pair_class in ('index', 'minor'):
+            try:
+                # Recompute h1_rsi defensively — the 4/4 block above only
+                # runs when aligned_dir is set, but MACD-primary fires
+                # regardless of alignment, so we need it independently.
+                _h1_closes = [b.get('c') for b in h1 if b.get('c') is not None]
+                _h1_rsi_mp = calc_rsi(_h1_closes, 14) if len(_h1_closes) >= 15 else None
+                macdp_sig = detect_macd_primary(
+                    m15, ew, tl, nw, cl, _h1_rsi_mp, macdp_pair_class)
+            except Exception as e:
+                print(f'  ⚠ MACD-primary detector failed for {pair}: {e}')
+
         # School Run tier — only computed for DE40 and DJ30 (the only
         # pairs in SR_REF_TIMES); for other pairs sr_info stays None
         # and the dashboard won't render the pill. Confluence score
@@ -2145,6 +2272,17 @@ def scan_pairs(intraday_data, historical_data):
             'sig_fib_trigger_ts': sig.get('fib_trigger_ts') if sig else None,
             'sig_fib_ext_target': sig.get('fib_ext_target') if sig else None,
             'sig_fib_ext_rr': sig.get('fib_ext_rr') if sig else None,
+            # MACD-primary parallel trigger (2026-06-16k). Indices fire
+            # 'triggered' (routes to cBot + Telegram); minors fire
+            # 'shadow-triggered' (logged to shadow log only).
+            'sig_macdp_state':       macdp_sig.get('state') if macdp_sig else None,
+            'sig_macdp_dir':         macdp_sig.get('dir') if macdp_sig else None,
+            'sig_macdp_entry':       macdp_sig.get('entry') if macdp_sig else None,
+            'sig_macdp_stop':        macdp_sig.get('stop') if macdp_sig else None,
+            'sig_macdp_target':      macdp_sig.get('target') if macdp_sig else None,
+            'sig_macdp_trigger_ts':  macdp_sig.get('trigger_ts') if macdp_sig else None,
+            'sig_macdp_confluence':  macdp_sig.get('confluence') if macdp_sig else None,
+            'sig_macdp_shadow':      bool(macdp_sig.get('shadow')) if macdp_sig else False,
             # Post-trigger outcome metadata (2026-06-11ff) — main loop
             # uses this to fire EXIT alerts when a previously-alerted
             # trigger gets invalidated by counter-bars / opposing CHoCH.
@@ -2222,13 +2360,61 @@ def _fmt_price(p):
     return f"{p:,.0f}"
 
 
+SHADOW_LOG_PATH = 'shadow-signals.json'
+
+
+def _append_shadow_signal(pair, info, trigger_ts):
+    """Append one MINOR MACD-primary candidate to the shadow log.
+
+    The log is a single JSON file at the repo root, structured as:
+      {"entries": [ {pair, dir, entry, stop, target, trigger_ts,
+                     logged_at, confluence}, ... ]}
+
+    Read by an offline analyser to compute forward-tracked WR on
+    MINOR 0/4 setups without putting the cBot at risk. The file is
+    committed by the existing fetch-data.yml workflow alongside
+    alerts-state.json / signals.json so the history is auditable.
+    """
+    import os
+    log = {'entries': []}
+    if os.path.exists(SHADOW_LOG_PATH):
+        try:
+            with open(SHADOW_LOG_PATH, 'r') as f:
+                log = json.load(f) or {'entries': []}
+            if 'entries' not in log:
+                log['entries'] = []
+        except Exception:
+            log = {'entries': []}
+    log['entries'].append({
+        'pair': pair,
+        'kind': 'macd-primary',
+        'class': PAIR_CLASS.get(pair),
+        'dir': info.get('sig_macdp_dir'),
+        'entry': info.get('sig_macdp_entry'),
+        'stop': info.get('sig_macdp_stop'),
+        'target': info.get('sig_macdp_target'),
+        'trigger_ts': trigger_ts,
+        'logged_at': datetime.now(timezone.utc).isoformat(),
+        'confluence': info.get('sig_macdp_confluence'),
+    })
+    # Cap the log at the most recent 1000 entries to keep file size
+    # manageable. At ~30 entries/week per minor pair that's ~6 months
+    # of forward history per pair — plenty for the deploy decision.
+    if len(log['entries']) > 1000:
+        log['entries'] = log['entries'][-1000:]
+    with open(SHADOW_LOG_PATH, 'w') as f:
+        json.dump(log, f, indent=2)
+
+
 def format_alert(pair, info, kind):
     """kind: 'newly-aligned' | 'flipped' | 'currently-aligned' | 'triggered' | 'triggered-fib'
-            | 'sr_5_5' | 'sr_4_5' | 'sr_3_5'.
+            | 'triggered-macdp' | 'sr_5_5' | 'sr_4_5' | 'sr_3_5'.
 
     SR tier alerts (sr_5_5, sr_4_5, sr_3_5) fire for DE40 / DJ30 only
     when the School Run tier becomes aligned during the 2h post-open
     window. See SR_REF_TIMES + get_sr_tier.
+
+    'triggered-macdp' = INDEX MACD-primary parallel trigger (2026-06-16k).
     """
     sym = PAIR_DISPLAY.get(pair, pair.upper())
     layers = f"EW {info.get('ew')} · TL {info.get('tl')} · NW {info.get('nw')} · CL {info.get('cl') or '?'}"
@@ -2317,6 +2503,31 @@ def format_alert(pair, info, kind):
             f"Stop:   <code>{stop_str}</code>\n"
             f"Target: <code>{target_str}</code> (1:1 R:R from fib entry)\n"
             f"{_fib_ext_line(entry_val)}"
+            f"Current px: <code>{_fmt_price(info['price'])}</code>\n"
+            f"{layers}\n"
+            f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
+        )
+        return text
+
+    if kind == 'triggered-macdp':
+        # MACD-primary parallel trigger for INDEX class (2026-06-16k).
+        # Direction comes from the m15 MACD/Signal cross; entry at the
+        # high/low of the cross bar; stop at the structural extreme;
+        # 1:1 R:R. Position size = HALF (mirrors the FIB half-size
+        # convention since indices already use that as the production
+        # rule).
+        macdp_dir = info.get('sig_macdp_dir')
+        macdp_action = 'BUY' if macdp_dir == 'bull' else 'SELL'
+        entry_str  = _fmt_price(info.get('sig_macdp_entry'))
+        stop_str   = _fmt_price(info.get('sig_macdp_stop'))
+        target_str = _fmt_price(info.get('sig_macdp_target'))
+        conf       = info.get('sig_macdp_confluence')
+        text = (
+            f"⚡ <b>MACD-PRIMARY — {macdp_action} {sym}</b> (half size · index)\n"
+            f"Entry:  <code>{entry_str}</code> (15m MACD/Signal cross)\n"
+            f"Stop:   <code>{stop_str}</code>\n"
+            f"Target: <code>{target_str}</code> (1:1 R:R)\n"
+            f"Confluence: <code>{conf}/4</code> layers agree\n"
             f"Current px: <code>{_fmt_price(info['price'])}</code>\n"
             f"{layers}\n"
             f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
@@ -2542,6 +2753,11 @@ def main():
         # below if an exit alert fires this cycle.
         alerted_exit = prev.get('alerted_exit_creator_ts')
         alerted_fib_exit = prev.get('alerted_fib_exit_creator_ts')
+        # MACD-primary trigger dedup (2026-06-16k). Keys on trigger_ts
+        # (the cross bar's timestamp) rather than creator_ts since the
+        # MACD-primary path doesn't have a separate creator concept —
+        # the cross bar IS the trigger.
+        alerted_macdp = prev.get('alerted_macdp_trigger_ts')
         # Migration: state files written before alerted_trigger_creator_ts
         # existed have no dedup key. If the pair was already 'triggered' on
         # the same creator last run, treat that creator as already-alerted
@@ -2635,6 +2851,41 @@ def main():
                 if send_telegram(token, chat_id, text):
                     alerts_sent += 1
                 alerted_fib = cur_creator_ts
+
+        # ── MACD-PRIMARY TRIGGER ALERTS (2026-06-16k) ──────────────
+        # INDEX path: same Telegram + cBot routing as the FIB-ZONE alerts
+        # above. MINOR path: shadow log only — appends to
+        # shadow-signals.json for forward-tracking without firing.
+        cur_macdp_state_pair = info.get('sig_macdp_state')
+        cur_macdp_trigger_ts = info.get('sig_macdp_trigger_ts')
+        cur_macdp_shadow = bool(info.get('sig_macdp_shadow'))
+        if cur_macdp_state_pair in ('triggered', 'shadow-triggered') and cur_macdp_trigger_ts:
+            is_new_macdp = (cur_macdp_trigger_ts != alerted_macdp)
+            if cur_macdp_shadow:
+                # MINOR shadow — log without alerting / firing
+                if is_new_macdp:
+                    try:
+                        _append_shadow_signal(pair, info, cur_macdp_trigger_ts)
+                        print(f'  SHADOW(macdp): {pair} {info.get("sig_macdp_dir")} '
+                              f'@{info.get("sig_macdp_entry")} '
+                              f'conf={info.get("sig_macdp_confluence")} — logged')
+                    except Exception as e:
+                        print(f'  ⚠ shadow log append failed for {pair}: {e}')
+                    alerted_macdp = cur_macdp_trigger_ts
+            else:
+                # INDEX production — Telegram alert + signals.json routing
+                if is_new_macdp and is_first_run:
+                    print(f'  baseline(macdp): {pair} already macd-triggered — recorded, not alerting')
+                    alerted_macdp = cur_macdp_trigger_ts
+                elif is_new_macdp:
+                    print(f'  ALERT(macdp): {pair} -> macd-primary triggered '
+                          f'(dir={info.get("sig_macdp_dir")}, '
+                          f'entry={info.get("sig_macdp_entry")}, '
+                          f'conf={info.get("sig_macdp_confluence")})')
+                    text = format_alert(pair, info, 'triggered-macdp')
+                    if send_telegram(token, chat_id, text):
+                        alerts_sent += 1
+                    alerted_macdp = cur_macdp_trigger_ts
 
         # ── POST-TRIGGER EXIT ALERTS (2026-06-11ff) ─────────────────
         # Fire an EXIT alert when a trade we previously alerted on has
@@ -2757,6 +3008,21 @@ def main():
             # trigger alert and an exit alert recorded.
             'alerted_exit_creator_ts': alerted_exit,
             'alerted_fib_exit_creator_ts': alerted_fib_exit,
+            # MACD-primary parallel trigger persistence (2026-06-16k).
+            # State / entry / stop / target / trigger_ts / confluence /
+            # shadow flag — read by build_signals_json.py to emit
+            # 'macdp' signals into signals.json for the cBot. Dedup key
+            # `alerted_macdp_trigger_ts` prevents re-alerting the same
+            # bar across detector runs.
+            'sig_macdp_state':      info.get('sig_macdp_state'),
+            'sig_macdp_dir':        info.get('sig_macdp_dir'),
+            'sig_macdp_entry':      info.get('sig_macdp_entry'),
+            'sig_macdp_stop':       info.get('sig_macdp_stop'),
+            'sig_macdp_target':     info.get('sig_macdp_target'),
+            'sig_macdp_trigger_ts': info.get('sig_macdp_trigger_ts'),
+            'sig_macdp_confluence': info.get('sig_macdp_confluence'),
+            'sig_macdp_shadow':     bool(info.get('sig_macdp_shadow')),
+            'alerted_macdp_trigger_ts': alerted_macdp,
             'last_check': now_iso,
         }
 

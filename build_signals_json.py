@@ -113,6 +113,7 @@ def _signal_row(pair: str, info: dict, kind: str, now_ms: int) -> dict | None:
       - 'wick' → sig_state / sig_entry / sig_creator_ts / sig_trigger_ts
       - 'fib'  → sig_fib_state / sig_fib_entry / etc.
     """
+    macdp_dir = None
     if kind == "wick":
         state = info.get("sig_state")
         entry = info.get("sig_entry")
@@ -125,6 +126,21 @@ def _signal_row(pair: str, info: dict, kind: str, now_ms: int) -> dict | None:
         creator_ts = info.get("sig_fib_creator_ts") or info.get("alerted_fib_creator_ts")
         trigger_ts = info.get("sig_fib_trigger_ts")
         prefix = "fib"
+    elif kind == "macdp":
+        # 2026-06-16k — MACD-primary parallel trigger. Index-class only
+        # at production; minor-class entries are 'shadow-triggered' and
+        # skipped below so the cBot never sees them.
+        if bool(info.get("sig_macdp_shadow")):
+            return None  # MINOR shadow — never emit to signals.json
+        state = info.get("sig_macdp_state")
+        entry = info.get("sig_macdp_entry")
+        # MACD-primary has no separate creator concept — the trigger bar
+        # IS the creator. Use the trigger_ts for both fields so the EA's
+        # idempotency key (armedAt) is stable.
+        creator_ts = info.get("sig_macdp_trigger_ts")
+        trigger_ts = info.get("sig_macdp_trigger_ts")
+        prefix = "macdp"
+        macdp_dir = info.get("sig_macdp_dir")
     else:
         return None
 
@@ -141,25 +157,34 @@ def _signal_row(pair: str, info: dict, kind: str, now_ms: int) -> dict | None:
         return None
     trig_at_ms = _to_epoch_ms(trigger_ts)
 
-    aligned = info.get("aligned_dir")
+    # Direction sourcing: MACD-primary uses the MACD cross direction
+    # (which lives in sig_macdp_dir); everything else uses aligned_dir.
+    aligned = macdp_dir if kind == "macdp" else info.get("aligned_dir")
     if aligned not in ("bull", "bear"):
-        # Without an aligned direction we can't place a directional
-        # order. Skip — the detector will re-emit when alignment
-        # confirms.
         return None
 
     cls = _classify(pair)
     if cls is None:
         # Pair not in our broker universe — skip silently.
         return None
-    method = "fib" if kind == "fib" else _method_for(pair)
+    # MACD-primary is always half-size on indices (mirrors FIB convention).
+    method = "fib" if (kind == "fib" or kind == "macdp") else _method_for(pair)
     r_size = _R_per_trade(method)
 
     # Stable idempotency key. The {kind} suffix lets a single setup
-    # produce one wick signal AND one fib signal simultaneously without
-    # collision (different entry/stop/target, different R sizing, but
-    # the same creator candle).
+    # produce one wick signal AND one fib signal AND one macdp signal
+    # simultaneously without collision.
     sig_id = f"{pair}:{armed_at_ms}:{prefix}"
+
+    if kind == "wick":
+        stop_val = info.get("sig_stop")
+        target_val = info.get("sig_target")
+    elif kind == "fib":
+        stop_val = info.get("sig_fib_stop")
+        target_val = info.get("sig_fib_target")
+    else:  # macdp
+        stop_val = info.get("sig_macdp_stop")
+        target_val = info.get("sig_macdp_target")
 
     return {
         "id": sig_id,
@@ -174,8 +199,8 @@ def _signal_row(pair: str, info: dict, kind: str, now_ms: int) -> dict | None:
         # Stop / target are computed downstream by the detector; if
         # they're missing from alerts-state.json the EA must fall back
         # to its own ATR-based defaults (documented in the EA).
-        "stop":    info.get("sig_stop")    if kind == "wick" else info.get("sig_fib_stop"),
-        "target":  info.get("sig_target")  if kind == "wick" else info.get("sig_fib_target"),
+        "stop":    stop_val,
+        "target":  target_val,
         "ew":      info.get("ew"),
         "tl":      info.get("tl"),
         "nw":      info.get("nw"),
@@ -195,7 +220,7 @@ def build_signals(state: dict) -> dict:
     for pair, info in pairs.items():
         if not isinstance(info, dict):
             continue
-        for kind in ("wick", "fib"):
+        for kind in ("wick", "fib", "macdp"):
             row = _signal_row(pair, info, kind, now_ms)
             if row is not None:
                 out.append(row)

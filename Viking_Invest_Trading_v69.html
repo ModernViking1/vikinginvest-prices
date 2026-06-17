@@ -10998,7 +10998,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-16h';
+var RULES_VERSION = '2026-06-16k';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -11007,6 +11007,7 @@ var RULES_VERSION_NOTES = [
   // The full internal changelog lives in private engineering docs;
   // signed-in advisors / investors can request the full version
   // under NDA via the Investor Relations panel on the Performance tab.
+  '2026-06-16 — Indices gain a parallel 15-minute momentum-cross trigger that fires alongside the standard 4-layer alignment trigger. Backtest A/B showed 78.5% WR across confluence ≥ 1 buckets (79 trades) so it ships index-only with the fully contrarian cohort filtered out. Minors get the same trigger as a shadow log only — candidate trades are recorded but not executed, so we can forward-test the 0/4 contrarian cohort (79.3% WR on n=29 historically) before deciding whether to promote.',
   '2026-06-16 — Indices now require an additional 15-minute momentum-confirm filter before signals fire. Backtest A/B showed +4.3pp on indices (69.9% → 74.2% over 31 filtered trades) while every other class scored neutral or worse — so the filter ships index-only. Other classes unchanged.',
   '2026-06-16 — Added a 15-minute momentum-confirm filter to the failure-mode panel as a candidate rule under test. Surfaces what fraction of losing trades a momentum cross-gate would have blocked pre-entry. Live trades are unchanged while the data accumulates.',
   '2026-06-14 — Live broker bridge to cTrader demo accounts via a publicly-versioned signal feed. Persistent broker-side dedup, daily-loss limiter, kill-switch contract, Telegram alert routing. Auto-publish of broker fills back to the dashboard so investor numbers and broker numbers are reconciled in real time.',
