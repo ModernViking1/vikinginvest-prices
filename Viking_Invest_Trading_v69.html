@@ -4057,7 +4057,7 @@ function buildPanel(k){
     // 2026-06-15fff (mobile HOTFIX): inline getIntraSignalHTML(k) call
     // replaced with placeholder. The chunked refreshAlert burst in
     // buildUI fills in the actual intra-card body within ~10 frames.
-    + '<div class="lbdy" id="intra-body-' + k + '">&hellip;</div>';
+    + '<div class="lbdy" id="intra-body-' + k + '" style="padding:0;">&hellip;</div>';
   frag.appendChild(iCard);
   // 2026-06-13oo (revised pp): legacy "▸ Workflow — how to take this
   // trade" collapsible was removed. User confirmed (2026-06-13pp)
@@ -4528,7 +4528,7 @@ function getLayerDet(k,layer,sig){
           } else {
             liveDescriptor = 'live trade';
           }
-          intraMsg = '<br><div style="margin-top:6px;padding:6px 8px;background:rgba(200,134,10,0.06);border-left:2px solid var(--gold);border-radius:2px;font-size:9px;line-height:1.5;">'
+          intraMsg = '<div style="padding:6px 8px;background:rgba(200,134,10,0.06);border-left:2px solid var(--gold);border-radius:2px;font-size:9px;line-height:1.5;">'
             + '<div style="font-weight:700;color:'+stateColor+';letter-spacing:0.5px;text-transform:uppercase;font-size:8px;">'
             +   stateIcon + ' INTRADAY SIGNAL &middot; '+stateLabel + armedAtTxt + _ewCarrierBadge
             +   (function(){
