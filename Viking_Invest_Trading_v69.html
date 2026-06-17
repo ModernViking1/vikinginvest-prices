@@ -10955,7 +10955,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-16g';
+var RULES_VERSION = '2026-06-16h';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -11009,6 +11009,8 @@ function RULES_FINGERPRINT(){
     macdCrossLB: 3,
     macdCrossLbExplo: 8,
     macdParams: '12/26/9',
+    macdPrimaryRsiBull: 50,
+    macdPrimaryRsiBear: 50,
     // 2026-06-16e — RSI-extreme thresholds for the 3of4/2of4 expansion
     // modes. Loosened from 25/75 → 30/70 after 25/75 produced zero
     // qualifying trades. Future tweaks here auto-invalidate caches.
@@ -11755,11 +11757,17 @@ function calcRecentBacktest(k, mode){
       if(_mp0 <= _sp0 && _mp1 > _sp1) _macdDir = 'bull';
       else if(_mp0 >= _sp0 && _mp1 < _sp1) _macdDir = 'bear';
       if(!_macdDir){ i++; continue; }
-      // RSI 40/60 confirmation — mean-reversion territory.
+      // 2026-06-16i — RSI 50/50 centerline filter. Loosened from 40/60
+      // after that produced ALL=49.1% on n=114 (coin flip) with most
+      // higher-confluence buckets too thin to evaluate. 50 is the RSI
+      // centerline — bull crosses now fire when oscillator is in the
+      // bottom half (downtrend territory, mean-reversion buy); bear
+      // crosses in the top half. Should ~double samples per bucket so
+      // per-confluence WR can stabilise.
       var _rsiAtMp = (h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length) ? h1RsiAtH1Idx[h1Idx] : null;
       if(_rsiAtMp == null || !isFinite(_rsiAtMp)){ i++; continue; }
-      if(_macdDir === 'bull' && _rsiAtMp >= 40){ i++; continue; }
-      if(_macdDir === 'bear' && _rsiAtMp <= 60){ i++; continue; }
+      if(_macdDir === 'bull' && _rsiAtMp >= 50){ i++; continue; }
+      if(_macdDir === 'bear' && _rsiAtMp <= 50){ i++; continue; }
       // Confluence count
       _btMacdPrimaryConf = 0;
       if(ewDir === _macdDir) _btMacdPrimaryConf++;

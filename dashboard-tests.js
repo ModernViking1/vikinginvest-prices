@@ -2102,7 +2102,7 @@ function _renderMacdPrimaryResults(loaded, statusEl, resultEl){
   resultEl.innerHTML =
     '<div style="margin-top:8px;padding:10px 12px;border:1px solid rgba(38,196,120,0.30);background:rgba(38,196,120,0.04);border-radius:4px;">'
     + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#26c478;margin-bottom:6px;">MACD-PRIMARY · WR BY CONFLUENCE BUCKET</div>'
-    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:8px;">Trigger: 15m MACD(12,26,9) / Signal cross. Direction: the cross itself. RSI filter: &lt;40 on bull cross, &gt;60 on bear cross. Each trade is bucketed by how many of EW/TL/NW/CL agree with the MACD cross direction. Cell shows WR / n. Cells with n &lt; 10 are too small to colour. Deploy threshold: ≥72% WR on ≥20 trades per class × bucket.</div>'
+    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:8px;">Trigger: 15m MACD(12,26,9) / Signal cross. Direction: the cross itself. RSI filter: bull cross needs RSI &lt; 50, bear cross needs RSI &gt; 50 (centerline filter, loosened from 40/60 on 16/06 after the tighter bounds produced ALL=49.1% on n=114 — coin flip). Each trade bucketed by how many of EW/TL/NW/CL agree with the MACD cross direction. Cell shows WR / n. Cells with n &lt; 10 are too small to colour. Deploy threshold: ≥72% WR on ≥20 trades per class × bucket.</div>'
     + '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table style="width:100%;border-collapse:collapse;font-size:9px;min-width:520px;">'
     + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
     + headerCells
