@@ -1337,6 +1337,23 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   </div>
   <div id="btMacdJpyTestResult" style="margin:0 0 12px 0;"></div>
 
+  <!-- ── 1g. MACD-DIVERGENCE PHASE 1 (2026-06-17) ─────────────────
+       Standalone test of MACD/Signal-line divergence — i.e. price
+       making a new low (or high) while MACD shows the opposite
+       direction. Phase 1 is divergence-only with no RSI gate and
+       confluence tracked-but-not-required, so we measure whether
+       the raw signal carries an edge. If yes, Phase 2 will layer
+       a cross + RSI confirmation on top. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btMacdDivTestBtn"
+            onclick="runMacdDivergenceTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid #2da6a6;background:rgba(45,166,166,0.08);color:#2da6a6;border-radius:3px;cursor:pointer;">
+      🧪 TEST: MACD DIVERGENCE — PHASE 1 (STANDALONE)
+    </button>
+    <span id="btMacdDivTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btMacdDivTestResult" style="margin:0 0 12px 0;"></div>
+
   <!-- ── DRY-RUN TEST PANEL (hidden 2026-06-13qq) ─────────────────────
        Buttons + variant selectors for the 4 in-page rule-test harnesses
        (counter-bar, SR gating, news blackout, R:R per class). User
@@ -11006,6 +11023,7 @@ var RECENT_BT_CACHE_KEY_3OF4 = 'vit_recent_backtest_v9_3of4_rsi_macd';
 var RECENT_BT_CACHE_KEY_2OF4 = 'vit_recent_backtest_v9_2of4_rsi_macd';
 var RECENT_BT_CACHE_KEY_1OF4 = 'vit_recent_backtest_v9_1of4_rsi_macd';
 var RECENT_BT_CACHE_KEY_MACD_PRIMARY = 'vit_recent_backtest_v9_macd_primary';
+var RECENT_BT_CACHE_KEY_MACD_DIVERGENCE = 'vit_recent_backtest_v9_macd_divergence';
 var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // Previously 4 hours. Bumped 2026-05-30: with the per-pair-class
 // routing (struct for majors except AUD/USD, auto-EW for everything
@@ -11026,7 +11044,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-16m';
+var RULES_VERSION = '2026-06-17a';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -11107,6 +11125,7 @@ function _cacheKeyForMode(mode){
   if(mode === '2of4-rsi-macd') return RECENT_BT_CACHE_KEY_2OF4;
   if(mode === '1of4-rsi-macd') return RECENT_BT_CACHE_KEY_1OF4;
   if(mode === 'macd-primary') return RECENT_BT_CACHE_KEY_MACD_PRIMARY;
+  if(mode === 'macd-divergence') return RECENT_BT_CACHE_KEY_MACD_DIVERGENCE;
   return RECENT_BT_CACHE_KEY;
 }
 
@@ -11483,6 +11502,13 @@ function calcRecentBacktest(k, mode){
   // aggregator can bucket WR by confluence strength and tell us which
   // confluence count is worth deploying per asset class.
   var _btUseMacdPrimary = (mode === 'macd-primary');
+  // 2026-06-17 — MACD-DIVERGENCE Phase 1. Detects bull/bear divergence
+  // between price swing extremes and MACD line at the same pivots.
+  // Direction = the divergence side (bull divergence → buy). Confluence
+  // is tracked but NOT used as a deploy gate — Phase 1 is about whether
+  // divergence alone has an edge. RSI is not gated either; if results
+  // are promising, Phase 2 layers cross + RSI on top.
+  var _btUseMacdDivergence = (mode === 'macd-divergence');
   // 2026-06-16b — MACD-cross hard gate. Three activation paths:
   //   1. Test modes: `structural-macd` / `auto-ew-macd` enable the gate
   //      for ALL pairs (used by the per-class A/B test button).
@@ -11748,7 +11774,7 @@ function calcRecentBacktest(k, mode){
   // m15 MACD(12,26,9) series for the MACD-cross hard gate. Only computed
   // when the mode requires it — the EMA + signal calc is ~3× m15Bars.length
   // floating-point ops, so we skip it entirely on production modes.
-  var m15MacdAtIdx = ((_btUseMACDCross || _btUseMacdPrimary) && typeof _macdSeries === 'function')
+  var m15MacdAtIdx = ((_btUseMACDCross || _btUseMacdPrimary || _btUseMacdDivergence) && typeof _macdSeries === 'function')
     ? (function(){
         var closes = new Array(m15Bars.length);
         for(var mi = 0; mi < m15Bars.length; mi++) closes[mi] = m15Bars[mi].c;
@@ -11923,6 +11949,21 @@ function calcRecentBacktest(k, mode){
     // When this branch handles a bar, it overrides ewDir and sets
     // _btMacdPrimaryConf; downstream gates honour the flag and skip.
     var _btMacdPrimaryConf = -1;
+    // 2026-06-17 — MACD-DIVERGENCE Phase 1 detection runs in the same
+    // slot as MACD-primary. Confluence shares the _btMacdPrimaryConf
+    // variable since trade.push reads it through that name (we're
+    // never in both modes simultaneously).
+    if(_btUseMacdDivergence){
+      if(!m15MacdAtIdx){ i++; continue; }
+      var _divDir = _macdDivergence(m15Bars, i, m15MacdAtIdx.macd, 30);
+      if(!_divDir){ i++; continue; }
+      _btMacdPrimaryConf = 0;
+      if(ewDir === _divDir) _btMacdPrimaryConf++;
+      if(tlDir === _divDir) _btMacdPrimaryConf++;
+      if(nwDir === _divDir) _btMacdPrimaryConf++;
+      if(clDir === _divDir) _btMacdPrimaryConf++;
+      ewDir = _divDir;  // downstream entry / stop / target use this
+    }
     if(_btUseMacdPrimary){
       if(!m15MacdAtIdx){ i++; continue; }
       var _mp0 = m15MacdAtIdx.macd[i-1], _mp1 = m15MacdAtIdx.macd[i];
@@ -11953,7 +11994,7 @@ function calcRecentBacktest(k, mode){
       ewDir = _macdDir;
     }
 
-    if(!_btUseMacdPrimary){
+    if(!_btUseMacdPrimary && !_btUseMacdDivergence){
       if(_btUse3of4){
         // 3-of-4 mode: EW = TL = CL but NW MUST dissent. Trade direction = EW.
         // Hypothesis: the missing 15m alignment is recoverable via MACD + RSI
@@ -11991,7 +12032,7 @@ function calcRecentBacktest(k, mode){
     // blocks the setup. Mirror of detectIntradaySignal so the recent
     // backtest reflects the live filter. Thresholds vary by asset
     // class — see RSI_GATE_BY_CLASS. Null RSI (warm-up) falls through.
-    if(!_btUseMacdPrimary && h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length){
+    if(!_btUseMacdPrimary && !_btUseMacdDivergence && h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length){
       var rsiAt = h1RsiAtH1Idx[h1Idx];
       if(_btUse3of4 || _btUse2of4 || _btUse1of4){
         // 3of4 / 2of4 / 1of4 modes: REQUIRE RSI extreme — bull setup
@@ -12014,7 +12055,7 @@ function calcRecentBacktest(k, mode){
     // Only count signals where the slow trend filter agrees with the
     // macro direction at this point in history. Insufficient h1 history
     // (e.g. newly-added pairs) returns null → skip the bar conservatively.
-    if(!_btUseMacdPrimary && _btUseRegime){
+    if(!_btUseMacdPrimary && !_btUseMacdDivergence && _btUseRegime){
       var regDir = regimeDirAtTime(k, curTs);
       if(regDir !== ewDir){ i++; continue; }
     }
@@ -12028,7 +12069,7 @@ function calcRecentBacktest(k, mode){
     // hard-gate version of the variant-stat that the failure-mode panel
     // surfaces — promoted here so users can A/B the filter against
     // production WR cards via the dedicated test button.
-    if(!_btUseMacdPrimary && _btUseMACDCross){
+    if(!_btUseMacdPrimary && !_btUseMacdDivergence && _btUseMACDCross){
       if(!m15MacdAtIdx){ i++; continue; }
       var crossFound = false;
       // Exploratory cohorts use the wider window; production index gate
@@ -12051,7 +12092,7 @@ function calcRecentBacktest(k, mode){
     var alignedDir = ewDir;
     // MACD-primary uses the cross itself as the trigger — the bar where
     // the cross prints IS the candidate entry, no swing-break required.
-    var brokeStructure = _btUseMacdPrimary || (alignedDir === 'bear' && m15Bars[i].c < swingLow) ||
+    var brokeStructure = _btUseMacdPrimary || _btUseMacdDivergence || (alignedDir === 'bear' && m15Bars[i].c < swingLow) ||
                          (alignedDir === 'bull' && m15Bars[i].c > swingHigh);
     if(!brokeStructure){ i++; continue; }
     // NOTE (Option A v68+): we used to skip if previous bar also broke,
@@ -12717,6 +12758,7 @@ function runMacdCrossTest(){ _ensureBacktestTestsLoaded().then(function(){ windo
 function run3of4RsiMacdTest(){ _ensureBacktestTestsLoaded().then(function(){ window.run3of4RsiMacdTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runMacdPrimaryTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runMacdPrimaryTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runMacdPrimaryJpyTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runMacdPrimaryJpyTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
+function runMacdDivergenceTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runMacdDivergenceTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runCounterBarRuleTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runCounterBarRuleTest(opts); }); }
 function runSRGatingTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runSRGatingTest(opts); }); }
 function runNewsBlackoutTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runNewsBlackoutTest(opts); }); }
@@ -12731,6 +12773,7 @@ if(typeof window !== "undefined"){
   window.run3of4RsiMacdTest      = run3of4RsiMacdTest;
   window.runMacdPrimaryTest      = runMacdPrimaryTest;
   window.runMacdPrimaryJpyTest   = runMacdPrimaryJpyTest;
+  window.runMacdDivergenceTest   = runMacdDivergenceTest;
   window.runCounterBarRuleTest   = runCounterBarRuleTest;
   window.runSRGatingTest         = runSRGatingTest;
   window.runNewsBlackoutTest     = runNewsBlackoutTest;
@@ -16092,6 +16135,64 @@ function _macdSeries(closes, fast, slow, signal){
     for(var s = 0; s < sigOnSlice.length; s++) sig[firstMacd + s] = sigOnSlice[s];
   }
   return {macd: macd, signal: sig};
+}
+
+// MACD divergence detector (2026-06-17 — Phase 1). Returns 'bull',
+// 'bear', or null based on the most recent confirmed swing extreme
+// within `lookback` m15 bars of bar `i`.
+//
+// Bullish divergence: price made a LOWER LOW but the MACD line at
+// that same swing low is HIGHER than the previous swing low. Momentum
+// failed to confirm the new price extreme — classic exhaustion +
+// reversal precursor. Symmetric for bearish.
+//
+// Swing detection uses a 5-bar pivot (j is a swing low if its low is
+// the strict minimum of bars j-2 through j+2). The "+2 forward bars"
+// requirement means a swing at j is only confirmed at bar j+2, so
+// the detector inherently has a 2-bar lookahead — fine for backtest
+// since we walk in order, fine for live since the dashboard re-runs
+// every ~30s.
+//
+// "Actionable" gate: the most recent swing extreme has to be within
+// the last 5 m15 bars (≈75 min) of the current bar i. Older
+// divergences are ignored — by the time price has moved past, the
+// divergence has either resolved into a trade or fizzled.
+function _macdDivergence(m15Bars, i, macdLine, lookback){
+  if(!m15Bars || !macdLine || i < 8) return null;
+  lookback = lookback || 30;
+  var start = Math.max(2, i - lookback);
+  var end = i - 2;  // need j+2 to exist within our walk
+  if(end < start + 1) return null;
+  var swingLows = [];
+  var swingHighs = [];
+  for(var j = start; j <= end; j++){
+    var b = m15Bars[j], pb1 = m15Bars[j-1], pb2 = m15Bars[j-2];
+    var fb1 = m15Bars[j+1], fb2 = m15Bars[j+2];
+    if(!b || !pb1 || !pb2 || !fb1 || !fb2) continue;
+    if(b.l < pb1.l && b.l < pb2.l && b.l < fb1.l && b.l < fb2.l){
+      swingLows.push({idx:j, val:b.l, macd:macdLine[j]});
+    }
+    if(b.h > pb1.h && b.h > pb2.h && b.h > fb1.h && b.h > fb2.h){
+      swingHighs.push({idx:j, val:b.h, macd:macdLine[j]});
+    }
+  }
+  if(swingLows.length >= 2){
+    var aLo = swingLows[swingLows.length - 1];
+    var pLo = swingLows[swingLows.length - 2];
+    if(aLo.val < pLo.val && aLo.macd != null && pLo.macd != null
+       && aLo.macd > pLo.macd && (i - aLo.idx) <= 5){
+      return 'bull';
+    }
+  }
+  if(swingHighs.length >= 2){
+    var aHi = swingHighs[swingHighs.length - 1];
+    var pHi = swingHighs[swingHighs.length - 2];
+    if(aHi.val > pHi.val && aHi.macd != null && pHi.macd != null
+       && aHi.macd < pHi.macd && (i - aHi.idx) <= 5){
+      return 'bear';
+    }
+  }
+  return null;
 }
 
 // Main strategy walker. Returns {wins, losses, expired, total,

@@ -2226,3 +2226,112 @@ function _renderMacdPrimaryJpyResults(loaded, statusEl, resultEl){
   }
 }
 if(typeof window !== 'undefined'){ window._renderMacdPrimaryJpyResults = _renderMacdPrimaryJpyResults; }
+
+
+// ── MACD-DIVERGENCE PHASE 1 (2026-06-17) ───────────────────────
+// Standalone test of price/MACD divergence as an entry signal. No
+// RSI gate, no confluence requirement at gate time — we want to see
+// whether divergence ALONE carries an edge before layering filters
+// in Phase 2. Confluence IS tracked per trade so the per-bucket
+// matrix still renders and tells us if confluence is a useful refine.
+function runMacdDivergenceTest(){
+  var btn = document.getElementById('btMacdDivTestBtn');
+  var statusEl = document.getElementById('btMacdDivTestStatus');
+  var resultEl = document.getElementById('btMacdDivTestResult');
+  var origLabel = '🧪 TEST: MACD DIVERGENCE — PHASE 1 (STANDALONE)';
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '🧪 RUNNING...'; }
+  if(resultEl) resultEl.innerHTML = '';
+
+  if(typeof computeAllRecentBacktestsAsync !== 'function'){
+    if(statusEl) statusEl.textContent = 'Backtest engine not loaded';
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel; }
+    return;
+  }
+
+  if(statusEl) statusEl.textContent = 'Computing MACD-divergence cohort…';
+  computeAllRecentBacktestsAsync(true, function(done, total){
+    if(statusEl) statusEl.textContent = 'Computing MACD-divergence — ' + done + '/' + total;
+  }, function(results){
+    _renderMacdDivergenceResults(results || {}, statusEl, resultEl);
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel; }
+  }, 'macd-divergence');
+}
+if(typeof window !== 'undefined'){ window.runMacdDivergenceTest = runMacdDivergenceTest; }
+
+function _renderMacdDivergenceResults(loaded, statusEl, resultEl){
+  if(!resultEl){ if(statusEl) statusEl.textContent = '⚠ result host missing'; return; }
+  var classes = ['major','minor','comm','index','crypto'];
+  var buckets = [4, 3, 2, 1, 0];
+
+  var agg = {};
+  classes.forEach(function(cls){
+    agg[cls] = {};
+    buckets.forEach(function(b){ agg[cls][b] = {W:0, L:0}; });
+  });
+  var totals = {};
+  buckets.forEach(function(b){ totals[b] = {W:0, L:0}; });
+
+  Object.keys(MKTS).forEach(function(k){
+    var cls = (MKTS[k] && MKTS[k].t) || 'unknown';
+    if(!agg[cls]) return;
+    var rb = loaded[k];
+    if(!rb || !rb.perConfluence) return;
+    buckets.forEach(function(b){
+      var pc = rb.perConfluence[b];
+      if(!pc) return;
+      agg[cls][b].W += pc.W;
+      agg[cls][b].L += pc.L;
+      totals[b].W += pc.W;
+      totals[b].L += pc.L;
+    });
+  });
+
+  function wr(W, L){ var N = W + L; return N > 0 ? (W / N * 100) : null; }
+  function wrFmt(p){ return p == null ? '—' : p.toFixed(1) + '%'; }
+  function wrColor(p, N){
+    if(p == null || N < 10) return 'var(--inkd)';
+    return p >= 72 ? 'var(--bull)' : p >= 60 ? 'var(--gold)' : 'var(--bear)';
+  }
+  function cellFor(s){
+    var w = wr(s.W, s.L);
+    var N = s.W + s.L;
+    return '<td style="padding:5px 8px;text-align:right;color:' + wrColor(w, N) + ';font-weight:700;border-left:1px solid rgba(0,0,0,0.06);">'
+      + wrFmt(w) + '<div style="color:var(--inkd);font-weight:400;font-size:7.5px;">' + N + '</div></td>';
+  }
+
+  var headerCells = '<th style="padding:5px 8px;text-align:left;">Class</th>'
+    + buckets.map(function(b){
+        var lbl = b + '/4';
+        var sub = (b === 4) ? 'fully aligned' : (b === 0) ? 'fully contrarian' : (b + ' agree');
+        return '<th style="padding:5px 8px;text-align:right;background:rgba(45,166,166,0.08);border-left:1px solid rgba(0,0,0,0.06);">'
+          + '<div>' + lbl + '</div><div style="color:var(--inkd);font-weight:400;font-size:7.5px;">' + sub + '</div></th>';
+      }).join('');
+
+  var rows = classes.map(function(cls){
+    return '<tr style="border-top:1px dashed rgba(0,0,0,0.08);">'
+      + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">' + cls + '</td>'
+      + buckets.map(function(b){ return cellFor(agg[cls][b]); }).join('')
+      + '</tr>';
+  }).join('');
+
+  var totalRow = '<tr style="border-top:2px solid var(--rule);background:rgba(0,0,0,0.02);">'
+    + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">ALL</td>'
+    + buckets.map(function(b){ return cellFor(totals[b]); }).join('')
+    + '</tr>';
+
+  resultEl.innerHTML =
+    '<div style="margin-top:8px;padding:10px 12px;border:1px solid rgba(45,166,166,0.30);background:rgba(45,166,166,0.04);border-radius:4px;">'
+    + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#2da6a6;margin-bottom:6px;">MACD DIVERGENCE · PHASE 1 STANDALONE · PER CONFLUENCE</div>'
+    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:8px;">Trigger: bullish/bearish divergence between price and MACD line at confirmed swing extremes within 30 m15 bars. Bullish = price lower-low + MACD higher-low (exhaustion + reversal). Direction comes from the divergence side. No RSI gate, no confluence threshold at trigger time — confluence is recorded per trade so the bucket pattern surfaces whether confluence is a useful refinement. Cell shows WR / n. Cells with n &lt; 10 are too small to colour. Deploy threshold: ≥72% WR on ≥20 trades per class × bucket.</div>'
+    + '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table style="width:100%;border-collapse:collapse;font-size:9px;min-width:520px;">'
+    + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
+    + headerCells
+    + '</tr></thead><tbody>' + rows + totalRow + '</tbody></table></div>'
+    + '<div style="margin-top:8px;font-size:8.5px;color:var(--inkd);line-height:1.5;"><strong>Read:</strong> any cell ≥72% WR on ≥20 trades = deploy-grade. If divergence alone clears the bar broadly, ship it standalone. If only top-confluence buckets clear, confluence becomes the gate. If nothing meaningful clears, Phase 2 layers MACD cross + RSI on top of divergence to see if the combination is stronger than either alone.</div>'
+    + '</div>';
+  if(statusEl){
+    var ts = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    statusEl.textContent = '✓ Simulation ready · ' + ts;
+  }
+}
+if(typeof window !== 'undefined'){ window._renderMacdDivergenceResults = _renderMacdDivergenceResults; }
