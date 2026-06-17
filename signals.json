@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-17T13:41:04.562363+00:00",
-  "generated_ms": 1781703664562,
-  "detector_last_check": "2026-06-17T13:41:04.462197+00:00",
+  "generated": "2026-06-17T13:46:16.704364+00:00",
+  "generated_ms": 1781703976704,
+  "detector_last_check": "2026-06-17T13:46:16.091583+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
+    "total": 4,
     "armed": 2,
-    "triggered": 0,
+    "triggered": 2,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "nearusd:1781701200000:wick",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 2.304,
+      "stop": 2.272,
+      "target": 2.336,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1781701200000,
+      "triggeredAt": 1781703000000,
+      "lastSeenAt": 1781703976704,
+      "source": "server-detector"
+    },
     {
       "id": "taousd:1781701200000:wick",
       "pair": "taousd",
@@ -34,7 +55,28 @@
       "cl": "bull",
       "armedAt": 1781701200000,
       "triggeredAt": null,
-      "lastSeenAt": 1781703664562,
+      "lastSeenAt": 1781703976704,
+      "source": "server-detector"
+    },
+    {
+      "id": "nearusd:1780433100000:fib",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 2.317596,
+      "stop": 2.272,
+      "target": 2.363192,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780433100000,
+      "triggeredAt": 1781703000000,
+      "lastSeenAt": 1781703976704,
       "source": "server-detector"
     },
     {
@@ -55,7 +97,7 @@
       "cl": "bull",
       "armedAt": 1780254900000,
       "triggeredAt": null,
-      "lastSeenAt": 1781703664562,
+      "lastSeenAt": 1781703976704,
       "source": "server-detector"
     }
   ]
