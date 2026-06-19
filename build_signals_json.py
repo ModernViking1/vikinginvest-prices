@@ -141,6 +141,16 @@ def _signal_row(pair: str, info: dict, kind: str, now_ms: int) -> dict | None:
         trigger_ts = info.get("sig_macdp_trigger_ts")
         prefix = "macdp"
         macdp_dir = info.get("sig_macdp_dir")
+    elif kind == "divg":
+        # 2026-06-17 — MACD-divergence parallel trigger. Index-only at
+        # production. Same envelope shape as macdp — the divergence
+        # trigger bar IS the creator.
+        state = info.get("sig_divg_state")
+        entry = info.get("sig_divg_entry")
+        creator_ts = info.get("sig_divg_trigger_ts")
+        trigger_ts = info.get("sig_divg_trigger_ts")
+        prefix = "divg"
+        macdp_dir = info.get("sig_divg_dir")
     else:
         return None
 
@@ -158,8 +168,10 @@ def _signal_row(pair: str, info: dict, kind: str, now_ms: int) -> dict | None:
     trig_at_ms = _to_epoch_ms(trigger_ts)
 
     # Direction sourcing: MACD-primary uses the MACD cross direction
-    # (which lives in sig_macdp_dir); everything else uses aligned_dir.
-    aligned = macdp_dir if kind == "macdp" else info.get("aligned_dir")
+    # (which lives in sig_macdp_dir); MACD-divergence uses sig_divg_dir
+    # (assigned to macdp_dir above for code reuse). Everything else
+    # uses aligned_dir.
+    aligned = macdp_dir if kind in ("macdp", "divg") else info.get("aligned_dir")
     if aligned not in ("bull", "bear"):
         return None
 
@@ -167,8 +179,9 @@ def _signal_row(pair: str, info: dict, kind: str, now_ms: int) -> dict | None:
     if cls is None:
         # Pair not in our broker universe — skip silently.
         return None
-    # MACD-primary is always half-size on indices (mirrors FIB convention).
-    method = "fib" if (kind == "fib" or kind == "macdp") else _method_for(pair)
+    # MACD-primary + MACD-divergence are always half-size on indices
+    # (mirror the FIB convention used for index production trades).
+    method = "fib" if kind in ("fib", "macdp", "divg") else _method_for(pair)
     r_size = _R_per_trade(method)
 
     # Stable idempotency key. The {kind} suffix lets a single setup
@@ -182,9 +195,12 @@ def _signal_row(pair: str, info: dict, kind: str, now_ms: int) -> dict | None:
     elif kind == "fib":
         stop_val = info.get("sig_fib_stop")
         target_val = info.get("sig_fib_target")
-    else:  # macdp
+    elif kind == "macdp":
         stop_val = info.get("sig_macdp_stop")
         target_val = info.get("sig_macdp_target")
+    else:  # divg
+        stop_val = info.get("sig_divg_stop")
+        target_val = info.get("sig_divg_target")
 
     return {
         "id": sig_id,
@@ -220,7 +236,7 @@ def build_signals(state: dict) -> dict:
     for pair, info in pairs.items():
         if not isinstance(info, dict):
             continue
-        for kind in ("wick", "fib", "macdp"):
+        for kind in ("wick", "fib", "macdp", "divg"):
             row = _signal_row(pair, info, kind, now_ms)
             if row is not None:
                 out.append(row)

@@ -11044,7 +11044,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-17a';
+var RULES_VERSION = '2026-06-17b';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -11053,6 +11053,7 @@ var RULES_VERSION_NOTES = [
   // The full internal changelog lives in private engineering docs;
   // signed-in advisors / investors can request the full version
   // under NDA via the Investor Relations panel on the Performance tab.
+  '2026-06-17 — Indices gain a third parallel entry: price/MACD divergence at swing pivots. Phase 1 backtest A/B showed 74.0% WR on 573 trades for the deploy buckets (≥1 layer of confluence with the divergence direction, excluding both fully-aligned and fully-contrarian cohorts which under-performed the threshold). Routes through Telegram + the cBot at half-size alongside the existing 4/4 and MACD-primary paths.',
   '2026-06-16 — Indices gain a parallel 15-minute momentum-cross trigger that fires alongside the standard 4-layer alignment trigger. Backtest A/B showed 78.5% WR across confluence ≥ 1 buckets (79 trades) so it ships index-only with the fully contrarian cohort filtered out. Minors get the same trigger as a shadow log only — candidate trades are recorded but not executed, so we can forward-test the 0/4 contrarian cohort (79.3% WR on n=29 historically) before deciding whether to promote.',
   '2026-06-16 — Indices now require an additional 15-minute momentum-confirm filter before signals fire. Backtest A/B showed +4.3pp on indices (69.9% → 74.2% over 31 filtered trades) while every other class scored neutral or worse — so the filter ships index-only. Other classes unchanged.',
   '2026-06-16 — Added a 15-minute momentum-confirm filter to the failure-mode panel as a candidate rule under test. Surfaces what fraction of losing trades a momentum cross-gate would have blocked pre-entry. Live trades are unchanged while the data accumulates.',
@@ -11934,6 +11935,77 @@ function calcRecentBacktest(k, mode){
                   });
                 }
               }
+            }
+          }
+        }
+      }
+    }
+
+    // ── 2026-06-17 — MACD-DIVERGENCE PARALLEL DETECTION (Phase 1) ─
+    // INDEX class only in production. Mirror of the MACD-primary
+    // parallel detection above. Skips fully aligned (4/4) and fully
+    // contrarian (0/4) buckets per the per-confluence A/B that showed
+    // 74.0% WR on n=573 for confluence ∈ {1,2,3} (vs 52.9% at 4/4 and
+    // 69.2% at 0/4).
+    if(_btPairClass === 'index'
+       && !_btUseMacdPrimary && !_btUseMacdDivergence
+       && !_btUse3of4 && !_btUse2of4 && !_btUse1of4
+       && m15MacdAtIdx
+       && typeof _macdDivergence === 'function'){
+      var _dpDir = _macdDivergence(m15Bars, i, m15MacdAtIdx.macd, 30);
+      if(_dpDir){
+        var _dpConf = 0;
+        if(ewDir === _dpDir) _dpConf++;
+        if(tlDir === _dpDir) _dpConf++;
+        if(nwDir === _dpDir) _dpConf++;
+        if(clDir === _dpDir) _dpConf++;
+        if(_dpConf >= 1 && _dpConf <= 3){
+          var _dpEntry, _dpStop;
+          var _dpBosSlice = m15Bars.slice(Math.max(0, i - BOS_LB), i);
+          if(_dpDir === 'bull'){
+            _dpEntry = m15Bars[i].l;
+            _dpStop = findStructLow(_dpBosSlice);
+          } else {
+            _dpEntry = m15Bars[i].h;
+            _dpStop = findStructHigh(_dpBosSlice);
+          }
+          var _dpValid = (_dpDir === 'bull' ? _dpStop < _dpEntry : _dpStop > _dpEntry);
+          if(_dpValid){
+            var _dpR = Math.abs(_dpEntry - _dpStop);
+            var _dpTarget = _dpDir === 'bull' ? _dpEntry + _dpR : _dpEntry - _dpR;
+            var _dpOutcome = null;
+            var _dpFwdEnd = Math.min(m15Bars.length, i + 24);
+            for(var _dfi = i + 1; _dfi < _dpFwdEnd; _dfi++){
+              var _dpb = m15Bars[_dfi];
+              if(_dpDir === 'bull'){
+                if(_dpb.l <= _dpStop){ _dpOutcome = 'loss'; break; }
+                if(_dpb.h >= _dpTarget){ _dpOutcome = 'win'; break; }
+              } else {
+                if(_dpb.h >= _dpStop){ _dpOutcome = 'loss'; break; }
+                if(_dpb.l <= _dpTarget){ _dpOutcome = 'win'; break; }
+              }
+            }
+            if(_dpOutcome === 'win'){ wins++; }
+            else if(_dpOutcome === 'loss'){ losses++; }
+            else { expired++; }
+            if(_dpOutcome){
+              trades.push({
+                outcome: _dpOutcome,
+                failureMode: null,
+                dir: _dpDir,
+                entry: _dpEntry,
+                stop: _dpStop,
+                target: _dpTarget,
+                entryOriginal: _dpEntry,
+                rearmCount: 0,
+                creatorTs: curTs,
+                creatorTsLive: curTs,
+                resolvedAt: m15Ts[Math.min(_dfi, m15Ts.length - 1)] || curTs,
+                triggered: true,
+                maxFavorable: null,
+                source: 'macd-divergence',
+                confluence: _dpConf
+              });
             }
           }
         }

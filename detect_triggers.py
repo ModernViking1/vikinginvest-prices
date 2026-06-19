@@ -1979,6 +1979,125 @@ def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
     }
 
 
+def detect_macd_divergence(bars, ew_dir, tl_dir, nw_dir, cl_dir,
+                           pair_class, lookback=30, lookback_struct=8):
+    """MACD divergence trigger (2026-06-17 — Phase 1 deploy).
+
+    Phase 1 backtest A/B showed:
+      INDEX 3/4: 78.8% WR on n=85
+      INDEX 2/4: 73.3% WR on n=217
+      INDEX 1/4: 73.4% WR on n=271
+      Combined: 74.0% WR on n=573 across confluence ∈ {1,2,3}
+
+    The 4/4 cell (52.9%) and 0/4 cell (69.2%) are intentionally skipped:
+    full alignment fights the divergence (trend stays strong), pure
+    contrarian is too aggressive. INDEX only at production — other
+    classes had insufficient sample (n<20) or weaker per-bucket
+    structure in the Phase 1 backtest.
+
+    Bullish divergence: price made a lower low but MACD made a higher
+    low at the same swing pivot — momentum failed to confirm the new
+    price extreme. Symmetric for bearish. 5-bar pivot pattern with
+    +2 forward-bar confirmation; "actionable" only when the most
+    recent diverging swing is within 5 m15 bars of the current bar.
+    """
+    if pair_class != 'index':
+        return None
+    n = len(bars)
+    if n < 35:
+        return None
+    closes = [b.get('c') for b in bars if b.get('c') is not None]
+    if len(closes) < 35:
+        return None
+    macd_line, _sig_line = macd_series(closes, 12, 26, 9)
+
+    i = len(closes) - 1  # current bar
+    start = max(2, i - lookback)
+    end = i - 2  # need j+2 to exist
+    if end < start + 1:
+        return None
+    swing_lows = []
+    swing_highs = []
+    for j in range(start, end + 1):
+        b = bars[j]
+        pb1 = bars[j-1]
+        pb2 = bars[j-2]
+        fb1 = bars[j+1]
+        fb2 = bars[j+2]
+        b_lo, b_hi = b.get('l'), b.get('h')
+        if b_lo is None or b_hi is None:
+            continue
+        if (b_lo < pb1.get('l', float('inf')) and
+            b_lo < pb2.get('l', float('inf')) and
+            b_lo < fb1.get('l', float('inf')) and
+            b_lo < fb2.get('l', float('inf'))):
+            swing_lows.append({'idx': j, 'val': b_lo, 'macd': macd_line[j]})
+        if (b_hi > pb1.get('h', float('-inf')) and
+            b_hi > pb2.get('h', float('-inf')) and
+            b_hi > fb1.get('h', float('-inf')) and
+            b_hi > fb2.get('h', float('-inf'))):
+            swing_highs.append({'idx': j, 'val': b_hi, 'macd': macd_line[j]})
+
+    div_dir = None
+    if len(swing_lows) >= 2:
+        a = swing_lows[-1]
+        prev = swing_lows[-2]
+        if (a['val'] < prev['val'] and
+            a['macd'] is not None and prev['macd'] is not None and
+            a['macd'] > prev['macd'] and
+            (i - a['idx']) <= 5):
+            div_dir = 'bull'
+    if div_dir is None and len(swing_highs) >= 2:
+        a = swing_highs[-1]
+        prev = swing_highs[-2]
+        if (a['val'] > prev['val'] and
+            a['macd'] is not None and prev['macd'] is not None and
+            a['macd'] < prev['macd'] and
+            (i - a['idx']) <= 5):
+            div_dir = 'bear'
+
+    if div_dir is None:
+        return None
+
+    confluence = 0
+    for layer in (ew_dir, tl_dir, nw_dir, cl_dir):
+        if layer == div_dir:
+            confluence += 1
+    # Production gate: skip 4/4 (53% — fights trend) and 0/4 (pure contrarian)
+    if confluence == 0 or confluence == 4:
+        return None
+
+    struct_slice = bars[max(0, i - lookback_struct):i]
+    if div_dir == 'bull':
+        entry = bars[i].get('l')
+        struct_low = min((b.get('l', float('inf')) for b in struct_slice), default=None)
+        if entry is None or struct_low is None or struct_low >= entry:
+            return None
+        stop = struct_low
+        r = entry - stop
+    else:
+        entry = bars[i].get('h')
+        struct_high = max((b.get('h', float('-inf')) for b in struct_slice), default=None)
+        if entry is None or struct_high is None or struct_high <= entry:
+            return None
+        stop = struct_high
+        r = stop - entry
+    if r <= 0:
+        return None
+
+    target = entry + r if div_dir == 'bull' else entry - r
+
+    return {
+        'state': 'triggered',
+        'dir': div_dir,
+        'entry': entry,
+        'stop': stop,
+        'target': target,
+        'trigger_ts': bars[i].get('t'),
+        'confluence': confluence,
+    }
+
+
 def calc_4h_cloud_dir(h1_bars, fast=21, slow=55):
     """4H EMA cloud direction (21/55 by default).
 
@@ -2236,6 +2355,18 @@ def scan_pairs(intraday_data, historical_data):
             except Exception as e:
                 print(f'  ⚠ MACD-primary detector failed for {pair}: {e}')
 
+        # MACD-divergence parallel trigger (2026-06-17 — Phase 1 deploy).
+        # INDEX class only at production — 4/4 (53%) and 0/4 (69%) buckets
+        # are skipped inside the detector; only confluence ∈ {1,2,3}
+        # produces a 'triggered' signal.
+        divg_sig = None
+        if macdp_pair_class == 'index':
+            try:
+                divg_sig = detect_macd_divergence(
+                    m15, ew, tl, nw, cl, macdp_pair_class)
+            except Exception as e:
+                print(f'  ⚠ MACD-divergence detector failed for {pair}: {e}')
+
         # School Run tier — only computed for DE40 and DJ30 (the only
         # pairs in SR_REF_TIMES); for other pairs sr_info stays None
         # and the dashboard won't render the pill. Confluence score
@@ -2284,6 +2415,14 @@ def scan_pairs(intraday_data, historical_data):
             'sig_macdp_trigger_ts':  macdp_sig.get('trigger_ts') if macdp_sig else None,
             'sig_macdp_confluence':  macdp_sig.get('confluence') if macdp_sig else None,
             'sig_macdp_shadow':      bool(macdp_sig.get('shadow')) if macdp_sig else False,
+            # MACD-divergence parallel trigger (2026-06-17). INDEX only.
+            'sig_divg_state':        divg_sig.get('state') if divg_sig else None,
+            'sig_divg_dir':          divg_sig.get('dir') if divg_sig else None,
+            'sig_divg_entry':        divg_sig.get('entry') if divg_sig else None,
+            'sig_divg_stop':         divg_sig.get('stop') if divg_sig else None,
+            'sig_divg_target':       divg_sig.get('target') if divg_sig else None,
+            'sig_divg_trigger_ts':   divg_sig.get('trigger_ts') if divg_sig else None,
+            'sig_divg_confluence':   divg_sig.get('confluence') if divg_sig else None,
             # Post-trigger outcome metadata (2026-06-11ff) — main loop
             # uses this to fire EXIT alerts when a previously-alerted
             # trigger gets invalidated by counter-bars / opposing CHoCH.
@@ -2504,6 +2643,28 @@ def format_alert(pair, info, kind):
             f"Stop:   <code>{stop_str}</code>\n"
             f"Target: <code>{target_str}</code> (1:1 R:R from fib entry)\n"
             f"{_fib_ext_line(entry_val)}"
+            f"Current px: <code>{_fmt_price(info['price'])}</code>\n"
+            f"{layers}\n"
+            f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
+        )
+        return text
+
+    if kind == 'triggered-divg':
+        # MACD-divergence parallel trigger for INDEX class (2026-06-17
+        # — Phase 1 deploy). Position size = HALF (mirrors the FIB
+        # convention used for indices in production).
+        divg_dir = info.get('sig_divg_dir')
+        divg_action = 'BUY' if divg_dir == 'bull' else 'SELL'
+        entry_str  = _fmt_price(info.get('sig_divg_entry'))
+        stop_str   = _fmt_price(info.get('sig_divg_stop'))
+        target_str = _fmt_price(info.get('sig_divg_target'))
+        conf       = info.get('sig_divg_confluence')
+        text = (
+            f"🔀 <b>MACD-DIVERGENCE — {divg_action} {sym}</b> (half size · index)\n"
+            f"Entry:  <code>{entry_str}</code> (price/MACD divergence at swing pivot)\n"
+            f"Stop:   <code>{stop_str}</code>\n"
+            f"Target: <code>{target_str}</code> (1:1 R:R)\n"
+            f"Confluence: <code>{conf}/4</code> layers agree\n"
             f"Current px: <code>{_fmt_price(info['price'])}</code>\n"
             f"{layers}\n"
             f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
@@ -2759,6 +2920,10 @@ def main():
         # MACD-primary path doesn't have a separate creator concept —
         # the cross bar IS the trigger.
         alerted_macdp = prev.get('alerted_macdp_trigger_ts')
+        # MACD-divergence trigger dedup (2026-06-17 — Phase 1 deploy).
+        # Same key shape as macdp — the divergence "trigger bar" is the
+        # bar at which the most recent diverging swing was confirmed.
+        alerted_divg = prev.get('alerted_divg_trigger_ts')
         # Migration: state files written before alerted_trigger_creator_ts
         # existed have no dedup key. If the pair was already 'triggered' on
         # the same creator last run, treat that creator as already-alerted
@@ -2887,6 +3052,26 @@ def main():
                     if send_telegram(token, chat_id, text):
                         alerts_sent += 1
                     alerted_macdp = cur_macdp_trigger_ts
+
+        # ── MACD-DIVERGENCE TRIGGER ALERTS (2026-06-17 — Phase 1) ───
+        # INDEX-only production deploy. Same Telegram + cBot routing
+        # as the MACD-primary path above.
+        cur_divg_state = info.get('sig_divg_state')
+        cur_divg_trigger_ts = info.get('sig_divg_trigger_ts')
+        if cur_divg_state == 'triggered' and cur_divg_trigger_ts:
+            is_new_divg = (cur_divg_trigger_ts != alerted_divg)
+            if is_new_divg and is_first_run:
+                print(f'  baseline(divg): {pair} already divergence-triggered — recorded, not alerting')
+                alerted_divg = cur_divg_trigger_ts
+            elif is_new_divg:
+                print(f'  ALERT(divg): {pair} -> divergence triggered '
+                      f'(dir={info.get("sig_divg_dir")}, '
+                      f'entry={info.get("sig_divg_entry")}, '
+                      f'conf={info.get("sig_divg_confluence")})')
+                text = format_alert(pair, info, 'triggered-divg')
+                if send_telegram(token, chat_id, text):
+                    alerts_sent += 1
+                alerted_divg = cur_divg_trigger_ts
 
         # ── POST-TRIGGER EXIT ALERTS (2026-06-11ff) ─────────────────
         # Fire an EXIT alert when a trade we previously alerted on has
@@ -3024,6 +3209,15 @@ def main():
             'sig_macdp_confluence': info.get('sig_macdp_confluence'),
             'sig_macdp_shadow':     bool(info.get('sig_macdp_shadow')),
             'alerted_macdp_trigger_ts': alerted_macdp,
+            # MACD-divergence parallel trigger persistence (2026-06-17).
+            'sig_divg_state':       info.get('sig_divg_state'),
+            'sig_divg_dir':         info.get('sig_divg_dir'),
+            'sig_divg_entry':       info.get('sig_divg_entry'),
+            'sig_divg_stop':        info.get('sig_divg_stop'),
+            'sig_divg_target':      info.get('sig_divg_target'),
+            'sig_divg_trigger_ts':  info.get('sig_divg_trigger_ts'),
+            'sig_divg_confluence':  info.get('sig_divg_confluence'),
+            'alerted_divg_trigger_ts': alerted_divg,
             'last_check': now_iso,
         }
 
