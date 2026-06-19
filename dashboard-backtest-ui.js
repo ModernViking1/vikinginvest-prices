@@ -430,21 +430,22 @@ function buildBacktest(){
           var rbRate = (Math.round(rb.rate * 1000) / 10).toFixed(1);
           var rbExtra = '';
           if(rb.expired > 0) rbExtra += ' &middot; ' + rb.expired + ' exp';
-          if(rb.invalidated > 0){
-            // 2026-06-12 split — show pre/post breakdown when the
-            // counters are present (recomputed caches under the new
-            // walker have them; older caches fall back to the lump
-            // sum). post-trigger invalidations have a real partial-
-            // loss impact; pre-trigger ones cost the user 0R.
-            var invPre  = (typeof rb.invalidatedPre  === 'number') ? rb.invalidatedPre  : null;
-            var invPost = (typeof rb.invalidatedPost === 'number') ? rb.invalidatedPost : null;
-            if(invPre != null && invPost != null && (invPre + invPost) > 0){
-              rbExtra += ' &middot; <span title="Pre-trigger invalidations: signal cancelled before entry — 0R impact (' + invPre + '). Post-trigger invalidations: exit signal after entry — small partial loss in live trading (' + invPost + ').">'
-                       + rb.invalidated + ' inv (' + invPre + ' pre &middot; ' + invPost + ' post)'
-                       + '</span>';
-            } else {
-              rbExtra += ' &middot; ' + rb.invalidated + ' inv';
-            }
+          // 2026-06-19 — always render the pre/post split when the
+          // counters are present, even when both are zero. The previous
+          // "hide on zero" rule made it impossible to confirm at a
+          // glance whether a quiet card (indices in particular) was
+          // genuinely clean or whether the breakdown simply wasn't
+          // computed yet. post-trigger invalidations have a real
+          // partial-loss impact; pre-trigger ones cost the user 0R.
+          var invPre  = (typeof rb.invalidatedPre  === 'number') ? rb.invalidatedPre  : null;
+          var invPost = (typeof rb.invalidatedPost === 'number') ? rb.invalidatedPost : null;
+          if(invPre != null && invPost != null){
+            var invTotal = rb.invalidated || 0;
+            rbExtra += ' &middot; <span title="Pre-trigger invalidations: signal cancelled before entry — 0R impact (' + invPre + '). Post-trigger invalidations: exit signal after entry — small partial loss in live trading (' + invPost + ').">'
+                     + invTotal + ' inv (' + invPre + ' pre &middot; ' + invPost + ' post)'
+                     + '</span>';
+          } else if(rb.invalidated > 0){
+            rbExtra += ' &middot; ' + rb.invalidated + ' inv';
           }
           var rbBody = (rb.total === 0)
             ? '<span style="font-size:7.5px;color:var(--inkd);font-style:italic;">no completed' + rbExtra + '</span>'
