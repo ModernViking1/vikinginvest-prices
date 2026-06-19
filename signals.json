@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-19T12:40:54.076457+00:00",
-  "generated_ms": 1781872854076,
-  "detector_last_check": "2026-06-19T12:40:53.987583+00:00",
+  "generated": "2026-06-19T12:46:01.744889+00:00",
+  "generated_ms": 1781873161744,
+  "detector_last_check": "2026-06-19T12:46:01.041636+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
+    "total": 3,
     "armed": 0,
-    "triggered": 0,
+    "triggered": 1,
     "invalidated": 2
   },
   "signals": [
+    {
+      "id": "ftse100:1781873100000:macdp",
+      "pair": "ftse100",
+      "sym": "FTSE100",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 10386.0,
+      "stop": 10363.6,
+      "target": 10408.4,
+      "ew": "bull",
+      "tl": "neutral",
+      "nw": "neutral",
+      "cl": "neutral",
+      "armedAt": 1781873100000,
+      "triggeredAt": 1781873100000,
+      "lastSeenAt": 1781873161744,
+      "source": "server-detector"
+    },
     {
       "id": "xagusd:1781867700000:wick",
       "pair": "xagusd",
@@ -34,7 +55,7 @@
       "cl": "bear",
       "armedAt": 1781867700000,
       "triggeredAt": null,
-      "lastSeenAt": 1781872854076,
+      "lastSeenAt": 1781873161744,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,7 @@
       "cl": "bear",
       "armedAt": 1781867700000,
       "triggeredAt": null,
-      "lastSeenAt": 1781872854076,
+      "lastSeenAt": 1781873161744,
       "source": "server-detector"
     }
   ]
