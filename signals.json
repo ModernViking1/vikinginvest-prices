@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-19T09:55:50.889086+00:00",
-  "generated_ms": 1781862950888,
-  "detector_last_check": "2026-06-19T09:55:50.794473+00:00",
+  "generated": "2026-06-19T10:01:20.538650+00:00",
+  "generated_ms": 1781863280538,
+  "detector_last_check": "2026-06-19T10:01:20.098489+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 4,
-    "armed": 3,
-    "triggered": 1,
+    "total": 6,
+    "armed": 4,
+    "triggered": 2,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "xptusd:1781862300000:wick",
+      "pair": "xptusd",
+      "sym": "XPTUSD",
+      "cls": "comm",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 1672.844,
+      "stop": 1675.504,
+      "target": 1670.1840000000002,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1781862300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781863280538,
+      "source": "server-detector"
+    },
     {
       "id": "gbpcad:1781861400000:wick",
       "pair": "gbpcad",
@@ -34,7 +55,7 @@
       "cl": "bull",
       "armedAt": 1781861400000,
       "triggeredAt": null,
-      "lastSeenAt": 1781862950888,
+      "lastSeenAt": 1781863280538,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,28 @@
       "cl": "bull",
       "armedAt": 1781857800000,
       "triggeredAt": null,
-      "lastSeenAt": 1781862950888,
+      "lastSeenAt": 1781863280538,
+      "source": "server-detector"
+    },
+    {
+      "id": "xptusd:1781782200000:fib",
+      "pair": "xptusd",
+      "sym": "XPTUSD",
+      "cls": "comm",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 1669.034648,
+      "stop": 1675.504,
+      "target": 1662.5652960000002,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1781782200000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781863280538,
       "source": "server-detector"
     },
     {
@@ -66,7 +108,7 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bull",
-      "state": "armed",
+      "state": "triggered",
       "entry": 1.8714339599999998,
       "stop": 1.86348,
       "target": 1.8793879199999997,
@@ -75,8 +117,8 @@
       "nw": "bull",
       "cl": "bull",
       "armedAt": 1780916400000,
-      "triggeredAt": null,
-      "lastSeenAt": 1781862950888,
+      "triggeredAt": 1781863200000,
+      "lastSeenAt": 1781863280538,
       "source": "server-detector"
     },
     {
@@ -97,7 +139,7 @@
       "cl": "bull",
       "armedAt": 1780560900000,
       "triggeredAt": 1781859600000,
-      "lastSeenAt": 1781862950888,
+      "lastSeenAt": 1781863280538,
       "source": "server-detector"
     }
   ]
