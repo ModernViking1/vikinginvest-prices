@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-19T15:05:51.649092+00:00",
-  "generated_ms": 1781881551648,
-  "detector_last_check": "2026-06-19T15:05:51.554964+00:00",
+  "generated": "2026-06-19T15:11:04.033032+00:00",
+  "generated_ms": 1781881864032,
+  "detector_last_check": "2026-06-19T15:11:03.390827+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,54 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 10,
+    "total": 11,
     "armed": 4,
-    "triggered": 2,
-    "invalidated": 4
+    "triggered": 1,
+    "invalidated": 6
   },
   "signals": [
+    {
+      "id": "ftse100:1781881200000:macdp",
+      "pair": "ftse100",
+      "sym": "FTSE100",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 10383.0,
+      "stop": 10382.2,
+      "target": 10383.8,
+      "ew": "bull",
+      "tl": "bear",
+      "nw": "bull",
+      "cl": "neutral",
+      "armedAt": 1781881200000,
+      "triggeredAt": 1781881200000,
+      "lastSeenAt": 1781881864032,
+      "source": "server-detector"
+    },
+    {
+      "id": "taousd:1781881200000:wick",
+      "pair": "taousd",
+      "sym": "TAOUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 225.69,
+      "stop": 230.32,
+      "target": 221.06,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1781881200000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781881864032,
+      "source": "server-detector"
+    },
     {
       "id": "gbpcad:1781880300000:wick",
       "pair": "gbpcad",
@@ -34,7 +76,7 @@
       "cl": "bull",
       "armedAt": 1781880300000,
       "triggeredAt": null,
-      "lastSeenAt": 1781881551648,
+      "lastSeenAt": 1781881864032,
       "source": "server-detector"
     },
     {
@@ -55,7 +97,7 @@
       "cl": "bull",
       "armedAt": 1781880300000,
       "triggeredAt": null,
-      "lastSeenAt": 1781881551648,
+      "lastSeenAt": 1781881864032,
       "source": "server-detector"
     },
     {
@@ -76,7 +118,7 @@
       "cl": "bull",
       "armedAt": 1781879400000,
       "triggeredAt": null,
-      "lastSeenAt": 1781881551648,
+      "lastSeenAt": 1781881864032,
       "source": "server-detector"
     },
     {
@@ -87,7 +129,7 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bear",
-      "state": "armed",
+      "state": "invalidated",
       "entry": 64.556,
       "stop": 65.2701875,
       "target": 63.84181249999999,
@@ -97,49 +139,7 @@
       "cl": "bear",
       "armedAt": 1781879400000,
       "triggeredAt": null,
-      "lastSeenAt": 1781881551648,
-      "source": "server-detector"
-    },
-    {
-      "id": "xptusd:1781876700000:wick",
-      "pair": "xptusd",
-      "sym": "XPTUSD",
-      "cls": "comm",
-      "method": "fib",
-      "r_size": 0.5,
-      "dir": "bear",
-      "state": "triggered",
-      "entry": 1652.143,
-      "stop": 1672.375,
-      "target": 1631.911,
-      "ew": "bear",
-      "tl": "bear",
-      "nw": "bear",
-      "cl": "bear",
-      "armedAt": 1781876700000,
-      "triggeredAt": 1781878500000,
-      "lastSeenAt": 1781881551648,
-      "source": "server-detector"
-    },
-    {
-      "id": "xptusd:1781876700000:fib",
-      "pair": "xptusd",
-      "sym": "XPTUSD",
-      "cls": "comm",
-      "method": "fib",
-      "r_size": 0.5,
-      "dir": "bear",
-      "state": "triggered",
-      "entry": 1649.839714,
-      "stop": 1672.375,
-      "target": 1627.304428,
-      "ew": "bear",
-      "tl": "bear",
-      "nw": "bear",
-      "cl": "bear",
-      "armedAt": 1781876700000,
-      "triggeredAt": 1781878500000,
-      "lastSeenAt": 1781881551648,
+      "lastSeenAt": 1781881864032,
       "source": "server-detector"
     },
     {
@@ -150,7 +150,7 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bear",
-      "state": "armed",
+      "state": "invalidated",
       "entry": 64.331357,
       "stop": 65.2701875,
       "target": 63.39252649999999,
@@ -160,7 +160,7 @@
       "cl": "bear",
       "armedAt": 1781867700000,
       "triggeredAt": null,
-      "lastSeenAt": 1781881551648,
+      "lastSeenAt": 1781881864032,
       "source": "server-detector"
     },
     {
@@ -181,7 +181,7 @@
       "cl": "bull",
       "armedAt": 1780916400000,
       "triggeredAt": null,
-      "lastSeenAt": 1781881551648,
+      "lastSeenAt": 1781881864032,
       "source": "server-detector"
     },
     {
@@ -202,7 +202,7 @@
       "cl": "bull",
       "armedAt": 1780560900000,
       "triggeredAt": null,
-      "lastSeenAt": 1781881551648,
+      "lastSeenAt": 1781881864032,
       "source": "server-detector"
     },
     {
@@ -223,7 +223,28 @@
       "cl": "bull",
       "armedAt": 1780305300000,
       "triggeredAt": null,
-      "lastSeenAt": 1781881551648,
+      "lastSeenAt": 1781881864032,
+      "source": "server-detector"
+    },
+    {
+      "id": "taousd:1780254900000:fib",
+      "pair": "taousd",
+      "sym": "TAOUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 225.22032000000002,
+      "stop": 230.32,
+      "target": 220.12064000000004,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1780254900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781881864032,
       "source": "server-detector"
     }
   ]
