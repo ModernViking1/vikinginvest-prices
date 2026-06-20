@@ -11172,7 +11172,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-20c';
+var RULES_VERSION = '2026-06-20d';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -12324,8 +12324,14 @@ function calcRecentBacktest(k, mode){
     // classes that have the filter wired into detectIntradaySignal
     // (NOWICK_ATR_Q4_LIVE_CLASSES). Otherwise the dashboard per-pair
     // WR cards drift away from live-filter behavior.
+    // 2026-06-20d — diagnostic mode bypasses the ATR Q4 filter so
+    // the captured distribution shows ALL triggers (pre-filter).
+    // Otherwise the per-pair Q4 boundaries get pulled below the
+    // class ceiling and we can't re-derive per-pair thresholds
+    // from the captured data.
     var _shouldApplyAtrQ4 = _btUseAtrQ4Cut
-      || (_btUseAuto && typeof NOWICK_ATR_Q4_LIVE_CLASSES !== 'undefined'
+      || (_btUseAuto && !_btCollectDiag
+          && typeof NOWICK_ATR_Q4_LIVE_CLASSES !== 'undefined'
           && NOWICK_ATR_Q4_LIVE_CLASSES.indexOf(_btPairClass) >= 0);
     if(_shouldApplyAtrQ4){
       var _atrCeiling = (typeof NOWICK_ATR_Q4_CEILING_BY_CLASS !== 'undefined' && _btPairClass)
