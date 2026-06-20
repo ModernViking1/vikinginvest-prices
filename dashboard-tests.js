@@ -2883,12 +2883,12 @@ function _renderNowickDiagnostic(results, statusEl, resultEl){
       if(!t || !t.diag) return;
       if(isPostInv(t)){
         cohorts[cls].postInv.push(t.diag);
-        cohorts[cls].allRecords.push({outcome: 'postInv', atrPct: t.diag.atrPct, rsi: t.diag.rsi});
+        cohorts[cls].allRecords.push({outcome: 'postInv', atrPct: t.diag.atrPct, rsi: t.diag.rsi, pair: k});
       } else if(isClean(t)){
         cohorts[cls].clean.push(t.diag);
         if(t.outcome === 'win') cohorts[cls].cleanW++;
         else cohorts[cls].cleanL++;
-        cohorts[cls].allRecords.push({outcome: t.outcome, atrPct: t.diag.atrPct, rsi: t.diag.rsi});
+        cohorts[cls].allRecords.push({outcome: t.outcome, atrPct: t.diag.atrPct, rsi: t.diag.rsi, pair: k});
       }
     });
   });
@@ -3100,6 +3100,76 @@ function _renderNowickDiagnostic(results, statusEl, resultEl){
     + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:6px;">Per class, all trades bucketed into ATR(14)% quartiles. <strong>WR within resolved</strong> = W / (W+L) for trades that did resolve cleanly in that bucket — answers whether ATR predicts outcome among trades that survive. <strong>PI rate of total</strong> = post-inv share of all trades in the bucket — confirms post-inv concentrates in higher quartiles. Deploy decision rule: if WR drops monotonically (or sharply at Q4) from Q1→Q4, ATR-ceiling filter lifts WR. If WR is flat across quartiles, an ATR ceiling cuts post-inv burden without WR lift (capital preservation play, not WR play).</div>'
     + (bucketRowsHtml || '<div style="font-size:9px;color:var(--bear);">Insufficient sample for ATR-quartile analysis.</div>')
     + '</div>'
+    + (function(){
+        // ── PER-PAIR ATR DISTRIBUTION (2026-06-20) ────────────
+        // The per-class quartile boundaries above are aggregates
+        // across pairs in that class. But a single per-class
+        // threshold (e.g. MAJOR 0.081%) can be dominated by one
+        // high-vol pair (AUD/USD) while never firing on tight-
+        // range pairs (EUR/USD). This panel breaks down each
+        // class's records by pair so we can see actual per-pair
+        // median / P75 / P95 ATR% and how many of each pair's
+        // trades the current class-level ceiling cuts.
+        var threshClasses = (typeof NOWICK_ATR_Q4_CEILING_BY_CLASS !== 'undefined')
+          ? Object.keys(NOWICK_ATR_Q4_CEILING_BY_CLASS) : [];
+        if(!threshClasses.length) return '';
+        var sections = threshClasses.map(function(cls){
+          if(!cohorts[cls]) return '';
+          var threshold = NOWICK_ATR_Q4_CEILING_BY_CLASS[cls];
+          var liveActive = (typeof NOWICK_ATR_Q4_LIVE_CLASSES !== 'undefined')
+            && NOWICK_ATR_Q4_LIVE_CLASSES.indexOf(cls) >= 0;
+          var byPair = {};
+          cohorts[cls].allRecords.forEach(function(r){
+            if(r.atrPct == null || !isFinite(r.atrPct) || !r.pair) return;
+            if(!byPair[r.pair]) byPair[r.pair] = [];
+            byPair[r.pair].push(r);
+          });
+          var pairKeys = Object.keys(byPair).sort();
+          if(!pairKeys.length) return '';
+          var trs = pairKeys.map(function(p){
+            var recs = byPair[p];
+            var atrs = recs.map(function(r){ return r.atrPct; }).sort(function(a,b){ return a-b; });
+            var med = percentile(atrs, 0.50);
+            var p75 = percentile(atrs, 0.75);
+            var p95 = percentile(atrs, 0.95);
+            var maxA = atrs[atrs.length - 1];
+            var cutCount = recs.filter(function(r){ return r.atrPct >= threshold; }).length;
+            var cutPct = recs.length > 0 ? (cutCount / recs.length * 100) : 0;
+            var cutColor = cutCount === 0 ? 'var(--bear)' : (cutPct >= 20 ? '#15803d' : 'var(--gold)');
+            return '<tr style="border-top:1px dashed rgba(0,0,0,0.06);">'
+              + '<td style="padding:3px 6px;font-weight:700;">' + p + '</td>'
+              + '<td style="padding:3px 6px;text-align:right;">' + recs.length + '</td>'
+              + '<td style="padding:3px 6px;text-align:right;font-family:monospace;font-size:8.5px;">' + fmt(med, 3) + '%</td>'
+              + '<td style="padding:3px 6px;text-align:right;font-family:monospace;font-size:8.5px;">' + fmt(p75, 3) + '%</td>'
+              + '<td style="padding:3px 6px;text-align:right;font-family:monospace;font-size:8.5px;">' + fmt(p95, 3) + '%</td>'
+              + '<td style="padding:3px 6px;text-align:right;font-family:monospace;font-size:8.5px;color:var(--inkd);">' + fmt(maxA, 3) + '%</td>'
+              + '<td style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);font-weight:700;color:' + cutColor + ';">' + cutCount + '</td>'
+              + '<td style="padding:3px 6px;text-align:right;color:' + cutColor + ';">' + fmt(cutPct, 1) + '%</td>'
+              + '</tr>';
+          }).join('');
+          var headerColor = liveActive ? '#15803d' : '#a16207';
+          var headerLabel = liveActive ? 'WIRED IN LIVE DETECTOR' : 'DEFINED but NOT LIVE';
+          return '<div style="margin-top:10px;padding:8px 10px;background:rgba(' + (liveActive ? '21,128,61' : '161,98,7') + ',0.04);border:1px solid rgba(' + (liveActive ? '21,128,61' : '161,98,7') + ',0.20);border-radius:3px;">'
+            + '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:' + headerColor + ';margin-bottom:4px;">' + cls + ' · per-pair · class ceiling ≥ ' + threshold + '% · ' + headerLabel + '</div>'
+            + '<table style="width:100%;border-collapse:collapse;font-size:9px;">'
+            + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
+            + '<th style="padding:3px 6px;text-align:left;">Pair</th>'
+            + '<th style="padding:3px 6px;text-align:right;">N trades</th>'
+            + '<th style="padding:3px 6px;text-align:right;">Median</th>'
+            + '<th style="padding:3px 6px;text-align:right;">P75</th>'
+            + '<th style="padding:3px 6px;text-align:right;">P95</th>'
+            + '<th style="padding:3px 6px;text-align:right;">Max</th>'
+            + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Cut by ceiling</th>'
+            + '<th style="padding:3px 6px;text-align:right;">% of pair cut</th>'
+            + '</tr></thead><tbody>' + trs + '</tbody></table>'
+            + '</div>';
+        }).filter(Boolean).join('');
+        return '<div style="margin-top:14px;padding:8px 10px;border-top:2px solid rgba(21,128,61,0.30);">'
+          + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#15803d;margin-bottom:4px;">PER-PAIR ATR DISTRIBUTION · WHY DOES A CLASS-LEVEL CEILING MISS SOME PAIRS?</div>'
+          + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:6px;">Class-level Q4 ceilings can be dominated by one volatile pair. Example: MAJOR 0.081% threshold is well above EUR/USD\'s typical ATR%, so it never fires there. If a pair\'s Max ATR% in the table is BELOW the class ceiling, the live filter never activates for that pair → its backtest WR / sample is unchanged. If the table shows most MAJOR pairs with low Cut counts but AUD/USD with a high Cut count, the deploy is per-pair-asymmetric and the threshold needs re-derivation. Decision rule: if other pairs in MAJOR have meaningful trade counts above their OWN Q4 boundaries but below 0.081%, switch from per-class to per-pair thresholds.</div>'
+          + (sections || '<div style="font-size:9px;color:var(--bear);">No per-pair data available.</div>')
+          + '</div>';
+      })()
     + '<div style="margin-top:10px;font-size:8.5px;color:var(--inkd);line-height:1.5;"><strong>How to read:</strong> if RSI differs ≥3 between cohorts, an RSI band filter is worth re-testing (but at the actual divide, not the deep 25/75 we already disproved). If ATR%-diff is large, post-inv concentrates in a volatility regime — ATR floor/ceiling becomes the candidate. If MACD-hist-‰ differs, momentum strength at entry separates good from bad. If the hour-of-day heat strips look meaningfully different, a session filter (block Asian-session nowick? block London-open?) is the move.</div>'
     + '</div>';
   if(statusEl){
