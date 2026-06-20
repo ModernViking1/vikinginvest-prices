@@ -3157,6 +3157,69 @@ function _renderNowickDiagnostic(results, statusEl, resultEl){
       + '</div>';
   }).filter(Boolean).join('');
 
+  // ── PER-PAIR × PER-QUARTILE WR (2026-06-20j) ───────────────
+  // Same class-level Q boundaries as the aggregate table, but
+  // rows are pairs (not sources). Answers: "within this class,
+  // which pair has the weakest quartile and what shape does it
+  // have?" — directly informs per-pair filter design for classes
+  // where the aggregate doesn't tell a single story (MINOR has a
+  // U-shape with Q3 weakest; per-pair view reveals whether ONE
+  // pair drags Q3 down or it's broad).
+  var perPairQuartileHtml = classes.map(function(cls){
+    var co = cohorts[cls];
+    if(!co || !co.allRecords.length) return '';
+    var recs = co.allRecords.filter(function(r){ return r.atrPct != null && isFinite(r.atrPct) && r.pair; });
+    if(recs.length < 12) return '';
+    var atrs = recs.map(function(r){ return r.atrPct; }).sort(function(a,b){ return a-b; });
+    var qB1 = percentile(atrs, 0.25);
+    var qB2 = percentile(atrs, 0.50);
+    var qB3 = percentile(atrs, 0.75);
+    var byPair = {};
+    recs.forEach(function(r){
+      if(!byPair[r.pair]) byPair[r.pair] = [];
+      byPair[r.pair].push(r);
+    });
+    var pairKeys = Object.keys(byPair).sort();
+    if(pairKeys.length < 2) return '';
+    var pairRows = pairKeys.map(function(p){
+      var prs = byPair[p];
+      var qB = [
+        {W:0, L:0, PI:0}, {W:0, L:0, PI:0}, {W:0, L:0, PI:0}, {W:0, L:0, PI:0}
+      ];
+      prs.forEach(function(r){
+        var b = qB[classifyBucket(r.atrPct, qB1, qB2, qB3)];
+        if(r.outcome === 'win') b.W++;
+        else if(r.outcome === 'loss') b.L++;
+        else if(r.outcome === 'postInv') b.PI++;
+      });
+      var cells = qB.map(function(b){
+        var resolved = b.W + b.L;
+        var wr = resolved > 0 ? (b.W / resolved * 100) : null;
+        var wrColor = wrCellColor(wr, resolved);
+        return '<td style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">'
+          + '<div style="color:' + wrColor + ';font-weight:700;font-size:9px;">' + (wr != null ? fmt(wr, 1) + '%' : '—') + '</div>'
+          + '<div style="color:var(--inkd);font-size:7.5px;font-family:monospace;">' + b.W + 'W/' + b.L + 'L' + (b.PI > 0 ? ' ' + b.PI + 'pi' : '') + '</div>'
+          + '</td>';
+      }).join('');
+      return '<tr style="border-top:1px dashed rgba(0,0,0,0.06);">'
+        + '<td style="padding:3px 6px;font-weight:700;">' + p + '</td>'
+        + cells
+        + '</tr>';
+    }).join('');
+    return '<div style="margin-top:10px;padding:8px 10px;background:rgba(8,145,178,0.03);border:1px solid rgba(8,145,178,0.18);border-radius:3px;">'
+      + '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#0891b2;margin-bottom:4px;">' + cls + ' · per-pair × per-quartile WR</div>'
+      + '<div style="font-size:8px;color:var(--inkd);margin-bottom:4px;font-family:monospace;">class Q boundaries: Q1&lt;' + fmt(qB1, 3) + ' · Q2&lt;' + fmt(qB2, 3) + ' · Q3&lt;' + fmt(qB3, 3) + ' · Q4&ge;' + fmt(qB3, 3) + '</div>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:9px;">'
+      + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
+      + '<th style="padding:3px 6px;text-align:left;">Pair</th>'
+      + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Q1</th>'
+      + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Q2</th>'
+      + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Q3</th>'
+      + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Q4</th>'
+      + '</tr></thead><tbody>' + pairRows + '</tbody></table>'
+      + '</div>';
+  }).filter(Boolean).join('');
+
   resultEl.innerHTML =
     '<div style="margin-top:8px;padding:10px 12px;border:1px solid rgba(8,145,178,0.30);background:rgba(8,145,178,0.04);border-radius:4px;">'
     + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#0891b2;margin-bottom:6px;">NOWICK DIAGNOSTIC · POST-INV vs CLEAN COHORTS</div>'
@@ -3243,6 +3306,13 @@ function _renderNowickDiagnostic(results, statusEl, resultEl){
           + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#7c3aed;margin-bottom:4px;">PER-SOURCE × PER-QUARTILE WR · IS Q4 BAD FOR EVERY DETECTOR OR JUST WICK?</div>'
           + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:6px;">Same class-level Q boundaries as the aggregate table above (so cells align across sources), broken down per trigger source. Each cell shows WR / W-L-PI counts / EV-per-trade. Wick EV uses +2/-1/-0.35R; MACD detectors use +1/-1R (1:1 R:R, no post-inv). Deploy decision rule: if a source\'s Q4 EV is RED (negative), it\'s a candidate for the ATR Q4 ceiling. If Q4 EV is GREEN (positive), leave it alone — filtering would cut profit. INDEX is where this matters most because it runs three parallel detectors.</div>'
           + perSourceQuartileHtml
+          + '</div>'
+        : '')
+    + (perPairQuartileHtml
+        ? '<div style="margin-top:14px;padding:8px 10px;border-top:2px solid rgba(8,145,178,0.30);">'
+          + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#0891b2;margin-bottom:4px;">PER-PAIR × PER-QUARTILE WR · WHICH PAIRS HAVE WEAK QUARTILES?</div>'
+          + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:6px;">Same class-level Q boundaries; rows are pairs. Use this to identify per-pair drag — a class with healthy aggregate WR can mask one or two underperformers. For MINOR specifically (aggregate U-shape with Q3 = 61.1%), this reveals whether one pair drags Q3 down or it\'s broad. Deploy decisions: RED cells with meaningful sample = filter or drop candidate; GREEN cells = leave alone. Pair-level threshold can target a single bad quartile while preserving the pair\'s good ones (e.g. "ban USD/SGD between 0.041%-0.055% only").</div>'
+          + perPairQuartileHtml
           + '</div>'
         : '')
     + (function(){
