@@ -3496,36 +3496,45 @@ function runMinorMacdExpansionTest(){
 
 function _renderMinorMacdExpansion(results, statusEl, resultEl){
   if(!resultEl) return;
-  var minorPairs = [];
+  // Two classes covered: MINOR (original target) + MAJOR (added so
+  // USDJPY and other low-WR MAJORs can be evaluated for MACD promotion).
+  var classesToShow = ['minor', 'major'];
+  var pairsByClass = { minor: [], major: [] };
   Object.keys(results).forEach(function(k){
-    if(typeof MKTS !== 'undefined' && MKTS[k] && MKTS[k].t === 'minor') minorPairs.push(k);
+    if(typeof MKTS === 'undefined' || !MKTS[k]) return;
+    var cls = MKTS[k].t;
+    if(pairsByClass[cls]) pairsByClass[cls].push(k);
   });
-  minorPairs.sort();
+  classesToShow.forEach(function(cls){ pairsByClass[cls].sort(); });
 
-  // Collect MACD trades per pair per source per confluence
+  // Collect MACD trades per CLASS per pair per source per confluence
   var R_PRIMARY = 1, R_DIV = 1, R_LOSS = -1;
-  var bySource = { 'macd-primary': {}, 'macd-divergence': {} };  // source -> conf -> {W,L,E,pairs}
-  var byPairSource = {};  // pair -> source -> conf -> {W,L,E}
-  var totals = { 'macd-primary': {W:0,L:0,E:0,total:0}, 'macd-divergence': {W:0,L:0,E:0,total:0} };
+  var byClassSource = {};
+  var byClassPairSource = {};
+  classesToShow.forEach(function(cls){
+    byClassSource[cls] = { 'macd-primary': {}, 'macd-divergence': {} };
+    byClassPairSource[cls] = {};
+  });
 
-  minorPairs.forEach(function(k){
-    var rb = results[k];
-    if(!rb || !rb.trades) return;
-    if(!byPairSource[k]) byPairSource[k] = { 'macd-primary': {}, 'macd-divergence': {} };
-    rb.trades.forEach(function(t){
-      if(!t) return;
-      var src = t.source;
-      if(src !== 'macd-primary' && src !== 'macd-divergence') return;
-      var conf = (typeof t.confluence === 'number') ? t.confluence : -1;
-      if(conf < 0 || conf > 4) return;
-      if(!bySource[src][conf]) bySource[src][conf] = {W:0,L:0,E:0};
-      if(!byPairSource[k][src][conf]) byPairSource[k][src][conf] = {W:0,L:0,E:0};
-      var aggBucket = bySource[src][conf];
-      var pairBucket = byPairSource[k][src][conf];
-      if(t.outcome === 'win'){ aggBucket.W++; pairBucket.W++; totals[src].W++; }
-      else if(t.outcome === 'loss'){ aggBucket.L++; pairBucket.L++; totals[src].L++; }
-      else { aggBucket.E++; pairBucket.E++; totals[src].E++; }
-      totals[src].total++;
+  classesToShow.forEach(function(cls){
+    pairsByClass[cls].forEach(function(k){
+      var rb = results[k];
+      if(!rb || !rb.trades) return;
+      if(!byClassPairSource[cls][k]) byClassPairSource[cls][k] = { 'macd-primary': {}, 'macd-divergence': {} };
+      rb.trades.forEach(function(t){
+        if(!t) return;
+        var src = t.source;
+        if(src !== 'macd-primary' && src !== 'macd-divergence') return;
+        var conf = (typeof t.confluence === 'number') ? t.confluence : -1;
+        if(conf < 0 || conf > 4) return;
+        if(!byClassSource[cls][src][conf]) byClassSource[cls][src][conf] = {W:0,L:0,E:0};
+        if(!byClassPairSource[cls][k][src][conf]) byClassPairSource[cls][k][src][conf] = {W:0,L:0,E:0};
+        var aggBucket = byClassSource[cls][src][conf];
+        var pairBucket = byClassPairSource[cls][k][src][conf];
+        if(t.outcome === 'win'){ aggBucket.W++; pairBucket.W++; }
+        else if(t.outcome === 'loss'){ aggBucket.L++; pairBucket.L++; }
+        else { aggBucket.E++; pairBucket.E++; }
+      });
     });
   });
 
@@ -3539,86 +3548,93 @@ function _renderMinorMacdExpansion(results, statusEl, resultEl){
     return ev >= 0.30 ? 'var(--bull)' : ev >= 0.10 ? 'var(--gold)' : ev > 0 ? 'var(--inkd)' : 'var(--bear)';
   }
 
-  // SECTION 1: Aggregate per-source × per-confluence
-  var aggSources = ['macd-primary', 'macd-divergence'];
-  var aggRows = aggSources.map(function(src){
-    var rW = (src === 'macd-primary') ? R_PRIMARY : R_DIV;
-    var cells = [0,1,2,3,4].map(function(conf){
-      var b = bySource[src][conf] || {W:0,L:0,E:0};
-      var resolved = b.W + b.L;
-      var wr = resolved > 0 ? (b.W / resolved * 100) : null;
-      var ev = resolved > 0 ? ((b.W * rW + b.L * R_LOSS) / resolved) : null;  // expired = 0R
-      var wrCol = wrCellColor(wr, resolved);
-      var evCol = evCellColor(ev);
-      return '<td style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">'
-        + '<div style="color:' + wrCol + ';font-weight:700;font-size:9px;">' + fmtPct(wr, 1) + '</div>'
-        + '<div style="color:var(--inkd);font-size:7.5px;font-family:monospace;">' + b.W + 'W/' + b.L + 'L'
-          + (b.E > 0 ? '/' + b.E + 'x' : '') + '</div>'
-        + '<div style="color:' + evCol + ';font-size:7.5px;font-family:monospace;font-weight:700;">'
-          + (ev != null ? (ev >= 0 ? '+' : '') + ev.toFixed(2) + 'R' : '—') + '</div>'
-        + '</td>';
-    }).join('');
-    return '<tr style="border-top:1px dashed rgba(0,0,0,0.06);">'
-      + '<td style="padding:3px 6px;font-weight:700;">' + src + '</td>' + cells + '</tr>';
-  }).join('');
-
-  var aggSection = '<div style="margin-top:8px;padding:8px 10px;background:rgba(124,58,237,0.04);border:1px solid rgba(124,58,237,0.20);border-radius:3px;">'
-    + '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#7c3aed;margin-bottom:4px;">MINOR aggregate · per-source × per-confluence</div>'
-    + '<div style="font-size:8px;color:var(--inkd);margin-bottom:4px;">EV/trade uses +1R/-1R (MACD detectors\' 1:1 R:R, no post-inv concept). Expired trades (forward sim didn\'t resolve in 24 bars) count as 0R for EV.</div>'
-    + '<table style="width:100%;border-collapse:collapse;font-size:9px;">'
-    + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
-    + '<th style="padding:3px 6px;text-align:left;">Source</th>'
-    + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Conf 0/4</th>'
-    + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Conf 1/4</th>'
-    + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Conf 2/4</th>'
-    + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Conf 3/4</th>'
-    + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Conf 4/4</th>'
-    + '</tr></thead><tbody>' + aggRows + '</tbody></table>'
-    + '</div>';
-
-  // SECTION 2: Per-pair × per-source totals (all confluences pooled)
-  var pairRows = minorPairs.map(function(k){
-    var srcCells = aggSources.map(function(src){
-      var totalW = 0, totalL = 0, totalE = 0;
-      [0,1,2,3,4].forEach(function(conf){
-        var b = byPairSource[k] && byPairSource[k][src] && byPairSource[k][src][conf];
-        if(b){ totalW += b.W; totalL += b.L; totalE += b.E; }
-      });
-      var resolved = totalW + totalL;
-      var wr = resolved > 0 ? (totalW / resolved * 100) : null;
+  function buildAggRows(cls){
+    var aggSources = ['macd-primary', 'macd-divergence'];
+    return aggSources.map(function(src){
       var rW = (src === 'macd-primary') ? R_PRIMARY : R_DIV;
-      var ev = resolved > 0 ? ((totalW * rW + totalL * R_LOSS) / resolved) : null;
-      var wrCol = wrCellColor(wr, resolved);
-      var evCol = evCellColor(ev);
-      return '<td style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">'
-        + '<div style="color:' + wrCol + ';font-weight:700;font-size:9px;">' + fmtPct(wr, 1) + '</div>'
-        + '<div style="color:var(--inkd);font-size:7.5px;font-family:monospace;">' + totalW + 'W/' + totalL + 'L'
-          + (totalE > 0 ? '/' + totalE + 'x' : '') + '</div>'
-        + '<div style="color:' + evCol + ';font-size:7.5px;font-family:monospace;font-weight:700;">'
-          + (ev != null ? (ev >= 0 ? '+' : '') + ev.toFixed(2) + 'R' : '—') + '</div>'
-        + '</td>';
+      var cells = [0,1,2,3,4].map(function(conf){
+        var b = byClassSource[cls][src][conf] || {W:0,L:0,E:0};
+        var resolved = b.W + b.L;
+        var wr = resolved > 0 ? (b.W / resolved * 100) : null;
+        var ev = resolved > 0 ? ((b.W * rW + b.L * R_LOSS) / resolved) : null;
+        var wrCol = wrCellColor(wr, resolved);
+        var evCol = evCellColor(ev);
+        return '<td style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">'
+          + '<div style="color:' + wrCol + ';font-weight:700;font-size:9px;">' + fmtPct(wr, 1) + '</div>'
+          + '<div style="color:var(--inkd);font-size:7.5px;font-family:monospace;">' + b.W + 'W/' + b.L + 'L'
+            + (b.E > 0 ? '/' + b.E + 'x' : '') + '</div>'
+          + '<div style="color:' + evCol + ';font-size:7.5px;font-family:monospace;font-weight:700;">'
+            + (ev != null ? (ev >= 0 ? '+' : '') + ev.toFixed(2) + 'R' : '—') + '</div>'
+          + '</td>';
+      }).join('');
+      return '<tr style="border-top:1px dashed rgba(0,0,0,0.06);">'
+        + '<td style="padding:3px 6px;font-weight:700;">' + src + '</td>' + cells + '</tr>';
     }).join('');
-    return '<tr style="border-top:1px dashed rgba(0,0,0,0.06);">'
-      + '<td style="padding:3px 6px;font-weight:700;">' + k + '</td>' + srcCells + '</tr>';
-  }).join('');
+  }
 
-  var perPairSection = '<div style="margin-top:10px;padding:8px 10px;background:rgba(8,145,178,0.03);border:1px solid rgba(8,145,178,0.18);border-radius:3px;">'
-    + '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#0891b2;margin-bottom:4px;">MINOR per-pair · MACD source totals (all confluences pooled)</div>'
-    + '<table style="width:100%;border-collapse:collapse;font-size:9px;">'
-    + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
-    + '<th style="padding:3px 6px;text-align:left;">Pair</th>'
-    + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">macd-primary (all conf)</th>'
-    + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">macd-divergence (all conf)</th>'
-    + '</tr></thead><tbody>' + pairRows + '</tbody></table>'
-    + '</div>';
+  function buildPairRows(cls){
+    var aggSources = ['macd-primary', 'macd-divergence'];
+    return pairsByClass[cls].map(function(k){
+      var srcCells = aggSources.map(function(src){
+        var totalW = 0, totalL = 0, totalE = 0;
+        [0,1,2,3,4].forEach(function(conf){
+          var b = byClassPairSource[cls][k] && byClassPairSource[cls][k][src] && byClassPairSource[cls][k][src][conf];
+          if(b){ totalW += b.W; totalL += b.L; totalE += b.E; }
+        });
+        var resolved = totalW + totalL;
+        var wr = resolved > 0 ? (totalW / resolved * 100) : null;
+        var rW = (src === 'macd-primary') ? R_PRIMARY : R_DIV;
+        var ev = resolved > 0 ? ((totalW * rW + totalL * R_LOSS) / resolved) : null;
+        var wrCol = wrCellColor(wr, resolved);
+        var evCol = evCellColor(ev);
+        return '<td style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">'
+          + '<div style="color:' + wrCol + ';font-weight:700;font-size:9px;">' + fmtPct(wr, 1) + '</div>'
+          + '<div style="color:var(--inkd);font-size:7.5px;font-family:monospace;">' + totalW + 'W/' + totalL + 'L'
+            + (totalE > 0 ? '/' + totalE + 'x' : '') + '</div>'
+          + '<div style="color:' + evCol + ';font-size:7.5px;font-family:monospace;font-weight:700;">'
+            + (ev != null ? (ev >= 0 ? '+' : '') + ev.toFixed(2) + 'R' : '—') + '</div>'
+          + '</td>';
+      }).join('');
+      return '<tr style="border-top:1px dashed rgba(0,0,0,0.06);">'
+        + '<td style="padding:3px 6px;font-weight:700;">' + k + '</td>' + srcCells + '</tr>';
+    }).join('');
+  }
+
+  function buildClassBlock(cls){
+    if(!pairsByClass[cls].length) return '';
+    var label = cls.toUpperCase();
+    var aggRows = buildAggRows(cls);
+    var pairRows = buildPairRows(cls);
+    return '<div style="margin-top:10px;padding:8px 10px;background:rgba(124,58,237,0.04);border:1px solid rgba(124,58,237,0.20);border-radius:3px;">'
+      + '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#7c3aed;margin-bottom:4px;">' + label + ' aggregate · per-source × per-confluence</div>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:9px;">'
+      + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
+      + '<th style="padding:3px 6px;text-align:left;">Source</th>'
+      + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Conf 0/4</th>'
+      + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Conf 1/4</th>'
+      + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Conf 2/4</th>'
+      + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Conf 3/4</th>'
+      + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Conf 4/4</th>'
+      + '</tr></thead><tbody>' + aggRows + '</tbody></table>'
+      + '</div>'
+      + '<div style="margin-top:8px;padding:8px 10px;background:rgba(8,145,178,0.03);border:1px solid rgba(8,145,178,0.18);border-radius:3px;">'
+      + '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#0891b2;margin-bottom:4px;">' + label + ' per-pair · MACD source totals (all conf pooled)</div>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:9px;">'
+      + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
+      + '<th style="padding:3px 6px;text-align:left;">Pair</th>'
+      + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">macd-primary (all conf)</th>'
+      + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">macd-divergence (all conf)</th>'
+      + '</tr></thead><tbody>' + pairRows + '</tbody></table>'
+      + '</div>';
+  }
 
   resultEl.innerHTML =
     '<div style="margin-top:8px;padding:10px 12px;border:1px solid rgba(124,58,237,0.30);background:rgba(124,58,237,0.04);border-radius:4px;">'
-    + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#7c3aed;margin-bottom:6px;">MINOR MACD EXPANSION · WOULD THE INDEX DETECTORS WORK ON MINORS?</div>'
-    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:6px;">Runs the production INDEX MACD-primary + MACD-divergence detectors on MINOR pairs with NO confluence floor (captures 0/4-4/4). MACD trades are 1:1 R:R, no post-inv concept — outcome is W / L / expired (24-bar window). <strong>Deploy rule:</strong> a source × confluence cell with green WR + green EV on meaningful sample (≥10 resolved) is a candidate to promote to MINOR production. <strong>Be skeptical of small samples</strong> — MINOR pairs naturally produce fewer MACD fires than INDEX. Per-pair breakdown below shows which pairs contribute most.</div>'
-    + aggSection
-    + perPairSection
-    + '<div style="margin-top:10px;font-size:8.5px;color:var(--inkd);line-height:1.5;"><strong>How to read:</strong> If macd-primary 1/4 shows ≥65% WR + ≥+0.30R EV on n≥30, that\'s a strong "promote at confluence ≥1" signal. If 0/4 is the only EV-positive bucket, MINORs may benefit from a CONTRARIAN setup (different from INDEX which uses ≥1 floor). If everything is gold/red, MACDs don\'t help MINORs — stick with the current 4/4 wick path even though it fires rarely. Pair-level table identifies which pairs deserve activation if class-level supports a promote.</div>'
+    + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#7c3aed;margin-bottom:6px;">MAJOR + MINOR MACD EXPANSION · WOULD THE INDEX DETECTORS WORK?</div>'
+    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:6px;">Runs the production INDEX MACD-primary + MACD-divergence detectors on MINOR + MAJOR pairs with NO confluence floor (captures 0/4-4/4). MACD trades are 1:1 R:R, no post-inv concept — outcome is W / L / expired (24-bar window). EV/trade uses +1R/-1R. Expired counts as 0R for EV. <strong>Deploy rule:</strong> a source × confluence cell with green WR + green EV on n≥30 is a candidate to promote that pair class to production. Per-pair breakdown lets you cherry-pick individual pairs (e.g. promote only USDJPY from MAJORs if MAJOR aggregate is mixed but USDJPY is clean).</div>'
+    + buildClassBlock('minor')
+    + buildClassBlock('major')
+    + '<div style="margin-top:10px;font-size:8.5px;color:var(--inkd);line-height:1.5;"><strong>How to read:</strong> If macd-primary at conf ≥1 shows ≥65% WR + ≥+0.30R EV on n≥30, that\'s a strong "promote" signal for that class. If 0/4 (fully contrarian) is also EV-positive, the detector is a true mean-reversion edge and the contrarian bucket can be kept. Per-pair tables identify which pairs deserve activation if the class-level signal is mixed. USDJPY specifically: look for ≥+0.40R EV on macd-primary; if there, deploying MACDs on USDJPY would lift its current 53.8% wick-only WR materially.</div>'
     + '</div>';
 
   if(statusEl){
