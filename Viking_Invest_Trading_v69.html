@@ -11114,7 +11114,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-19a';
+var RULES_VERSION = '2026-06-20a';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -12194,29 +12194,32 @@ function calcRecentBacktest(k, mode){
     // A1 hard gate (refined per-class 2026-06-10) — 1H RSI extreme
     // blocks the setup. Mirror of detectIntradaySignal so the recent
     // backtest reflects the live filter. Thresholds vary by asset
-    // class — see RSI_GATE_BY_CLASS. Null RSI (warm-up) falls through.
-    if(!_btUseMacdPrimary && !_btUseMacdDivergence && h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length){
-      var rsiAt = h1RsiAtH1Idx[h1Idx];
-      if(_btUse3of4 || _btUse2of4 || _btUse1of4){
-        // 3of4 / 2of4 / 1of4 modes: REQUIRE RSI extreme — bull setup
-        // needs RSI < 30 (oversold mean-reversion), bear needs RSI > 70.
-        // 2026-06-16e: loosened from 25/75 → 30/70 after the strict
-        // bounds produced zero qualifying trades across both cohorts.
-        // 30/70 is still mean-reversion territory but prints often
-        // enough to give us a sample to evaluate.
-        if(rsiAt == null || !isFinite(rsiAt)){ i++; continue; }
-        if(ewDir === 'bull' && rsiAt >= 30){ i++; continue; }
-        if(ewDir === 'bear' && rsiAt <= 70){ i++; continue; }
-      } else if(_btUseNowickRsiExtreme || _btUseNowickRsiMacdCombo){
-        // 2026-06-20 — 4/4 nowick + deep RSI extreme filter test.
-        // Stricter than the 3of4 cohort's 30/70 (those were loosened
-        // because the relaxed-alignment cohorts produced zero trades
-        // at 25/75). The full 4/4 alignment is a stronger base, so
-        // the deeper extreme is feasible without zeroing out sample.
-        if(rsiAt == null || !isFinite(rsiAt)){ i++; continue; }
-        if(ewDir === 'bull' && rsiAt >= 25){ i++; continue; }
-        if(ewDir === 'bear' && rsiAt <= 75){ i++; continue; }
-      } else if(rsiAt != null && isFinite(rsiAt)){
+    // class — see RSI_GATE_BY_CLASS. Null RSI (warm-up / edge) falls
+    // through for production modes to match the live detector. Test
+    // modes that REQUIRE RSI confirmation (3of4/2of4/1of4 cohorts
+    // and the nowick-rsi-* modes) must skip the bar instead —
+    // otherwise the bypass silently inflates sample and the WR read
+    // is mixing "filter applied" and "filter bypassed" trades.
+    // 2026-06-20: fix for the silent bypass — previously the outer
+    // guard `h1RsiAtH1Idx && h1Idx >= 0 && ...` short-circuited the
+    // entire block, dropping past the REQUIRE branch on missing data.
+    if(!_btUseMacdPrimary && !_btUseMacdDivergence){
+      var _btRequiresRsi = (_btUse3of4 || _btUse2of4 || _btUse1of4
+                           || _btUseNowickRsiExtreme || _btUseNowickRsiMacdCombo);
+      var _rsiAvail = (h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length);
+      var rsiAt = _rsiAvail ? h1RsiAtH1Idx[h1Idx] : null;
+      var _rsiValid = (rsiAt != null && isFinite(rsiAt));
+      if(_btRequiresRsi){
+        if(!_rsiValid){ i++; continue; }
+        if(_btUse3of4 || _btUse2of4 || _btUse1of4){
+          if(ewDir === 'bull' && rsiAt >= 30){ i++; continue; }
+          if(ewDir === 'bear' && rsiAt <= 70){ i++; continue; }
+        } else {
+          // nowick-rsi-extreme / nowick-rsi-macd-combo: deep 25/75 bound
+          if(ewDir === 'bull' && rsiAt >= 25){ i++; continue; }
+          if(ewDir === 'bear' && rsiAt <= 75){ i++; continue; }
+        }
+      } else if(_rsiValid){
         var _btGate = _rsiGateFor(k);
         if(ewDir === 'bull' && rsiAt >= _btGate.hi){ i++; continue; }
         if(ewDir === 'bear' && rsiAt <= _btGate.lo){ i++; continue; }
