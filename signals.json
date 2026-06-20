@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-20T22:31:17.990946+00:00",
-  "generated_ms": 1781994677990,
-  "detector_last_check": "2026-06-20T22:31:17.900707+00:00",
+  "generated": "2026-06-20T22:35:50.182303+00:00",
+  "generated_ms": 1781994950182,
+  "detector_last_check": "2026-06-20T22:35:50.091914+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 5,
+    "total": 7,
     "armed": 2,
     "triggered": 3,
-    "invalidated": 0
+    "invalidated": 2
   },
   "signals": [
+    {
+      "id": "ethusd:1781993700000:wick",
+      "pair": "ethusd",
+      "sym": "ETHUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 1734.1,
+      "stop": 1718.91,
+      "target": 1749.2899999999997,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1781993700000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781994950182,
+      "source": "server-detector"
+    },
     {
       "id": "solusd:1781993700000:wick",
       "pair": "solusd",
@@ -24,7 +45,7 @@
       "method": "wick",
       "r_size": 1.0,
       "dir": "bull",
-      "state": "armed",
+      "state": "invalidated",
       "entry": 72.9,
       "stop": 71.63,
       "target": 74.17000000000002,
@@ -34,7 +55,7 @@
       "cl": "bull",
       "armedAt": 1781993700000,
       "triggeredAt": null,
-      "lastSeenAt": 1781994677990,
+      "lastSeenAt": 1781994950182,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,7 @@
       "cl": "neutral",
       "armedAt": 1781898300000,
       "triggeredAt": 1781898300000,
-      "lastSeenAt": 1781994677990,
+      "lastSeenAt": 1781994950182,
       "source": "server-detector"
     },
     {
@@ -76,7 +97,7 @@
       "cl": "bull",
       "armedAt": 1781887500000,
       "triggeredAt": 1781887500000,
-      "lastSeenAt": 1781994677990,
+      "lastSeenAt": 1781994950182,
       "source": "server-detector"
     },
     {
@@ -97,7 +118,7 @@
       "cl": "bull",
       "armedAt": 1781887500000,
       "triggeredAt": 1781887500000,
-      "lastSeenAt": 1781994677990,
+      "lastSeenAt": 1781994950182,
       "source": "server-detector"
     },
     {
@@ -108,17 +129,38 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bull",
-      "state": "armed",
-      "entry": 73.32024,
+      "state": "invalidated",
+      "entry": 73.52418,
       "stop": 71.63,
-      "target": 75.01048,
+      "target": 75.41836,
       "ew": "bull",
       "tl": "bull",
       "nw": "bull",
       "cl": "bull",
       "armedAt": 1780326900000,
       "triggeredAt": null,
-      "lastSeenAt": 1781994677990,
+      "lastSeenAt": 1781994950182,
+      "source": "server-detector"
+    },
+    {
+      "id": "ethusd:1780287300000:fib",
+      "pair": "ethusd",
+      "sym": "ETHUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 1739.2294,
+      "stop": 1718.91,
+      "target": 1759.5487999999998,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780287300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1781994950182,
       "source": "server-detector"
     }
   ]
