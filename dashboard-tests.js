@@ -2862,12 +2862,16 @@ function _renderNowickDiagnostic(results, statusEl, resultEl){
   }
 
   // Collect per-class cohorts of diagnostic records (skip trades without
-  // a diag block — only nowick-diagnostic mode populates it).
+  // a diag block — only nowick-diagnostic mode populates it). Also keep
+  // a parallel `allRecords` array per class with outcome info attached
+  // so the ATR-quartile bucket analysis below can compute WR-by-bucket
+  // without re-walking the result trees.
   var cohorts = {};
   classes.forEach(function(cls){
     cohorts[cls] = {
       clean: [], postInv: [],
-      cleanW: 0, cleanL: 0
+      cleanW: 0, cleanL: 0,
+      allRecords: []  // {outcome: 'win'|'loss'|'postInv', atrPct, rsi}
     };
   });
   Object.keys(results).forEach(function(k){
@@ -2879,10 +2883,12 @@ function _renderNowickDiagnostic(results, statusEl, resultEl){
       if(!t || !t.diag) return;
       if(isPostInv(t)){
         cohorts[cls].postInv.push(t.diag);
+        cohorts[cls].allRecords.push({outcome: 'postInv', atrPct: t.diag.atrPct, rsi: t.diag.rsi});
       } else if(isClean(t)){
         cohorts[cls].clean.push(t.diag);
         if(t.outcome === 'win') cohorts[cls].cleanW++;
         else cohorts[cls].cleanL++;
+        cohorts[cls].allRecords.push({outcome: t.outcome, atrPct: t.diag.atrPct, rsi: t.diag.rsi});
       }
     });
   });
@@ -3010,12 +3016,90 @@ function _renderNowickDiagnostic(results, statusEl, resultEl){
     totalPi += cohorts[c].postInv.length;
   });
 
+  // ── WR-by-ATR-quartile bucket analysis (2026-06-20) ─────────
+  // The cohort comparison above shows ATR is HIGHER in the post-inv
+  // cohort. That proves ATR predicts post-invalidation. But the
+  // deploy-relevant question is: does ATR also predict the WIN RATE
+  // within the cohort that DOES resolve as W or L? If yes, an ATR
+  // ceiling lifts WR. If WR is flat across ATR quartiles, ATR only
+  // predicts post-inv, and an ATR filter would cut the post-inv
+  // burden without WR lift (still useful for capital preservation
+  // but a different sales pitch).
+  function percentile(sortedArr, p){
+    if(!sortedArr.length) return null;
+    var idx = Math.floor(sortedArr.length * p);
+    return sortedArr[Math.min(idx, sortedArr.length - 1)];
+  }
+  function classifyBucket(atr, q1, q2, q3){
+    if(atr <  q1) return 0;
+    if(atr <  q2) return 1;
+    if(atr <  q3) return 2;
+    return 3;
+  }
+  function wrCellColor(p, N){
+    if(p == null || N < 5) return 'var(--inkd)';
+    return p >= 70 ? 'var(--bull)' : p >= 60 ? 'var(--gold)' : 'var(--bear)';
+  }
+
+  var bucketRowsHtml = classes.map(function(cls){
+    var co = cohorts[cls];
+    var recs = co.allRecords.filter(function(r){ return r.atrPct != null && isFinite(r.atrPct); });
+    if(recs.length < 8) return '';
+    var atrs = recs.map(function(r){ return r.atrPct; }).sort(function(a,b){ return a-b; });
+    var q1 = percentile(atrs, 0.25);
+    var q2 = percentile(atrs, 0.50);
+    var q3 = percentile(atrs, 0.75);
+    var buckets = [
+      {label: 'Q1 (lowest)',  range: '<' + fmt(q1, 3) + '%', lo: -Infinity, hi: q1, W:0, L:0, PI:0},
+      {label: 'Q2',           range: fmt(q1, 3) + '–' + fmt(q2, 3) + '%', lo: q1, hi: q2, W:0, L:0, PI:0},
+      {label: 'Q3',           range: fmt(q2, 3) + '–' + fmt(q3, 3) + '%', lo: q2, hi: q3, W:0, L:0, PI:0},
+      {label: 'Q4 (highest)', range: '≥' + fmt(q3, 3) + '%', lo: q3, hi: Infinity, W:0, L:0, PI:0}
+    ];
+    recs.forEach(function(r){
+      var b = buckets[classifyBucket(r.atrPct, q1, q2, q3)];
+      if(r.outcome === 'win') b.W++;
+      else if(r.outcome === 'loss') b.L++;
+      else if(r.outcome === 'postInv') b.PI++;
+    });
+    var trs = buckets.map(function(b){
+      var resolved = b.W + b.L;
+      var total = resolved + b.PI;
+      var wrPct = resolved > 0 ? (b.W / resolved * 100) : null;
+      var piRate = total > 0 ? (b.PI / total * 100) : null;
+      return '<tr style="border-top:1px dashed rgba(0,0,0,0.06);">'
+        + '<td style="padding:3px 6px;font-weight:700;">' + b.label + '</td>'
+        + '<td style="padding:3px 6px;font-family:monospace;font-size:8.5px;color:var(--inkd);">' + b.range + '</td>'
+        + '<td style="padding:3px 6px;text-align:right;">' + b.W + 'W / ' + b.L + 'L</td>'
+        + '<td style="padding:3px 6px;text-align:right;color:' + wrCellColor(wrPct, resolved) + ';font-weight:700;">' + fmt(wrPct, 1) + (wrPct != null ? '%' : '') + '</td>'
+        + '<td style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">' + b.PI + '</td>'
+        + '<td style="padding:3px 6px;text-align:right;">' + fmt(piRate, 1) + (piRate != null ? '%' : '') + '</td>'
+        + '</tr>';
+    }).join('');
+    return '<div style="margin-top:10px;padding:8px 10px;background:rgba(8,145,178,0.03);border:1px solid rgba(8,145,178,0.15);border-radius:3px;">'
+      + '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#0891b2;margin-bottom:4px;">' + cls + '</div>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:9px;">'
+      + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
+      + '<th style="padding:3px 6px;text-align:left;">ATR quartile</th>'
+      + '<th style="padding:3px 6px;text-align:left;">Range</th>'
+      + '<th style="padding:3px 6px;text-align:right;">W / L</th>'
+      + '<th style="padding:3px 6px;text-align:right;">WR within resolved</th>'
+      + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Post-inv</th>'
+      + '<th style="padding:3px 6px;text-align:right;">PI rate of total</th>'
+      + '</tr></thead><tbody>' + trs + '</tbody></table>'
+      + '</div>';
+  }).filter(Boolean).join('');
+
   resultEl.innerHTML =
     '<div style="margin-top:8px;padding:10px 12px;border:1px solid rgba(8,145,178,0.30);background:rgba(8,145,178,0.04);border-radius:4px;">'
     + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#0891b2;margin-bottom:6px;">NOWICK DIAGNOSTIC · POST-INV vs CLEAN COHORTS</div>'
     + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:6px;">Every nowick trade (auto-ew baseline) split by outcome into <strong>Clean</strong> (resolved as W or L, the trades we keep) and <strong>Post-inv</strong> (alignment broke after entry — the bad cohort we want to filter). Per-class table compares median feature values at trigger. <strong>Δ highlighted in cyan</strong> when the post-inv cohort differs from clean by ≥1.0 RSI / ≥0.001 ATR-% / ≥0.001 MACD-hist-‰ — that\'s the discriminator candidate.</div>'
     + '<div style="font-size:8.5px;color:var(--inkd);margin-bottom:6px;">Total sample: Clean = <strong style="color:var(--ink);">' + totalClean + '</strong> · Post-inv = <strong style="color:var(--ink);">' + totalPi + '</strong></div>'
     + (rowsHtml || '<div style="font-size:9px;color:var(--bear);">No diagnostic records collected. Verify nowick-diagnostic mode is wired and trades exist.</div>')
+    + '<div style="margin-top:14px;padding:8px 10px;border-top:2px solid rgba(8,145,178,0.30);">'
+    + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#0891b2;margin-bottom:4px;">ATR-QUARTILE WR ANALYSIS · IS ATR CAUSAL TO WR OR ONLY TO POST-INV?</div>'
+    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:6px;">Per class, all trades bucketed into ATR(14)% quartiles. <strong>WR within resolved</strong> = W / (W+L) for trades that did resolve cleanly in that bucket — answers whether ATR predicts outcome among trades that survive. <strong>PI rate of total</strong> = post-inv share of all trades in the bucket — confirms post-inv concentrates in higher quartiles. Deploy decision rule: if WR drops monotonically (or sharply at Q4) from Q1→Q4, ATR-ceiling filter lifts WR. If WR is flat across quartiles, an ATR ceiling cuts post-inv burden without WR lift (capital preservation play, not WR play).</div>'
+    + (bucketRowsHtml || '<div style="font-size:9px;color:var(--bear);">Insufficient sample for ATR-quartile analysis.</div>')
+    + '</div>'
     + '<div style="margin-top:10px;font-size:8.5px;color:var(--inkd);line-height:1.5;"><strong>How to read:</strong> if RSI differs ≥3 between cohorts, an RSI band filter is worth re-testing (but at the actual divide, not the deep 25/75 we already disproved). If ATR%-diff is large, post-inv concentrates in a volatility regime — ATR floor/ceiling becomes the candidate. If MACD-hist-‰ differs, momentum strength at entry separates good from bad. If the hour-of-day heat strips look meaningfully different, a session filter (block Asian-session nowick? block London-open?) is the move.</div>'
     + '</div>';
   if(statusEl){
