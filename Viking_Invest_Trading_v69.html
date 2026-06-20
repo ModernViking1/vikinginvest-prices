@@ -1457,6 +1457,24 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   </div>
   <div id="btNowickAtrQ4CutResult" style="margin:0 0 12px 0;"></div>
 
+  <!-- ── 1n. MINOR MACD EXPANSION (2026-06-20l) ────────────────────
+       Runs the two production INDEX MACD detectors (primary +
+       divergence) on MINOR pairs, with NO confluence floor — captures
+       all 0/4 → 4/4 buckets so we can see per-confluence WR per pair.
+       Answers: would extending the INDEX MACD setup to MINORs help
+       the pairs that currently fire 0-3 trades per year (eurgbp,
+       nzdchf, eursgd, etc.) because their 4/4 alignment rarely
+       triggers? Decision is per-pair if data supports it. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btMinorMacdExpBtn"
+            onclick="runMinorMacdExpansionTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid #7c3aed;background:rgba(124,58,237,0.08);color:#7c3aed;border-radius:3px;cursor:pointer;">
+      🧪 TEST: MINOR MACD EXPANSION (per-confluence)
+    </button>
+    <span id="btMinorMacdExpStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btMinorMacdExpResult" style="margin:0 0 12px 0;"></div>
+
   <!-- ── DRY-RUN TEST PANEL (hidden 2026-06-13qq) ─────────────────────
        Buttons + variant selectors for the 4 in-page rule-test harnesses
        (counter-bar, SR gating, news blackout, R:R per class). User
@@ -11193,6 +11211,7 @@ var RECENT_BT_CACHE_KEY_NOWICK_RSI_EXTREME = 'vit_recent_backtest_v9_nowick_rsi_
 var RECENT_BT_CACHE_KEY_NOWICK_RSI_MACD_COMBO = 'vit_recent_backtest_v9_nowick_rsi_macd_combo';
 var RECENT_BT_CACHE_KEY_NOWICK_DIAGNOSTIC = 'vit_recent_backtest_v9_nowick_diagnostic';
 var RECENT_BT_CACHE_KEY_NOWICK_ATR_Q4_CUT = 'vit_recent_backtest_v9_nowick_atr_q4_cut';
+var RECENT_BT_CACHE_KEY_MINOR_MACD_EXPANSION = 'vit_recent_backtest_v9_minor_macd_expansion';
 var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // Previously 4 hours. Bumped 2026-05-30: with the per-pair-class
 // routing (struct for majors except AUD/USD, auto-EW for everything
@@ -11213,7 +11232,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-20k';
+var RULES_VERSION = '2026-06-20l';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -11325,6 +11344,7 @@ function _cacheKeyForMode(mode){
   if(mode === 'nowick-rsi-macd-combo') return RECENT_BT_CACHE_KEY_NOWICK_RSI_MACD_COMBO;
   if(mode === 'nowick-diagnostic') return RECENT_BT_CACHE_KEY_NOWICK_DIAGNOSTIC;
   if(mode === 'nowick-atr-q4-cut') return RECENT_BT_CACHE_KEY_NOWICK_ATR_Q4_CUT;
+  if(mode === 'minor-macd-expansion') return RECENT_BT_CACHE_KEY_MINOR_MACD_EXPANSION;
   return RECENT_BT_CACHE_KEY;
 }
 
@@ -11666,7 +11686,7 @@ function calcRecentBacktest(k, mode){
   // extra filter requiring the 4H 50/200 EMA cloud direction to agree
   // with the macro direction at the same historical timestamp).
   mode = mode || 'structural';
-  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime' || mode === 'auto-ew-macd' || mode === '3of4-rsi-macd' || mode === '2of4-rsi-macd' || mode === '1of4-rsi-macd' || mode === 'nowick-macd-confirm' || mode === 'nowick-macd-confirm-wide' || mode === 'nowick-rsi-extreme' || mode === 'nowick-rsi-macd-combo' || mode === 'nowick-diagnostic' || mode === 'nowick-atr-q4-cut');
+  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime' || mode === 'auto-ew-macd' || mode === '3of4-rsi-macd' || mode === '2of4-rsi-macd' || mode === '1of4-rsi-macd' || mode === 'nowick-macd-confirm' || mode === 'nowick-macd-confirm-wide' || mode === 'nowick-rsi-extreme' || mode === 'nowick-rsi-macd-combo' || mode === 'nowick-diagnostic' || mode === 'nowick-atr-q4-cut' || mode === 'minor-macd-expansion');
   var _btUseRegime = (mode === 'auto-ew-regime');
   // 2026-06-16c — 3-of-4 + RSI-extreme + MACD-cross exploratory mode.
   // Relaxes the standard 4/4 alignment to allow setups where the 15m
@@ -11744,6 +11764,14 @@ function calcRecentBacktest(k, mode){
   // other class either tolerates high ATR (Q4 is the best quartile
   // on MINOR / CRYPTO) or shows flat WR across quartiles (COMM).
   var _btUseAtrQ4Cut = (mode === 'nowick-atr-q4-cut');
+  // 2026-06-20l — MINOR MACD expansion test. Runs MACD-primary +
+  // MACD-divergence detectors on MINOR pairs (currently INDEX-only
+  // in production) with NO confluence floor — captures all 0/4 →
+  // 4/4 buckets so we can see per-confluence WR per pair. Tests
+  // whether MINORs would benefit from extending the INDEX MACD
+  // setup. _diag capture remains on so source + confluence are
+  // available in trades for the renderer.
+  var _btUseMinorMacdExp = (mode === 'minor-macd-expansion');
   // 2026-06-16b — MACD-cross hard gate. Three activation paths:
   //   1. Test modes: `structural-macd` / `auto-ew-macd` enable the gate
   //      for ALL pairs (used by the per-class A/B test button).
@@ -12003,7 +12031,7 @@ function calcRecentBacktest(k, mode){
   // m15 MACD(12,26,9) series for the MACD-cross hard gate. Only computed
   // when the mode requires it — the EMA + signal calc is ~3× m15Bars.length
   // floating-point ops, so we skip it entirely on production modes.
-  var m15MacdAtIdx = ((_btUseMACDCross || _btUseMacdPrimary || _btUseMacdDivergence || _btCollectDiag) && typeof _macdSeries === 'function')
+  var m15MacdAtIdx = ((_btUseMACDCross || _btUseMacdPrimary || _btUseMacdDivergence || _btCollectDiag || _btUseMinorMacdExp) && typeof _macdSeries === 'function')
     ? (function(){
         var closes = new Array(m15Bars.length);
         for(var mi = 0; mi < m15Bars.length; mi++) closes[mi] = m15Bars[mi].c;
@@ -12130,7 +12158,10 @@ function calcRecentBacktest(k, mode){
     // Sufficient because MACD-primary trades are by definition fired-
     // and-forgotten at the cross bar: there's no "armed → triggered"
     // intermediate state to re-evaluate.
-    if(_btPairClass === 'index'
+    // 2026-06-20l — also runs for MINOR in 'minor-macd-expansion' test
+    // mode (captures all 0/4 → 4/4 confluence buckets, no production
+    // floor) so we can see per-confluence WR per MINOR pair.
+    if(((_btPairClass === 'index') || (_btUseMinorMacdExp && _btPairClass === 'minor'))
        && !_btUseMacdPrimary && !_btUse3of4 && !_btUse2of4 && !_btUse1of4
        && m15MacdAtIdx){
       var _mppM0 = m15MacdAtIdx.macd[i-1], _mppM1 = m15MacdAtIdx.macd[i];
@@ -12150,7 +12181,9 @@ function calcRecentBacktest(k, mode){
             if(nwDir === _mppDir) _mppConf++;
             if(clDir === _mppDir) _mppConf++;
             // Production gate: confluence >= 1 (skip fully contrarian 0/4)
-            if(_mppConf >= 1){
+            // Test mode 'minor-macd-expansion' captures all buckets (>= 0)
+            // so the renderer can show per-confluence WR.
+            if(_btUseMinorMacdExp || _mppConf >= 1){
               var _mppEntry, _mppStop;
               var _mppBosSlice = m15Bars.slice(Math.max(0, i - BOS_LB), i);
               if(_mppDir === 'bull'){
@@ -12218,7 +12251,11 @@ function calcRecentBacktest(k, mode){
     // contrarian (0/4) buckets per the per-confluence A/B that showed
     // 74.0% WR on n=573 for confluence ∈ {1,2,3} (vs 52.9% at 4/4 and
     // 69.2% at 0/4).
-    if(_btPairClass === 'index'
+    // 2026-06-20l — also runs for MINOR in 'minor-macd-expansion' test
+    // mode. Production INDEX gate keeps the 1-3 window (skip 0/4 fully
+    // contrarian + 4/4 fully aligned). Test mode captures all 0-4
+    // buckets so we can see per-confluence WR.
+    if(((_btPairClass === 'index') || (_btUseMinorMacdExp && _btPairClass === 'minor'))
        && !_btUseMacdPrimary && !_btUseMacdDivergence
        && !_btUse3of4 && !_btUse2of4 && !_btUse1of4
        && m15MacdAtIdx
@@ -12230,7 +12267,7 @@ function calcRecentBacktest(k, mode){
         if(tlDir === _dpDir) _dpConf++;
         if(nwDir === _dpDir) _dpConf++;
         if(clDir === _dpDir) _dpConf++;
-        if(_dpConf >= 1 && _dpConf <= 3){
+        if(_btUseMinorMacdExp || (_dpConf >= 1 && _dpConf <= 3)){
           var _dpEntry, _dpStop;
           var _dpBosSlice = m15Bars.slice(Math.max(0, i - BOS_LB), i);
           if(_dpDir === 'bull'){
@@ -13214,6 +13251,7 @@ function runNowickRsiExtremeTest(){ _ensureBacktestTestsLoaded().then(function()
 function runNowickRsiMacdComboTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runNowickRsiMacdComboTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runNowickDiagnosticTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runNowickDiagnosticTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runNowickAtrQ4CutTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runNowickAtrQ4CutTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
+function runMinorMacdExpansionTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runMinorMacdExpansionTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runCounterBarRuleTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runCounterBarRuleTest(opts); }); }
 function runSRGatingTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runSRGatingTest(opts); }); }
 function runNewsBlackoutTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runNewsBlackoutTest(opts); }); }
@@ -13235,6 +13273,7 @@ if(typeof window !== "undefined"){
   window.runNowickRsiMacdComboTest = runNowickRsiMacdComboTest;
   window.runNowickDiagnosticTest = runNowickDiagnosticTest;
   window.runNowickAtrQ4CutTest = runNowickAtrQ4CutTest;
+  window.runMinorMacdExpansionTest = runMinorMacdExpansionTest;
   window.runCounterBarRuleTest   = runCounterBarRuleTest;
   window.runSRGatingTest         = runSRGatingTest;
   window.runNewsBlackoutTest     = runNewsBlackoutTest;
