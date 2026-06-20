@@ -11186,7 +11186,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-20f';
+var RULES_VERSION = '2026-06-20g';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -12387,10 +12387,17 @@ function calcRecentBacktest(k, mode){
     //     so dashboard cards mirror what the LIVE detectIntradaySignal does.
     //   - Diagnostic mode: bypassed entirely so the captured distribution
     //     stays pre-filter — otherwise we can't re-derive thresholds from it.
+    //   - 2026-06-20g — also activates for `structural` mode. The dashboard's
+    //     per-pair WR cards for 6/7 MAJOR pairs (EUR/USD, GBP/USD, NZD/USD,
+    //     USD/CAD, USD/CHF, USD/JPY) route through _btProfileFor → source:
+    //     'structural', NOT auto-ew. Only AUD/USD goes auto-ew, which is why
+    //     the previous deploy moved AUD's card alone. Extending here makes
+    //     the cards mirror the live filter for all 7 MAJOR pairs.
     var _atrCeiling = (typeof NOWICK_ATR_Q4_CEILING_BY_PAIR !== 'undefined' && k)
                       ? NOWICK_ATR_Q4_CEILING_BY_PAIR[k] : null;
+    var _btIsProductionMode = _btUseAuto || mode === 'structural';
     var _shouldApplyAtrQ4 = (_btUseAtrQ4Cut && _atrCeiling != null)
-      || (_btUseAuto && !_btCollectDiag
+      || (_btIsProductionMode && !_btCollectDiag
           && _atrCeiling != null
           && typeof NOWICK_ATR_Q4_LIVE_PAIRS !== 'undefined'
           && NOWICK_ATR_Q4_LIVE_PAIRS.indexOf(k) >= 0);
