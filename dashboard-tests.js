@@ -3108,3 +3108,56 @@ function _renderNowickDiagnostic(results, statusEl, resultEl){
   }
 }
 if(typeof window !== 'undefined'){ window._renderNowickDiagnostic = _renderNowickDiagnostic; }
+
+
+// ── NOWICK ATR Q4-CUT TEST (2026-06-20) ───────────────────────
+// Class-conditional ATR ceiling derived from the diagnostic
+// ATR-quartile WR analysis. MAJOR Q4 (ATR% >= 0.081) and INDEX Q4
+// (ATR% >= 0.187) are the only EV-negative quartiles across all
+// classes — MINOR/CRYPTO Q4 are their BEST quartiles, COMM is
+// flat. This A/B confirms the cut lifts WR (or holds WR while
+// dropping post-inv) on MAJOR+INDEX and is neutral on the other
+// classes (which see no filter applied).
+function runNowickAtrQ4CutTest(){
+  var btn = document.getElementById('btNowickAtrQ4CutBtn');
+  var statusEl = document.getElementById('btNowickAtrQ4CutStatus');
+  var resultEl = document.getElementById('btNowickAtrQ4CutResult');
+  var origLabel = '🎯 TEST: NOWICK ATR Q4-CUT (MAJOR+INDEX)';
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '🎯 RUNNING...'; }
+  if(resultEl) resultEl.innerHTML = '';
+
+  if(typeof computeAllRecentBacktestsAsync !== 'function'){
+    if(statusEl) statusEl.textContent = 'Backtest engine not loaded';
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel; }
+    return;
+  }
+
+  var modes = ['auto-ew', 'nowick-atr-q4-cut'];
+  var loaded = {};
+  var mIdx = 0;
+  function runNext(){
+    if(mIdx >= modes.length){
+      _renderNowickFilterAB(loaded, 'auto-ew', 'nowick-atr-q4-cut', statusEl, resultEl, {
+        accent: '#15803d',
+        title: 'NOWICK ATR Q4-CUT (MAJOR+INDEX) · A/B vs PRODUCTION',
+        description: 'Baseline = the existing 4/4 + creator-candle trigger (auto-ew profile). Filter = same trigger + skips the bar when m15 ATR(14) at trigger reaches the per-class Q4 ceiling. MAJOR ceiling 0.081%, INDEX ceiling 0.187%. MINOR/COMM/CRYPTO have no ceiling (Q4 is their best or flat quartile). Expected: MAJOR + INDEX WR up or flat, post-inv rate down materially; other classes unchanged.',
+        filterColLabel: '+ ATR Q4-cut',
+        readNote: '<strong>Read:</strong> the deploy-relevant rows are MAJOR and INDEX. WR should rise from the diagnostic baseline as we cut the 50%-WR Q4 cohort. Post-inv rate should drop sharply (we\'re removing the buckets with 83%+ post-inv). Sample reduction is expected and OK — the EV math already justified the cut. If MINOR / COMM / CRYPTO move at all, something is misrouted; they should be identical to baseline.'
+      });
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel; }
+      return;
+    }
+    var mode = modes[mIdx];
+    if(statusEl) statusEl.textContent = 'Computing ' + mode + ' (' + (mIdx + 1) + '/' + modes.length + ')…';
+    var forceRefresh = (mode === 'nowick-atr-q4-cut');
+    computeAllRecentBacktestsAsync(forceRefresh, function(done, total){
+      if(statusEl) statusEl.textContent = 'Computing ' + mode + ' — ' + done + '/' + total;
+    }, function(results){
+      loaded[mode] = results || {};
+      mIdx++;
+      setTimeout(runNext, 0);
+    }, mode);
+  }
+  setTimeout(runNext, 0);
+}
+if(typeof window !== 'undefined'){ window.runNowickAtrQ4CutTest = runNowickAtrQ4CutTest; }
