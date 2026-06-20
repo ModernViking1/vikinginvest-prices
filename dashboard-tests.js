@@ -2335,3 +2335,145 @@ function _renderMacdDivergenceResults(loaded, statusEl, resultEl){
   }
 }
 if(typeof window !== 'undefined'){ window._renderMacdDivergenceResults = _renderMacdDivergenceResults; }
+
+
+// ── NOWICK + MACD-CROSS CONFIRMATION (2026-06-19) ──────────────
+// Tests whether requiring a same-direction MACD/Signal cross within
+// the last 3 m15 bars before the nowick (4/4 + creator candle)
+// trigger filters out the bad cohort eating into profit via post-
+// trigger invalidations. Runs the auto-ew baseline AND auto-ew + the
+// confirmation gate, renders per-class WR + sample + post-invalidation
+// breakdown for both side-by-side.
+function runNowickMacdConfirmTest(){
+  var btn = document.getElementById('btNowickConfirmBtn');
+  var statusEl = document.getElementById('btNowickConfirmStatus');
+  var resultEl = document.getElementById('btNowickConfirmResult');
+  var origLabel = '🧪 TEST: NOWICK + MACD-CROSS CONFIRMATION (FINETUNE)';
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '🧪 RUNNING...'; }
+  if(resultEl) resultEl.innerHTML = '';
+
+  if(typeof computeAllRecentBacktestsAsync !== 'function'){
+    if(statusEl) statusEl.textContent = 'Backtest engine not loaded';
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel; }
+    return;
+  }
+
+  var modes = ['auto-ew', 'nowick-macd-confirm'];
+  var loaded = {};
+  var mIdx = 0;
+  function runNext(){
+    if(mIdx >= modes.length){
+      _renderNowickConfirmResults(loaded, statusEl, resultEl);
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel; }
+      return;
+    }
+    var mode = modes[mIdx];
+    if(statusEl) statusEl.textContent = 'Computing ' + mode + ' (' + (mIdx + 1) + '/' + modes.length + ')…';
+    var forceRefresh = (mode === 'nowick-macd-confirm');  // baseline reuses cache
+    computeAllRecentBacktestsAsync(forceRefresh, function(done, total){
+      if(statusEl) statusEl.textContent = 'Computing ' + mode + ' — ' + done + '/' + total;
+    }, function(results){
+      loaded[mode] = results || {};
+      mIdx++;
+      setTimeout(runNext, 0);
+    }, mode);
+  }
+  setTimeout(runNext, 0);
+}
+if(typeof window !== 'undefined'){ window.runNowickMacdConfirmTest = runNowickMacdConfirmTest; }
+
+function _renderNowickConfirmResults(loaded, statusEl, resultEl){
+  if(!resultEl){ if(statusEl) statusEl.textContent = '⚠ result host missing'; return; }
+  var classes = ['major','minor','comm','index','crypto'];
+
+  // Aggregate W, L, post-inv per (class × mode)
+  function emptyStats(){ return {W:0, L:0, postInv:0, total:0}; }
+  var agg = {};
+  classes.forEach(function(cls){
+    agg[cls] = {baseline: emptyStats(), confirm: emptyStats()};
+  });
+  var totals = {baseline: emptyStats(), confirm: emptyStats()};
+
+  function addOne(target, rb){
+    if(!rb || typeof rb.wins !== 'number') return;
+    target.W += rb.wins;
+    target.L += rb.losses || 0;
+    target.postInv += (rb.invalidatedPost || 0);
+    target.total += (rb.wins + (rb.losses || 0) + (rb.invalidated || 0) + (rb.expired || 0));
+  }
+
+  Object.keys(MKTS).forEach(function(k){
+    var cls = (MKTS[k] && MKTS[k].t) || 'unknown';
+    if(!agg[cls]) return;
+    addOne(agg[cls].baseline, loaded['auto-ew'] && loaded['auto-ew'][k]);
+    addOne(agg[cls].confirm,  loaded['nowick-macd-confirm'] && loaded['nowick-macd-confirm'][k]);
+    addOne(totals.baseline, loaded['auto-ew'] && loaded['auto-ew'][k]);
+    addOne(totals.confirm,  loaded['nowick-macd-confirm'] && loaded['nowick-macd-confirm'][k]);
+  });
+
+  function wr(s){ var N = s.W + s.L; return N > 0 ? (s.W / N * 100) : null; }
+  function wrFmt(p){ return p == null ? '—' : p.toFixed(1) + '%'; }
+  function wrColor(p, N){
+    if(p == null) return 'var(--inkd)';
+    if(N < 10) return 'var(--inkd)';
+    return p >= 70 ? 'var(--bull)' : p >= 60 ? 'var(--gold)' : 'var(--bear)';
+  }
+  function postInvRate(s){
+    return s.total > 0 ? (s.postInv / s.total * 100) : null;
+  }
+  function pctFmt(p){ return p == null ? '—' : p.toFixed(1) + '%'; }
+  function deltaFmt(a, b){
+    if(a == null || b == null) return {txt:'—', col:'var(--inkd)'};
+    var d = b - a;
+    var sign = d >= 0 ? '+' : '';
+    return {txt: sign + d.toFixed(1) + 'pp', col: d >= 2 ? 'var(--bull)' : d <= -2 ? 'var(--bear)' : 'var(--inkd)'};
+  }
+
+  var rows = classes.map(function(cls){
+    var b = agg[cls].baseline;
+    var c = agg[cls].confirm;
+    var bWR = wr(b), cWR = wr(c);
+    var bN = b.W + b.L, cN = c.W + c.L;
+    var bPi = postInvRate(b), cPi = postInvRate(c);
+    var d = deltaFmt(bWR, cWR);
+    var piD = deltaFmt(bPi, cPi);
+    return '<tr style="border-top:1px dashed rgba(0,0,0,0.08);">'
+      + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">' + cls + '</td>'
+      + '<td style="padding:5px 8px;text-align:right;color:' + wrColor(bWR, bN) + ';font-weight:700;">' + wrFmt(bWR) + '<div style="color:var(--inkd);font-weight:400;font-size:7.5px;">' + bN + ' · ' + pctFmt(bPi) + ' pinv</div></td>'
+      + '<td style="padding:5px 8px;text-align:right;color:' + wrColor(cWR, cN) + ';font-weight:700;border-left:1px solid rgba(0,0,0,0.06);">' + wrFmt(cWR) + '<div style="color:var(--inkd);font-weight:400;font-size:7.5px;">' + cN + ' · ' + pctFmt(cPi) + ' pinv</div></td>'
+      + '<td style="padding:5px 8px;text-align:right;color:' + d.col + ';font-weight:700;border-left:1px solid rgba(0,0,0,0.06);">' + d.txt + '<div style="color:' + piD.col + ';font-weight:400;font-size:7.5px;">' + piD.txt + ' pinv</div></td>'
+      + '</tr>';
+  }).join('');
+
+  var b = totals.baseline, c = totals.confirm;
+  var bWR = wr(b), cWR = wr(c);
+  var bN = b.W + b.L, cN = c.W + c.L;
+  var bPi = postInvRate(b), cPi = postInvRate(c);
+  var d = deltaFmt(bWR, cWR);
+  var piD = deltaFmt(bPi, cPi);
+  var totalRow = '<tr style="border-top:2px solid var(--rule);background:rgba(0,0,0,0.02);">'
+    + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">ALL</td>'
+    + '<td style="padding:5px 8px;text-align:right;color:' + wrColor(bWR, bN) + ';font-weight:700;">' + wrFmt(bWR) + '<div style="color:var(--inkd);font-weight:400;font-size:7.5px;">' + bN + ' · ' + pctFmt(bPi) + ' pinv</div></td>'
+    + '<td style="padding:5px 8px;text-align:right;color:' + wrColor(cWR, cN) + ';font-weight:700;border-left:1px solid rgba(0,0,0,0.06);">' + wrFmt(cWR) + '<div style="color:var(--inkd);font-weight:400;font-size:7.5px;">' + cN + ' · ' + pctFmt(cPi) + ' pinv</div></td>'
+    + '<td style="padding:5px 8px;text-align:right;color:' + d.col + ';font-weight:700;border-left:1px solid rgba(0,0,0,0.06);">' + d.txt + '<div style="color:' + piD.col + ';font-weight:400;font-size:7.5px;">' + piD.txt + ' pinv</div></td>'
+    + '</tr>';
+
+  resultEl.innerHTML =
+    '<div style="margin-top:8px;padding:10px 12px;border:1px solid rgba(200,134,10,0.30);background:rgba(200,134,10,0.04);border-radius:4px;">'
+    + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#c8860a;margin-bottom:6px;">NOWICK + MACD-CROSS CONFIRMATION · A/B vs PRODUCTION</div>'
+    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:8px;">Baseline = the existing 4/4 + creator-candle trigger (auto-ew profile). Confirm = same trigger + requires a same-direction MACD/Signal cross within 3 m15 bars before the bar. Each cell shows WR / n / post-trigger-inv rate. Δ column shows WR change and post-inv change per class. Deploy threshold per class: Δ WR ≥ +3pp AND post-inv unchanged-or-lower AND ≥20 trades survive the filter.</div>'
+    + '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table style="width:100%;border-collapse:collapse;font-size:9px;min-width:560px;">'
+    + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
+    + '<th style="padding:5px 8px;text-align:left;">Class</th>'
+    + '<th style="padding:5px 8px;text-align:right;">Baseline WR<div style="color:var(--inkd);font-weight:400;font-size:7.5px;">n · post-inv</div></th>'
+    + '<th style="padding:5px 8px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">+ MACD Confirm<div style="color:var(--inkd);font-weight:400;font-size:7.5px;">n · post-inv</div></th>'
+    + '<th style="padding:5px 8px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Δ WR<div style="color:var(--inkd);font-weight:400;font-size:7.5px;">Δ pinv</div></th>'
+    + '</tr></thead><tbody>' + rows + totalRow + '</tbody></table></div>'
+    + '<div style="margin-top:8px;font-size:8.5px;color:var(--inkd);line-height:1.5;"><strong>Read:</strong> a class showing positive Δ WR with lower Δ pinv is a deploy candidate — the cross requirement filters out the bad post-invalidating cohort while preserving most winners. If pinv drops sharply but n collapses too, the rule is too tight. If WR is flat but pinv drops, the rule still helps capital preservation even without WR lift.</div>'
+    + '</div>';
+  if(statusEl){
+    var ts = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    statusEl.textContent = '✓ Simulation ready · ' + ts;
+  }
+}
+if(typeof window !== 'undefined'){ window._renderNowickConfirmResults = _renderNowickConfirmResults; }

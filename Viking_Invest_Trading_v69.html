@@ -1354,6 +1354,23 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   </div>
   <div id="btMacdDivTestResult" style="margin:0 0 12px 0;"></div>
 
+  <!-- ── 1h. NOWICK + MACD-CROSS CONFIRMATION (2026-06-19) ─────────
+       Layers a same-direction MACD/Signal cross requirement on the
+       existing 4/4 wick-primary trigger across ALL classes. The
+       hypothesis: high post-trigger invalidation on nowick trades is
+       driven by setups where momentum was already weak; the cross
+       requirement filters those out. Compares against the same pair's
+       production WR and shows per-class delta + post-inv breakdown. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btNowickConfirmBtn"
+            onclick="runNowickMacdConfirmTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid #c8860a;background:rgba(200,134,10,0.08);color:#c8860a;border-radius:3px;cursor:pointer;">
+      🧪 TEST: NOWICK + MACD-CROSS CONFIRMATION (FINETUNE)
+    </button>
+    <span id="btNowickConfirmStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btNowickConfirmResult" style="margin:0 0 12px 0;"></div>
+
   <!-- ── DRY-RUN TEST PANEL (hidden 2026-06-13qq) ─────────────────────
        Buttons + variant selectors for the 4 in-page rule-test harnesses
        (counter-bar, SR gating, news blackout, R:R per class). User
@@ -11024,6 +11041,7 @@ var RECENT_BT_CACHE_KEY_2OF4 = 'vit_recent_backtest_v9_2of4_rsi_macd';
 var RECENT_BT_CACHE_KEY_1OF4 = 'vit_recent_backtest_v9_1of4_rsi_macd';
 var RECENT_BT_CACHE_KEY_MACD_PRIMARY = 'vit_recent_backtest_v9_macd_primary';
 var RECENT_BT_CACHE_KEY_MACD_DIVERGENCE = 'vit_recent_backtest_v9_macd_divergence';
+var RECENT_BT_CACHE_KEY_NOWICK_MACD_CONFIRM = 'vit_recent_backtest_v9_nowick_macd_confirm';
 var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // Previously 4 hours. Bumped 2026-05-30: with the per-pair-class
 // routing (struct for majors except AUD/USD, auto-EW for everything
@@ -11127,6 +11145,7 @@ function _cacheKeyForMode(mode){
   if(mode === '1of4-rsi-macd') return RECENT_BT_CACHE_KEY_1OF4;
   if(mode === 'macd-primary') return RECENT_BT_CACHE_KEY_MACD_PRIMARY;
   if(mode === 'macd-divergence') return RECENT_BT_CACHE_KEY_MACD_DIVERGENCE;
+  if(mode === 'nowick-macd-confirm') return RECENT_BT_CACHE_KEY_NOWICK_MACD_CONFIRM;
   return RECENT_BT_CACHE_KEY;
 }
 
@@ -11468,7 +11487,7 @@ function calcRecentBacktest(k, mode){
   // extra filter requiring the 4H 50/200 EMA cloud direction to agree
   // with the macro direction at the same historical timestamp).
   mode = mode || 'structural';
-  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime' || mode === 'auto-ew-macd' || mode === '3of4-rsi-macd' || mode === '2of4-rsi-macd' || mode === '1of4-rsi-macd');
+  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime' || mode === 'auto-ew-macd' || mode === '3of4-rsi-macd' || mode === '2of4-rsi-macd' || mode === '1of4-rsi-macd' || mode === 'nowick-macd-confirm');
   var _btUseRegime = (mode === 'auto-ew-regime');
   // 2026-06-16c — 3-of-4 + RSI-extreme + MACD-cross exploratory mode.
   // Relaxes the standard 4/4 alignment to allow setups where the 15m
@@ -11510,6 +11529,15 @@ function calcRecentBacktest(k, mode){
   // divergence alone has an edge. RSI is not gated either; if results
   // are promising, Phase 2 layers cross + RSI on top.
   var _btUseMacdDivergence = (mode === 'macd-divergence');
+  // 2026-06-19 — NOWICK + MACD-CROSS CONFIRMATION test mode. Layers a
+  // same-direction MACD/Signal cross requirement on the existing 4/4
+  // wick-primary trigger across ALL classes (not just indices, which
+  // already have it as a production gate). Hypothesis: the high count
+  // of post-trigger-invalidated nowick trades is driven by setups
+  // where momentum was already weak; the cross requirement filters
+  // those out. Side-by-side A/B against the same pair's production
+  // path tells us which classes benefit + the post-trigger inv delta.
+  var _btUseMacdConfirm = (mode === 'nowick-macd-confirm');
   // 2026-06-16b — MACD-cross hard gate. Three activation paths:
   //   1. Test modes: `structural-macd` / `auto-ew-macd` enable the gate
   //      for ALL pairs (used by the per-class A/B test button).
@@ -11518,19 +11546,13 @@ function calcRecentBacktest(k, mode){
   //      trades vs −7.4pp on majors, −0.5pp on minors, −6.1pp on
   //      commodities, −2.1pp on crypto. Only indices clear the gate.
   //   3. The 3of4-rsi-macd mode also requires the cross (always).
+  //   4. The nowick-macd-confirm test mode applies the gate to all
+  //      classes so we can measure the post-invalidation lift.
   //   The test flags STAY working so we can re-A/B if data drifts.
-  // 2026-06-16m — pair-class lookup. The previous code referenced a
-  // global `_classOf` function that never existed at this scope — the
-  // dashboard defines `_classOfPair` locally inside renderFailureMode
-  // / analyseIntradayFailures, but those aren't accessible here. The
-  // bug silently disabled both the morning index-only MACD-cross gate
-  // AND the afternoon MACD-primary parallel detector — neither rule
-  // ever activated because _btPairClass was null for every pair.
-  // Reading directly from MKTS[k].t is the established pattern used
-  // everywhere else in the file.
   var _btPairClass = (typeof MKTS !== 'undefined' && MKTS[k]) ? MKTS[k].t : null;
   var _btUseMACDCross = (mode === 'structural-macd' || mode === 'auto-ew-macd')
-                        || (_btPairClass === 'index') || _btUse3of4 || _btUse2of4 || _btUse1of4;
+                        || (_btPairClass === 'index') || _btUse3of4 || _btUse2of4 || _btUse1of4
+                        || _btUseMacdConfirm;
   var MACD_CROSS_LB = 3;
   // 2026-06-16 — wider lookback for the exploratory expansion modes
   // (3of4/2of4/1of4). The 3-bar window produced 0-1 trades across all
@@ -12831,6 +12853,7 @@ function run3of4RsiMacdTest(){ _ensureBacktestTestsLoaded().then(function(){ win
 function runMacdPrimaryTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runMacdPrimaryTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runMacdPrimaryJpyTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runMacdPrimaryJpyTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runMacdDivergenceTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runMacdDivergenceTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
+function runNowickMacdConfirmTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runNowickMacdConfirmTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runCounterBarRuleTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runCounterBarRuleTest(opts); }); }
 function runSRGatingTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runSRGatingTest(opts); }); }
 function runNewsBlackoutTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runNewsBlackoutTest(opts); }); }
@@ -12846,6 +12869,7 @@ if(typeof window !== "undefined"){
   window.runMacdPrimaryTest      = runMacdPrimaryTest;
   window.runMacdPrimaryJpyTest   = runMacdPrimaryJpyTest;
   window.runMacdDivergenceTest   = runMacdDivergenceTest;
+  window.runNowickMacdConfirmTest = runNowickMacdConfirmTest;
   window.runCounterBarRuleTest   = runCounterBarRuleTest;
   window.runSRGatingTest         = runSRGatingTest;
   window.runNewsBlackoutTest     = runNewsBlackoutTest;
