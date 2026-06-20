@@ -1387,6 +1387,39 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   </div>
   <div id="btNowickConfirmWideResult" style="margin:0 0 12px 0;"></div>
 
+  <!-- ── 1j. NOWICK + RSI-EXTREME (alone, 2026-06-20) ──────────────
+       Tests whether a 1H RSI deep-extreme filter (<25 bull / >75
+       bear) on the 4/4 nowick trigger is a cleaner discriminator
+       than MACD-cross confirmation (which failed in both 3-bar and
+       8-bar variants). Production index gate stays in place; this
+       only adds the RSI extreme requirement on top of auto-ew. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btNowickRsiExtremeBtn"
+            onclick="runNowickRsiExtremeTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid #7c3aed;background:rgba(124,58,237,0.08);color:#7c3aed;border-radius:3px;cursor:pointer;">
+      🧪 TEST: NOWICK + RSI EXTREME &lt;25/&gt;75 (ALONE)
+    </button>
+    <span id="btNowickRsiExtremeStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btNowickRsiExtremeResult" style="margin:0 0 12px 0;"></div>
+
+  <!-- ── 1k. NOWICK + RSI-EXTREME + MACD-WIDE COMBO (2026-06-20) ───
+       Stacks the deep RSI extreme filter on top of the wide 8-bar
+       MACD-cross. Stricter — both gates must agree. Hypothesis: even
+       if neither filter alone is enough, the intersection (deeply
+       overbought/oversold AND fresh momentum cross) is the right
+       cohort. Larger sample-cut expected; deploy decision per-class
+       depends on whether WR lift compensates. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btNowickRsiMacdComboBtn"
+            onclick="runNowickRsiMacdComboTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid #be185d;background:rgba(190,24,93,0.08);color:#be185d;border-radius:3px;cursor:pointer;">
+      🧪 TEST: NOWICK + RSI EXTREME + MACD-WIDE (COMBO)
+    </button>
+    <span id="btNowickRsiMacdComboStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btNowickRsiMacdComboResult" style="margin:0 0 12px 0;"></div>
+
   <!-- ── DRY-RUN TEST PANEL (hidden 2026-06-13qq) ─────────────────────
        Buttons + variant selectors for the 4 in-page rule-test harnesses
        (counter-bar, SR gating, news blackout, R:R per class). User
@@ -11059,6 +11092,8 @@ var RECENT_BT_CACHE_KEY_MACD_PRIMARY = 'vit_recent_backtest_v9_macd_primary';
 var RECENT_BT_CACHE_KEY_MACD_DIVERGENCE = 'vit_recent_backtest_v9_macd_divergence';
 var RECENT_BT_CACHE_KEY_NOWICK_MACD_CONFIRM = 'vit_recent_backtest_v9_nowick_macd_confirm';
 var RECENT_BT_CACHE_KEY_NOWICK_MACD_CONFIRM_WIDE = 'vit_recent_backtest_v9_nowick_macd_confirm_wide';
+var RECENT_BT_CACHE_KEY_NOWICK_RSI_EXTREME = 'vit_recent_backtest_v9_nowick_rsi_extreme';
+var RECENT_BT_CACHE_KEY_NOWICK_RSI_MACD_COMBO = 'vit_recent_backtest_v9_nowick_rsi_macd_combo';
 var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // Previously 4 hours. Bumped 2026-05-30: with the per-pair-class
 // routing (struct for majors except AUD/USD, auto-EW for everything
@@ -11164,6 +11199,8 @@ function _cacheKeyForMode(mode){
   if(mode === 'macd-divergence') return RECENT_BT_CACHE_KEY_MACD_DIVERGENCE;
   if(mode === 'nowick-macd-confirm') return RECENT_BT_CACHE_KEY_NOWICK_MACD_CONFIRM;
   if(mode === 'nowick-macd-confirm-wide') return RECENT_BT_CACHE_KEY_NOWICK_MACD_CONFIRM_WIDE;
+  if(mode === 'nowick-rsi-extreme') return RECENT_BT_CACHE_KEY_NOWICK_RSI_EXTREME;
+  if(mode === 'nowick-rsi-macd-combo') return RECENT_BT_CACHE_KEY_NOWICK_RSI_MACD_COMBO;
   return RECENT_BT_CACHE_KEY;
 }
 
@@ -11505,7 +11542,7 @@ function calcRecentBacktest(k, mode){
   // extra filter requiring the 4H 50/200 EMA cloud direction to agree
   // with the macro direction at the same historical timestamp).
   mode = mode || 'structural';
-  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime' || mode === 'auto-ew-macd' || mode === '3of4-rsi-macd' || mode === '2of4-rsi-macd' || mode === '1of4-rsi-macd' || mode === 'nowick-macd-confirm' || mode === 'nowick-macd-confirm-wide');
+  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime' || mode === 'auto-ew-macd' || mode === '3of4-rsi-macd' || mode === '2of4-rsi-macd' || mode === '1of4-rsi-macd' || mode === 'nowick-macd-confirm' || mode === 'nowick-macd-confirm-wide' || mode === 'nowick-rsi-extreme' || mode === 'nowick-rsi-macd-combo');
   var _btUseRegime = (mode === 'auto-ew-regime');
   // 2026-06-16c — 3-of-4 + RSI-extreme + MACD-cross exploratory mode.
   // Relaxes the standard 4/4 alignment to allow setups where the 15m
@@ -11562,6 +11599,14 @@ function calcRecentBacktest(k, mode){
   // happens slightly earlier than the trigger; an 8-bar window still
   // counts as "fresh momentum" but catches more setups.
   var _btUseMacdConfirmWide = (mode === 'nowick-macd-confirm-wide');
+  // 2026-06-20 — RSI-extreme filter test on the 4/4 nowick trigger.
+  // After 3-bar and wide 8-bar MACD-cross confirmation both failed
+  // the deploy gate, this tests whether a 1H RSI deep-extreme filter
+  // (<25 on bull setups, >75 on bear setups) is the right
+  // discriminator instead. Two variants: extreme alone, and extreme
+  // stacked with the wide MACD-cross to see if combination matters.
+  var _btUseNowickRsiExtreme = (mode === 'nowick-rsi-extreme');
+  var _btUseNowickRsiMacdCombo = (mode === 'nowick-rsi-macd-combo');
   // 2026-06-16b — MACD-cross hard gate. Three activation paths:
   //   1. Test modes: `structural-macd` / `auto-ew-macd` enable the gate
   //      for ALL pairs (used by the per-class A/B test button).
@@ -11576,7 +11621,7 @@ function calcRecentBacktest(k, mode){
   var _btPairClass = (typeof MKTS !== 'undefined' && MKTS[k]) ? MKTS[k].t : null;
   var _btUseMACDCross = (mode === 'structural-macd' || mode === 'auto-ew-macd')
                         || (_btPairClass === 'index') || _btUse3of4 || _btUse2of4 || _btUse1of4
-                        || _btUseMacdConfirm || _btUseMacdConfirmWide;
+                        || _btUseMacdConfirm || _btUseMacdConfirmWide || _btUseNowickRsiMacdCombo;
   var MACD_CROSS_LB = 3;
   // 2026-06-16 — wider lookback for the exploratory expansion modes
   // (3of4/2of4/1of4). The 3-bar window produced 0-1 trades across all
@@ -12162,6 +12207,15 @@ function calcRecentBacktest(k, mode){
         if(rsiAt == null || !isFinite(rsiAt)){ i++; continue; }
         if(ewDir === 'bull' && rsiAt >= 30){ i++; continue; }
         if(ewDir === 'bear' && rsiAt <= 70){ i++; continue; }
+      } else if(_btUseNowickRsiExtreme || _btUseNowickRsiMacdCombo){
+        // 2026-06-20 — 4/4 nowick + deep RSI extreme filter test.
+        // Stricter than the 3of4 cohort's 30/70 (those were loosened
+        // because the relaxed-alignment cohorts produced zero trades
+        // at 25/75). The full 4/4 alignment is a stronger base, so
+        // the deeper extreme is feasible without zeroing out sample.
+        if(rsiAt == null || !isFinite(rsiAt)){ i++; continue; }
+        if(ewDir === 'bull' && rsiAt >= 25){ i++; continue; }
+        if(ewDir === 'bear' && rsiAt <= 75){ i++; continue; }
       } else if(rsiAt != null && isFinite(rsiAt)){
         var _btGate = _rsiGateFor(k);
         if(ewDir === 'bull' && rsiAt >= _btGate.hi){ i++; continue; }
@@ -12192,7 +12246,7 @@ function calcRecentBacktest(k, mode){
       var crossFound = false;
       // Exploratory cohorts use the wider window; production index gate
       // keeps the original 3-bar lookback that tested at +4.3pp.
-      var _macdLb = (_btUse3of4 || _btUse2of4 || _btUse1of4 || _btUseMacdConfirmWide) ? MACD_CROSS_LB_EXPLO : MACD_CROSS_LB;
+      var _macdLb = (_btUse3of4 || _btUse2of4 || _btUse1of4 || _btUseMacdConfirmWide || _btUseNowickRsiMacdCombo) ? MACD_CROSS_LB_EXPLO : MACD_CROSS_LB;
       var lbStart = Math.max(1, i - _macdLb + 1);
       var warmUp = false;
       for(var cj = lbStart; cj <= i; cj++){
@@ -12879,6 +12933,8 @@ function runMacdPrimaryJpyTest(){ _ensureBacktestTestsLoaded().then(function(){ 
 function runMacdDivergenceTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runMacdDivergenceTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runNowickMacdConfirmTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runNowickMacdConfirmTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runNowickMacdConfirmWideTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runNowickMacdConfirmWideTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
+function runNowickRsiExtremeTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runNowickRsiExtremeTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
+function runNowickRsiMacdComboTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runNowickRsiMacdComboTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runCounterBarRuleTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runCounterBarRuleTest(opts); }); }
 function runSRGatingTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runSRGatingTest(opts); }); }
 function runNewsBlackoutTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runNewsBlackoutTest(opts); }); }
@@ -12896,6 +12952,8 @@ if(typeof window !== "undefined"){
   window.runMacdDivergenceTest   = runMacdDivergenceTest;
   window.runNowickMacdConfirmTest = runNowickMacdConfirmTest;
   window.runNowickMacdConfirmWideTest = runNowickMacdConfirmWideTest;
+  window.runNowickRsiExtremeTest = runNowickRsiExtremeTest;
+  window.runNowickRsiMacdComboTest = runNowickRsiMacdComboTest;
   window.runCounterBarRuleTest   = runCounterBarRuleTest;
   window.runSRGatingTest         = runSRGatingTest;
   window.runNewsBlackoutTest     = runNewsBlackoutTest;

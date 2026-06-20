@@ -2618,3 +2618,201 @@ function _renderNowickConfirmWideResults(loaded, statusEl, resultEl){
   }
 }
 if(typeof window !== 'undefined'){ window._renderNowickConfirmWideResults = _renderNowickConfirmWideResults; }
+
+
+// ── Shared renderer for nowick filter A/B tests (2026-06-20) ────
+// All four nowick-filter tests (narrow MACD, wide MACD, RSI-extreme
+// alone, RSI+MACD combo) render the same baseline-vs-filter table.
+// This helper parameterizes the host elements + theming so each test
+// keeps its own DOM slot and accent color without duplicating ~120
+// lines of stats aggregation + HTML assembly.
+function _renderNowickFilterAB(loaded, baselineKey, filterKey, statusEl, resultEl, opts){
+  if(!resultEl){ if(statusEl) statusEl.textContent = '⚠ result host missing'; return; }
+  opts = opts || {};
+  var accent = opts.accent || '#c8860a';
+  var title = opts.title || 'NOWICK FILTER · A/B vs PRODUCTION';
+  var description = opts.description || '';
+  var filterColLabel = opts.filterColLabel || '+ Filter';
+  var readNote = opts.readNote || '';
+  var classes = ['major','minor','comm','index','crypto'];
+
+  function emptyStats(){ return {W:0, L:0, postInv:0, total:0}; }
+  var agg = {};
+  classes.forEach(function(cls){ agg[cls] = {baseline: emptyStats(), confirm: emptyStats()}; });
+  var totals = {baseline: emptyStats(), confirm: emptyStats()};
+
+  function addOne(target, rb){
+    if(!rb || typeof rb.wins !== 'number') return;
+    target.W += rb.wins;
+    target.L += rb.losses || 0;
+    target.postInv += (rb.invalidatedPost || 0);
+    target.total += (rb.wins + (rb.losses || 0) + (rb.invalidated || 0) + (rb.expired || 0));
+  }
+
+  Object.keys(MKTS).forEach(function(k){
+    var cls = (MKTS[k] && MKTS[k].t) || 'unknown';
+    if(!agg[cls]) return;
+    addOne(agg[cls].baseline, loaded[baselineKey] && loaded[baselineKey][k]);
+    addOne(agg[cls].confirm,  loaded[filterKey]   && loaded[filterKey][k]);
+    addOne(totals.baseline,   loaded[baselineKey] && loaded[baselineKey][k]);
+    addOne(totals.confirm,    loaded[filterKey]   && loaded[filterKey][k]);
+  });
+
+  function wr(s){ var N = s.W + s.L; return N > 0 ? (s.W / N * 100) : null; }
+  function wrFmt(p){ return p == null ? '—' : p.toFixed(1) + '%'; }
+  function wrColor(p, N){
+    if(p == null) return 'var(--inkd)';
+    if(N < 10) return 'var(--inkd)';
+    return p >= 70 ? 'var(--bull)' : p >= 60 ? 'var(--gold)' : 'var(--bear)';
+  }
+  function postInvRate(s){ return s.total > 0 ? (s.postInv / s.total * 100) : null; }
+  function pctFmt(p){ return p == null ? '—' : p.toFixed(1) + '%'; }
+  function deltaFmt(a, b){
+    if(a == null || b == null) return {txt:'—', col:'var(--inkd)'};
+    var d = b - a;
+    var sign = d >= 0 ? '+' : '';
+    return {txt: sign + d.toFixed(1) + 'pp', col: d >= 2 ? 'var(--bull)' : d <= -2 ? 'var(--bear)' : 'var(--inkd)'};
+  }
+
+  function renderRow(cls, b, c, isTotal){
+    var bWR = wr(b), cWR = wr(c);
+    var bN = b.W + b.L, cN = c.W + c.L;
+    var bPi = postInvRate(b), cPi = postInvRate(c);
+    var d = deltaFmt(bWR, cWR);
+    var piD = deltaFmt(bPi, cPi);
+    var borderStyle = isTotal ? 'border-top:2px solid var(--rule);background:rgba(0,0,0,0.02);' : 'border-top:1px dashed rgba(0,0,0,0.08);';
+    return '<tr style="' + borderStyle + '">'
+      + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">' + cls + '</td>'
+      + '<td style="padding:5px 8px;text-align:right;color:' + wrColor(bWR, bN) + ';font-weight:700;">' + wrFmt(bWR) + '<div style="color:var(--inkd);font-weight:400;font-size:7.5px;">' + bN + ' · ' + pctFmt(bPi) + ' pinv</div></td>'
+      + '<td style="padding:5px 8px;text-align:right;color:' + wrColor(cWR, cN) + ';font-weight:700;border-left:1px solid rgba(0,0,0,0.06);">' + wrFmt(cWR) + '<div style="color:var(--inkd);font-weight:400;font-size:7.5px;">' + cN + ' · ' + pctFmt(cPi) + ' pinv</div></td>'
+      + '<td style="padding:5px 8px;text-align:right;color:' + d.col + ';font-weight:700;border-left:1px solid rgba(0,0,0,0.06);">' + d.txt + '<div style="color:' + piD.col + ';font-weight:400;font-size:7.5px;">' + piD.txt + ' pinv</div></td>'
+      + '</tr>';
+  }
+
+  var rows = classes.map(function(cls){ return renderRow(cls, agg[cls].baseline, agg[cls].confirm, false); }).join('');
+  var totalRow = renderRow('ALL', totals.baseline, totals.confirm, true);
+
+  var hex = accent.replace('#','');
+  var r = parseInt(hex.substr(0,2),16), g = parseInt(hex.substr(2,2),16), bl = parseInt(hex.substr(4,2),16);
+  var rgba = function(a){ return 'rgba(' + r + ',' + g + ',' + bl + ',' + a + ')'; };
+
+  resultEl.innerHTML =
+    '<div style="margin-top:8px;padding:10px 12px;border:1px solid ' + rgba(0.30) + ';background:' + rgba(0.04) + ';border-radius:4px;">'
+    + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:' + accent + ';margin-bottom:6px;">' + title + '</div>'
+    + (description ? '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:8px;">' + description + '</div>' : '')
+    + '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table style="width:100%;border-collapse:collapse;font-size:9px;min-width:560px;">'
+    + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
+    + '<th style="padding:5px 8px;text-align:left;">Class</th>'
+    + '<th style="padding:5px 8px;text-align:right;">Baseline WR<div style="color:var(--inkd);font-weight:400;font-size:7.5px;">n · post-inv</div></th>'
+    + '<th style="padding:5px 8px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">' + filterColLabel + '<div style="color:var(--inkd);font-weight:400;font-size:7.5px;">n · post-inv</div></th>'
+    + '<th style="padding:5px 8px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Δ WR<div style="color:var(--inkd);font-weight:400;font-size:7.5px;">Δ pinv</div></th>'
+    + '</tr></thead><tbody>' + rows + totalRow + '</tbody></table></div>'
+    + (readNote ? '<div style="margin-top:8px;font-size:8.5px;color:var(--inkd);line-height:1.5;">' + readNote + '</div>' : '')
+    + '</div>';
+  if(statusEl){
+    var ts = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    statusEl.textContent = '✓ Simulation ready · ' + ts;
+  }
+}
+if(typeof window !== 'undefined'){ window._renderNowickFilterAB = _renderNowickFilterAB; }
+
+
+// ── NOWICK + RSI EXTREME (alone, 2026-06-20) ──────────────────
+// 1H RSI deep-extreme filter (<25 bull / >75 bear) layered on the
+// 4/4 nowick trigger across ALL classes (production index gate
+// stays in place). Tests whether mean-reversion exhaustion alone
+// is the missing discriminator after both MACD-cross variants
+// failed the deploy gate.
+function runNowickRsiExtremeTest(){
+  var btn = document.getElementById('btNowickRsiExtremeBtn');
+  var statusEl = document.getElementById('btNowickRsiExtremeStatus');
+  var resultEl = document.getElementById('btNowickRsiExtremeResult');
+  var origLabel = '🧪 TEST: NOWICK + RSI EXTREME <25/>75 (ALONE)';
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '🧪 RUNNING...'; }
+  if(resultEl) resultEl.innerHTML = '';
+
+  if(typeof computeAllRecentBacktestsAsync !== 'function'){
+    if(statusEl) statusEl.textContent = 'Backtest engine not loaded';
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel; }
+    return;
+  }
+
+  var modes = ['auto-ew', 'nowick-rsi-extreme'];
+  var loaded = {};
+  var mIdx = 0;
+  function runNext(){
+    if(mIdx >= modes.length){
+      _renderNowickFilterAB(loaded, 'auto-ew', 'nowick-rsi-extreme', statusEl, resultEl, {
+        accent: '#7c3aed',
+        title: 'NOWICK + RSI EXTREME &lt;25/&gt;75 · A/B vs PRODUCTION',
+        description: 'Baseline = the existing 4/4 + creator-candle trigger (auto-ew profile). Filter = same trigger + requires the 1H RSI at trigger time to be < 25 on bull setups or > 75 on bear setups. Deploy threshold per class: Δ WR ≥ +3pp AND post-inv unchanged-or-lower AND ≥20 trades survive the filter.',
+        filterColLabel: '+ RSI Extreme',
+        readNote: '<strong>Read:</strong> RSI-extreme as a standalone filter measures whether mean-reversion exhaustion is the right discriminator. A clean lift here without combining with MACD says "the cohort that fails is the one where momentum was already mid-range" — the simplest filter wins. If sample collapses (RSI rarely hits 25/75), the filter is too tight and the combo test below tells us whether stacking helps.'
+      });
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel; }
+      return;
+    }
+    var mode = modes[mIdx];
+    if(statusEl) statusEl.textContent = 'Computing ' + mode + ' (' + (mIdx + 1) + '/' + modes.length + ')…';
+    var forceRefresh = (mode === 'nowick-rsi-extreme');
+    computeAllRecentBacktestsAsync(forceRefresh, function(done, total){
+      if(statusEl) statusEl.textContent = 'Computing ' + mode + ' — ' + done + '/' + total;
+    }, function(results){
+      loaded[mode] = results || {};
+      mIdx++;
+      setTimeout(runNext, 0);
+    }, mode);
+  }
+  setTimeout(runNext, 0);
+}
+if(typeof window !== 'undefined'){ window.runNowickRsiExtremeTest = runNowickRsiExtremeTest; }
+
+
+// ── NOWICK + RSI EXTREME + MACD-WIDE COMBO (2026-06-20) ───────
+// Stacks the deep RSI extreme filter on top of the wide 8-bar
+// MACD-cross. Both gates must agree at trigger time. Sample-cut
+// will be steeper than either filter alone — deploy candidacy
+// depends on whether WR lift compensates for the lost setups.
+function runNowickRsiMacdComboTest(){
+  var btn = document.getElementById('btNowickRsiMacdComboBtn');
+  var statusEl = document.getElementById('btNowickRsiMacdComboStatus');
+  var resultEl = document.getElementById('btNowickRsiMacdComboResult');
+  var origLabel = '🧪 TEST: NOWICK + RSI EXTREME + MACD-WIDE (COMBO)';
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '🧪 RUNNING...'; }
+  if(resultEl) resultEl.innerHTML = '';
+
+  if(typeof computeAllRecentBacktestsAsync !== 'function'){
+    if(statusEl) statusEl.textContent = 'Backtest engine not loaded';
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel; }
+    return;
+  }
+
+  var modes = ['auto-ew', 'nowick-rsi-macd-combo'];
+  var loaded = {};
+  var mIdx = 0;
+  function runNext(){
+    if(mIdx >= modes.length){
+      _renderNowickFilterAB(loaded, 'auto-ew', 'nowick-rsi-macd-combo', statusEl, resultEl, {
+        accent: '#be185d',
+        title: 'NOWICK + RSI EXTREME + MACD-WIDE COMBO · A/B vs PRODUCTION',
+        description: 'Baseline = the existing 4/4 + creator-candle trigger (auto-ew profile). Filter = same trigger + REQUIRES BOTH (a) 1H RSI < 25 bull / > 75 bear AND (b) same-direction MACD/Signal cross within 8 m15 bars (~2h). Strictest test — both gates must agree. Deploy threshold per class: Δ WR ≥ +3pp AND post-inv unchanged-or-lower AND ≥20 trades survive the filter.',
+        filterColLabel: '+ RSI &amp; MACD',
+        readNote: '<strong>Read vs RSI-alone:</strong> if the combo materially beats RSI-alone\'s WR, the intersection (mean-reversion exhaustion + fresh momentum cross) carries the edge — but only if ≥20 trades survive per class. If WR is flat between RSI-alone and combo, the cross adds no information on top of RSI; drop it. If combo zeros out sample on multiple classes, the intersection is too restrictive and RSI-alone is the candidate.'
+      });
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel; }
+      return;
+    }
+    var mode = modes[mIdx];
+    if(statusEl) statusEl.textContent = 'Computing ' + mode + ' (' + (mIdx + 1) + '/' + modes.length + ')…';
+    var forceRefresh = (mode === 'nowick-rsi-macd-combo');
+    computeAllRecentBacktestsAsync(forceRefresh, function(done, total){
+      if(statusEl) statusEl.textContent = 'Computing ' + mode + ' — ' + done + '/' + total;
+    }, function(results){
+      loaded[mode] = results || {};
+      mIdx++;
+      setTimeout(runNext, 0);
+    }, mode);
+  }
+  setTimeout(runNext, 0);
+}
+if(typeof window !== 'undefined'){ window.runNowickRsiMacdComboTest = runNowickRsiMacdComboTest; }
