@@ -10463,7 +10463,20 @@ var NOWICK_ATR_Q4_CEILING_BY_PAIR = {
 // detectIntradaySignal and the auto-ew BACKTEST. Keep this list
 // in sync with the production-shipped filter — adding a pair here
 // makes its WR cards on the dashboard immediately reflect the cut.
-var NOWICK_ATR_Q4_LIVE_PAIRS = ['audusd', 'eurusd', 'gbpusd', 'nzdusd', 'usdcad', 'usdchf', 'usdjpy'];
+//
+// 2026-06-20h — added INDEX pairs (wick path only). The ATR Q4
+// filter sits in the main wick-trade selection loop, so it only
+// gates wick triggers. MACD-primary (+0.49R/trade, 74.5% WR) and
+// MACD-divergence (+0.43R/trade, 71.7% WR) are in separate code
+// blocks and continue firing unfiltered — they're already top
+// performers and the source-tagged diagnostic hasn't yet shown
+// their high-ATR cohort is EV-negative. Wick INDEX is 187 trades
+// at +0.18R (the lowest-EV INDEX source) so any over-cut here
+// has minimal downside.
+var NOWICK_ATR_Q4_LIVE_PAIRS = [
+  'audusd', 'eurusd', 'gbpusd', 'nzdusd', 'usdcad', 'usdchf', 'usdjpy',
+  'de40', 'dj30', 'ftse100', 'jp225', 'nas100', 'spx500'
+];
 function _rsiGateFor(k){
   var cls = (typeof MKTS !== 'undefined' && MKTS[k] && MKTS[k].t) || null;
   return RSI_GATE_BY_CLASS[cls] || {hi: 80, lo: 20};
@@ -11186,7 +11199,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-20g';
+var RULES_VERSION = '2026-06-20h';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
