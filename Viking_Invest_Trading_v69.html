@@ -11165,7 +11165,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-20a';
+var RULES_VERSION = '2026-06-20b';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -11228,6 +11228,16 @@ function RULES_FINGERPRINT(){
     // qualifying trades. Future tweaks here auto-invalidate caches.
     rsiExtremeBull: 30,
     rsiExtremeBear: 70,
+    // 2026-06-20 — NOWICK ATR Q4-ceiling per class. Wired live for
+    // MAJOR (+4.8pp WR / -2.2pp pinv on 12-month backtest). INDEX
+    // ceiling defined but NOT yet wired live — gated on a per-
+    // detector diagnostic for INDEX's parallel triggers. Any tweak
+    // here busts all relevant caches automatically.
+    atrQ4CeilingByClass: (typeof NOWICK_ATR_Q4_CEILING_BY_CLASS !== 'undefined')
+      ? Object.keys(NOWICK_ATR_Q4_CEILING_BY_CLASS).sort().map(function(c){
+          return c + ':' + NOWICK_ATR_Q4_CEILING_BY_CLASS[c];
+        }).join(',')
+      : '',
     // Active pair universe (hash of sorted MKTS keys) — bump on any
     // add/remove so dropped pairs are flushed from localStorage caches
     // on the next page load, not the next TTL expiry. Without this the
@@ -14416,6 +14426,41 @@ function detectIntradaySignal(k){
       l = Math.min(o, c);
     }
     bars.push({idx:i, o:o, c:c, h:h, l:l, t:t.t, isBull: c > o, isBear: c < o});
+  }
+
+  // ── ATR Q4-ceiling live filter (MAJOR class, 2026-06-20) ──────
+  // Mirrors the nowick-atr-q4-cut backtest gate that lifted MAJOR
+  // WR 77.6% → 82.5% (+4.8pp) and dropped post-inv rate 41.8% →
+  // 39.6% on the 12-month backtest. Skips the trigger when m15
+  // ATR(14) at the current bar is at or above 0.081% of price.
+  // MAJOR-only ship: MINOR/COMM/CRYPTO Q4 are their BEST quartile
+  // or flat, so no ceiling. INDEX has a Q4 ceiling defined too
+  // (0.187%) but isn't wired live yet — INDEX runs three parallel
+  // detectors (wick + MACD-primary + MACD-divergence) and 98% of
+  // its trade flow comes from the parallel detectors, which need
+  // their own diagnostic before extending the ceiling.
+  if((typeof MKTS !== 'undefined') && MKTS[k] && MKTS[k].t === 'major'
+     && (typeof NOWICK_ATR_Q4_CEILING_BY_CLASS !== 'undefined')){
+    var _atrLiveCeiling = NOWICK_ATR_Q4_CEILING_BY_CLASS['major'];
+    if(_atrLiveCeiling != null && bars.length >= 14){
+      var _atrLiveSum = 0;
+      var _atrLiveEnd = bars.length - 1;
+      for(var _atrLi = _atrLiveEnd - 13; _atrLi <= _atrLiveEnd; _atrLi++){
+        var _atrLtr = bars[_atrLi].h - bars[_atrLi].l;
+        if(_atrLi > 0){
+          _atrLtr = Math.max(_atrLtr,
+            Math.abs(bars[_atrLi].h - bars[_atrLi-1].c),
+            Math.abs(bars[_atrLi].l - bars[_atrLi-1].c));
+        }
+        _atrLiveSum += _atrLtr;
+      }
+      var _atrLiveAbs = _atrLiveSum / 14;
+      var _atrLivePx = Math.abs(bars[_atrLiveEnd].c);
+      if(_atrLivePx > 0){
+        var _atrLivePct = _atrLiveAbs / _atrLivePx * 100;
+        if(_atrLivePct >= _atrLiveCeiling) return null;
+      }
+    }
   }
 
   // ── DIRECTIONAL COHERENCE CHECK ───────────────────────────────
