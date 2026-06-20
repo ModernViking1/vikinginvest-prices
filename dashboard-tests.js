@@ -2881,14 +2881,15 @@ function _renderNowickDiagnostic(results, statusEl, resultEl){
     if(!cls || !cohorts[cls]) return;
     rb.trades.forEach(function(t){
       if(!t || !t.diag) return;
+      var _src = t.source || 'wick';
       if(isPostInv(t)){
         cohorts[cls].postInv.push(t.diag);
-        cohorts[cls].allRecords.push({outcome: 'postInv', atrPct: t.diag.atrPct, rsi: t.diag.rsi, pair: k});
+        cohorts[cls].allRecords.push({outcome: 'postInv', atrPct: t.diag.atrPct, rsi: t.diag.rsi, pair: k, source: _src});
       } else if(isClean(t)){
         cohorts[cls].clean.push(t.diag);
         if(t.outcome === 'win') cohorts[cls].cleanW++;
         else cohorts[cls].cleanL++;
-        cohorts[cls].allRecords.push({outcome: t.outcome, atrPct: t.diag.atrPct, rsi: t.diag.rsi, pair: k});
+        cohorts[cls].allRecords.push({outcome: t.outcome, atrPct: t.diag.atrPct, rsi: t.diag.rsi, pair: k, source: _src});
       }
     });
   });
@@ -3095,6 +3096,76 @@ function _renderNowickDiagnostic(results, statusEl, resultEl){
     + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:6px;">Every nowick trade (auto-ew baseline) split by outcome into <strong>Clean</strong> (resolved as W or L, the trades we keep) and <strong>Post-inv</strong> (alignment broke after entry — the bad cohort we want to filter). Per-class table compares median feature values at trigger. <strong>Δ highlighted in cyan</strong> when the post-inv cohort differs from clean by ≥1.0 RSI / ≥0.001 ATR-% / ≥0.001 MACD-hist-‰ — that\'s the discriminator candidate.</div>'
     + '<div style="font-size:8.5px;color:var(--inkd);margin-bottom:6px;">Total sample: Clean = <strong style="color:var(--ink);">' + totalClean + '</strong> · Post-inv = <strong style="color:var(--ink);">' + totalPi + '</strong></div>'
     + (rowsHtml || '<div style="font-size:9px;color:var(--bear);">No diagnostic records collected. Verify nowick-diagnostic mode is wired and trades exist.</div>')
+    + (function(){
+        // ── TRIGGER-SOURCE COMPARISON (2026-06-20f) ────────────
+        // INDEX runs three parallel detectors (wick, macd-primary,
+        // macd-divergence). MAJOR/MINOR/COMM/CRYPTO are wick-only.
+        // This table shows W/L/post-inv per source per class so we
+        // can answer "which trigger source is most profitable" and
+        // decide whether to extend the ATR ceiling beyond wick.
+        // R-model: wick W = +2R, L = -1R, PI = -0.35R (post-inv
+        // exit cost). MACD-primary / MACD-divergence are 1:1 R:R
+        // by design (target = entry +/- R), no post-inv concept —
+        // forward sim resolves to W / L / expired only.
+        var rPerWinBySource = { 'wick': 2, 'macd-primary': 1, 'macd-divergence': 1 };
+        var rPerLossBySource = { 'wick': -1, 'macd-primary': -1, 'macd-divergence': -1 };
+        var rPerPiBySource = { 'wick': -0.35, 'macd-primary': 0, 'macd-divergence': 0 };
+        var sourceSections = classes.map(function(cls){
+          var co = cohorts[cls];
+          if(!co || !co.allRecords.length) return '';
+          var bySrc = {};
+          co.allRecords.forEach(function(r){
+            var src = r.source || 'wick';
+            if(!bySrc[src]) bySrc[src] = { W: 0, L: 0, PI: 0 };
+            if(r.outcome === 'win') bySrc[src].W++;
+            else if(r.outcome === 'loss') bySrc[src].L++;
+            else if(r.outcome === 'postInv') bySrc[src].PI++;
+          });
+          var srcKeys = Object.keys(bySrc).sort();
+          if(srcKeys.length < 2 && srcKeys[0] === 'wick') return '';
+          var trs = srcKeys.map(function(src){
+            var s = bySrc[src];
+            var resolved = s.W + s.L;
+            var total = resolved + s.PI;
+            var wrPct = resolved > 0 ? (s.W / resolved * 100) : null;
+            var piRate = total > 0 ? (s.PI / total * 100) : null;
+            var rWin = rPerWinBySource[src] != null ? rPerWinBySource[src] : 1;
+            var rLoss = rPerLossBySource[src] != null ? rPerLossBySource[src] : -1;
+            var rPi = rPerPiBySource[src] != null ? rPerPiBySource[src] : 0;
+            var ev = total > 0 ? ((s.W * rWin + s.L * rLoss + s.PI * rPi) / total) : null;
+            var wrColor = wrPct == null ? 'var(--inkd)' : (wrPct >= 70 ? 'var(--bull)' : wrPct >= 60 ? 'var(--gold)' : 'var(--bear)');
+            var evColor = ev == null ? 'var(--inkd)' : (ev >= 0.30 ? 'var(--bull)' : ev >= 0.10 ? 'var(--gold)' : ev > 0 ? 'var(--inkd)' : 'var(--bear)');
+            return '<tr style="border-top:1px dashed rgba(0,0,0,0.06);">'
+              + '<td style="padding:3px 6px;font-weight:700;">' + src + '</td>'
+              + '<td style="padding:3px 6px;text-align:right;">' + s.W + ' / ' + s.L + '</td>'
+              + '<td style="padding:3px 6px;text-align:right;color:' + wrColor + ';font-weight:700;">' + (wrPct != null ? fmt(wrPct, 1) + '%' : '—') + '</td>'
+              + '<td style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">' + s.PI + '</td>'
+              + '<td style="padding:3px 6px;text-align:right;">' + (piRate != null ? fmt(piRate, 1) + '%' : '—') + '</td>'
+              + '<td style="padding:3px 6px;text-align:right;font-family:monospace;font-size:8.5px;">' + total + '</td>'
+              + '<td style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);color:' + evColor + ';font-weight:700;">' + (ev != null ? (ev >= 0 ? '+' : '') + fmt(ev, 2) + 'R' : '—') + '</td>'
+              + '</tr>';
+          }).join('');
+          return '<div style="margin-top:10px;padding:8px 10px;background:rgba(124,58,237,0.03);border:1px solid rgba(124,58,237,0.18);border-radius:3px;">'
+            + '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#7c3aed;margin-bottom:4px;">' + cls + ' · per-trigger-source</div>'
+            + '<table style="width:100%;border-collapse:collapse;font-size:9px;">'
+            + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
+            + '<th style="padding:3px 6px;text-align:left;">Source</th>'
+            + '<th style="padding:3px 6px;text-align:right;">W / L</th>'
+            + '<th style="padding:3px 6px;text-align:right;">WR</th>'
+            + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Post-inv</th>'
+            + '<th style="padding:3px 6px;text-align:right;">PI rate</th>'
+            + '<th style="padding:3px 6px;text-align:right;">N total</th>'
+            + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">EV / trade</th>'
+            + '</tr></thead><tbody>' + trs + '</tbody></table>'
+            + '</div>';
+        }).filter(Boolean).join('');
+        if(!sourceSections) return '';
+        return '<div style="margin-top:14px;padding:8px 10px;border-top:2px solid rgba(124,58,237,0.30);">'
+          + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#7c3aed;margin-bottom:4px;">TRIGGER-SOURCE COMPARISON · WHICH DETECTOR IS MOST PROFITABLE?</div>'
+          + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:6px;">Only shown for classes that run multiple parallel detectors. INDEX fires three: wick (4/4 + creator candle), macd-primary (15m MACD/Signal cross with 1-3 confluence layers), macd-divergence (15m price-MACD divergence with 1-3 confluence). EV/trade uses wick R=+2/-1/-0.35 (W/L/PI) and MACD R=+1/-1 (fixed 1:1, no post-inv exit). Highest EV/trade per class is the source we\'d preferentially keep if forced to drop one; lowest EV/trade is the next candidate for an ATR-ceiling extension.</div>'
+          + sourceSections
+          + '</div>';
+      })()
     + '<div style="margin-top:14px;padding:8px 10px;border-top:2px solid rgba(8,145,178,0.30);">'
     + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#0891b2;margin-bottom:4px;">ATR-QUARTILE WR ANALYSIS · IS ATR CAUSAL TO WR OR ONLY TO POST-INV?</div>'
     + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:6px;">Per class, all trades bucketed into ATR(14)% quartiles. <strong>WR within resolved</strong> = W / (W+L) for trades that did resolve cleanly in that bucket — answers whether ATR predicts outcome among trades that survive. <strong>PI rate of total</strong> = post-inv share of all trades in the bucket — confirms post-inv concentrates in higher quartiles. Deploy decision rule: if WR drops monotonically (or sharply at Q4) from Q1→Q4, ATR-ceiling filter lifts WR. If WR is flat across quartiles, an ATR ceiling cuts post-inv burden without WR lift (capital preservation play, not WR play).</div>'

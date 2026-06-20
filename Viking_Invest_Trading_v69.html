@@ -11186,7 +11186,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-20e';
+var RULES_VERSION = '2026-06-20f';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -11996,6 +11996,48 @@ function calcRecentBacktest(k, mode){
     lastH1IdxSeen = h1Idx;
   };
 
+  // ── Diag-record helper (2026-06-20f) ──────────────────────────
+  // Computes the per-trigger diagnostic snapshot used by the nowick
+  // diagnostic. Factored out so the wick path, MACD-primary parallel
+  // detector, and MACD-divergence parallel detector all capture
+  // identical fields. Returns null when _btCollectDiag is false so
+  // production-mode trades.push stays cheap.
+  function _computeDiagRec(idx, curTsArg, h1IdxArg){
+    if(!_btCollectDiag) return null;
+    var _dt = new Date(curTsArg);
+    var _rsiTr = (h1RsiAtH1Idx && h1IdxArg >= 0 && h1IdxArg < h1RsiAtH1Idx.length)
+                 ? h1RsiAtH1Idx[h1IdxArg] : null;
+    if(_rsiTr != null && !isFinite(_rsiTr)) _rsiTr = null;
+    var _macdHist = null;
+    if(m15MacdAtIdx && m15MacdAtIdx.macd[idx] != null && m15MacdAtIdx.signal[idx] != null){
+      _macdHist = m15MacdAtIdx.macd[idx] - m15MacdAtIdx.signal[idx];
+    }
+    var _atrAbs = null;
+    if(idx >= 14){
+      var _trSum = 0;
+      for(var _ti = idx - 13; _ti <= idx; _ti++){
+        var _trBar = m15Bars[_ti].h - m15Bars[_ti].l;
+        if(_ti > 0){
+          _trBar = Math.max(_trBar,
+            Math.abs(m15Bars[_ti].h - m15Bars[_ti-1].c),
+            Math.abs(m15Bars[_ti].l - m15Bars[_ti-1].c));
+        }
+        _trSum += _trBar;
+      }
+      _atrAbs = _trSum / 14;
+    }
+    var _pxAtTrig = m15Bars[idx] ? Math.abs(m15Bars[idx].c) : null;
+    var _atrPct = (_atrAbs != null && _pxAtTrig) ? (_atrAbs / _pxAtTrig * 100) : null;
+    return {
+      hour: _dt.getUTCHours(),
+      day: _dt.getUTCDay(),
+      rsi: (_rsiTr != null) ? Math.round(_rsiTr * 10) / 10 : null,
+      macdHist: _macdHist,
+      atrPct: (_atrPct != null) ? Math.round(_atrPct * 1000) / 1000 : null,
+      macdHistPct: (_macdHist != null && _pxAtTrig) ? Math.round(_macdHist / _pxAtTrig * 1e6) / 1e3 : null
+    };
+  }
+
   while(i < n - 1){
     if(i <= lastResolvedIdx){ i++; continue; }
     // 15m NW lookback = 5 (CHoCH-style pivot sensitivity). Matches the
@@ -12123,7 +12165,8 @@ function calcRecentBacktest(k, mode){
                     triggered: true,
                     maxFavorable: null,
                     source: 'macd-primary',
-                    confluence: _mppConf
+                    confluence: _mppConf,
+                    diag: _computeDiagRec(i, curTs, h1Idx)
                   });
                 }
               }
@@ -12196,7 +12239,8 @@ function calcRecentBacktest(k, mode){
                 triggered: true,
                 maxFavorable: null,
                 source: 'macd-divergence',
-                confluence: _dpConf
+                confluence: _dpConf,
+                diag: _computeDiagRec(i, curTs, h1Idx)
               });
             }
           }
@@ -12777,44 +12821,6 @@ function calcRecentBacktest(k, mode){
       // `nowick-diagnostic` mode is active so the cost (RSI + MACD-hist
       // lookup, ATR(14) loop) is paid once when the user clicks the
       // diagnostic button — not on every production backtest run.
-      var _diagRec = null;
-      if(_btCollectDiag){
-        var _dt = new Date(curTs);
-        var _hourUtc = _dt.getUTCHours();
-        var _dayUtc = _dt.getUTCDay();
-        var _rsiTr = (h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length)
-                     ? h1RsiAtH1Idx[h1Idx] : null;
-        if(_rsiTr != null && !isFinite(_rsiTr)) _rsiTr = null;
-        var _macdHist = null;
-        if(m15MacdAtIdx && m15MacdAtIdx.macd[i] != null && m15MacdAtIdx.signal[i] != null){
-          _macdHist = m15MacdAtIdx.macd[i] - m15MacdAtIdx.signal[i];
-        }
-        var _atrAbs = null;
-        if(i >= 14){
-          var _trSum = 0;
-          for(var _ti = i - 13; _ti <= i; _ti++){
-            var _trBar = m15Bars[_ti].h - m15Bars[_ti].l;
-            if(_ti > 0){
-              _trBar = Math.max(_trBar,
-                Math.abs(m15Bars[_ti].h - m15Bars[_ti-1].c),
-                Math.abs(m15Bars[_ti].l - m15Bars[_ti-1].c));
-            }
-            _trSum += _trBar;
-          }
-          _atrAbs = _trSum / 14;
-        }
-        var _pxAtTrig = m15Bars[i] ? Math.abs(m15Bars[i].c) : null;
-        var _atrPct = (_atrAbs != null && _pxAtTrig) ? (_atrAbs / _pxAtTrig * 100) : null;
-        _diagRec = {
-          hour: _hourUtc,
-          day: _dayUtc,
-          rsi: (_rsiTr != null) ? Math.round(_rsiTr * 10) / 10 : null,
-          macdHist: _macdHist,
-          atrPct: (_atrPct != null) ? Math.round(_atrPct * 1000) / 1000 : null,
-          // Normalize MACD-hist by price so it's comparable across pairs
-          macdHistPct: (_macdHist != null && _pxAtTrig) ? Math.round(_macdHist / _pxAtTrig * 1e6) / 1e3 : null
-        };
-      }
       trades.push({
         outcome: resolved,
         failureMode: failureMode,
@@ -12833,8 +12839,11 @@ function calcRecentBacktest(k, mode){
         // the mode isn't macd-primary, so downstream readers can detect
         // and skip the bucket aggregation cleanly.
         confluence: _btMacdPrimaryConf,
+        // Trigger source — wick / macd-primary / macd-divergence. Lets
+        // the diagnostic segment per-source WR + ATR distributions.
+        source: 'wick',
         // Diagnostic features (null unless mode === 'nowick-diagnostic')
-        diag: _diagRec
+        diag: _computeDiagRec(i, curTs, h1Idx)
       });
     }
 
