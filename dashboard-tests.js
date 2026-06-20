@@ -2816,3 +2816,211 @@ function runNowickRsiMacdComboTest(){
   setTimeout(runNext, 0);
 }
 if(typeof window !== 'undefined'){ window.runNowickRsiMacdComboTest = runNowickRsiMacdComboTest; }
+
+
+// ── NOWICK DIAGNOSTIC DUMP (2026-06-20) ────────────────────────
+// Runs the 'nowick-diagnostic' backtest mode (same trade selection
+// as auto-ew) across all pairs, then aggregates the per-trade
+// records by class × outcome cohort (post-invalidated vs cleanly-
+// resolved) and renders a feature comparison: RSI, MACD-hist%,
+// ATR% at trigger, hour-of-day distribution, day-of-week. The
+// goal is to spot the feature(s) where the two cohorts diverge
+// most — that's the discriminator we should turn into a filter.
+function runNowickDiagnosticTest(){
+  var btn = document.getElementById('btNowickDiagnosticBtn');
+  var statusEl = document.getElementById('btNowickDiagnosticStatus');
+  var resultEl = document.getElementById('btNowickDiagnosticResult');
+  var origLabel = '🔬 DIAGNOSTIC: NOWICK FEATURE COMPARISON';
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '🔬 RUNNING...'; }
+  if(resultEl) resultEl.innerHTML = '';
+
+  if(typeof computeAllRecentBacktestsAsync !== 'function'){
+    if(statusEl) statusEl.textContent = 'Backtest engine not loaded';
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel; }
+    return;
+  }
+
+  if(statusEl) statusEl.textContent = 'Computing diagnostic dump…';
+  computeAllRecentBacktestsAsync(true, function(done, total){
+    if(statusEl) statusEl.textContent = 'Computing diagnostic — ' + done + '/' + total;
+  }, function(results){
+    _renderNowickDiagnostic(results || {}, statusEl, resultEl);
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel; }
+  }, 'nowick-diagnostic');
+}
+if(typeof window !== 'undefined'){ window.runNowickDiagnosticTest = runNowickDiagnosticTest; }
+
+function _renderNowickDiagnostic(results, statusEl, resultEl){
+  if(!resultEl){ if(statusEl) statusEl.textContent = '⚠ result host missing'; return; }
+  var classes = ['major','minor','comm','index','crypto'];
+
+  function isPostInv(t){
+    return t && t.outcome === 'invalidated' && t.failureMode && t.failureMode.indexOf('post-trigger') >= 0;
+  }
+  function isClean(t){
+    return t && (t.outcome === 'win' || t.outcome === 'loss');
+  }
+
+  // Collect per-class cohorts of diagnostic records (skip trades without
+  // a diag block — only nowick-diagnostic mode populates it).
+  var cohorts = {};
+  classes.forEach(function(cls){
+    cohorts[cls] = {
+      clean: [], postInv: [],
+      cleanW: 0, cleanL: 0
+    };
+  });
+  Object.keys(results).forEach(function(k){
+    var rb = results[k];
+    if(!rb || !rb.trades) return;
+    var cls = (typeof MKTS !== 'undefined' && MKTS[k] && MKTS[k].t) || null;
+    if(!cls || !cohorts[cls]) return;
+    rb.trades.forEach(function(t){
+      if(!t || !t.diag) return;
+      if(isPostInv(t)){
+        cohorts[cls].postInv.push(t.diag);
+      } else if(isClean(t)){
+        cohorts[cls].clean.push(t.diag);
+        if(t.outcome === 'win') cohorts[cls].cleanW++;
+        else cohorts[cls].cleanL++;
+      }
+    });
+  });
+
+  function median(arr){
+    var xs = arr.filter(function(x){ return x != null && isFinite(x); }).sort(function(a,b){ return a-b; });
+    if(!xs.length) return null;
+    var mid = Math.floor(xs.length / 2);
+    return (xs.length % 2 === 0) ? (xs[mid-1] + xs[mid]) / 2 : xs[mid];
+  }
+  function mean(arr){
+    var xs = arr.filter(function(x){ return x != null && isFinite(x); });
+    if(!xs.length) return null;
+    var s = 0; for(var i = 0; i < xs.length; i++) s += xs[i];
+    return s / xs.length;
+  }
+  function fmt(p, dec){
+    if(p == null) return '—';
+    return p.toFixed(dec == null ? 1 : dec);
+  }
+  function fmtDelta(a, b, dec){
+    if(a == null || b == null) return {txt:'—', col:'var(--inkd)'};
+    var d = b - a;
+    var sign = d >= 0 ? '+' : '';
+    var threshold = (dec == null || dec === 1) ? 1 : Math.pow(10, -dec) * 10;
+    return {txt: sign + d.toFixed(dec == null ? 1 : dec), col: Math.abs(d) >= threshold ? '#0891b2' : 'var(--inkd)'};
+  }
+  function pluck(records, key){
+    return records.map(function(r){ return r[key]; });
+  }
+  function histByHour(records){
+    var h = new Array(24).fill(0);
+    records.forEach(function(r){ if(r && r.hour != null) h[r.hour]++; });
+    return h;
+  }
+  function histByDay(records){
+    var d = new Array(7).fill(0);
+    records.forEach(function(r){ if(r && r.day != null) d[r.day]++; });
+    return d;
+  }
+  function pct(part, whole){
+    return whole > 0 ? (part / whole * 100) : 0;
+  }
+  function sparkline(hist, total){
+    // 24-cell or 7-cell horizontal heat strip — each cell shaded by
+    // share of cohort. Helps eye the over/under-represented buckets.
+    if(!total) return '<span style="color:var(--inkd);">no data</span>';
+    return hist.map(function(v, idx){
+      var p = pct(v, total);
+      var alpha = Math.min(0.85, p / 10);  // scale: 10% of cohort → 0.85 alpha
+      var label = (hist.length === 24)
+        ? String(idx).padStart(2, '0')
+        : ['Su','M','Tu','W','Th','F','Sa'][idx];
+      return '<span title="' + label + ' UTC: ' + v + ' (' + p.toFixed(1) + '%)" '
+             + 'style="display:inline-block;width:14px;height:16px;text-align:center;line-height:16px;'
+             + 'font-size:7px;color:' + (alpha > 0.4 ? '#fff' : 'var(--ink)') + ';'
+             + 'background:rgba(8,145,178,' + alpha.toFixed(2) + ');"'
+             + '>' + label + '</span>';
+    }).join('');
+  }
+
+  var DAY_LABELS = ['Su','M','Tu','W','Th','F','Sa'];
+  var rowsHtml = classes.map(function(cls){
+    var co = cohorts[cls];
+    var nC = co.clean.length, nP = co.postInv.length;
+    if(nC === 0 && nP === 0) return '';
+
+    var rsiCleanM = median(pluck(co.clean, 'rsi'));
+    var rsiPiM = median(pluck(co.postInv, 'rsi'));
+    var rsiD = fmtDelta(rsiCleanM, rsiPiM, 1);
+
+    var atrCleanM = median(pluck(co.clean, 'atrPct'));
+    var atrPiM = median(pluck(co.postInv, 'atrPct'));
+    var atrD = fmtDelta(atrCleanM, atrPiM, 3);
+
+    var macdCleanM = median(pluck(co.clean, 'macdHistPct'));
+    var macdPiM = median(pluck(co.postInv, 'macdHistPct'));
+    var macdD = fmtDelta(macdCleanM, macdPiM, 3);
+
+    var hourClean = histByHour(co.clean);
+    var hourPi = histByHour(co.postInv);
+    var dayClean = histByDay(co.clean);
+    var dayPi = histByDay(co.postInv);
+
+    return '<div style="margin-top:10px;padding:8px 10px;background:rgba(0,0,0,0.015);border:1px solid var(--rule);border-radius:3px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+      + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#0891b2;">' + cls + '</div>'
+      + '<div style="font-size:8.5px;color:var(--inkd);">'
+      +   'Clean: <strong style="color:var(--ink);">' + nC + '</strong> (' + co.cleanW + 'W/' + co.cleanL + 'L) &middot; '
+      +   'Post-inv: <strong style="color:var(--ink);">' + nP + '</strong>'
+      + '</div></div>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:9px;margin-bottom:6px;">'
+      + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
+      + '<th style="padding:3px 6px;text-align:left;">Feature (median)</th>'
+      + '<th style="padding:3px 6px;text-align:right;">Clean cohort</th>'
+      + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Post-inv cohort</th>'
+      + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Δ (PI − Clean)</th>'
+      + '</tr></thead><tbody>'
+      + '<tr><td style="padding:3px 6px;">RSI(14) at trigger</td>'
+      +   '<td style="padding:3px 6px;text-align:right;">' + fmt(rsiCleanM, 1) + '</td>'
+      +   '<td style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">' + fmt(rsiPiM, 1) + '</td>'
+      +   '<td style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);color:' + rsiD.col + ';font-weight:700;">' + rsiD.txt + '</td></tr>'
+      + '<tr style="border-top:1px dashed rgba(0,0,0,0.06);"><td style="padding:3px 6px;">ATR(14) m15 as % of price</td>'
+      +   '<td style="padding:3px 6px;text-align:right;">' + fmt(atrCleanM, 3) + '</td>'
+      +   '<td style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">' + fmt(atrPiM, 3) + '</td>'
+      +   '<td style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);color:' + atrD.col + ';font-weight:700;">' + atrD.txt + '</td></tr>'
+      + '<tr style="border-top:1px dashed rgba(0,0,0,0.06);"><td style="padding:3px 6px;">MACD-hist as ‰ of price</td>'
+      +   '<td style="padding:3px 6px;text-align:right;">' + fmt(macdCleanM, 3) + '</td>'
+      +   '<td style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">' + fmt(macdPiM, 3) + '</td>'
+      +   '<td style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);color:' + macdD.col + ';font-weight:700;">' + macdD.txt + '</td></tr>'
+      + '</tbody></table>'
+      + '<div style="font-size:8.5px;color:var(--inkd);margin-top:4px;margin-bottom:2px;">Hour-of-day distribution (UTC) — top row Clean, bottom row Post-inv. Darker cell = larger share of that cohort.</div>'
+      + '<div style="white-space:nowrap;">' + sparkline(hourClean, nC) + '</div>'
+      + '<div style="white-space:nowrap;margin-top:2px;">' + sparkline(hourPi, nP) + '</div>'
+      + '<div style="font-size:8.5px;color:var(--inkd);margin-top:6px;margin-bottom:2px;">Day-of-week distribution — top Clean, bottom Post-inv.</div>'
+      + '<div style="white-space:nowrap;">' + sparkline(dayClean, nC) + '</div>'
+      + '<div style="white-space:nowrap;margin-top:2px;">' + sparkline(dayPi, nP) + '</div>'
+      + '</div>';
+  }).filter(Boolean).join('');
+
+  // Aggregate sample counts for header summary
+  var totalClean = 0, totalPi = 0;
+  classes.forEach(function(c){
+    totalClean += cohorts[c].clean.length;
+    totalPi += cohorts[c].postInv.length;
+  });
+
+  resultEl.innerHTML =
+    '<div style="margin-top:8px;padding:10px 12px;border:1px solid rgba(8,145,178,0.30);background:rgba(8,145,178,0.04);border-radius:4px;">'
+    + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#0891b2;margin-bottom:6px;">NOWICK DIAGNOSTIC · POST-INV vs CLEAN COHORTS</div>'
+    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:6px;">Every nowick trade (auto-ew baseline) split by outcome into <strong>Clean</strong> (resolved as W or L, the trades we keep) and <strong>Post-inv</strong> (alignment broke after entry — the bad cohort we want to filter). Per-class table compares median feature values at trigger. <strong>Δ highlighted in cyan</strong> when the post-inv cohort differs from clean by ≥1.0 RSI / ≥0.001 ATR-% / ≥0.001 MACD-hist-‰ — that\'s the discriminator candidate.</div>'
+    + '<div style="font-size:8.5px;color:var(--inkd);margin-bottom:6px;">Total sample: Clean = <strong style="color:var(--ink);">' + totalClean + '</strong> · Post-inv = <strong style="color:var(--ink);">' + totalPi + '</strong></div>'
+    + (rowsHtml || '<div style="font-size:9px;color:var(--bear);">No diagnostic records collected. Verify nowick-diagnostic mode is wired and trades exist.</div>')
+    + '<div style="margin-top:10px;font-size:8.5px;color:var(--inkd);line-height:1.5;"><strong>How to read:</strong> if RSI differs ≥3 between cohorts, an RSI band filter is worth re-testing (but at the actual divide, not the deep 25/75 we already disproved). If ATR%-diff is large, post-inv concentrates in a volatility regime — ATR floor/ceiling becomes the candidate. If MACD-hist-‰ differs, momentum strength at entry separates good from bad. If the hour-of-day heat strips look meaningfully different, a session filter (block Asian-session nowick? block London-open?) is the move.</div>'
+    + '</div>';
+  if(statusEl){
+    var ts = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    statusEl.textContent = '✓ Diagnostic ready · ' + ts;
+  }
+}
+if(typeof window !== 'undefined'){ window._renderNowickDiagnostic = _renderNowickDiagnostic; }

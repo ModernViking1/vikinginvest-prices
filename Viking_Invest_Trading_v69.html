@@ -1420,6 +1420,23 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   </div>
   <div id="btNowickRsiMacdComboResult" style="margin:0 0 12px 0;"></div>
 
+  <!-- ── 1l. NOWICK DIAGNOSTIC DUMP (2026-06-20) ───────────────────
+       Captures every nowick trade with features at trigger time
+       (RSI, hour-UTC, day-of-week, MACD-hist, ATR%) and renders a
+       side-by-side comparison of the post-invalidated cohort vs the
+       cleanly-resolved cohort. Both MACD-cross and RSI-extreme
+       filter tests came back null — this exists to discover what
+       feature DOES separate the bad nowick trades. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btNowickDiagnosticBtn"
+            onclick="runNowickDiagnosticTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid #0891b2;background:rgba(8,145,178,0.08);color:#0891b2;border-radius:3px;cursor:pointer;">
+      🔬 DIAGNOSTIC: NOWICK FEATURE COMPARISON
+    </button>
+    <span id="btNowickDiagnosticStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btNowickDiagnosticResult" style="margin:0 0 12px 0;"></div>
+
   <!-- ── DRY-RUN TEST PANEL (hidden 2026-06-13qq) ─────────────────────
        Buttons + variant selectors for the 4 in-page rule-test harnesses
        (counter-bar, SR gating, news blackout, R:R per class). User
@@ -11094,6 +11111,7 @@ var RECENT_BT_CACHE_KEY_NOWICK_MACD_CONFIRM = 'vit_recent_backtest_v9_nowick_mac
 var RECENT_BT_CACHE_KEY_NOWICK_MACD_CONFIRM_WIDE = 'vit_recent_backtest_v9_nowick_macd_confirm_wide';
 var RECENT_BT_CACHE_KEY_NOWICK_RSI_EXTREME = 'vit_recent_backtest_v9_nowick_rsi_extreme';
 var RECENT_BT_CACHE_KEY_NOWICK_RSI_MACD_COMBO = 'vit_recent_backtest_v9_nowick_rsi_macd_combo';
+var RECENT_BT_CACHE_KEY_NOWICK_DIAGNOSTIC = 'vit_recent_backtest_v9_nowick_diagnostic';
 var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // Previously 4 hours. Bumped 2026-05-30: with the per-pair-class
 // routing (struct for majors except AUD/USD, auto-EW for everything
@@ -11201,6 +11219,7 @@ function _cacheKeyForMode(mode){
   if(mode === 'nowick-macd-confirm-wide') return RECENT_BT_CACHE_KEY_NOWICK_MACD_CONFIRM_WIDE;
   if(mode === 'nowick-rsi-extreme') return RECENT_BT_CACHE_KEY_NOWICK_RSI_EXTREME;
   if(mode === 'nowick-rsi-macd-combo') return RECENT_BT_CACHE_KEY_NOWICK_RSI_MACD_COMBO;
+  if(mode === 'nowick-diagnostic') return RECENT_BT_CACHE_KEY_NOWICK_DIAGNOSTIC;
   return RECENT_BT_CACHE_KEY;
 }
 
@@ -11542,7 +11561,7 @@ function calcRecentBacktest(k, mode){
   // extra filter requiring the 4H 50/200 EMA cloud direction to agree
   // with the macro direction at the same historical timestamp).
   mode = mode || 'structural';
-  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime' || mode === 'auto-ew-macd' || mode === '3of4-rsi-macd' || mode === '2of4-rsi-macd' || mode === '1of4-rsi-macd' || mode === 'nowick-macd-confirm' || mode === 'nowick-macd-confirm-wide' || mode === 'nowick-rsi-extreme' || mode === 'nowick-rsi-macd-combo');
+  var _btUseAuto = (mode === 'auto-ew' || mode === 'auto-ew-regime' || mode === 'auto-ew-macd' || mode === '3of4-rsi-macd' || mode === '2of4-rsi-macd' || mode === '1of4-rsi-macd' || mode === 'nowick-macd-confirm' || mode === 'nowick-macd-confirm-wide' || mode === 'nowick-rsi-extreme' || mode === 'nowick-rsi-macd-combo' || mode === 'nowick-diagnostic');
   var _btUseRegime = (mode === 'auto-ew-regime');
   // 2026-06-16c — 3-of-4 + RSI-extreme + MACD-cross exploratory mode.
   // Relaxes the standard 4/4 alignment to allow setups where the 15m
@@ -11607,6 +11626,13 @@ function calcRecentBacktest(k, mode){
   // stacked with the wide MACD-cross to see if combination matters.
   var _btUseNowickRsiExtreme = (mode === 'nowick-rsi-extreme');
   var _btUseNowickRsiMacdCombo = (mode === 'nowick-rsi-macd-combo');
+  // 2026-06-20 — diagnostic capture mode. Behaves identically to
+  // auto-ew (same trade selection, same outcomes) but enriches each
+  // per-trade record with features at trigger time so we can compare
+  // post-invalidated vs cleanly-resolved cohorts. One-shot tool to
+  // identify what actually separates the bad nowick trades after
+  // both MACD-cross and RSI-extreme filter tests came back null.
+  var _btCollectDiag = (mode === 'nowick-diagnostic');
   // 2026-06-16b — MACD-cross hard gate. Three activation paths:
   //   1. Test modes: `structural-macd` / `auto-ew-macd` enable the gate
   //      for ALL pairs (used by the per-class A/B test button).
@@ -11866,7 +11892,7 @@ function calcRecentBacktest(k, mode){
   // m15 MACD(12,26,9) series for the MACD-cross hard gate. Only computed
   // when the mode requires it — the EMA + signal calc is ~3× m15Bars.length
   // floating-point ops, so we skip it entirely on production modes.
-  var m15MacdAtIdx = ((_btUseMACDCross || _btUseMacdPrimary || _btUseMacdDivergence) && typeof _macdSeries === 'function')
+  var m15MacdAtIdx = ((_btUseMACDCross || _btUseMacdPrimary || _btUseMacdDivergence || _btCollectDiag) && typeof _macdSeries === 'function')
     ? (function(){
         var closes = new Array(m15Bars.length);
         for(var mi = 0; mi < m15Bars.length; mi++) closes[mi] = m15Bars[mi].c;
@@ -12627,6 +12653,48 @@ function calcRecentBacktest(k, mode){
 
     // Record per-trade outcome for failure mode analysis
     if(resolved){
+      // 2026-06-20 — diagnostic feature capture. Only populated when
+      // `nowick-diagnostic` mode is active so the cost (RSI + MACD-hist
+      // lookup, ATR(14) loop) is paid once when the user clicks the
+      // diagnostic button — not on every production backtest run.
+      var _diagRec = null;
+      if(_btCollectDiag){
+        var _dt = new Date(curTs);
+        var _hourUtc = _dt.getUTCHours();
+        var _dayUtc = _dt.getUTCDay();
+        var _rsiTr = (h1RsiAtH1Idx && h1Idx >= 0 && h1Idx < h1RsiAtH1Idx.length)
+                     ? h1RsiAtH1Idx[h1Idx] : null;
+        if(_rsiTr != null && !isFinite(_rsiTr)) _rsiTr = null;
+        var _macdHist = null;
+        if(m15MacdAtIdx && m15MacdAtIdx.macd[i] != null && m15MacdAtIdx.signal[i] != null){
+          _macdHist = m15MacdAtIdx.macd[i] - m15MacdAtIdx.signal[i];
+        }
+        var _atrAbs = null;
+        if(i >= 14){
+          var _trSum = 0;
+          for(var _ti = i - 13; _ti <= i; _ti++){
+            var _trBar = m15Bars[_ti].h - m15Bars[_ti].l;
+            if(_ti > 0){
+              _trBar = Math.max(_trBar,
+                Math.abs(m15Bars[_ti].h - m15Bars[_ti-1].c),
+                Math.abs(m15Bars[_ti].l - m15Bars[_ti-1].c));
+            }
+            _trSum += _trBar;
+          }
+          _atrAbs = _trSum / 14;
+        }
+        var _pxAtTrig = m15Bars[i] ? Math.abs(m15Bars[i].c) : null;
+        var _atrPct = (_atrAbs != null && _pxAtTrig) ? (_atrAbs / _pxAtTrig * 100) : null;
+        _diagRec = {
+          hour: _hourUtc,
+          day: _dayUtc,
+          rsi: (_rsiTr != null) ? Math.round(_rsiTr * 10) / 10 : null,
+          macdHist: _macdHist,
+          atrPct: (_atrPct != null) ? Math.round(_atrPct * 1000) / 1000 : null,
+          // Normalize MACD-hist by price so it's comparable across pairs
+          macdHistPct: (_macdHist != null && _pxAtTrig) ? Math.round(_macdHist / _pxAtTrig * 1e6) / 1e3 : null
+        };
+      }
       trades.push({
         outcome: resolved,
         failureMode: failureMode,
@@ -12644,7 +12712,9 @@ function calcRecentBacktest(k, mode){
         // MACD-primary confluence bucket (0-4 layers agreeing). -1 when
         // the mode isn't macd-primary, so downstream readers can detect
         // and skip the bucket aggregation cleanly.
-        confluence: _btMacdPrimaryConf
+        confluence: _btMacdPrimaryConf,
+        // Diagnostic features (null unless mode === 'nowick-diagnostic')
+        diag: _diagRec
       });
     }
 
@@ -12938,6 +13008,7 @@ function runNowickMacdConfirmTest(){ _ensureBacktestTestsLoaded().then(function(
 function runNowickMacdConfirmWideTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runNowickMacdConfirmWideTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runNowickRsiExtremeTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runNowickRsiExtremeTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runNowickRsiMacdComboTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runNowickRsiMacdComboTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
+function runNowickDiagnosticTest(){ _ensureBacktestTestsLoaded().then(function(){ window.runNowickDiagnosticTest(); }).catch(function(e){ alert("Test load failed: " + e.message); }); }
 function runCounterBarRuleTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runCounterBarRuleTest(opts); }); }
 function runSRGatingTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runSRGatingTest(opts); }); }
 function runNewsBlackoutTest(opts){ _ensureBacktestTestsLoaded().then(function(){ window.runNewsBlackoutTest(opts); }); }
@@ -12957,6 +13028,7 @@ if(typeof window !== "undefined"){
   window.runNowickMacdConfirmWideTest = runNowickMacdConfirmWideTest;
   window.runNowickRsiExtremeTest = runNowickRsiExtremeTest;
   window.runNowickRsiMacdComboTest = runNowickRsiMacdComboTest;
+  window.runNowickDiagnosticTest = runNowickDiagnosticTest;
   window.runCounterBarRuleTest   = runCounterBarRuleTest;
   window.runSRGatingTest         = runSRGatingTest;
   window.runNewsBlackoutTest     = runNewsBlackoutTest;
