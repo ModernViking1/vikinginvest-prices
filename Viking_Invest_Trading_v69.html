@@ -10431,25 +10431,39 @@ var RSI_GATE_BY_CLASS = {
   index:  {hi: 70, lo: 30},
   crypto: {hi: 75, lo: 25}
 };
-// ── ATR Q4-ceiling per class (2026-06-20) ─────────────────────
-// From the nowick diagnostic ATR-quartile WR analysis: MAJOR Q4
-// (ATR% >= 0.081) had 5W/5L resolved out of 59 total fires, 83%
-// post-inv rate, EV ~-0.21R per trade. INDEX Q4 (ATR% >= 0.187)
-// had 3W/1L out of 27, 85% post-inv, EV ~-0.12R. MINOR, COMM,
-// CRYPTO showed the opposite pattern (Q4 is the BEST quartile or
-// neutral) so they have no ceiling. Filter blocks the bar when
-// m15 ATR(14) at trigger is at or above the per-class threshold.
-var NOWICK_ATR_Q4_CEILING_BY_CLASS = {
-  major: 0.081,
-  index: 0.187
+// ── NOWICK ATR Q4 ceilings · PER-PAIR (2026-06-20e) ───────────
+// Each pair's threshold = P75 of its m15 ATR% at trigger, derived
+// from the nowick diagnostic per-pair distribution panel. Cuts
+// the top ~25% of triggers per pair. Replaces the previous single
+// per-class threshold which over-cut some pairs (AUD/NZD/CHF) and
+// under-cut others (CAD never fired) because pair ATR distributions
+// vary by 3x within a single class.
+var NOWICK_ATR_Q4_CEILING_BY_PAIR = {
+  // MAJOR pairs — LIVE (see NOWICK_ATR_Q4_LIVE_PAIRS below)
+  audusd: 0.111,
+  eurusd: 0.071,
+  gbpusd: 0.083,
+  nzdusd: 0.104,
+  usdcad: 0.041,
+  usdchf: 0.089,
+  usdjpy: 0.059,
+  // INDEX pairs — DEFINED but NOT live yet. INDEX has three
+  // parallel detectors (wick + MACD-primary + MACD-divergence)
+  // and the wick ceiling on its own only touches ~1.5% of the
+  // class trade flow. INDEX gets wired once per-detector
+  // diagnostics confirm the ceiling helps the parallel paths too.
+  de40: 0.217,
+  dj30: 0.130,
+  ftse100: 0.142,
+  jp225: 0.249,
+  nas100: 0.146,
+  spx500: 0.098
 };
-// Classes where NOWICK_ATR_Q4_CEILING_BY_CLASS is also wired into the
-// LIVE detectIntradaySignal — so the backtest auto-ew mode must apply
-// the same gate to keep the dashboard's per-pair WR cards in sync with
-// the live filter. INDEX is in the threshold map but NOT in this list:
-// its three parallel detectors (wick + MACD-primary + MACD-divergence)
-// need per-detector diagnostics before the ceiling extends to it.
-var NOWICK_ATR_Q4_LIVE_CLASSES = ['major'];
+// Pairs where the ATR Q4 ceiling is wired into both the LIVE
+// detectIntradaySignal and the auto-ew BACKTEST. Keep this list
+// in sync with the production-shipped filter — adding a pair here
+// makes its WR cards on the dashboard immediately reflect the cut.
+var NOWICK_ATR_Q4_LIVE_PAIRS = ['audusd', 'eurusd', 'gbpusd', 'nzdusd', 'usdcad', 'usdchf', 'usdjpy'];
 function _rsiGateFor(k){
   var cls = (typeof MKTS !== 'undefined' && MKTS[k] && MKTS[k].t) || null;
   return RSI_GATE_BY_CLASS[cls] || {hi: 80, lo: 20};
@@ -11172,7 +11186,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-20d';
+var RULES_VERSION = '2026-06-20e';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -11240,13 +11254,14 @@ function RULES_FINGERPRINT(){
     // ceiling defined but NOT yet wired live — gated on a per-
     // detector diagnostic for INDEX's parallel triggers. Any tweak
     // here busts all relevant caches automatically.
-    atrQ4CeilingByClass: (typeof NOWICK_ATR_Q4_CEILING_BY_CLASS !== 'undefined')
-      ? Object.keys(NOWICK_ATR_Q4_CEILING_BY_CLASS).sort().map(function(c){
-          return c + ':' + NOWICK_ATR_Q4_CEILING_BY_CLASS[c];
+    // 2026-06-20e — switched from per-class to per-pair config.
+    atrQ4CeilingByPair: (typeof NOWICK_ATR_Q4_CEILING_BY_PAIR !== 'undefined')
+      ? Object.keys(NOWICK_ATR_Q4_CEILING_BY_PAIR).sort().map(function(p){
+          return p + ':' + NOWICK_ATR_Q4_CEILING_BY_PAIR[p];
         }).join(',')
       : '',
-    atrQ4LiveClasses: (typeof NOWICK_ATR_Q4_LIVE_CLASSES !== 'undefined')
-      ? NOWICK_ATR_Q4_LIVE_CLASSES.slice().sort().join(',')
+    atrQ4LivePairs: (typeof NOWICK_ATR_Q4_LIVE_PAIRS !== 'undefined')
+      ? NOWICK_ATR_Q4_LIVE_PAIRS.slice().sort().join(',')
       : '',
     // Active pair universe (hash of sorted MKTS keys) — bump on any
     // add/remove so dropped pairs are flushed from localStorage caches
@@ -12312,30 +12327,30 @@ function calcRecentBacktest(k, mode){
       }
     }
 
-    // ── ATR Q4-ceiling filter (2026-06-20) ─────────────────────
-    // From the nowick diagnostic ATR-quartile WR analysis: MAJOR Q4
-    // (ATR% >= 0.081) and INDEX Q4 (ATR% >= 0.187) are the only
-    // EV-negative quartiles across all classes. Filter blocks the
-    // bar when m15 ATR(14) at trigger reaches the per-class ceiling.
-    // Other classes have no ceiling — MINOR/CRYPTO Q4 are their BEST
-    // quartiles, COMM is flat. Skips conservatively when we don't
-    // have 14 bars of m15 history (warm-up).
-    // 2026-06-20c — also activates for auto-ew (production) mode on
-    // classes that have the filter wired into detectIntradaySignal
-    // (NOWICK_ATR_Q4_LIVE_CLASSES). Otherwise the dashboard per-pair
-    // WR cards drift away from live-filter behavior.
-    // 2026-06-20d — diagnostic mode bypasses the ATR Q4 filter so
-    // the captured distribution shows ALL triggers (pre-filter).
-    // Otherwise the per-pair Q4 boundaries get pulled below the
-    // class ceiling and we can't re-derive per-pair thresholds
-    // from the captured data.
-    var _shouldApplyAtrQ4 = _btUseAtrQ4Cut
+    // ── ATR Q4-ceiling filter · PER-PAIR (2026-06-20e) ─────────
+    // Threshold lookup is per-pair (k) from NOWICK_ATR_Q4_CEILING_BY_PAIR.
+    // Replaced the original per-class ceiling because pair ATR distributions
+    // varied 3x within a single class (USDCAD median 0.032% vs AUDUSD median
+    // 0.088%), making a class-level threshold either too tight (over-cut
+    // AUDUSD/NZDUSD) or too loose (USDCAD never fired). Each per-pair value
+    // is the pair's P75 ATR%, derived from the diagnostic — cuts the top
+    // ~25% of triggers per pair.
+    // Activation rules:
+    //   - Test mode 'nowick-atr-q4-cut': applies for any pair with a defined
+    //     per-pair ceiling (lets us A/B INDEX pairs even though they're not
+    //     in NOWICK_ATR_Q4_LIVE_PAIRS yet).
+    //   - Auto-ew production: applies only for pairs in NOWICK_ATR_Q4_LIVE_PAIRS
+    //     so dashboard cards mirror what the LIVE detectIntradaySignal does.
+    //   - Diagnostic mode: bypassed entirely so the captured distribution
+    //     stays pre-filter — otherwise we can't re-derive thresholds from it.
+    var _atrCeiling = (typeof NOWICK_ATR_Q4_CEILING_BY_PAIR !== 'undefined' && k)
+                      ? NOWICK_ATR_Q4_CEILING_BY_PAIR[k] : null;
+    var _shouldApplyAtrQ4 = (_btUseAtrQ4Cut && _atrCeiling != null)
       || (_btUseAuto && !_btCollectDiag
-          && typeof NOWICK_ATR_Q4_LIVE_CLASSES !== 'undefined'
-          && NOWICK_ATR_Q4_LIVE_CLASSES.indexOf(_btPairClass) >= 0);
+          && _atrCeiling != null
+          && typeof NOWICK_ATR_Q4_LIVE_PAIRS !== 'undefined'
+          && NOWICK_ATR_Q4_LIVE_PAIRS.indexOf(k) >= 0);
     if(_shouldApplyAtrQ4){
-      var _atrCeiling = (typeof NOWICK_ATR_Q4_CEILING_BY_CLASS !== 'undefined' && _btPairClass)
-                        ? NOWICK_ATR_Q4_CEILING_BY_CLASS[_btPairClass] : null;
       if(_atrCeiling != null){
         if(i < 14){ i++; continue; }
         var _atrTrSum = 0;
@@ -14451,20 +14466,18 @@ function detectIntradaySignal(k){
     bars.push({idx:i, o:o, c:c, h:h, l:l, t:t.t, isBull: c > o, isBear: c < o});
   }
 
-  // ── ATR Q4-ceiling live filter (MAJOR class, 2026-06-20) ──────
-  // Mirrors the nowick-atr-q4-cut backtest gate that lifted MAJOR
-  // WR 77.6% → 82.5% (+4.8pp) and dropped post-inv rate 41.8% →
-  // 39.6% on the 12-month backtest. Skips the trigger when m15
-  // ATR(14) at the current bar is at or above 0.081% of price.
-  // MAJOR-only ship: MINOR/COMM/CRYPTO Q4 are their BEST quartile
-  // or flat, so no ceiling. INDEX has a Q4 ceiling defined too
-  // (0.187%) but isn't wired live yet — INDEX runs three parallel
-  // detectors (wick + MACD-primary + MACD-divergence) and 98% of
-  // its trade flow comes from the parallel detectors, which need
-  // their own diagnostic before extending the ceiling.
-  if((typeof MKTS !== 'undefined') && MKTS[k] && MKTS[k].t === 'major'
-     && (typeof NOWICK_ATR_Q4_CEILING_BY_CLASS !== 'undefined')){
-    var _atrLiveCeiling = NOWICK_ATR_Q4_CEILING_BY_CLASS['major'];
+  // ── ATR Q4-ceiling live filter · PER-PAIR (2026-06-20e) ───────
+  // Per-pair ceiling lookup from NOWICK_ATR_Q4_CEILING_BY_PAIR,
+  // gated by NOWICK_ATR_Q4_LIVE_PAIRS. The original class-level
+  // ceiling (MAJOR 0.081%) over-cut high-vol pairs (AUDUSD/NZDUSD/
+  // USDCHF) and never fired on tight pairs (USDCAD Max ATR 0.067%
+  // never reached 0.081). Per-pair P75 thresholds give each pair
+  // a consistent "top 25% of triggers" cut sized to its actual
+  // ATR distribution.
+  if((typeof NOWICK_ATR_Q4_LIVE_PAIRS !== 'undefined')
+     && NOWICK_ATR_Q4_LIVE_PAIRS.indexOf(k) >= 0
+     && (typeof NOWICK_ATR_Q4_CEILING_BY_PAIR !== 'undefined')){
+    var _atrLiveCeiling = NOWICK_ATR_Q4_CEILING_BY_PAIR[k];
     if(_atrLiveCeiling != null && bars.length >= 14){
       var _atrLiveSum = 0;
       var _atrLiveEnd = bars.length - 1;

@@ -3110,14 +3110,19 @@ function _renderNowickDiagnostic(results, statusEl, resultEl){
         // class's records by pair so we can see actual per-pair
         // median / P75 / P95 ATR% and how many of each pair's
         // trades the current class-level ceiling cuts.
-        var threshClasses = (typeof NOWICK_ATR_Q4_CEILING_BY_CLASS !== 'undefined')
-          ? Object.keys(NOWICK_ATR_Q4_CEILING_BY_CLASS) : [];
+        var pairCeilings = (typeof NOWICK_ATR_Q4_CEILING_BY_PAIR !== 'undefined')
+          ? NOWICK_ATR_Q4_CEILING_BY_PAIR : {};
+        var livePairs = (typeof NOWICK_ATR_Q4_LIVE_PAIRS !== 'undefined')
+          ? NOWICK_ATR_Q4_LIVE_PAIRS : [];
+        var classesWithCeilings = {};
+        Object.keys(pairCeilings).forEach(function(pk){
+          var cls = (typeof MKTS !== 'undefined' && MKTS[pk]) ? MKTS[pk].t : null;
+          if(cls) classesWithCeilings[cls] = true;
+        });
+        var threshClasses = Object.keys(classesWithCeilings);
         if(!threshClasses.length) return '';
-        var sections = threshClasses.map(function(cls){
+        var sections = threshClasses.sort().map(function(cls){
           if(!cohorts[cls]) return '';
-          var threshold = NOWICK_ATR_Q4_CEILING_BY_CLASS[cls];
-          var liveActive = (typeof NOWICK_ATR_Q4_LIVE_CLASSES !== 'undefined')
-            && NOWICK_ATR_Q4_LIVE_CLASSES.indexOf(cls) >= 0;
           var byPair = {};
           cohorts[cls].allRecords.forEach(function(r){
             if(r.atrPct == null || !isFinite(r.atrPct) || !r.pair) return;
@@ -3126,6 +3131,7 @@ function _renderNowickDiagnostic(results, statusEl, resultEl){
           });
           var pairKeys = Object.keys(byPair).sort();
           if(!pairKeys.length) return '';
+          var anyLiveInClass = pairKeys.some(function(p){ return livePairs.indexOf(p) >= 0; });
           var trs = pairKeys.map(function(p){
             var recs = byPair[p];
             var atrs = recs.map(function(r){ return r.atrPct; }).sort(function(a,b){ return a-b; });
@@ -3133,24 +3139,32 @@ function _renderNowickDiagnostic(results, statusEl, resultEl){
             var p75 = percentile(atrs, 0.75);
             var p95 = percentile(atrs, 0.95);
             var maxA = atrs[atrs.length - 1];
-            var cutCount = recs.filter(function(r){ return r.atrPct >= threshold; }).length;
+            var pairCeil = pairCeilings[p];
+            var pairLive = livePairs.indexOf(p) >= 0;
+            var cutCount = (pairCeil != null) ? recs.filter(function(r){ return r.atrPct >= pairCeil; }).length : 0;
             var cutPct = recs.length > 0 ? (cutCount / recs.length * 100) : 0;
-            var cutColor = cutCount === 0 ? 'var(--bear)' : (cutPct >= 20 ? '#15803d' : 'var(--gold)');
+            var cutColor = (pairCeil == null) ? 'var(--inkd)' : (cutCount === 0 ? 'var(--bear)' : (cutPct >= 20 ? '#15803d' : 'var(--gold)'));
+            var ceilText = (pairCeil != null) ? fmt(pairCeil, 3) + '%' : '—';
+            var liveBadge = (pairCeil == null)
+              ? '<span style="font-size:7.5px;color:var(--inkd);">no ceiling</span>'
+              : (pairLive
+                  ? '<span style="display:inline-block;padding:0px 4px;border-radius:2px;background:rgba(21,128,61,0.15);color:#15803d;font-size:7.5px;font-weight:700;letter-spacing:0.3px;">LIVE</span>'
+                  : '<span style="display:inline-block;padding:0px 4px;border-radius:2px;background:rgba(161,98,7,0.12);color:#a16207;font-size:7.5px;font-weight:700;letter-spacing:0.3px;">DEFINED</span>');
             return '<tr style="border-top:1px dashed rgba(0,0,0,0.06);">'
-              + '<td style="padding:3px 6px;font-weight:700;">' + p + '</td>'
+              + '<td style="padding:3px 6px;font-weight:700;">' + p + ' ' + liveBadge + '</td>'
               + '<td style="padding:3px 6px;text-align:right;">' + recs.length + '</td>'
               + '<td style="padding:3px 6px;text-align:right;font-family:monospace;font-size:8.5px;">' + fmt(med, 3) + '%</td>'
               + '<td style="padding:3px 6px;text-align:right;font-family:monospace;font-size:8.5px;">' + fmt(p75, 3) + '%</td>'
               + '<td style="padding:3px 6px;text-align:right;font-family:monospace;font-size:8.5px;">' + fmt(p95, 3) + '%</td>'
               + '<td style="padding:3px 6px;text-align:right;font-family:monospace;font-size:8.5px;color:var(--inkd);">' + fmt(maxA, 3) + '%</td>'
-              + '<td style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);font-weight:700;color:' + cutColor + ';">' + cutCount + '</td>'
+              + '<td style="padding:3px 6px;text-align:right;font-family:monospace;font-size:8.5px;font-weight:700;border-left:1px solid rgba(0,0,0,0.06);">' + ceilText + '</td>'
+              + '<td style="padding:3px 6px;text-align:right;font-weight:700;color:' + cutColor + ';">' + cutCount + '</td>'
               + '<td style="padding:3px 6px;text-align:right;color:' + cutColor + ';">' + fmt(cutPct, 1) + '%</td>'
               + '</tr>';
           }).join('');
-          var headerColor = liveActive ? '#15803d' : '#a16207';
-          var headerLabel = liveActive ? 'WIRED IN LIVE DETECTOR' : 'DEFINED but NOT LIVE';
-          return '<div style="margin-top:10px;padding:8px 10px;background:rgba(' + (liveActive ? '21,128,61' : '161,98,7') + ',0.04);border:1px solid rgba(' + (liveActive ? '21,128,61' : '161,98,7') + ',0.20);border-radius:3px;">'
-            + '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:' + headerColor + ';margin-bottom:4px;">' + cls + ' · per-pair · class ceiling ≥ ' + threshold + '% · ' + headerLabel + '</div>'
+          var headerColor = anyLiveInClass ? '#15803d' : '#a16207';
+          return '<div style="margin-top:10px;padding:8px 10px;background:rgba(' + (anyLiveInClass ? '21,128,61' : '161,98,7') + ',0.04);border:1px solid rgba(' + (anyLiveInClass ? '21,128,61' : '161,98,7') + ',0.20);border-radius:3px;">'
+            + '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:' + headerColor + ';margin-bottom:4px;">' + cls + ' · per-pair ceilings (P75 of each pair\'s ATR)</div>'
             + '<table style="width:100%;border-collapse:collapse;font-size:9px;">'
             + '<thead><tr style="border-bottom:1px solid var(--rule);font-size:8px;color:var(--inkd);letter-spacing:0.5px;">'
             + '<th style="padding:3px 6px;text-align:left;">Pair</th>'
@@ -3159,14 +3173,15 @@ function _renderNowickDiagnostic(results, statusEl, resultEl){
             + '<th style="padding:3px 6px;text-align:right;">P75</th>'
             + '<th style="padding:3px 6px;text-align:right;">P95</th>'
             + '<th style="padding:3px 6px;text-align:right;">Max</th>'
-            + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Cut by ceiling</th>'
-            + '<th style="padding:3px 6px;text-align:right;">% of pair cut</th>'
+            + '<th style="padding:3px 6px;text-align:right;border-left:1px solid rgba(0,0,0,0.06);">Per-pair ceiling</th>'
+            + '<th style="padding:3px 6px;text-align:right;">Cut count</th>'
+            + '<th style="padding:3px 6px;text-align:right;">% cut</th>'
             + '</tr></thead><tbody>' + trs + '</tbody></table>'
             + '</div>';
         }).filter(Boolean).join('');
         return '<div style="margin-top:14px;padding:8px 10px;border-top:2px solid rgba(21,128,61,0.30);">'
-          + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#15803d;margin-bottom:4px;">PER-PAIR ATR DISTRIBUTION · WHY DOES A CLASS-LEVEL CEILING MISS SOME PAIRS?</div>'
-          + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:6px;">Class-level Q4 ceilings can be dominated by one volatile pair. Example: MAJOR 0.081% threshold is well above EUR/USD\'s typical ATR%, so it never fires there. If a pair\'s Max ATR% in the table is BELOW the class ceiling, the live filter never activates for that pair → its backtest WR / sample is unchanged. If the table shows most MAJOR pairs with low Cut counts but AUD/USD with a high Cut count, the deploy is per-pair-asymmetric and the threshold needs re-derivation. Decision rule: if other pairs in MAJOR have meaningful trade counts above their OWN Q4 boundaries but below 0.081%, switch from per-class to per-pair thresholds.</div>'
+          + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#15803d;margin-bottom:4px;">PER-PAIR ATR DISTRIBUTION · ACTIVE PER-PAIR CEILINGS</div>'
+          + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:6px;">Per-pair Q4 ceilings (NOWICK_ATR_Q4_CEILING_BY_PAIR) replace the original single per-class threshold. Each pair\'s ceiling = its own P75 ATR%, sized to cut the top ~25% of its triggers. <strong>LIVE</strong> pairs apply the filter in production (live signals + dashboard WR cards). <strong>DEFINED</strong> pairs have a ceiling configured but are excluded from production — the nowick-atr-q4-cut test mode A/Bs them so we can decide whether to wire them live. Cut count = trades in this (pre-filter) diagnostic that the per-pair ceiling would block; cut % should land near 25% for healthy calibration.</div>'
           + (sections || '<div style="font-size:9px;color:var(--bear);">No per-pair data available.</div>')
           + '</div>';
       })()
