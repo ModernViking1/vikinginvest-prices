@@ -1605,7 +1605,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       </div>
       <div id="releaseNotes" style="padding:12px 14px;font-size:11px;line-height:1.7;color:var(--inkm);font-family:'Mukta',sans-serif;">
         <div style="font-family:'Orbitron',monospace;font-size:10px;letter-spacing:0.5px;color:var(--ink);"><strong>Viking Edge</strong> &middot; <span id="vi-mkt-count">Markets</span> &middot; v69 &middot; Build <span id="buildStamp">BUILD_TIMESTAMP_UTC</span></div>
-        <div style="margin-top:8px;"><strong>Per-pair ATR ceiling shipped — MAJOR + INDEX wick.</strong> Each pair now gets its own ATR(14)% ceiling sized to the pair's actual P75 trigger distribution (USDCAD 0.041%, EURUSD 0.071%, AUDUSD 0.111%, SPX500 0.098%, JP225 0.249%, etc.). Replaces the original single per-class threshold which over-cut high-vol pairs and never fired on tight-range pairs. Wick triggers at or above the pair's ceiling are skipped — both live (Telegram + cBot) and in the dashboard backtest cards. <strong>INDEX MACD detectors run unfiltered by design.</strong> Per-source × per-quartile WR analysis confirmed macd-primary and macd-divergence both peak in Q4 (highest ATR) at +0.53R and +0.55R per trade — they need volatility to follow through. Applying the ATR ceiling there would cut their best cohort. INDEX wick (the lowest-EV INDEX source at +0.18R) is the only INDEX path the ceiling touches. <strong>Diagnostic upgrades.</strong> New trigger-source comparison shows W/L/WR/EV per detector per class; new per-source × per-quartile WR matrix isolates which (source, quartile) cells are EV-negative; new per-pair × per-quartile WR matrix identifies pair-level drag inside a class. Append <code>?sw_reset=1</code> to the URL if a stale cache ever needs a manual reset.</div>
+        <div style="margin-top:8px;"><strong>Per-pair ATR ceiling — MAJOR + INDEX wick.</strong> Each pair has its own ATR(14)% ceiling sized to the pair's actual P75 trigger distribution (USDCAD 0.041%, EURUSD 0.071%, AUDUSD 0.111%, SPX500 0.098%, JP225 0.249%, etc.). Replaces the original single per-class threshold which over-cut high-vol pairs and never fired on tight-range pairs. Wick triggers at or above the pair's ceiling are skipped — both live (Telegram + cBot) and in the dashboard backtest cards. <strong>INDEX MACD detectors run unfiltered by design.</strong> Per-source × per-quartile WR confirmed macd-primary and macd-divergence both peak in Q4 (highest ATR) at +0.53R and +0.55R per trade — they need volatility to follow through. INDEX wick (the lowest-EV INDEX source at +0.18R) is the only INDEX path the ceiling touches. <strong>Per-pair MID-BAND block — GBP/NZD.</strong> Per-pair × per-quartile MINOR analysis isolated GBP/NZD's MINOR-class Q3 band (ATR 0.055–0.072%) as a 42.9% WR drag with 16 post-inv attempts, while the same pair runs 80% Q2 and 66.7% Q4. Filter skips GBP/NZD only when ATR falls inside that band — preserves the pair's good Q2/Q4 trades, cuts the bad middle. <strong>Diagnostic upgrades.</strong> Trigger-source comparison (W/L/WR/EV per detector per class), per-source × per-quartile WR matrix (which source-quartile cells are EV-negative), per-pair × per-quartile WR matrix (which pair-quartile cells drag a class). Append <code>?sw_reset=1</code> to the URL if a stale cache ever needs a manual reset.</div>
       </div>
     </div>
     <div class="logsect">
@@ -10477,6 +10477,20 @@ var NOWICK_ATR_Q4_LIVE_PAIRS = [
   'audusd', 'eurusd', 'gbpusd', 'nzdusd', 'usdcad', 'usdchf', 'usdjpy',
   'de40', 'dj30', 'ftse100', 'jp225', 'nas100', 'spx500'
 ];
+
+// ── ATR mid-band BLOCK · PER-PAIR (2026-06-20k) ───────────────
+// Unusual filter shape — skip a pair when m15 ATR(14)% falls
+// inside [lo, hi). Targets pairs whose underperforming cohort
+// is NOT at the top of the ATR distribution (where a ceiling
+// would catch it). Currently used for gbpnzd whose MINOR-class
+// Q3 band (0.055–0.072%) ran 42.9% WR / 16 post-inv vs 80%
+// (Q2) and 66.7% (Q4) outside the band. Boundaries derived from
+// the MINOR class-level quartile cutoffs in the per-pair × per-
+// quartile diagnostic.
+var NOWICK_ATR_BAND_BLOCKS_BY_PAIR = {
+  gbpnzd: { lo: 0.055, hi: 0.072 }
+};
+var NOWICK_ATR_BAND_LIVE_PAIRS = ['gbpnzd'];
 function _rsiGateFor(k){
   var cls = (typeof MKTS !== 'undefined' && MKTS[k] && MKTS[k].t) || null;
   return RSI_GATE_BY_CLASS[cls] || {hi: 80, lo: 20};
@@ -11199,7 +11213,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-20h';
+var RULES_VERSION = '2026-06-20k';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -11275,6 +11289,15 @@ function RULES_FINGERPRINT(){
       : '',
     atrQ4LivePairs: (typeof NOWICK_ATR_Q4_LIVE_PAIRS !== 'undefined')
       ? NOWICK_ATR_Q4_LIVE_PAIRS.slice().sort().join(',')
+      : '',
+    atrBandBlocksByPair: (typeof NOWICK_ATR_BAND_BLOCKS_BY_PAIR !== 'undefined')
+      ? Object.keys(NOWICK_ATR_BAND_BLOCKS_BY_PAIR).sort().map(function(p){
+          var b = NOWICK_ATR_BAND_BLOCKS_BY_PAIR[p];
+          return p + ':' + (b ? b.lo + '-' + b.hi : '');
+        }).join(',')
+      : '',
+    atrBandLivePairs: (typeof NOWICK_ATR_BAND_LIVE_PAIRS !== 'undefined')
+      ? NOWICK_ATR_BAND_LIVE_PAIRS.slice().sort().join(',')
       : '',
     // Active pair universe (hash of sorted MKTS keys) — bump on any
     // add/remove so dropped pairs are flushed from localStorage caches
@@ -12433,6 +12456,38 @@ function calcRecentBacktest(k, mode){
           var _atrPctAtTrig = _atrAtTrig / _atrPxRef * 100;
           if(_atrPctAtTrig >= _atrCeiling){ i++; continue; }
         }
+      }
+    }
+
+    // ── ATR mid-band BLOCK filter (2026-06-20k) ────────────────
+    // Per-pair "skip when ATR is INSIDE this range" filter. Used
+    // when a pair's EV-negative cohort sits in the middle of its
+    // ATR distribution rather than at the top (where a ceiling
+    // would catch it). Currently active for gbpnzd MINOR-Q3.
+    var _atrBand = (typeof NOWICK_ATR_BAND_BLOCKS_BY_PAIR !== 'undefined' && k)
+                   ? NOWICK_ATR_BAND_BLOCKS_BY_PAIR[k] : null;
+    var _shouldApplyBandBlock = (_btUseAtrQ4Cut && _atrBand)
+      || (_btIsProductionMode && !_btCollectDiag
+          && _atrBand
+          && typeof NOWICK_ATR_BAND_LIVE_PAIRS !== 'undefined'
+          && NOWICK_ATR_BAND_LIVE_PAIRS.indexOf(k) >= 0);
+    if(_shouldApplyBandBlock){
+      if(i < 14){ i++; continue; }
+      var _atrBSum = 0;
+      for(var _atrBi = i - 13; _atrBi <= i; _atrBi++){
+        var _atrBtr = m15Bars[_atrBi].h - m15Bars[_atrBi].l;
+        if(_atrBi > 0){
+          _atrBtr = Math.max(_atrBtr,
+            Math.abs(m15Bars[_atrBi].h - m15Bars[_atrBi-1].c),
+            Math.abs(m15Bars[_atrBi].l - m15Bars[_atrBi-1].c));
+        }
+        _atrBSum += _atrBtr;
+      }
+      var _atrBavg = _atrBSum / 14;
+      var _atrBpx = Math.abs(m15Bars[i].c);
+      if(_atrBpx > 0){
+        var _atrBpct = _atrBavg / _atrBpx * 100;
+        if(_atrBpct >= _atrBand.lo && _atrBpct < _atrBand.hi){ i++; continue; }
       }
     }
 
@@ -14524,6 +14579,35 @@ function detectIntradaySignal(k){
       if(_atrLivePx > 0){
         var _atrLivePct = _atrLiveAbs / _atrLivePx * 100;
         if(_atrLivePct >= _atrLiveCeiling) return null;
+      }
+    }
+  }
+
+  // ── ATR mid-band BLOCK live filter (2026-06-20k) ──────────────
+  // Mirrors the backtest band-block gate. Skips when m15 ATR(14)%
+  // is inside the pair-specific [lo, hi) range. Currently active
+  // for gbpnzd (MINOR Q3 band 0.055–0.072% ran 42.9% WR / -EV).
+  if((typeof NOWICK_ATR_BAND_LIVE_PAIRS !== 'undefined')
+     && NOWICK_ATR_BAND_LIVE_PAIRS.indexOf(k) >= 0
+     && (typeof NOWICK_ATR_BAND_BLOCKS_BY_PAIR !== 'undefined')){
+    var _atrLiveBand = NOWICK_ATR_BAND_BLOCKS_BY_PAIR[k];
+    if(_atrLiveBand && bars.length >= 14){
+      var _atrLbSum = 0;
+      var _atrLbEnd = bars.length - 1;
+      for(var _atrLbi = _atrLbEnd - 13; _atrLbi <= _atrLbEnd; _atrLbi++){
+        var _atrLbtr = bars[_atrLbi].h - bars[_atrLbi].l;
+        if(_atrLbi > 0){
+          _atrLbtr = Math.max(_atrLbtr,
+            Math.abs(bars[_atrLbi].h - bars[_atrLbi-1].c),
+            Math.abs(bars[_atrLbi].l - bars[_atrLbi-1].c));
+        }
+        _atrLbSum += _atrLbtr;
+      }
+      var _atrLbAvg = _atrLbSum / 14;
+      var _atrLbPx = Math.abs(bars[_atrLbEnd].c);
+      if(_atrLbPx > 0){
+        var _atrLbPct = _atrLbAvg / _atrLbPx * 100;
+        if(_atrLbPct >= _atrLiveBand.lo && _atrLbPct < _atrLiveBand.hi) return null;
       }
     }
   }
