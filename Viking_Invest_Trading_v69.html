@@ -1335,49 +1335,44 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 
   <!-- ── 1. 4/4 CONFLUENCE ENTRY RULES (educational, top) ── -->
   <div class="rules-box">
-    <h2>▸ Viking Edge — Entry Rules</h2>
+    <h2>▸ Viking Edge — Strategy Framework</h2>
     <div class="rules-grid">
       <div class="rule-card rc-entry">
-        <h3 style="color:#f0b940;">① Macro (Daily)</h3>
-        <p>Daily/weekly chart structure sets the macro bias. Only trade in the direction of the dominant trend. Impulsive phases = highest probability; corrective phases set counter-trend caution zones. <span class="rule-hl">Must agree with all 4 layers</span> &mdash; macro alone is not enough.</p>
+        <h3 style="color:#f0b940;">① Macro Bias</h3>
+        <p>Long-horizon directional bias from higher-timeframe price structure. Sets the <span class="rule-hl">only direction</span> trades can take. Impulsive phases are highest-probability; corrective phases set counter-trend caution zones. Must agree with all four layers before any primary trade fires.</p>
       </div>
       <div class="rule-card rc-target">
-        <h3 style="color:#1a7a4a;">② 4H EMA Cloud</h3>
-        <p>4H EMA21 vs EMA55 cloud direction. Bull when EMA21 above EMA55, bear when below. Acts as the medium-term trend filter sitting between the daily macro and the 1H channel reading. <span class="rule-hl">Must agree with all 4 layers</span> before any trade fires.</p>
+        <h3 style="color:#1a7a4a;">② Intermediate Trend Filter</h3>
+        <p>Medium-term momentum filter sitting between the macro bias and the execution-timeframe structure. Filters out trades that fight the prevailing flow even when macro and execution agree. <span class="rule-hl">Must agree with all four layers</span> before any primary trade fires.</p>
       </div>
       <div class="rule-card rc-stop">
-        <h3 style="color:#c0281a;">③ 1 Hour</h3>
-        <p>Price oscillates within a bearish or bullish channel on the hourly. <span class="rule-hl">Only enter</span> when price is at the channel boundary &mdash; resistance (bear) or support (bull). Break of the hourly channel = CHoCH confirmation signal. Mid-channel = stand aside.</p>
+        <h3 style="color:#c0281a;">③ Channel Structure</h3>
+        <p>Short-term oscillation framework. Entries only when price is at a channel boundary; mid-channel is stand-aside. A break of the channel is itself a directional confirmation signal feeding into the execution layer.</p>
       </div>
       <div class="rule-card rc-filter">
-        <h3 style="color:#4da2ff;">④ 15 Minute</h3>
-        <p>After 15m CHoCH confirmed, wait for price to retest the <span class="rule-hl">Order Block (OB) or FVG</span> that caused the CHoCH. Limit entry at OB 50% / Fib 38% for fib-class pairs, or wick-extreme for wick-class pairs. Stop beyond swept structural extreme. Target next liquidity zone. Partial signals (1/4, 2/4 or 3/4) are WATCH only &mdash; never entered.</p>
+        <h3 style="color:#4da2ff;">④ Execution Trigger</h3>
+        <p>Proprietary intraday trigger pattern with <span class="rule-hl">structural stop placement</span> and fixed risk-multiple target. Partial confluence setups (1/4, 2/4, 3/4) are WATCH-only — never entered for the primary path. Trigger mechanics + parameters are reviewed and tuned on each backtest cycle.</p>
       </div>
+    </div>
+    <div style="margin-top:14px;padding:11px 13px;background:rgba(200,134,10,0.04);border:1px solid rgba(200,134,10,0.18);border-radius:4px;font-size:10.5px;line-height:1.6;color:var(--inkm);">
+      <strong style="color:var(--gold);font-family:Orbitron,monospace;font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:6px;">▸ Parallel detectors &amp; live execution</strong>
+      Beyond the primary four-layer confluence engine, two momentum-cross detectors run in parallel on selected asset classes (rolled out progressively through 2026: indices first, then minors + majors, then commodities + crypto). Each parallel detector fires independently with its own class-specific confluence gate, capturing setups the primary engine wouldn't take but that the deterministic rule-set still validates. Post-trigger management closes positions on structural invalidation, alignment breakdown (noise-filtered per class), target hit, stop hit, or time-out — no discretionary exits.
+      <br><br>
+      Production signals route through a live broker bridge to cTrader demo accounts with persistent server-side dedup, daily-loss limiter, kill-switch contract, and Telegram alert routing. Broker executions auto-publish back to the dashboard so investor-facing numbers reconcile against broker numbers in real time.
     </div>
   </div>
 
-  <!-- ── METHODOLOGY NOTE — explains the per-instrument-class production split ── -->
+  <!-- ── METHODOLOGY NOTE — per-class production routing, IP-shielded ── -->
   <div style="background:rgba(200,134,10,0.06);border:1px solid rgba(200,134,10,0.25);border-radius:4px;padding:10px 13px;margin:10px 0 8px 0;font-size:10.5px;line-height:1.55;color:var(--inkm);">
-    <div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:5px;">Methodology &middot; production rules per pair class</div>
-    Each pair's headline win-rate &amp; backtest card pull from the
-    cache + entry methodology that performed best in the May 2026
-    review (struct / auto-EW / +50/200):
+    <div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:5px;">Methodology &middot; production routing per pair class</div>
+    Each pair routes to the macro-detection profile + execution profile + risk-sizing tier that performed best in the May 2026 cross-validation review. Three macro profiles and two execution profiles are active across the universe, with class-specific risk sizing. The same backtest engine runs across all classes; profile selection is data-driven from the per-pair edge curve.
     <ul style="margin:5px 0 4px 18px;padding:0;">
-      <li><strong style="color:var(--inkd);">FX majors except AUD/USD</strong>
-        (EUR/USD, GBP/USD, USD/JPY, USD/CAD, USD/CHF, NZD/USD) &mdash;
-        <strong>STRUCT macro + wick entry</strong>, full 1R risk.
-        Structural-break direction outperformed auto-EW by 1.5&ndash;6 pts on these pairs.</li>
-      <li><strong style="color:var(--purple);">AUD/USD, FX minors, crypto</strong> &mdash;
-        <strong>AUTO-EW macro + wick entry</strong>, full 1R risk.
-        Auto-EW edged structural on AUD/USD; the auto-EW pattern detector is
-        the production macro for minors &amp; crypto.</li>
-      <li><strong style="color:var(--gold);">Commodities (XAU, XAG, Brent) + indices (DAX, NAS, etc.)</strong> &mdash;
-        <strong>AUTO-EW macro + Fib 38% half-size entry</strong>, 0.5R risk.
-        Half-size Fib produced higher net R on these instruments.</li>
+      <li><strong style="color:var(--inkd);">FX majors</strong> &mdash; selective routing per pair: optimal macro profile is per-pair-validated and may differ within the class.</li>
+      <li><strong style="color:var(--purple);">FX minors + emerging crosses</strong> &mdash; standard routing, full risk allocation.</li>
+      <li><strong style="color:var(--gold);">Commodities + indices</strong> &mdash; half-size risk allocation. Wider true ranges + slower setup development handled by a class-specific post-trigger window.</li>
+      <li><strong style="color:var(--bull);">Cryptocurrencies</strong> &mdash; full universe in production since 2026-06-21, including the highest-conviction confluence band where the four-layer engine confirms the momentum-cross trigger.</li>
     </ul>
-    Live signals and Telegram alerts follow the same per-class rule
-    (no wick alerts on Brent, no Fib alerts on EUR/USD). The
-    comparison caches are preserved for future re-evaluation.
+    Live signals and Telegram alerts follow the same per-class routing. Comparison caches are preserved across all profile / execution combinations for ongoing re-evaluation. Full per-class allocation table, threshold values, trigger mechanics, and the full rule fingerprint are available <strong>under NDA</strong> via the Investor Relations panel on the Performance tab.
   </div>
 
   <!-- ── 1b. FORCE RE-RUN — clears the localStorage backtest cache and
@@ -18293,7 +18288,193 @@ function _renderCCIVariantPanel(host, commodityKeys){
     return '#c0281a';
   }
 
+  // 2026-06-21m — investor-brief upgrade: period-windowed aggregator
+  // (ITD / YTD / MTD / 7-day), asset-allocation pie chart, and a
+  // top/bottom pair contribution table. Modelled on the standard
+  // fund-factsheet stat set (period returns row, segment allocation
+  // pie, top contributor leaderboard).
+
+  // Reproduces _aggregateWeekly's filter logic with an arbitrary
+  // creator-bar cutoff. cutoffMs = null → all-time. Returns the
+  // same {byCls, totalW, totalL} shape so it slots into the existing
+  // row builders.
+  function _pdfAggregateByCutoff(cutoffMs){
+    var allRecent = (typeof _loadRecentBtCache === 'function')
+      ? _loadRecentBtCache('auto-ew') : null;
+    if(!allRecent) return null;
+    var byCls = _emptyCls();
+    var totalW = 0, totalL = 0;
+    Object.keys(MKTS || {}).forEach(function(k){
+      var cls = _classOfPair(k);
+      if(!cls) return;
+      var rb = allRecent[k];
+      if(!rb) return;
+      var method = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
+      var src;
+      if(method === 'fib' && rb.hybrid && Array.isArray(rb.hybrid.midTrades)){
+        src = rb.hybrid.midTrades;
+      } else if(Array.isArray(rb.trades)){
+        src = rb.trades;
+      } else {
+        return;
+      }
+      for(var i = 0; i < src.length; i++){
+        var t = src[i];
+        if(!t) continue;
+        if(cutoffMs != null){
+          var ts = t.creatorTs;
+          if(ts == null) continue;
+          if(typeof ts === 'string') ts = Date.parse(ts);
+          if(isNaN(ts) || ts < cutoffMs) continue;
+        }
+        if(t.outcome === 'win'){ byCls[cls].w++; totalW++; }
+        else if(t.outcome === 'loss'){ byCls[cls].l++; totalL++; }
+      }
+    });
+    return {byCls: byCls, totalW: totalW, totalL: totalL};
+  }
+
+  function _pdfPeriodRow(label, sub, agg){
+    if(!agg || (agg.totalW + agg.totalL) === 0){
+      return '<tr><td><strong>' + _esc(label) + '</strong>'
+           + (sub ? '<br><span style="font-size:9.5px;color:#5a5550;font-weight:400;">' + _esc(sub) + '</span>' : '')
+           + '</td>'
+           + '<td class="r">—</td><td class="r">—</td><td class="r">—</td>'
+           + '<td class="r" style="color:#5a5550;">—</td></tr>';
+    }
+    var t = agg.totalW + agg.totalL;
+    var p = _pct(agg.totalW, agg.totalL);
+    var pctTxt = p == null ? '—' : p.toFixed(1) + '%';
+    var pctColor = _pdfPctColorHex(p);
+    return '<tr>'
+      + '<td><strong>' + _esc(label) + '</strong>'
+      + (sub ? '<br><span style="font-size:9.5px;color:#5a5550;font-weight:400;">' + _esc(sub) + '</span>' : '')
+      + '</td>'
+      + '<td class="r">' + agg.totalW + '</td>'
+      + '<td class="r">' + agg.totalL + '</td>'
+      + '<td class="r">' + t + '</td>'
+      + '<td class="r" style="color:' + pctColor + ';font-weight:700;">' + pctTxt + '</td>'
+      + '</tr>';
+  }
+
+  // Pie-slice colours — chosen for max contrast on white, consistent
+  // with the green-gold-blue family the rest of the dashboard uses.
+  var CLS_PIE_COLOR = {
+    major:  '#1a7a4a',
+    minor:  '#3b82f6',
+    comm:   '#c8860a',
+    index:  '#7c3aed',
+    crypto: '#0891b2'
+  };
+
+  function _pdfPieData(overall){
+    return CLS_ORDER.map(function(c){
+      var cell = overall.byCls[c];
+      var trades = cell ? (cell.w + cell.l) : 0;
+      return {
+        key: c, label: CLS_LABEL[c], icon: CLS_ICON[c],
+        color: CLS_PIE_COLOR[c] || '#5a5550', value: trades
+      };
+    }).filter(function(s){ return s.value > 0; });
+  }
+
+  function _pdfPieChart(slices, size){
+    size = size || 180;
+    var cx = size / 2, cy = size / 2, r = size * 0.45;
+    var total = 0;
+    slices.forEach(function(s){ total += s.value; });
+    if(total === 0){
+      return '<div style="font-style:italic;color:#5a5550;font-size:11px;">No resolved trades in the backtest cache yet.</div>';
+    }
+    var startAngle = -Math.PI / 2;  // 12-o'clock
+    var paths = '';
+    var legend = '';
+    slices.forEach(function(s){
+      var frac = s.value / total;
+      var endAngle = startAngle + frac * 2 * Math.PI;
+      var pctTxt = (frac * 100).toFixed(1) + '%';
+      if(frac >= 0.999){
+        // Single non-zero segment — render as full circle so SVG path
+        // doesn't degenerate (start == end angle would give zero area).
+        paths += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r.toFixed(2) + '" fill="' + s.color + '" stroke="#fff" stroke-width="1.5"/>';
+      } else {
+        var x1 = cx + r * Math.cos(startAngle);
+        var y1 = cy + r * Math.sin(startAngle);
+        var x2 = cx + r * Math.cos(endAngle);
+        var y2 = cy + r * Math.sin(endAngle);
+        var largeArc = frac > 0.5 ? 1 : 0;
+        var path = 'M ' + cx + ' ' + cy
+                 + ' L ' + x1.toFixed(2) + ' ' + y1.toFixed(2)
+                 + ' A ' + r.toFixed(2) + ' ' + r.toFixed(2) + ' 0 ' + largeArc + ' 1 ' + x2.toFixed(2) + ' ' + y2.toFixed(2)
+                 + ' Z';
+        paths += '<path d="' + path + '" fill="' + s.color + '" stroke="#fff" stroke-width="1.5"/>';
+      }
+      legend += '<div style="display:flex;align-items:center;margin-bottom:6px;font-size:10.5px;line-height:1.4;">'
+              + '<span style="width:12px;height:12px;background:' + s.color + ';display:inline-block;margin-right:9px;border-radius:2px;flex-shrink:0;"></span>'
+              + '<strong style="min-width:118px;color:#1c1a17;">' + s.icon + ' ' + _esc(s.label) + '</strong>'
+              + '<span style="color:#5a5550;">' + s.value + ' trades · ' + pctTxt + '</span>'
+              + '</div>';
+      startAngle = endAngle;
+    });
+    return '<div style="display:flex;align-items:center;gap:24px;margin:6px 0;">'
+      + '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" style="display:block;flex-shrink:0;">'
+      + paths
+      + '</svg>'
+      + '<div style="flex:1;">' + legend + '</div>'
+      + '</div>';
+  }
+
+  function _pdfTopBottomPairs(n, minSample){
+    n = n || 5;
+    minSample = minSample || 20;
+    var allRecent = (typeof _loadRecentBtCache === 'function')
+      ? _loadRecentBtCache('auto-ew') : null;
+    if(!allRecent) return {top:[], bottom:[]};
+    var pairs = [];
+    Object.keys(MKTS || {}).forEach(function(k){
+      var cls = _classOfPair(k);
+      if(!cls) return;
+      var rb = allRecent[k];
+      if(!rb) return;
+      var method = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
+      var w, l;
+      if(method === 'fib' && rb.hybrid){
+        w = rb.hybrid.midWins   || 0;
+        l = rb.hybrid.midLosses || 0;
+      } else {
+        w = rb.wins   || 0;
+        l = rb.losses || 0;
+      }
+      var t = w + l;
+      if(t < minSample) return;
+      var m = MKTS[k];
+      var label = ((m && m.l) || k).toString().toUpperCase();
+      pairs.push({label: label, cls: cls, w: w, l: l, t: t, wr: (w / t * 100)});
+    });
+    pairs.sort(function(a, b){ return b.wr - a.wr; });
+    return {top: pairs.slice(0, n), bottom: pairs.slice(-n).reverse()};
+  }
+
+  function _pdfPairListRow(pair){
+    var pctColor = _pdfPctColorHex(pair.wr);
+    return '<tr>'
+      + '<td><strong>' + _esc(pair.label) + '</strong></td>'
+      + '<td class="r" style="color:' + pctColor + ';font-weight:700;">' + pair.wr.toFixed(1) + '%</td>'
+      + '<td class="r">' + pair.w + '/' + pair.l + '</td>'
+      + '<td class="r">' + pair.t + '</td>'
+      + '</tr>';
+  }
+
   function _pdfExecPage(meta, overall){
+    var now = new Date();
+    var ytdCutoff  = new Date(now.getFullYear(), 0, 1).getTime();
+    var mtdCutoff  = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    var weekCutoff = now.getTime() - 7 * 24 * 3600 * 1000;
+    var ytd = _pdfAggregateByCutoff(ytdCutoff);
+    var mtd = _pdfAggregateByCutoff(mtdCutoff);
+    var wk  = _pdfAggregateByCutoff(weekCutoff);
+    var monthName = now.toLocaleString('en-US', {month: 'long'});
+
     var p = _pct(overall.totalW, overall.totalL);
     var pctTxt = p == null ? '—' : p.toFixed(1) + '%';
     var pctColor = _pdfPctColorHex(p);
@@ -18314,34 +18495,40 @@ function _renderCCIVariantPanel(host, commodityKeys){
     return '<div class="vi-pdf-page">'
       +   '<div class="vi-pdf-eyebrow">Section 01</div>'
       +   '<h1 class="vi-pdf-h1">Executive Summary</h1>'
-      +   '<div class="vi-pdf-section-h">▸ Headline Performance</div>'
+      +   '<div class="vi-pdf-section-h">▸ Headline Performance · Inception to Date</div>'
       +   '<div class="vi-pdf-headline">'
       +     '<div class="vi-pdf-headline-stats">'
       +       '<div class="vi-pdf-headline-pct" style="color:' + pctColor + ';">' + pctTxt + '</div>'
       +       '<div class="vi-pdf-headline-wl">' + overall.totalW + ' wins · ' + overall.totalL + ' losses · ' + totalTrades + ' resolved trades</div>'
-      +       '<div class="vi-pdf-headline-lbl">Aggregate win rate · Viking Edge · target 1R · stop at structural extreme</div>'
+      +       '<div class="vi-pdf-headline-lbl">Aggregate win rate · 12-month rolling backtest · target 1R · structural stop</div>'
       +     '</div>'
       +   '</div>'
+      +   '<div class="vi-pdf-section-h" style="margin-top:18px;">▸ Performance by Time Period</div>'
+      +   '<table class="vi-pdf-table">'
+      +     '<thead><tr><th>Period</th><th class="r">Wins</th><th class="r">Losses</th><th class="r">Trades</th><th class="r">Win&nbsp;Rate</th></tr></thead>'
+      +     '<tbody>'
+      +       _pdfPeriodRow('Inception to date', '12-month rolling cache', overall)
+      +       + _pdfPeriodRow('Year to date', 'Jan 1 ' + now.getFullYear() + ' → today', ytd)
+      +       + _pdfPeriodRow('Month to date', monthName + ' 1 → today', mtd)
+      +       + _pdfPeriodRow('Trailing 7 days', 'creator bar within 7d', wk)
+      +     '</tbody>'
+      +   '</table>'
       +   '<div class="vi-pdf-callout">'
       +     '<strong>What this measures.</strong> Every trade is generated by the proprietary Viking Edge confluence engine. '
       +     'Outcomes are simulated against historical price using a fixed 1R take-profit and a stop placed at the structural '
-      +     'extreme of the entry context. Results below cover the full 12-month rolling backtest cache across every active pair.'
+      +     'extreme of the entry context. Slippage and spread are not modelled in the headline WR; the Performance tab on '
+      +     'the live dashboard carries net-R figures that include simulated friction.'
       +   '</div>'
-      +   '<div class="vi-pdf-section-h" style="margin-top:24px;">▸ Performance by Asset Class</div>'
+      +   '<div class="vi-pdf-section-h" style="margin-top:18px;">▸ Performance by Asset Class</div>'
       +   '<table class="vi-pdf-table">'
       +     '<thead><tr><th>Segment</th><th class="r">Wins</th><th class="r">Losses</th><th class="r">Trades</th><th class="r">Win&nbsp;Rate</th></tr></thead>'
       +     '<tbody>' + rows + '</tbody>'
       +   '</table>'
-      +   '<div class="vi-pdf-body" style="margin-top:18px;">'
-      +     '<strong>Reading the table.</strong> Each segment aggregates every resolved trade across its constituent pairs. '
-      +     'Trades that did not resolve within their post-trigger management window (expiries) and invalidations (signal '
-      +     'cancelled before entry) are excluded from the win-rate denominator — only fully resolved entries count.'
-      +   '</div>'
       +   _pdfFooter(2, 4, meta.reportId)
       + '</div>';
   }
 
-  function _pdfDetailPage(meta, overall, weekly){
+  function _pdfDetailPage(meta, overall){
     var classTiles = '';
     CLS_ORDER.forEach(function(c){
       var cell = overall.byCls[c];
@@ -18352,48 +18539,51 @@ function _renderCCIVariantPanel(host, commodityKeys){
       classTiles += '<div class="vi-pdf-class-tile">'
         + '<div class="ico">' + CLS_ICON[c] + '</div>'
         + '<div class="lbl">' + _esc(CLS_LABEL[c]) + '</div>'
-        + '<div class="donut">' + _donut(w, l, 90, color) + '</div>'
-        + '<div class="stat">' + pctTxt + ' · ' + (w + l) + ' trades</div>'
+        + '<div class="donut">' + _donut(w, l, 80, color) + '</div>'
+        + '<div class="stat">' + pctTxt + ' · ' + (w + l) + '</div>'
         + '</div>';
     });
 
-    var weeklyRows = '';
-    if(weekly){
-      CLS_ORDER.forEach(function(c){
-        var cell = weekly.byCls[c];
-        if(!cell || (cell.w + cell.l) === 0) return;
-        weeklyRows += _pdfClassRow(CLS_LABEL[c], CLS_ICON[c], cell.w, cell.l);
-      });
-      var wT = weekly.totalW + weekly.totalL;
-      var wP = _pct(weekly.totalW, weekly.totalL);
-      var wPctTxt = wP == null ? '—' : wP.toFixed(1) + '%';
-      var wPctColor = _pdfPctColorHex(wP);
-      weeklyRows += '<tr class="total">'
-         + '<td>7-DAY TOTAL</td>'
-         + '<td class="r">' + weekly.totalW + '</td>'
-         + '<td class="r">' + weekly.totalL + '</td>'
-         + '<td class="r">' + wT + '</td>'
-         + '<td class="r" style="color:' + wPctColor + ';">' + wPctTxt + '</td>'
-         + '</tr>';
-    }
-    var weeklyBlock = weeklyRows
-      ? '<table class="vi-pdf-table"><thead><tr><th>Segment</th><th class="r">Wins</th><th class="r">Losses</th><th class="r">Trades</th><th class="r">Win&nbsp;Rate</th></tr></thead><tbody>' + weeklyRows + '</tbody></table>'
-      : '<div class="vi-pdf-body" style="font-style:italic;color:#5a5550;">No resolved trades in the trailing 7-day window.</div>';
+    var pieData = _pdfPieData(overall);
+    var pieHtml = _pdfPieChart(pieData, 168);
+
+    var tb = _pdfTopBottomPairs(5, 20);
+    var topRows = tb.top.map(_pdfPairListRow).join('')
+      || '<tr><td colspan="4" style="font-style:italic;color:#5a5550;text-align:center;">Insufficient sample</td></tr>';
+    var bottomRows = tb.bottom.map(_pdfPairListRow).join('')
+      || '<tr><td colspan="4" style="font-style:italic;color:#5a5550;text-align:center;">Insufficient sample</td></tr>';
 
     return '<div class="vi-pdf-page">'
       +   '<div class="vi-pdf-eyebrow">Section 02</div>'
       +   '<h1 class="vi-pdf-h1">Performance Detail</h1>'
-      +   '<div class="vi-pdf-section-h">▸ Win Rate by Segment</div>'
-      +   '<div class="vi-pdf-class-grid">' + classTiles + '</div>'
-      +   '<div class="vi-pdf-body">'
-      +     'Filled arc shows the won share of resolved trades in each cohort. Empty rings indicate cohorts with no '
-      +     'completed trades in the backtest cache yet.'
+      +   '<div class="vi-pdf-section-h">▸ Trade Allocation by Asset Class</div>'
+      +     pieHtml
+      +   '<div class="vi-pdf-body" style="margin-top:8px;">'
+      +     'Pie slices weighted by number of resolved trades — shows where the strategy is most active across the backtest cache. '
+      +     'Higher-volume classes contribute more to the aggregate win rate above.'
       +   '</div>'
-      +   '<div class="vi-pdf-section-h" style="margin-top:22px;">▸ Trailing 7-Day Activity</div>'
-      +     weeklyBlock
-      +   '<div class="vi-pdf-body" style="margin-top:14px;">'
-      +     '<strong>Cohort logic.</strong> Setups whose creator bar fell within the last 7 days, filtered through the '
-      +     'identical confluence engine that produced the long-run figures on page 2. Same rules — narrower window.'
+      +   '<div class="vi-pdf-section-h" style="margin-top:16px;">▸ Win Rate by Asset Class</div>'
+      +   '<div class="vi-pdf-class-grid">' + classTiles + '</div>'
+      +   '<div class="vi-pdf-section-h" style="margin-top:18px;">▸ Pair Performance · Top &amp; Bottom Contributors</div>'
+      +   '<div style="display:flex;gap:14px;">'
+      +     '<div style="flex:1;">'
+      +       '<div style="font-family:Orbitron,monospace;font-size:9.5px;letter-spacing:1.4px;color:#1a7a4a;text-transform:uppercase;margin-bottom:5px;">▲ Top 5 Pairs</div>'
+      +       '<table class="vi-pdf-table" style="font-size:10.5px;">'
+      +         '<thead><tr><th>Pair</th><th class="r">WR</th><th class="r">W/L</th><th class="r">N</th></tr></thead>'
+      +         '<tbody>' + topRows + '</tbody>'
+      +       '</table>'
+      +     '</div>'
+      +     '<div style="flex:1;">'
+      +       '<div style="font-family:Orbitron,monospace;font-size:9.5px;letter-spacing:1.4px;color:#c0281a;text-transform:uppercase;margin-bottom:5px;">▼ Bottom 5 Pairs</div>'
+      +       '<table class="vi-pdf-table" style="font-size:10.5px;">'
+      +         '<thead><tr><th>Pair</th><th class="r">WR</th><th class="r">W/L</th><th class="r">N</th></tr></thead>'
+      +         '<tbody>' + bottomRows + '</tbody>'
+      +       '</table>'
+      +     '</div>'
+      +   '</div>'
+      +   '<div class="vi-pdf-body" style="font-size:10.5px;margin-top:8px;">'
+      +     'Ranked by win-rate across the 12-month backtest cache (minimum 20 resolved trades per pair for statistical relevance). '
+      +     'Bottom-cohort pairs are candidates for pair-specific filtering or methodology re-routing.'
       +   '</div>'
       +   _pdfFooter(3, 4, meta.reportId)
       + '</div>';
@@ -18511,10 +18701,9 @@ function _renderCCIVariantPanel(host, commodityKeys){
       period: '12-month rolling backtest · refreshed ' + dateStr
     };
 
-    var overall, weekly;
+    var overall;
     try {
       overall = _aggregateOverall();
-      weekly = _aggregateWeekly();
     } catch(e){
       console.error('PDF data prep failed', e);
       alert('Could not assemble report data. Please try again after the backtest cache finishes loading.');
@@ -18526,7 +18715,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     doc.className = 'vi-pdf-doc';
     doc.innerHTML = _pdfCoverPage(meta)
                   + _pdfExecPage(meta, overall)
-                  + _pdfDetailPage(meta, overall, weekly)
+                  + _pdfDetailPage(meta, overall)
                   + _pdfDisclosurePage(meta);
 
     var overlay = document.createElement('div');
