@@ -1086,7 +1086,8 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 <!-- NAV -->
 <div class="nav">
   <button class="ntab active" onclick="switchPage('dash')">📊 Dashboard</button>
-  <button class="ntab" onclick="switchPage('performance')">📈 Investor</button>
+  <button class="ntab" onclick="switchPage('performance')">📈 Performance</button>
+  <button class="ntab" onclick="switchPage('investor')">⚓ Investor</button>
   <button class="ntab" onclick="switchPage('bt')">🧪 Backtest / Signal Log</button>
 </div>
 
@@ -1652,12 +1653,10 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 <div class="page" id="page-performance">
   <div class="pf-wrap" id="performanceRoot">
     <div class="pf-mast">
-      <div class="pf-mast-eyebrow">⚓ Viking Invest Trading · Investor Brief</div>
-      <h1 id="pf-mast-title">Viking Edge &mdash; Investor View</h1>
-      <div class="pf-mast-sub" id="pf-mast-sub">Live signal summary &middot; aggregate performance &middot; same backtest engine as the Backtest tab &middot; target 1R &middot; stop at structural extreme</div>
+      <div class="pf-mast-eyebrow">⚓ Viking Invest Trading · Performance Report</div>
+      <h1 id="pf-mast-title">Viking Edge &mdash; Performance Detail</h1>
+      <div class="pf-mast-sub" id="pf-mast-sub">Intraday signals now automated &middot; same backtest engine as the Backtest tab &middot; target 1R &middot; stop at structural extreme</div>
     </div>
-
-    <div id="nl-sub-card-host"></div>
 
     <div class="pf-card pf-live-card">
       <div class="pf-card-hd">
@@ -1665,26 +1664,19 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
         <span class="pf-card-hd-r" id="pf-live-meta">current Viking Edge setups across the universe</span>
       </div>
       <div id="pf-live-host"><div class="pf-empty">scanning…</div></div>
-      <!-- Operational signal-log strip + kill-banner + broker strip
-           hidden from the investor view but kept in DOM so the build
-           functions can populate them without null-deref. Visible on
-           the Backtest / Signal Log tab via the same machinery. -->
       <div id="pf-kill-banner" class="pf-kill-banner" style="display:none;"></div>
       <div id="pf-broker-strip" class="pf-broker-strip" style="display:none;"></div>
-      <div id="pf-sig-log-strip" class="pf-sig-log-strip" style="display:none;">
+      <div id="pf-sig-log-strip" class="pf-sig-log-strip" title="Phase 0–3 of the broker auto-execution roadmap — every detector transition is persisted with a stable idempotency key (pair:creatorTs). Broker fills imported from the cTrader cBot are merged in.">
         <span class="pf-sig-log-tag">📡 Signal Log</span>
         <span id="pf-sig-log-summary">initialising…</span>
         <span class="pf-sig-log-actions">
           <input type="file" id="pf-exec-import-input" accept=".jsonl,.json,.txt,application/json" style="display:none;" onchange="window._performanceImportExecutions && window._performanceImportExecutions(this)">
-          <button type="button" class="pf-sig-log-btn" onclick="document.getElementById('pf-exec-import-input').click()">📥 Import Executions</button>
+          <button type="button" class="pf-sig-log-btn" onclick="document.getElementById('pf-exec-import-input').click()" title="Import the executions.jsonl file written by the cTrader cBot on your VPS to reconcile broker fills against detector predictions.">📥 Import Executions</button>
         </span>
       </div>
     </div>
 
-    <!-- Time-frame buttons hidden in the investor view — the all-time
-         backtest is the headline. The buttons still exist so the
-         existing buildPerformance click handlers don't break. -->
-    <div class="pf-tf" id="pf-tf-host" style="display:none;">
+    <div class="pf-tf" id="pf-tf-host">
       <button type="button" class="pf-tf-btn" data-tf="weekly">Weekly<small>last 7 days</small></button>
       <button type="button" class="pf-tf-btn" data-tf="monthly">Monthly<small>this calendar month</small></button>
       <button type="button" class="pf-tf-btn" data-tf="ytd">YTD<small>Jan 1 → today</small></button>
@@ -1693,8 +1685,54 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 
     <div class="pf-kpis" id="pf-kpis-host"></div>
 
-    <!-- Newsletter Overall Performance donut (moved from page-newsletter
-         2026-06-21e — Newsletter tab folded into Investor view). -->
+    <div class="pf-card">
+      <div class="pf-card-hd">▸ Extended Metrics <span class="pf-card-hd-r" id="pf-ext-window">YTD</span></div>
+      <div id="pf-ext-host"><div class="pf-empty">awaiting backtest cache…</div></div>
+    </div>
+
+    <div class="pf-card">
+      <div class="pf-card-hd">▸ Performance by Asset Class <span class="pf-card-hd-r" id="pf-cls-window">YTD</span></div>
+      <div id="pf-cls-host"><div class="pf-empty">awaiting backtest cache…</div></div>
+    </div>
+
+    <div class="pf-card">
+      <div class="pf-card-hd">▸ Equity Curve <span class="pf-card-hd-r">$1,000/signal base · Apr 2025 → Apr 2026</span></div>
+      <div class="pf-equity-wrap">
+        <canvas id="eqCanvas" style="width:100%;height:230px;display:block;"></canvas>
+        <div style="font-family:'Orbitron',monospace;font-size:8.5px;letter-spacing:0.5px;color:var(--inkd);margin-top:6px;text-align:center;">Green dot = WIN · Red dot = LOSS · Viking Edge signals only</div>
+      </div>
+    </div>
+
+    <div class="pf-card">
+      <div class="pf-card-hd">▸ Individual Trade Log <span class="pf-card-hd-r" id="pf-trades-window">YTD · most recent first</span></div>
+      <div id="pf-trades-host"><div class="pf-empty">awaiting backtest cache…</div></div>
+    </div>
+
+    <div class="pf-disclosure">
+      <strong>Data integrity.</strong> Every figure on this page is regenerated from the same backtest cache that powers the Backtest tab — there's no separate datastore, so the Performance Detail view and the Trader view can never disagree. WR is wins ÷ (wins + losses); cancelled setups are excluded from WR but listed in the trade log. Net R assumes 1R risk per trade, sized per the platform's per-class methodology (full methodology and rule fingerprint available under NDA). Live Intraday Signals at the top of this page reflect the current dashboard state in real time (not the backtest cache) and update every 30 seconds.<br>
+      Educational simulation · not financial advice.
+    </div>
+  </div>
+</div>
+
+<!-- ════ INVESTOR (2026-06-21f — new dedicated tab) ════
+     Investor-facing overview: pie chart breakdowns, contact /
+     investor-relations section, methodology footer. The detailed
+     trader content (extended metrics, trade log, signal log, etc.)
+     stays on the Performance tab. The old Newsletter tab is folded
+     in here — switchPage('newsletter') aliases to 'investor' for
+     backwards compat with email magic-link redirects + bookmarks.
+     ── -->
+<div class="page" id="page-investor">
+  <div class="nl-wrap" id="investorRoot">
+    <div class="nl-mast">
+      <div class="nl-mast-eyebrow">⚓ Viking Invest · Investor Brief</div>
+      <h1 id="nl-mast-title">Loading…</h1>
+      <div class="nl-mast-sub" id="nl-mast-sub">Viking Edge — performance overview for prospective investors</div>
+    </div>
+
+    <div id="nl-sub-card-host"></div>
+
     <div class="nl-card">
       <div class="nl-card-hd">▸ Overall Performance <span class="nl-card-hd-r" id="nl-overall-window">all resolved trades · 12-month auto-EW backtest</span></div>
       <div class="nl-headline">
@@ -1707,46 +1745,14 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       </div>
     </div>
 
-    <!-- Newsletter By Asset Class donuts (moved from page-newsletter). -->
     <div class="nl-card">
-      <div class="nl-card-hd">▸ Performance by Asset Class <span class="nl-card-hd-r">donut fills with win share · cohort total below</span></div>
+      <div class="nl-card-hd">▸ By Asset Class <span class="nl-card-hd-r">donut fills with win share · cohort total below</span></div>
       <div class="nl-classes" id="nl-classes-host"></div>
     </div>
 
-    <!-- Extended Metrics hidden from investor view — the donut + KPI
-         cards above cover the headline; the detailed table is for the
-         Backtest tab. Kept in DOM so buildPerformance can populate. -->
-    <div class="pf-card" style="display:none;">
-      <div class="pf-card-hd">▸ Extended Metrics <span class="pf-card-hd-r" id="pf-ext-window">YTD</span></div>
-      <div id="pf-ext-host"><div class="pf-empty">awaiting backtest cache…</div></div>
-    </div>
-
-    <!-- Detailed per-class breakdown (Performance flavour) hidden.
-         The investor view uses the Newsletter donut version above. -->
-    <div class="pf-card" style="display:none;">
-      <div class="pf-card-hd">▸ Performance by Asset Class (detail) <span class="pf-card-hd-r" id="pf-cls-window">YTD</span></div>
-      <div id="pf-cls-host"><div class="pf-empty">awaiting backtest cache…</div></div>
-    </div>
-
-    <div class="pf-card">
-      <div class="pf-card-hd">▸ Equity Curve <span class="pf-card-hd-r">$1,000/signal base · Apr 2025 → Apr 2026</span></div>
-      <div class="pf-equity-wrap">
-        <canvas id="eqCanvas" style="width:100%;height:230px;display:block;"></canvas>
-        <div style="font-family:'Orbitron',monospace;font-size:8.5px;letter-spacing:0.5px;color:var(--inkd);margin-top:6px;text-align:center;">Green dot = WIN · Red dot = LOSS · Viking Edge signals only</div>
-      </div>
-    </div>
-
-    <!-- Newsletter This Week (moved from page-newsletter). -->
     <div class="nl-card">
       <div class="nl-card-hd">▸ This Week <span class="nl-card-hd-r" id="nl-week-window">setups with creator bar in the last 7 days</span></div>
       <div id="nl-week-host"><div class="nl-cls-empty">awaiting backtest cache…</div></div>
-    </div>
-
-    <!-- Individual Trade Log hidden from investor view — too granular.
-         The same data is available on the Backtest / Signal Log tab. -->
-    <div class="pf-card" style="display:none;">
-      <div class="pf-card-hd">▸ Individual Trade Log <span class="pf-card-hd-r" id="pf-trades-window">YTD · most recent first</span></div>
-      <div id="pf-trades-host"><div class="pf-empty">awaiting backtest cache…</div></div>
     </div>
 
     <div class="pf-investor">
@@ -1781,31 +1787,18 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       </div>
     </div>
 
-    <div class="pf-disclosure">
-      <strong>Data integrity.</strong> Every figure on this page is regenerated from the same backtest cache that powers the Backtest tab — there's no separate datastore, so the Investor Brief and the Trader view can never disagree. WR is wins ÷ (wins + losses); cancelled setups are excluded from WR but listed in the trade log. Net R assumes 1R risk per trade, sized per the platform's per-class methodology (full methodology and rule fingerprint available under NDA). Live Intraday Signals at the top of this page reflect the current dashboard state in real time (not the backtest cache) and update every 30 seconds.<br>
+    <div class="nl-foot">
+      <strong>Methodology.</strong> Overall WR aggregates the full backtest cache across every active pair (Viking Edge aligned, target 1R, stop at structural extreme). The weekly slice filters that same engine to setups whose creator bar fell within the last 7 days — same rules, narrower window. Numbers refresh on the next page load after the cache rebuilds (typically every 24h or when rules change).<br>
       Educational simulation · not financial advice.
     </div>
   </div>
 </div>
 
-<!-- ════ NEWSLETTER (2026-06-21e — folded into Investor tab) ════
-     The standalone Newsletter page was merged into page-performance
-     above (which is now labelled "Investor" in the nav). Slot IDs
-     (nl-mast-title, nl-overall-donut, nl-classes-host, nl-week-host,
-     nl-sub-card-host) moved to page-performance so buildNewsletter
-     still finds its targets. switchPage('newsletter') aliases to
-     'performance' for backwards compat with bookmarked URLs and
-     server-issued email links.
-
-     The hidden #nl-mast-title stub keeps buildNewsletter's mast-
-     refresh code from crashing when the standalone page DOM is
-     absent. ── -->
-<div class="page" id="page-newsletter" style="display:none;">
-  <div style="display:none;">
-    <h1 id="nl-mast-title"></h1>
-    <div id="nl-mast-sub"></div>
-  </div>
-</div>
+<!-- ════ NEWSLETTER (legacy stub) ════
+     Newsletter tab removed from nav 2026-06-21f. switchPage
+     aliases 'newsletter' → 'investor' for bookmarks + email
+     magic-link redirects. ── -->
+<div class="page" id="page-newsletter" style="display:none;"></div>
 
 <div class="disc" id="footerDisc">⚠ Viking Invest Trading · Viking Edge · Educational simulation · Not financial advice</div>
 
@@ -8623,10 +8616,10 @@ function switchPage(p){
   // any "Journal" links land on the dashboard with the section in
   // view rather than on a blank screen.
   if(p === 'journal') p = 'dash';
-  // 2026-06-21e: Newsletter tab folded into the Investor (formerly
-  // Performance) tab. Alias 'newsletter' so bookmarks + the email
-  // magic-link redirect still land on the right page.
-  if(p === 'newsletter') p = 'performance';
+  // 2026-06-21f: Newsletter tab folded into the new Investor tab.
+  // Alias 'newsletter' so bookmarks + email magic-link redirects
+  // still land cleanly.
+  if(p === 'newsletter') p = 'investor';
   document.querySelectorAll('.page').forEach(function(el){el.classList.remove('active');});
   document.querySelectorAll('.ntab').forEach(function(t){
     t.classList.remove('active');
@@ -8636,13 +8629,10 @@ function switchPage(p){
   var pg = document.getElementById('page-'+p);
   if(pg) pg.classList.add('active');
   if(p === 'dash' && activeMkt !== 'overview') setTimeout(function(){drawChart(activeMkt);}, 60);
-  // Investor tab: render both the Performance KPIs/equity AND the
-  // Newsletter donut/class-breakdown/this-week cards (the DOM slots
-  // live in page-performance now).
-  if(p === 'performance'){
-    if(typeof buildPerformance === 'function') setTimeout(buildPerformance, 30);
-    if(typeof buildNewsletter === 'function') setTimeout(buildNewsletter, 60);
-  }
+  // Investor tab — render the Newsletter donut / class breakdown /
+  // this week cards into their new slots on page-investor.
+  if(p === 'investor' && typeof buildNewsletter === 'function') setTimeout(buildNewsletter, 30);
+  if(p === 'performance' && typeof buildPerformance === 'function') setTimeout(buildPerformance, 30);
   // 2026-06-15fff: lazy-build the Backtest tab the first time the user
   // (signed in) lands on it. Removed from boot init to cut ~2-4s off
   // the mobile cold-start path. buildBacktest is idempotent so the
@@ -11253,7 +11243,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-21e';
+var RULES_VERSION = '2026-06-21f';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -17174,10 +17164,11 @@ function _renderCCIVariantPanel(host, commodityKeys){
   sb.auth.onAuthStateChange(function(event, newSession){
     session = newSession || null;
     window._vinlSession = session;
-    // Refresh the Newsletter subscribe card if the user is viewing it
-    // when sign-in / sign-out happens.
+    // Refresh the Investor tab's subscribe card if the user is viewing
+    // it when sign-in / sign-out happens. (2026-06-21f — was page-
+    // newsletter; the Newsletter tab is now folded into page-investor.)
     try {
-      var pg = document.getElementById('page-newsletter');
+      var pg = document.getElementById('page-investor');
       if(pg && pg.classList.contains('active') && typeof window.buildNewsletter === 'function'){
         window.buildNewsletter();
       }
