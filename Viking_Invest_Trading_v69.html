@@ -909,19 +909,20 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   .investor-toolbar .pf-investor-btn{width:100%;}
 }
 
-/* ── PDF EXPORT DOCUMENT (rendered offscreen, captured by html2canvas) ── */
-/* 2026-06-21i — kept ON-SCREEN at fixed left:0/top:0 with opacity:0
-   and pointer-events:none. The earlier `top:-10000px` approach gave
-   blank PDFs on iOS Safari (mobile WebKit silently fails to snapshot
-   elements whose layout extends 4000+px above the viewport). Opacity:0
-   keeps the element fully renderable from html2canvas's perspective
-   without flashing on screen. CSS vars are redefined locally so SVG
-   donuts that reference --bull etc. resolve to solid hex inside the
-   canvas snapshot (html2canvas resolves vars from the captured
-   element's computed styles, not the global :root). */
+/* ── PDF EXPORT DOCUMENT ── */
+/* 2026-06-21j — rendered INSIDE the viewport (not offscreen, not
+   opacity:0). Earlier offscreen approaches (top:-10000px, then
+   opacity:0/z-index:-1) both produced blank PDFs on iOS Safari:
+   mobile WebKit's html2canvas silently fails on elements positioned
+   far above the viewport AND on elements with opacity:0. The reliable
+   pattern is to render visibly in the viewport and cover with a
+   full-screen overlay (added inline at render time) so the user sees
+   "Generating…" instead of the in-progress layout. Both elements get
+   torn down before this function returns. CSS vars are redefined
+   locally so SVG donuts that reference --bull etc. resolve to solid
+   hex inside the canvas snapshot. */
 .vi-pdf-doc{
-  position:fixed;top:0;left:0;z-index:-1;
-  opacity:0;pointer-events:none;
+  position:fixed;top:0;left:0;z-index:1;
   width:794px;            /* A4 width @ 96dpi ≈ 210mm */
   background:#ffffff;color:#1c1a17;
   font-family:'Mukta','Helvetica Neue',Arial,sans-serif;font-size:12px;line-height:1.55;
@@ -930,6 +931,28 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   --ink:#1c1a17;--inkm:#3a3631;--inkd:#5a5550;
   --rule:#e6e1d8;--bg:#f7f4ef;
 }
+.vi-pdf-overlay{
+  position:fixed;inset:0;
+  background:#ffffff;
+  z-index:2147483647;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  font-family:'Mukta',-apple-system,sans-serif;color:#0d5a36;
+  text-align:center;padding:20px;
+}
+.vi-pdf-overlay .brand{
+  font-family:'Orbitron',monospace;font-size:13px;letter-spacing:4px;
+  font-weight:900;color:#0d5a36;margin-bottom:14px;
+}
+.vi-pdf-overlay .msg{font-size:15px;color:#1c1a17;margin-bottom:6px;}
+.vi-pdf-overlay .sub{font-size:11px;color:#5a5550;letter-spacing:0.3px;}
+.vi-pdf-overlay .spinner{
+  width:36px;height:36px;border-radius:50%;
+  border:3px solid #e6e1d8;border-top-color:#0d5a36;
+  animation:vi-pdf-spin 0.9s linear infinite;
+  margin:18px 0;
+}
+@keyframes vi-pdf-spin{to{transform:rotate(360deg);}}
 .vi-pdf-doc *{box-sizing:border-box;}
 .vi-pdf-page{
   width:100%;min-height:1090px;  /* A4 height @ 96dpi ≈ 297mm minus margins */
@@ -2302,8 +2325,15 @@ function _btProfileFor(k){
   // entirely from the dashboard cards (showed 5-12 trades per pair
   // when ~2,550 INDEX MACD trades were live in the cache). 'wick'
   // method reads rb.wins which is the aggregate across all three
-  // detectors. COMM stays on 'fib' (no MACDs there).
-  if(m.t === 'comm') return {source: 'auto-ew', method: 'fib'};
+  // detectors.
+  // 2026-06-21j — COMM joins INDEX on 'wick' method. Since 2026-06-21h
+  // commodities also run macd-primary in production (conf 1-3 gate),
+  // and the same masking bug bit them: 'fib' read midWins only, so the
+  // MACD trades that were piling up in rb.wins after the precompute
+  // fix in 2026-06-21i never reached the dashboard cards. Symptom was
+  // identical "21W/6L · 27 trades" rows on BRENT etc. — wick-only
+  // numbers — while CRYPTO (which has always used 'wick') correctly
+  // showed the new macd-primary contribution.
   if(m.t === 'major' && k !== 'audusd') return {source: 'structural', method: 'wick'};
   return {source: 'auto-ew', method: 'wick'};
 }
@@ -11345,9 +11375,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-21i';
+var RULES_VERSION = '2026-06-21j';
 var RULES_VERSION_NOTES = [
-  '2026-06-21 — MACD detectors expanded to COMMODITIES + CRYPTO. macd-primary now fires on all 4 commodity pairs (conservative conf 1-3 gate matching MAJOR) and all 9 crypto pairs (full conf 1-4 gate matching INDEX/MINOR). Backtest A/B showed +0.51R/trade on ~628 commodity trades and +0.52R/trade on ~1,312 crypto trades. macd-divergence on the new classes stays deferred to keep alert volume manageable while validating primary live. Post-trigger noise filters also tightened: a 2-bar entry-grace period and a max-favourable-excursion gate on alignment-break exits, which together aim to shrink the post-invalidation bucket without giving back wins.',
+  '2026-06-21 — MACD detectors expanded to COMMODITIES + CRYPTO. macd-primary now fires on all 4 commodity pairs (conservative conf 1-3 gate matching MAJOR) and all 9 crypto pairs (full conf 1-4 gate matching INDEX/MINOR). Backtest A/B showed +0.51R/trade on ~628 commodity trades and +0.52R/trade on ~1,312 crypto trades. The commodity dashboard cards also moved off the FIB-only display path so the new MACD contribution actually shows up in the per-pair stats (was masked by the legacy FIB-mid read). macd-divergence on the new classes stays deferred to keep alert volume manageable while validating primary live. Post-trigger noise filters also tightened: a 2-bar entry-grace period and a max-favourable-excursion gate on alignment-break exits, which together aim to shrink the post-invalidation bucket without giving back wins.',
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
   // results, asset-class WR breakdowns, internal file + function
@@ -18394,32 +18424,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
       return;
     }
 
-    // iOS Safari detection — iOS ignores <a download> AND
-    // jsPDF.save()'s built-in download trigger silently no-ops. We
-    // open a blank tab synchronously inside the user-gesture window
-    // and rewrite its URL once the blob is ready, otherwise iOS
-    // popup-blocks the async window.open() entirely.
     var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent || '')
              || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    var iosWindow = null;
-    if(isIOS){
-      iosWindow = window.open('', '_blank');
-      if(!iosWindow){
-        alert('Please allow pop-ups for this site so we can show the PDF in a new tab. iOS Safari blocks PDF downloads otherwise.');
-        _resetPdfBtn(btn);
-        return;
-      }
-      // Render a "preparing" placeholder so the user sees something
-      // while html2canvas + jsPDF do their work (a few seconds).
-      try {
-        iosWindow.document.write('<title>Viking Edge Report</title>'
-          + '<body style="font-family:-apple-system,sans-serif;text-align:center;padding:40px;color:#3a3631;">'
-          + '<div style="font-size:14px;letter-spacing:1px;color:#0d5a36;font-weight:700;">⚓ VIKING EDGE</div>'
-          + '<div style="margin-top:14px;font-size:13px;">Generating your PDF report…</div>'
-          + '<div style="margin-top:6px;font-size:11px;color:#999;">This usually takes 3–8 seconds.</div>'
-          + '</body>');
-      } catch(_){}
-    }
 
     var now = new Date();
     var dateStr = now.toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'});
@@ -18447,25 +18453,37 @@ function _renderCCIVariantPanel(host, commodityKeys){
     } catch(e){
       console.error('PDF data prep failed', e);
       alert('Could not assemble report data. Please try again after the backtest cache finishes loading.');
-      if(iosWindow){ try { iosWindow.close(); } catch(_){} }
       _resetPdfBtn(btn);
       return;
     }
 
+    // Render the doc INSIDE the viewport (NOT offscreen, NOT opacity:0)
+    // and cover with a full-screen overlay so the user only sees the
+    // "Generating…" indicator. Both elements are torn down in cleanup().
+    // This is the only pattern that survives iOS Safari + html2canvas
+    // (offscreen positioning AND opacity:0 both yield blank snapshots).
     var doc = document.createElement('div');
     doc.className = 'vi-pdf-doc';
     doc.innerHTML = _pdfCoverPage(meta)
                   + _pdfExecPage(meta, overall)
                   + _pdfDetailPage(meta, overall, weekly)
                   + _pdfDisclosurePage(meta);
+
+    var overlay = document.createElement('div');
+    overlay.className = 'vi-pdf-overlay';
+    overlay.innerHTML = '<div class="brand">⚓ VIKING EDGE</div>'
+      + '<div class="msg">Generating your investor report…</div>'
+      + '<div class="spinner"></div>'
+      + '<div class="sub">This usually takes 3–8 seconds.</div>'
+      + (isIOS ? '<div class="sub" style="margin-top:14px;max-width:280px;">On iOS, the PDF will open in this tab — tap <strong>Share → Save to Files</strong> to keep it.</div>' : '');
+
     document.body.appendChild(doc);
+    document.body.appendChild(overlay);
 
     var filename = 'viking-edge-investor-report-' + now.toISOString().slice(0,10) + '.pdf';
-    // 2026-06-21i — scale 1.5 (was 2). At scale 2 the 4-page doc
-    // produces an 8720px-tall canvas (≈14M px) which is right at the
-    // iOS Safari canvas memory ceiling and returns blank on tighter
-    // devices. 1.5 still gives crisp text on A4, well under the
-    // 16M-px limit.
+    // scale 1.5 stays clear of the iOS Safari canvas memory ceiling
+    // (4-page doc at scale 2 hits ~14M px which is right at the 16M
+    // limit and returns blank on tighter devices).
     var opt = {
       margin: 0,
       filename: filename,
@@ -18477,35 +18495,38 @@ function _renderCCIVariantPanel(host, commodityKeys){
 
     var cleanup = function(){
       try { document.body.removeChild(doc); } catch(_){}
+      try { document.body.removeChild(overlay); } catch(_){}
       _resetPdfBtn(btn);
     };
 
     // Wait for webfonts to be ready before snapshotting — otherwise
     // Orbitron / Mukta swap to a fallback mid-capture on slow
-    // connections and the PDF text looks wrong (or blank if the
-    // @font-face hasn't resolved yet on first use). Resolves
-    // immediately if the fonts already loaded.
+    // connections and the PDF text comes out in a different face.
     var fontsReady = (document.fonts && document.fonts.ready)
       ? document.fonts.ready
       : Promise.resolve();
 
-    // 2026-06-21j — switched from html2pdf().save() (which on iOS
-    // Safari silently no-ops because <a download> isn't honoured
-    // and jsPDF's data-URI fallback also doesn't trigger a save) to
-    // explicit blob output + anchor-click for desktop and
-    // window.location replacement for iOS. The iOS popup window was
-    // opened synchronously above inside the user-gesture context to
-    // dodge the popup blocker.
     fontsReady.then(function(){
       return html2pdf().set(opt).from(doc).outputPdf('blob');
     }).then(function(blob){
+      // Guardrail — if the canvas snapshot failed, jsPDF still emits
+      // a valid (but ~tiny) PDF. Flag it explicitly so the user knows
+      // something's wrong rather than getting a confusing blank file.
+      if(!blob || blob.size < 4000){
+        cleanup();
+        alert('PDF generation produced an empty file (' + (blob ? blob.size : 0) + ' bytes). This is usually a transient browser issue — please reload the page and try again.');
+        return;
+      }
       var url = URL.createObjectURL(blob);
-      if(isIOS && iosWindow){
-        try { iosWindow.location.href = url; }
-        catch(_){ window.location.href = url; }
-        // Keep the URL alive long enough for iOS to render the PDF
-        // in the new tab (revoke too early and the tab goes blank).
-        setTimeout(function(){ URL.revokeObjectURL(url); }, 120000);
+      if(isIOS){
+        // iOS Safari ignores <a download> entirely. Navigate the
+        // current tab to the blob URL — iOS renders the PDF inline
+        // and the user can Share → Save to Files. The overlay is
+        // removed by cleanup() before navigation so the back button
+        // returns to a clean dashboard state.
+        cleanup();
+        window.location.href = url;
+        // Don't revoke — navigation needs the URL alive.
       } else {
         var a = document.createElement('a');
         a.href = url;
@@ -18518,13 +18539,12 @@ function _renderCCIVariantPanel(host, commodityKeys){
           try { document.body.removeChild(a); } catch(_){}
           URL.revokeObjectURL(url);
         }, 1500);
+        cleanup();
       }
-      cleanup();
     }).catch(function(err){
       console.error('PDF generation failed', err);
-      try { if(iosWindow) iosWindow.close(); } catch(_){}
-      alert('Could not generate the PDF. ' + ((err && err.message) || 'Unknown error') + ' — see the browser console for details.');
       cleanup();
+      alert('Could not generate the PDF. ' + ((err && err.message) || 'Unknown error') + ' — see the browser console for details.');
     });
   };
 })();
