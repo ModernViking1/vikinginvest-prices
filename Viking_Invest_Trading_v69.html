@@ -12979,6 +12979,26 @@ function calcRecentBacktest(k, mode){
             resolvedAt = j; break;
           }
         }
+        // ── 2026-06-21h — POST-TRIGGER NOISE FILTERS ──
+        //   #1 (2-bar grace period): the first 2 M15 bars after entry
+        //      are almost always the entry-retrace and a few ticks of
+        //      noise. Counter-bar + alignment-break checks are
+        //      suppressed while barsSinceTrigger < 2; target / stop /
+        //      CHoCH remain live (those are structural or actionable).
+        //      Targets the cluster of post-invalidations that fire at
+        //      bar T+1 simply because price tagged the entry and the
+        //      next 15m candle painted against the position.
+        //   #3 (MFE-conditional alignment exit): once a trade has
+        //      printed ≥0.5R favourable excursion (same threshold the
+        //      stop-after-partial-progress label already uses) an
+        //      alignment flip looks like "chop after a real move", not
+        //      "the trade is wrong". Skip alignment-break checks above
+        //      that MFE; let target / stop / CHoCH / 16-bar stale
+        //      window close it out. Counter-bars stay un-gated by MFE
+        //      because a real momentum-reversal pattern is still a
+        //      valid exit at any MFE.
+        var barsSinceTrigger = (triggerBarJ >= 0) ? (j - triggerBarJ) : 0;
+        var inProfit         = (maxFavorable >= 0.5);
         // Opposing m15 CHoCH (NW flip detected via structure scan).
         // postTracker is lazily created at the moment we triggered and
         // is anchored on the ORIGINAL creator i (matches the live
@@ -12997,7 +13017,9 @@ function calcRecentBacktest(k, mode){
         // Fast momentum-reversal post-trigger — measured from the
         // trigger bar (triggerBarJ) rather than the creator so only
         // counter-bars that formed after entry can invalidate.
-        if(typeof detectConsecutiveCounterBars === 'function' && triggerBarJ >= 0){
+        // Grace-period gated (#1) but NOT MFE-gated — counter-bar
+        // momentum reversals are valid exits at any profit level.
+        if(barsSinceTrigger >= 2 && typeof detectConsecutiveCounterBars === 'function' && triggerBarJ >= 0){
           var ctrPost = detectConsecutiveCounterBars(m15Bars, triggerBarJ, j, alignedDir, minProm);
           if(ctrPost > triggerBarJ){
             resolved = 'invalidated'; failureMode = 'counter-bars-post-trigger'; resolvedAt = j; break;
@@ -13007,6 +13029,10 @@ function calcRecentBacktest(k, mode){
         // (hourly) has flipped against alignedDir while in trade, the live
         // detector exits via outcome='choch-invalidated' with
         // alignmentBroken=true. Mirror that here.
+        //
+        // 2026-06-21h: all three alignment-break checks (EW / TL / 4H
+        // cloud) are now gated on (barsSinceTrigger >= 2) AND
+        // (!inProfit). See the noise-filter comment above target/stop.
         //
         // CRITICAL: do NOT call updateTLDir() from inside the post-trigger
         // loop — it mutates the outer loop's `lastH1IdxSeen` cursor and
@@ -13018,31 +13044,33 @@ function calcRecentBacktest(k, mode){
         // the post-trigger bar LOCALLY instead — read-only, no shared
         // cursor advance. EW is fine because ewDirAtTime is a cached pure
         // lookup with no shared mutable cursor.
-        var ewAtJpost = (typeof ewDirAtTime === 'function') ? ewDirAtTime(k, m15Ts[j]) : null;
-        if(ewAtJpost && ewAtJpost !== alignedDir){
-          resolved = 'invalidated'; failureMode = 'alignment-broken-ew-post-trigger'; resolvedAt = j; break;
-        }
-        var h1IdxJpost = findH1IdxAt(m15Ts[j]);
-        if(h1IdxJpost >= 1 && h1IdxJpost < h1Bars.length){
-          var localTlStart = Math.max(0, h1IdxJpost - 8);
-          var localSwHi = -Infinity, localSwLo = Infinity;
-          for(var wj = localTlStart; wj < h1IdxJpost; wj++){
-            if(h1Bars[wj].h > localSwHi) localSwHi = h1Bars[wj].h;
-            if(h1Bars[wj].l < localSwLo) localSwLo = h1Bars[wj].l;
+        if(barsSinceTrigger >= 2 && !inProfit){
+          var ewAtJpost = (typeof ewDirAtTime === 'function') ? ewDirAtTime(k, m15Ts[j]) : null;
+          if(ewAtJpost && ewAtJpost !== alignedDir){
+            resolved = 'invalidated'; failureMode = 'alignment-broken-ew-post-trigger'; resolvedAt = j; break;
           }
-          var localPxA = Math.abs(h1Bars[h1IdxJpost].c);
-          var localMp = localPxA > 1000 ? localPxA * 0.001 : (localPxA > 5 ? localPxA * 0.0008 : 0.0005);
-          var localTlDir = null;
-          if(h1Bars[h1IdxJpost].c > localSwHi && (h1Bars[h1IdxJpost].c - localSwHi) >= localMp) localTlDir = 'bull';
-          else if(h1Bars[h1IdxJpost].c < localSwLo && (localSwLo - h1Bars[h1IdxJpost].c) >= localMp) localTlDir = 'bear';
-          if(localTlDir && localTlDir !== alignedDir){
-            resolved = 'invalidated'; failureMode = 'alignment-broken-tl-post-trigger'; resolvedAt = j; break;
-          }
-          // v6 — 4H EMA cloud post-trigger check (4/4 parity). Read from
-          // the precomputed clDirAtH1Idx array (no shared-cursor mutation).
-          var clAtJpost = (h1IdxJpost < clDirAtH1Idx.length) ? clDirAtH1Idx[h1IdxJpost] : null;
-          if(clAtJpost && clAtJpost !== alignedDir){
-            resolved = 'invalidated'; failureMode = 'alignment-broken-cl-post-trigger'; resolvedAt = j; break;
+          var h1IdxJpost = findH1IdxAt(m15Ts[j]);
+          if(h1IdxJpost >= 1 && h1IdxJpost < h1Bars.length){
+            var localTlStart = Math.max(0, h1IdxJpost - 8);
+            var localSwHi = -Infinity, localSwLo = Infinity;
+            for(var wj = localTlStart; wj < h1IdxJpost; wj++){
+              if(h1Bars[wj].h > localSwHi) localSwHi = h1Bars[wj].h;
+              if(h1Bars[wj].l < localSwLo) localSwLo = h1Bars[wj].l;
+            }
+            var localPxA = Math.abs(h1Bars[h1IdxJpost].c);
+            var localMp = localPxA > 1000 ? localPxA * 0.001 : (localPxA > 5 ? localPxA * 0.0008 : 0.0005);
+            var localTlDir = null;
+            if(h1Bars[h1IdxJpost].c > localSwHi && (h1Bars[h1IdxJpost].c - localSwHi) >= localMp) localTlDir = 'bull';
+            else if(h1Bars[h1IdxJpost].c < localSwLo && (localSwLo - h1Bars[h1IdxJpost].c) >= localMp) localTlDir = 'bear';
+            if(localTlDir && localTlDir !== alignedDir){
+              resolved = 'invalidated'; failureMode = 'alignment-broken-tl-post-trigger'; resolvedAt = j; break;
+            }
+            // v6 — 4H EMA cloud post-trigger check (4/4 parity). Read from
+            // the precomputed clDirAtH1Idx array (no shared-cursor mutation).
+            var clAtJpost = (h1IdxJpost < clDirAtH1Idx.length) ? clDirAtH1Idx[h1IdxJpost] : null;
+            if(clAtJpost && clAtJpost !== alignedDir){
+              resolved = 'invalidated'; failureMode = 'alignment-broken-cl-post-trigger'; resolvedAt = j; break;
+            }
           }
         }
         // PR #4 parity: TRIGGERED_MAX_BARS = 16 (4h on 15m). Trades that
