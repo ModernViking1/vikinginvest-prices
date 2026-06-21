@@ -18394,6 +18394,33 @@ function _renderCCIVariantPanel(host, commodityKeys){
       return;
     }
 
+    // iOS Safari detection — iOS ignores <a download> AND
+    // jsPDF.save()'s built-in download trigger silently no-ops. We
+    // open a blank tab synchronously inside the user-gesture window
+    // and rewrite its URL once the blob is ready, otherwise iOS
+    // popup-blocks the async window.open() entirely.
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent || '')
+             || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var iosWindow = null;
+    if(isIOS){
+      iosWindow = window.open('', '_blank');
+      if(!iosWindow){
+        alert('Please allow pop-ups for this site so we can show the PDF in a new tab. iOS Safari blocks PDF downloads otherwise.');
+        _resetPdfBtn(btn);
+        return;
+      }
+      // Render a "preparing" placeholder so the user sees something
+      // while html2canvas + jsPDF do their work (a few seconds).
+      try {
+        iosWindow.document.write('<title>Viking Edge Report</title>'
+          + '<body style="font-family:-apple-system,sans-serif;text-align:center;padding:40px;color:#3a3631;">'
+          + '<div style="font-size:14px;letter-spacing:1px;color:#0d5a36;font-weight:700;">⚓ VIKING EDGE</div>'
+          + '<div style="margin-top:14px;font-size:13px;">Generating your PDF report…</div>'
+          + '<div style="margin-top:6px;font-size:11px;color:#999;">This usually takes 3–8 seconds.</div>'
+          + '</body>');
+      } catch(_){}
+    }
+
     var now = new Date();
     var dateStr = now.toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'});
     var pad = function(n){ return String(n).padStart(2,'0'); };
@@ -18420,6 +18447,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     } catch(e){
       console.error('PDF data prep failed', e);
       alert('Could not assemble report data. Please try again after the backtest cache finishes loading.');
+      if(iosWindow){ try { iosWindow.close(); } catch(_){} }
       _resetPdfBtn(btn);
       return;
     }
@@ -18433,11 +18461,11 @@ function _renderCCIVariantPanel(host, commodityKeys){
     document.body.appendChild(doc);
 
     var filename = 'viking-edge-investor-report-' + now.toISOString().slice(0,10) + '.pdf';
-    // 2026-06-21i — scale dropped from 2 to 1.5 because the 4-page
-    // doc at scale 2 produces an 8720px-tall canvas (1588×8720 ≈ 14M
-    // px) which is right at the iOS Safari canvas memory ceiling and
-    // returns blank on some devices. 1.5 still gives crisp text on
-    // A4 print + screen, well clear of the 16M-px limit.
+    // 2026-06-21i — scale 1.5 (was 2). At scale 2 the 4-page doc
+    // produces an 8720px-tall canvas (≈14M px) which is right at the
+    // iOS Safari canvas memory ceiling and returns blank on tighter
+    // devices. 1.5 still gives crisp text on A4, well under the
+    // 16M-px limit.
     var opt = {
       margin: 0,
       filename: filename,
@@ -18448,24 +18476,54 @@ function _renderCCIVariantPanel(host, commodityKeys){
     };
 
     var cleanup = function(){
-      try { document.body.removeChild(doc); } catch(e){}
+      try { document.body.removeChild(doc); } catch(_){}
       _resetPdfBtn(btn);
     };
 
     // Wait for webfonts to be ready before snapshotting — otherwise
-    // Orbitron/Mukta swap to a fallback mid-capture on slow connections
-    // and the PDF text looks wrong (or blank if the @font-face hasn't
-    // resolved yet on first use). `document.fonts.ready` resolves
-    // immediately on modern browsers if everything's already loaded.
+    // Orbitron / Mukta swap to a fallback mid-capture on slow
+    // connections and the PDF text looks wrong (or blank if the
+    // @font-face hasn't resolved yet on first use). Resolves
+    // immediately if the fonts already loaded.
     var fontsReady = (document.fonts && document.fonts.ready)
       ? document.fonts.ready
       : Promise.resolve();
 
+    // 2026-06-21j — switched from html2pdf().save() (which on iOS
+    // Safari silently no-ops because <a download> isn't honoured
+    // and jsPDF's data-URI fallback also doesn't trigger a save) to
+    // explicit blob output + anchor-click for desktop and
+    // window.location replacement for iOS. The iOS popup window was
+    // opened synchronously above inside the user-gesture context to
+    // dodge the popup blocker.
     fontsReady.then(function(){
-      return html2pdf().set(opt).from(doc).save();
-    }).then(cleanup).catch(function(err){
+      return html2pdf().set(opt).from(doc).outputPdf('blob');
+    }).then(function(blob){
+      var url = URL.createObjectURL(blob);
+      if(isIOS && iosWindow){
+        try { iosWindow.location.href = url; }
+        catch(_){ window.location.href = url; }
+        // Keep the URL alive long enough for iOS to render the PDF
+        // in the new tab (revoke too early and the tab goes blank).
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 120000);
+      } else {
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.rel = 'noopener';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function(){
+          try { document.body.removeChild(a); } catch(_){}
+          URL.revokeObjectURL(url);
+        }, 1500);
+      }
+      cleanup();
+    }).catch(function(err){
       console.error('PDF generation failed', err);
-      alert('Could not generate the PDF. Please try again — if the problem persists, check your browser console.');
+      try { if(iosWindow) iosWindow.close(); } catch(_){}
+      alert('Could not generate the PDF. ' + ((err && err.message) || 'Unknown error') + ' — see the browser console for details.');
       cleanup();
     });
   };
