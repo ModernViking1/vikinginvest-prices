@@ -1469,7 +1469,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <button id="btMinorMacdExpBtn"
             onclick="runMinorMacdExpansionTest();"
             style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid #7c3aed;background:rgba(124,58,237,0.08);color:#7c3aed;border-radius:3px;cursor:pointer;">
-      🧪 TEST: MAJOR + MINOR MACD EXPANSION (per-confluence)
+      🧪 TEST: MACD EXPANSION · MAJOR + MINOR + COMM + CRYPTO
     </button>
     <span id="btMinorMacdExpStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
   </div>
@@ -11243,7 +11243,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-21f';
+var RULES_VERSION = '2026-06-21g';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -12190,7 +12190,11 @@ function calcRecentBacktest(k, mode){
     // 4/4 cliff at 47.6% / -0.05R. MAJOR-specific gate: conf 1-3.
     // Divergence on MAJOR stays test-mode-only (deferred to keep
     // alert volume manageable while validating primary live).
-    if(((_btPairClass === 'index') || (_btPairClass === 'minor') || (_btPairClass === 'major'))
+    // 2026-06-21g — test mode extended to CRYPTO + COMM (only fires
+    // when _btUseMinorMacdExp is true). Captures all 0/4-4/4 buckets
+    // so the renderer can show per-confluence WR for these classes.
+    if(((_btPairClass === 'index') || (_btPairClass === 'minor') || (_btPairClass === 'major')
+        || (_btUseMinorMacdExp && (_btPairClass === 'crypto' || _btPairClass === 'comm')))
        && !_btUseMacdPrimary && !_btUse3of4 && !_btUse2of4 && !_btUse1of4
        && m15MacdAtIdx){
       var _mppM0 = m15MacdAtIdx.macd[i-1], _mppM1 = m15MacdAtIdx.macd[i];
@@ -12296,8 +12300,10 @@ function calcRecentBacktest(k, mode){
     // is the higher-WR detector on MINORs (75-81% vs divergence
     // 67-71%); paused divergence to simplify alert volume + isolate
     // the impact of macd-primary live.
+    // 2026-06-21g — test mode extended to CRYPTO + COMM.
     if(((_btPairClass === 'index')
-        || (_btUseMinorMacdExp && (_btPairClass === 'minor' || _btPairClass === 'major')))
+        || (_btUseMinorMacdExp && (_btPairClass === 'minor' || _btPairClass === 'major'
+                                    || _btPairClass === 'crypto' || _btPairClass === 'comm')))
        && !_btUseMacdPrimary && !_btUseMacdDivergence
        && !_btUse3of4 && !_btUse2of4 && !_btUse1of4
        && m15MacdAtIdx

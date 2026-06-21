@@ -3496,10 +3496,11 @@ function runMinorMacdExpansionTest(){
 
 function _renderMinorMacdExpansion(results, statusEl, resultEl){
   if(!resultEl) return;
-  // Two classes covered: MINOR (original target) + MAJOR (added so
-  // USDJPY and other low-WR MAJORs can be evaluated for MACD promotion).
-  var classesToShow = ['minor', 'major'];
-  var pairsByClass = { minor: [], major: [] };
+  // Four classes covered: MINOR (original target), MAJOR (added for
+  // USDJPY evaluation), CRYPTO + COMM (added 2026-06-21g to evaluate
+  // MACD promotion for the remaining low-volume classes).
+  var classesToShow = ['minor', 'major', 'comm', 'crypto'];
+  var pairsByClass = { minor: [], major: [], comm: [], crypto: [] };
   Object.keys(results).forEach(function(k){
     if(typeof MKTS === 'undefined' || !MKTS[k]) return;
     var cls = MKTS[k].t;
@@ -3630,11 +3631,13 @@ function _renderMinorMacdExpansion(results, statusEl, resultEl){
 
   resultEl.innerHTML =
     '<div style="margin-top:8px;padding:10px 12px;border:1px solid rgba(124,58,237,0.30);background:rgba(124,58,237,0.04);border-radius:4px;">'
-    + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#7c3aed;margin-bottom:6px;">MAJOR + MINOR MACD EXPANSION · WOULD THE INDEX DETECTORS WORK?</div>'
-    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:6px;">Runs the production INDEX MACD-primary + MACD-divergence detectors on MINOR + MAJOR pairs with NO confluence floor (captures 0/4-4/4). MACD trades are 1:1 R:R, no post-inv concept — outcome is W / L / expired (24-bar window). EV/trade uses +1R/-1R. Expired counts as 0R for EV. <strong>Deploy rule:</strong> a source × confluence cell with green WR + green EV on n≥30 is a candidate to promote that pair class to production. Per-pair breakdown lets you cherry-pick individual pairs (e.g. promote only USDJPY from MAJORs if MAJOR aggregate is mixed but USDJPY is clean).</div>'
+    + '<div style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:0.8px;color:#7c3aed;margin-bottom:6px;">MACD EXPANSION · WOULD THE INDEX DETECTORS WORK ON OTHER CLASSES?</div>'
+    + '<div style="font-size:8.5px;color:var(--inkd);line-height:1.4;margin-bottom:6px;">Runs the production INDEX MACD-primary + MACD-divergence detectors on MINOR + MAJOR + COMM + CRYPTO pairs with NO confluence floor (captures 0/4-4/4). MACD trades are 1:1 R:R, no post-inv concept — outcome is W / L / expired (24-bar window). EV/trade uses +1R/-1R. Expired counts as 0R for EV. <strong>Deploy rule:</strong> a source × confluence cell with green WR + green EV on n≥30 is a candidate to promote that pair class to production. Per-pair breakdown lets you cherry-pick individual pairs.</div>'
     + buildClassBlock('minor')
     + buildClassBlock('major')
-    + '<div style="margin-top:10px;font-size:8.5px;color:var(--inkd);line-height:1.5;"><strong>How to read:</strong> If macd-primary at conf ≥1 shows ≥65% WR + ≥+0.30R EV on n≥30, that\'s a strong "promote" signal for that class. If 0/4 (fully contrarian) is also EV-positive, the detector is a true mean-reversion edge and the contrarian bucket can be kept. Per-pair tables identify which pairs deserve activation if the class-level signal is mixed. USDJPY specifically: look for ≥+0.40R EV on macd-primary; if there, deploying MACDs on USDJPY would lift its current 53.8% wick-only WR materially.</div>'
+    + buildClassBlock('comm')
+    + buildClassBlock('crypto')
+    + '<div style="margin-top:10px;font-size:8.5px;color:var(--inkd);line-height:1.5;"><strong>How to read:</strong> If macd-primary at conf ≥1 shows ≥65% WR + ≥+0.30R EV on n≥30, that\'s a strong "promote" signal for that class. If 0/4 (fully contrarian) is also EV-positive, the detector is a true mean-reversion edge and the contrarian bucket can be kept. Per-pair tables identify which pairs deserve activation if the class-level signal is mixed. COMM specifically: watch xptusd (chronic underperformer on wick) — if MACDs lift it, it stays in the universe; if not, it\'s a drop candidate. CRYPTO has high-volatility pairs (BTC, ETH) where MACDs may benefit from the same Q4-loves-volatility pattern we saw on INDEX.</div>'
     + '</div>';
 
   if(statusEl){
