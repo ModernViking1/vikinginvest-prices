@@ -11232,7 +11232,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-20o';
+var RULES_VERSION = '2026-06-21a';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -12031,7 +12031,14 @@ function calcRecentBacktest(k, mode){
   // m15 MACD(12,26,9) series for the MACD-cross hard gate. Only computed
   // when the mode requires it — the EMA + signal calc is ~3× m15Bars.length
   // floating-point ops, so we skip it entirely on production modes.
-  var m15MacdAtIdx = ((_btUseMACDCross || _btUseMacdPrimary || _btUseMacdDivergence || _btCollectDiag || _btUseMinorMacdExp) && typeof _macdSeries === 'function')
+  // 2026-06-21a — also precompute for MINOR + MAJOR classes since
+  // both now run the MACD-primary / MACD-divergence parallel
+  // detectors in production. Without this, m15MacdAtIdx stays null
+  // for those classes in auto-ew/structural mode and the detector
+  // branches silently skip (the if-condition checks m15MacdAtIdx).
+  // That's why MINOR + MAJOR cards didn't move after the MACD ship.
+  var m15MacdAtIdx = ((_btUseMACDCross || _btUseMacdPrimary || _btUseMacdDivergence || _btCollectDiag || _btUseMinorMacdExp
+                       || _btPairClass === 'minor' || _btPairClass === 'major') && typeof _macdSeries === 'function')
     ? (function(){
         var closes = new Array(m15Bars.length);
         for(var mi = 0; mi < m15Bars.length; mi++) closes[mi] = m15Bars[mi].c;
