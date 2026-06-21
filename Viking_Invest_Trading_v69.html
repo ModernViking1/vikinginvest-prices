@@ -374,6 +374,13 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   crossorigin="anonymous" on the <script> tag.
 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.6/dist/umd/supabase.min.js"></script>
+
+<!-- html2pdf.js — used by the Investor / Newsletter tab "Generate PDF
+     Report" button. Bundles jsPDF + html2canvas. Same jsDelivr trust
+     model as Supabase above; to harden with SRI, run the openssl one-
+     liner from the Supabase comment block against this URL and paste
+     the hash into integrity="…". `defer` so it doesn't block first paint. -->
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.3/dist/html2pdf.bundle.min.js" defer></script>
 <style>
 /* ── AUTH MODAL ── */
 .viauth-overlay{
@@ -808,6 +815,91 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 .pf-investor-btn.outline{background:transparent;color:#fff;}
 .pf-investor-btn.outline:hover{background:rgba(255,255,255,0.10);}
 .pf-investor-fine{font-size:9.5px;color:rgba(255,255,255,0.70);margin-top:12px;line-height:1.55;position:relative;}
+
+/* ── INVESTOR / NEWSLETTER TAB: PDF EXPORT TOOLBAR ── */
+.investor-toolbar{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:12px 14px;margin:0 0 14px 0;border-radius:6px;
+  background:linear-gradient(135deg,#0d5a36 0%,#0a4528 100%);
+  border:1px solid rgba(255,255,255,0.08);
+  box-shadow:0 2px 10px rgba(13,90,54,0.18);
+}
+.investor-toolbar .pf-investor-btn{flex:0 0 auto;white-space:nowrap;}
+.investor-toolbar-hint{
+  flex:1 1 auto;font-size:11px;line-height:1.45;color:rgba(255,255,255,0.85);
+  font-family:'Mukta',sans-serif;letter-spacing:0.2px;
+}
+.investor-toolbar .pf-investor-btn:disabled{opacity:0.6;cursor:wait;}
+@media (max-width:560px){
+  .investor-toolbar{flex-direction:column;align-items:stretch;text-align:center;}
+  .investor-toolbar .pf-investor-btn{width:100%;}
+}
+
+/* ── PDF EXPORT DOCUMENT (rendered offscreen, captured by html2canvas) ── */
+/* Kept offscreen so the on-page layout never shifts. CSS vars are re-
+   defined locally so SVG donuts that reference --bull etc. resolve to
+   solid hex inside the canvas snapshot (html2canvas resolves vars from
+   the captured element's computed styles, not the global :root). */
+.vi-pdf-doc{
+  position:absolute;top:-10000px;left:0;
+  width:794px;            /* A4 width @ 96dpi ≈ 210mm */
+  background:#ffffff;color:#1c1a17;
+  font-family:'Mukta','Helvetica Neue',Arial,sans-serif;font-size:12px;line-height:1.55;
+  padding:0;margin:0;
+  --bull:#1a7a4a;--bear:#c0281a;--gold:#c8860a;
+  --ink:#1c1a17;--inkm:#3a3631;--inkd:#5a5550;
+  --rule:#e6e1d8;--bg:#f7f4ef;
+}
+.vi-pdf-doc *{box-sizing:border-box;}
+.vi-pdf-page{
+  width:100%;min-height:1090px;  /* A4 height @ 96dpi ≈ 297mm minus margins */
+  padding:48px 56px 60px 56px;page-break-after:always;
+  position:relative;
+}
+.vi-pdf-page:last-child{page-break-after:auto;}
+.vi-pdf-cover{
+  background:linear-gradient(160deg,#0d5a36 0%,#082d1a 100%);color:#fff;
+  display:flex;flex-direction:column;justify-content:space-between;
+}
+.vi-pdf-cover-top{font-family:'Orbitron',monospace;font-size:11px;letter-spacing:5px;color:#c8860a;text-transform:uppercase;}
+.vi-pdf-cover-mid h1{font-family:'Orbitron',monospace;font-size:54px;font-weight:900;letter-spacing:3px;margin:0 0 8px 0;line-height:1.05;}
+.vi-pdf-cover-mid h2{font-family:'Orbitron',monospace;font-size:18px;font-weight:600;letter-spacing:6px;color:rgba(255,255,255,0.78);margin:0 0 36px 0;text-transform:uppercase;}
+.vi-pdf-cover-meta{font-family:'Mukta',sans-serif;font-size:13px;color:rgba(255,255,255,0.92);line-height:2;}
+.vi-pdf-cover-meta .lbl{font-family:'Orbitron',monospace;font-size:9.5px;letter-spacing:3px;color:#c8860a;text-transform:uppercase;display:block;margin-top:14px;}
+.vi-pdf-cover-bottom{font-size:10px;color:rgba(255,255,255,0.65);line-height:1.6;letter-spacing:0.3px;}
+.vi-pdf-cover-bottom strong{color:#c8860a;font-family:'Orbitron',monospace;letter-spacing:1px;}
+.vi-pdf-section-h{font-family:'Orbitron',monospace;font-size:11px;letter-spacing:4px;color:#0d5a36;text-transform:uppercase;border-bottom:2px solid #0d5a36;padding-bottom:6px;margin:0 0 18px 0;}
+.vi-pdf-eyebrow{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:3px;color:#c8860a;text-transform:uppercase;margin-bottom:4px;}
+.vi-pdf-h1{font-family:'Orbitron',monospace;font-size:22px;font-weight:900;letter-spacing:1.5px;margin:0 0 14px 0;color:#1c1a17;}
+.vi-pdf-h2{font-family:'Orbitron',monospace;font-size:14px;font-weight:700;letter-spacing:1.5px;margin:22px 0 10px 0;color:#1c1a17;}
+.vi-pdf-headline{display:flex;align-items:center;gap:32px;padding:22px 24px;background:#f7f4ef;border:1px solid #e6e1d8;border-radius:6px;margin-bottom:20px;}
+.vi-pdf-headline-stats{flex:1;}
+.vi-pdf-headline-pct{font-family:'Orbitron',monospace;font-size:46px;font-weight:900;line-height:1;color:#1a7a4a;margin-bottom:4px;}
+.vi-pdf-headline-wl{font-size:12px;color:#5a5550;margin-bottom:6px;}
+.vi-pdf-headline-lbl{font-size:10.5px;color:#5a5550;letter-spacing:0.4px;font-family:'Orbitron',monospace;text-transform:uppercase;}
+.vi-pdf-table{width:100%;border-collapse:collapse;margin:8px 0 16px 0;font-size:11.5px;}
+.vi-pdf-table th{background:#0d5a36;color:#fff;font-family:'Orbitron',monospace;font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;text-align:left;padding:8px 10px;font-weight:600;}
+.vi-pdf-table th.r,.vi-pdf-table td.r{text-align:right;}
+.vi-pdf-table td{padding:8px 10px;border-bottom:1px solid #e6e1d8;}
+.vi-pdf-table tr:last-child td{border-bottom:none;}
+.vi-pdf-table tr.total td{font-weight:700;background:#f0ede8;border-top:2px solid #1c1a17;}
+.vi-pdf-class-grid{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.vi-pdf-class-tile{flex:1 1 calc(20% - 10px);min-width:120px;text-align:center;padding:14px 8px;background:#f7f4ef;border:1px solid #e6e1d8;border-radius:6px;}
+.vi-pdf-class-tile .ico{font-size:18px;margin-bottom:4px;}
+.vi-pdf-class-tile .lbl{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:1.6px;color:#5a5550;text-transform:uppercase;margin-bottom:8px;}
+.vi-pdf-class-tile .donut{display:flex;justify-content:center;margin-bottom:6px;}
+.vi-pdf-class-tile .stat{font-size:10.5px;color:#3a3631;font-family:'Orbitron',monospace;letter-spacing:0.4px;}
+.vi-pdf-body{font-size:11.5px;line-height:1.65;color:#3a3631;margin:0 0 12px 0;}
+.vi-pdf-body strong{color:#1c1a17;}
+.vi-pdf-callout{padding:14px 16px;background:#f0ede8;border-left:3px solid #c8860a;font-size:11px;color:#3a3631;line-height:1.6;margin:8px 0 16px 0;}
+.vi-pdf-disclaim{font-size:10px;color:#5a5550;line-height:1.6;margin:10px 0;}
+.vi-pdf-disclaim h3{font-family:'Orbitron',monospace;font-size:10.5px;letter-spacing:1.6px;color:#c0281a;text-transform:uppercase;margin:14px 0 6px 0;}
+.vi-pdf-footer{position:absolute;bottom:18px;left:56px;right:56px;font-size:8.5px;color:#5a5550;letter-spacing:0.4px;display:flex;justify-content:space-between;border-top:1px solid #e6e1d8;padding-top:8px;font-family:'Orbitron',monospace;text-transform:uppercase;}
+.vi-pdf-cover .vi-pdf-footer{color:rgba(255,255,255,0.5);border-top-color:rgba(255,255,255,0.12);}
+.vi-pdf-contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 14px 0;}
+.vi-pdf-contact-tile{padding:12px 14px;background:#f7f4ef;border:1px solid #e6e1d8;border-radius:4px;}
+.vi-pdf-contact-tile .lbl{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:1.6px;color:#5a5550;text-transform:uppercase;display:block;margin-bottom:4px;}
+.vi-pdf-contact-tile .val{font-size:11.5px;color:#1c1a17;font-weight:600;}
 
 .pf-disclosure{font-size:10px;color:var(--inkd);text-align:center;padding:18px 14px 4px;line-height:1.55;font-family:'Mukta',sans-serif;letter-spacing:0.3px;}
 .pf-disclosure strong{color:var(--inkm);}
@@ -1469,6 +1561,10 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 <!-- ════ NEWSLETTER ════ -->
 <div class="page" id="page-newsletter">
   <div class="nl-wrap" id="newsletterRoot">
+    <div class="investor-toolbar">
+      <div class="investor-toolbar-hint">Download the full Viking Edge performance report as a polished PDF — share with co-investors, IC members, or family-office gatekeepers.</div>
+      <button class="pf-investor-btn" id="investor-pdf-btn" type="button" onclick="window.__generateInvestorPDF && window.__generateInvestorPDF()">📄 Generate PDF Report</button>
+    </div>
     <div class="nl-mast">
       <div class="nl-mast-eyebrow">⚓ Viking Invest · Weekly Recap</div>
       <h1 id="nl-mast-title">Loading week…</h1>
@@ -19962,6 +20058,330 @@ function _renderCCIVariantPanel(host, commodityKeys){
   }
 
   window.buildNewsletter = buildNewsletter;
+
+  /* ──────────────────────────────────────────────────────────────
+     PDF EXPORT — "Generate PDF Report" button on the Newsletter
+     (investor-facing) tab.
+
+     Builds a self-contained, print-grade 4-page report:
+       1. Cover (date, report ID, recipient if signed in)
+       2. Executive Summary (headline WR + by-class table)
+       3. Performance Detail (per-class donuts + 7-day cohort table)
+       4. Methodology, Risk Disclosures, Investor Relations contact
+
+     Industry references replicated here:
+       • Hedge fund factsheets (Bridgewater, AQR, Two Sigma quarterly)
+         → Cover ▸ Exec summary ▸ Performance ▸ Methodology ▸ Disclosure
+       • Prop-trading prospectuses → segment breakdown + risk language
+       • FCA-aligned disclaimer block (UK-registered entity)
+
+     Renders into an offscreen DOM node so the live layout never
+     shifts; html2pdf snapshots it to a 4-page A4 PDF. CSS vars are
+     redefined locally inside .vi-pdf-doc so the reused SVG donuts
+     resolve to solid hex colours under html2canvas.
+     ────────────────────────────────────────────────────────────── */
+
+  function _esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+      return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;';
+    });
+  }
+
+  function _pdfFooter(pageNum, totalPages, reportId){
+    return '<div class="vi-pdf-footer">'
+      + '<span>Viking Invest Ltd · ' + _esc(reportId) + '</span>'
+      + '<span>Page ' + pageNum + ' of ' + totalPages + '</span>'
+      + '</div>';
+  }
+
+  function _pdfCoverPage(meta){
+    return '<div class="vi-pdf-page vi-pdf-cover">'
+      +   '<div class="vi-pdf-cover-top">⚓ Viking Invest · Confidential</div>'
+      +   '<div class="vi-pdf-cover-mid">'
+      +     '<h1>VIKING<br>EDGE</h1>'
+      +     '<h2>Strategy Performance Report</h2>'
+      +     '<div class="vi-pdf-cover-meta">'
+      +       '<span class="lbl">Reporting period</span>' + _esc(meta.period)
+      +       '<span class="lbl">Issued</span>' + _esc(meta.dateStr)
+      +       '<span class="lbl">Prepared for</span>' + _esc(meta.recipient || 'Prospective investor')
+      +       '<span class="lbl">Report ID</span>' + _esc(meta.reportId)
+      +     '</div>'
+      +   '</div>'
+      +   '<div class="vi-pdf-cover-bottom">'
+      +     '<strong>VIKING INVEST LTD</strong> · UK-registered · est. 2011<br>'
+      +     'investors@vikinginvest.ai · vikinginvest.ai<br><br>'
+      +     'This document is confidential and intended solely for the named recipient. '
+      +     'It contains backtest simulation results and forward-looking statements that '
+      +     'do not constitute investment advice or an offer to sell securities. See '
+      +     'page 4 for full risk disclosures.'
+      +   '</div>'
+      +   _pdfFooter(1, 4, meta.reportId)
+      + '</div>';
+  }
+
+  function _pdfClassRow(label, ico, w, l){
+    var t = w + l;
+    var p = t > 0 ? (w / t * 100) : null;
+    var pctTxt = p == null ? '—' : p.toFixed(1) + '%';
+    var pctColor = p == null ? '#5a5550' : (p >= 70 ? '#1a7a4a' : p >= 60 ? '#c8860a' : p >= 50 ? '#d97706' : '#c0281a');
+    return '<tr>'
+      + '<td>' + ico + ' ' + _esc(label) + '</td>'
+      + '<td class="r">' + w + '</td>'
+      + '<td class="r">' + l + '</td>'
+      + '<td class="r">' + t + '</td>'
+      + '<td class="r" style="color:' + pctColor + ';font-weight:700;">' + pctTxt + '</td>'
+      + '</tr>';
+  }
+
+  function _pdfPctColorHex(p){
+    if(p == null) return '#5a5550';
+    if(p >= 70) return '#1a7a4a';
+    if(p >= 60) return '#c8860a';
+    if(p >= 50) return '#d97706';
+    return '#c0281a';
+  }
+
+  function _pdfExecPage(meta, overall){
+    var p = _pct(overall.totalW, overall.totalL);
+    var pctTxt = p == null ? '—' : p.toFixed(1) + '%';
+    var pctColor = _pdfPctColorHex(p);
+    var totalTrades = overall.totalW + overall.totalL;
+    var rows = '';
+    CLS_ORDER.forEach(function(c){
+      var cell = overall.byCls[c];
+      if(!cell || (cell.w + cell.l) === 0) return;
+      rows += _pdfClassRow(CLS_LABEL[c], CLS_ICON[c], cell.w, cell.l);
+    });
+    rows += '<tr class="total">'
+         + '<td>TOTAL · ALL PAIRS</td>'
+         + '<td class="r">' + overall.totalW + '</td>'
+         + '<td class="r">' + overall.totalL + '</td>'
+         + '<td class="r">' + totalTrades + '</td>'
+         + '<td class="r" style="color:' + pctColor + ';">' + pctTxt + '</td>'
+         + '</tr>';
+    return '<div class="vi-pdf-page">'
+      +   '<div class="vi-pdf-eyebrow">Section 01</div>'
+      +   '<h1 class="vi-pdf-h1">Executive Summary</h1>'
+      +   '<div class="vi-pdf-section-h">▸ Headline Performance</div>'
+      +   '<div class="vi-pdf-headline">'
+      +     '<div class="vi-pdf-headline-stats">'
+      +       '<div class="vi-pdf-headline-pct" style="color:' + pctColor + ';">' + pctTxt + '</div>'
+      +       '<div class="vi-pdf-headline-wl">' + overall.totalW + ' wins · ' + overall.totalL + ' losses · ' + totalTrades + ' resolved trades</div>'
+      +       '<div class="vi-pdf-headline-lbl">Aggregate win rate · Viking Edge · target 1R · stop at structural extreme</div>'
+      +     '</div>'
+      +   '</div>'
+      +   '<div class="vi-pdf-callout">'
+      +     '<strong>What this measures.</strong> Every trade is generated by the proprietary 4/4 confluence engine '
+      +     '(EW direction · TL direction · 4H EMA cloud · M15 structure wick). Outcomes are simulated against historical '
+      +     'price using a fixed 1R take-profit and a stop placed at the creator-bar wick extreme. Results below cover the '
+      +     'full 12-month rolling backtest cache across every active pair.'
+      +   '</div>'
+      +   '<div class="vi-pdf-section-h" style="margin-top:24px;">▸ Performance by Asset Class</div>'
+      +   '<table class="vi-pdf-table">'
+      +     '<thead><tr><th>Segment</th><th class="r">Wins</th><th class="r">Losses</th><th class="r">Trades</th><th class="r">Win&nbsp;Rate</th></tr></thead>'
+      +     '<tbody>' + rows + '</tbody>'
+      +   '</table>'
+      +   '<div class="vi-pdf-body" style="margin-top:18px;">'
+      +     '<strong>Reading the table.</strong> Each segment aggregates every resolved trade across its constituent pairs. '
+      +     'Trades that did not resolve within their 4-hour management window (expiries) and invalidations (signal cancelled '
+      +     'before entry) are excluded from the win-rate denominator — only fully resolved entries count.'
+      +   '</div>'
+      +   _pdfFooter(2, 4, meta.reportId)
+      + '</div>';
+  }
+
+  function _pdfDetailPage(meta, overall, weekly){
+    var classTiles = '';
+    CLS_ORDER.forEach(function(c){
+      var cell = overall.byCls[c];
+      var w = cell ? cell.w : 0, l = cell ? cell.l : 0;
+      var p = _pct(w, l);
+      var pctTxt = p == null ? '—' : Math.round(p) + '%';
+      var color = _pdfPctColorHex(p);
+      classTiles += '<div class="vi-pdf-class-tile">'
+        + '<div class="ico">' + CLS_ICON[c] + '</div>'
+        + '<div class="lbl">' + _esc(CLS_LABEL[c]) + '</div>'
+        + '<div class="donut">' + _donut(w, l, 90, color) + '</div>'
+        + '<div class="stat">' + pctTxt + ' · ' + (w + l) + ' trades</div>'
+        + '</div>';
+    });
+
+    var weeklyRows = '';
+    if(weekly){
+      CLS_ORDER.forEach(function(c){
+        var cell = weekly.byCls[c];
+        if(!cell || (cell.w + cell.l) === 0) return;
+        weeklyRows += _pdfClassRow(CLS_LABEL[c], CLS_ICON[c], cell.w, cell.l);
+      });
+      var wT = weekly.totalW + weekly.totalL;
+      var wP = _pct(weekly.totalW, weekly.totalL);
+      var wPctTxt = wP == null ? '—' : wP.toFixed(1) + '%';
+      var wPctColor = _pdfPctColorHex(wP);
+      weeklyRows += '<tr class="total">'
+         + '<td>7-DAY TOTAL</td>'
+         + '<td class="r">' + weekly.totalW + '</td>'
+         + '<td class="r">' + weekly.totalL + '</td>'
+         + '<td class="r">' + wT + '</td>'
+         + '<td class="r" style="color:' + wPctColor + ';">' + wPctTxt + '</td>'
+         + '</tr>';
+    }
+    var weeklyBlock = weeklyRows
+      ? '<table class="vi-pdf-table"><thead><tr><th>Segment</th><th class="r">Wins</th><th class="r">Losses</th><th class="r">Trades</th><th class="r">Win&nbsp;Rate</th></tr></thead><tbody>' + weeklyRows + '</tbody></table>'
+      : '<div class="vi-pdf-body" style="font-style:italic;color:#5a5550;">No resolved trades in the trailing 7-day window.</div>';
+
+    return '<div class="vi-pdf-page">'
+      +   '<div class="vi-pdf-eyebrow">Section 02</div>'
+      +   '<h1 class="vi-pdf-h1">Performance Detail</h1>'
+      +   '<div class="vi-pdf-section-h">▸ Win Rate by Segment</div>'
+      +   '<div class="vi-pdf-class-grid">' + classTiles + '</div>'
+      +   '<div class="vi-pdf-body">'
+      +     'Filled arc shows the won share of resolved trades in each cohort. Empty rings indicate cohorts with no '
+      +     'completed trades in the backtest cache yet.'
+      +   '</div>'
+      +   '<div class="vi-pdf-section-h" style="margin-top:22px;">▸ Trailing 7-Day Activity</div>'
+      +     weeklyBlock
+      +   '<div class="vi-pdf-body" style="margin-top:14px;">'
+      +     '<strong>Cohort logic.</strong> Setups whose creator bar fell within the last 7 days, filtered through the '
+      +     'identical 4/4 confluence engine that produced the long-run figures on page 2. Same rules — narrower window.'
+      +   '</div>'
+      +   _pdfFooter(3, 4, meta.reportId)
+      + '</div>';
+  }
+
+  function _pdfDisclosurePage(meta){
+    return '<div class="vi-pdf-page">'
+      +   '<div class="vi-pdf-eyebrow">Section 03</div>'
+      +   '<h1 class="vi-pdf-h1">Methodology &amp; Disclosures</h1>'
+      +   '<div class="vi-pdf-section-h">▸ How the numbers are produced</div>'
+      +   '<div class="vi-pdf-body">'
+      +     '<strong>Signal engine.</strong> The Viking Edge engine fires only when four independent confluence signals '
+      +     'align on the same direction: (1) Elliott Wave macro direction on the daily timeframe, (2) trend-line break '
+      +     'direction on the H1, (3) 4-hour EMA21/55 cloud direction, and (4) a M15 structural wick reclaim. Each signal '
+      +     'is generated by deterministic rules — no discretionary input.'
+      +   '</div>'
+      +   '<div class="vi-pdf-body">'
+      +     '<strong>Trade simulation.</strong> Entry is the wick-tag price of the creator bar. Stop is the creator-bar '
+      +     'extreme. Target is +1R. Trades that do not resolve (target or stop) within a 4-hour post-trigger window are '
+      +     'marked expired and excluded from win-rate calculation. Slippage and spread are not modelled in the headline '
+      +     'WR — see the per-pair detail page in the live dashboard for net-R figures that include simulated friction.'
+      +   '</div>'
+      +   '<div class="vi-pdf-body">'
+      +     '<strong>No look-ahead.</strong> Every backtest bar is evaluated using only data available at the close of '
+      +     'that bar; subsequent bars are revealed in sequence. EW and TL direction labels are recomputed forward-only '
+      +     'with no peeking. Cache invalidates whenever rule logic changes (current rules version is shown on the live '
+      +     'dashboard footer).'
+      +   '</div>'
+      +   '<div class="vi-pdf-disclaim">'
+      +     '<h3>Important risk disclosures</h3>'
+      +     '<strong>Educational simulation — not financial advice.</strong> The figures in this report are derived from '
+      +     'historical backtest simulations and do not represent the trading results of any client account. Past '
+      +     'simulated performance is not a reliable indicator of future results. Markets can and do move in ways that '
+      +     'invalidate any single edge.<br><br>'
+      +     '<strong>No offer of securities.</strong> This document does not constitute an offer to sell, or a '
+      +     'solicitation of an offer to buy, any security or investment product, and is not regulated investment advice. '
+      +     'Recipients should consult their own qualified financial, legal and tax advisors before acting on any '
+      +     'information presented.<br><br>'
+      +     '<strong>Risk of loss.</strong> Trading leveraged FX, commodities, indices and crypto carries a substantial '
+      +     'risk of loss and is not suitable for all investors. You may lose more than your initial deposit. The Viking '
+      +     'Invest engine surfaces probabilistic edges, not certainties.<br><br>'
+      +     '<strong>Confidentiality.</strong> This document is intended for the recipient named on the cover page. '
+      +     'Onward distribution requires written consent from Viking Invest Ltd.'
+      +   '</div>'
+      +   '<div class="vi-pdf-section-h" style="margin-top:18px;">▸ Investor Relations</div>'
+      +   '<div class="vi-pdf-contact-grid">'
+      +     '<div class="vi-pdf-contact-tile"><span class="lbl">Direct contact</span><span class="val">investors@vikinginvest.ai</span></div>'
+      +     '<div class="vi-pdf-contact-tile"><span class="lbl">General enquiries</span><span class="val">hello@vikinginvest.ai</span></div>'
+      +     '<div class="vi-pdf-contact-tile"><span class="lbl">Entity</span><span class="val">Viking Invest Ltd · UK · est. 2011</span></div>'
+      +     '<div class="vi-pdf-contact-tile"><span class="lbl">Platform</span><span class="val">vikinginvest.ai</span></div>'
+      +   '</div>'
+      +   '<div class="vi-pdf-body" style="font-size:10.5px;color:#5a5550;">'
+      +     'On request we can share: company overview &amp; team background, the proprietary strategy methodology '
+      +     'white paper (under NDA), the 12-month backtest detail across all 39 active pairs, current production WR '
+      +     '&amp; net-R figures, technology stack &amp; data-pipeline architecture, and roadmap. Standard response '
+      +     'window: two business days.'
+      +   '</div>'
+      +   _pdfFooter(4, 4, meta.reportId)
+      + '</div>';
+  }
+
+  function _resetPdfBtn(btn){
+    if(!btn) return;
+    btn.disabled = false;
+    btn.textContent = btn.dataset.originalText || '📄 Generate PDF Report';
+  }
+
+  window.__generateInvestorPDF = function(){
+    var btn = document.getElementById('investor-pdf-btn');
+    if(btn){
+      if(!btn.dataset.originalText) btn.dataset.originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '⏳ Generating PDF…';
+    }
+    if(typeof html2pdf === 'undefined'){
+      alert('PDF library is still loading — please wait a moment and try again.');
+      _resetPdfBtn(btn);
+      return;
+    }
+
+    var now = new Date();
+    var dateStr = now.toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'});
+    var pad = function(n){ return String(n).padStart(2,'0'); };
+    var reportId = 'VI-' + now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate())
+                 + '-' + pad(now.getHours()) + pad(now.getMinutes());
+    var recipient = '';
+    try {
+      if(window._vinlSession && window._vinlSession.user && window._vinlSession.user.email){
+        recipient = String(window._vinlSession.user.email);
+      }
+    } catch(e){}
+
+    var meta = {
+      dateStr: dateStr,
+      reportId: reportId,
+      recipient: recipient,
+      period: '12-month rolling backtest · refreshed ' + dateStr
+    };
+
+    var overall, weekly;
+    try {
+      overall = _aggregateOverall();
+      weekly = _aggregateWeekly();
+    } catch(e){
+      console.error('PDF data prep failed', e);
+      alert('Could not assemble report data. Please try again after the backtest cache finishes loading.');
+      _resetPdfBtn(btn);
+      return;
+    }
+
+    var doc = document.createElement('div');
+    doc.className = 'vi-pdf-doc';
+    doc.innerHTML = _pdfCoverPage(meta)
+                  + _pdfExecPage(meta, overall)
+                  + _pdfDetailPage(meta, overall, weekly)
+                  + _pdfDisclosurePage(meta);
+    document.body.appendChild(doc);
+
+    var filename = 'viking-edge-investor-report-' + now.toISOString().slice(0,10) + '.pdf';
+    var opt = {
+      margin: 0,
+      filename: filename,
+      image: {type:'jpeg', quality:0.96},
+      html2canvas: {scale:2, useCORS:true, backgroundColor:'#ffffff', letterRendering:true, logging:false},
+      jsPDF: {unit:'mm', format:'a4', orientation:'portrait', compress:true},
+      pagebreak: {mode:['css','legacy']}
+    };
+
+    var cleanup = function(){
+      try { document.body.removeChild(doc); } catch(e){}
+      _resetPdfBtn(btn);
+    };
+
+    html2pdf().set(opt).from(doc).save().then(cleanup).catch(function(err){
+      console.error('PDF generation failed', err);
+      alert('Could not generate the PDF. Please try again — if the problem persists, check your browser console.');
+      cleanup();
+    });
+  };
 })();
 </script>
 
