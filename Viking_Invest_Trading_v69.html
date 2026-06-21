@@ -449,12 +449,17 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.6/dist/umd/supabase.min.js"></script>
 
-<!-- html2pdf.js — used by the Investor tab "Generate PDF Report" button.
-     Bundles jsPDF + html2canvas. Same jsDelivr trust model as Supabase
-     above; to harden with SRI, run the openssl one-liner documented in
-     the Supabase comment block against this URL and paste the hash.
-     `defer` so it doesn't block first paint. -->
-<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.3/dist/html2pdf.bundle.min.js" defer></script>
+<!-- 2026-06-21l — load html2canvas + jsPDF as separate scripts (not the
+     html2pdf.js bundle). html2pdf's bundle wraps both libraries inside
+     a Browserify scope so window.html2canvas / window.jspdf were
+     undefined, which broke our direct-call PDF flow ("PDF library is
+     still loading" alert even after page fully loaded). With separate
+     scripts we get clean UMD globals and full control over the
+     rendering pipeline (no offscreen-container clones that iOS Safari
+     can't snapshot). Same jsDelivr trust model as Supabase above;
+     `defer` so they don't block first paint. -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
 <style>
 /* ── AUTH MODAL ── */
 .viauth-overlay{
@@ -1328,27 +1333,6 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 <!-- ════ BACKTEST ════ -->
 <div class="page" id="page-bt">
 
-
-  <!-- ── PER-PAIR BACKTEST CARDS (cards-first layout, 2026-06-21k) ──
-       Per-pair win-rate cards at the top of page-bt; aggregate +
-       failure-mode panels follow immediately below. Educational
-       Rules + Methodology + Force-Re-Run sit AFTER the data so
-       the user sees the numbers first. Test harnesses are in a
-       collapsed <details> further down. ── -->
-  <!-- ── 2. PER-PAIR BACKTEST CARDS (the actual content) ── -->
-  <div class="mktcards" id="mktCards"></div>
-
-  <!-- ── 3. AGGREGATE STATS ROW ── -->
-  <div class="agg-row" id="aggRow"></div>
-
-  <!-- ── 4. (events calendar moved to main dashboard) ── -->
-
-  <!-- ── 5. AUTO-EW DIAGNOSTIC ── -->
-  <div id="autoEWDiag" style="background:rgba(77,162,255,0.04);border:1.5px solid rgba(77,162,255,0.25);border-radius:4px;padding:10px 12px;margin-bottom:10px;font-family:'Orbitron',monospace;font-size:9px;display:none;"></div>
-
-  <!-- ── 5b. INTRADAY FAILURE MODE ANALYSIS — what's breaking and where ── -->
-  <div id="failureModeAnalysis" style="background:rgba(192,40,26,0.03);border:1px solid rgba(192,40,26,0.18);border-radius:4px;padding:10px 12px;margin-bottom:10px;font-family:'Orbitron',monospace;font-size:9px;"></div>
-
   <!-- ── 1. 4/4 CONFLUENCE ENTRY RULES (educational, top) ── -->
   <div class="rules-box">
     <h2>▸ Viking Edge — Entry Rules</h2>
@@ -1409,6 +1393,23 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     </button>
     <span id="btForceRerunStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
   </div>
+
+  <!-- ── PER-PAIR BACKTEST CARDS (sit below rules + methodology + force-
+       re-run, per user request 2026-06-21l — context first, cards
+       second). Aggregate + failure-mode analysis follow immediately.
+       Test harnesses are collapsed in a <details> further down. ── -->
+  <div class="mktcards" id="mktCards"></div>
+
+  <!-- ── 3. AGGREGATE STATS ROW ── -->
+  <div class="agg-row" id="aggRow"></div>
+
+  <!-- ── 4. (events calendar moved to main dashboard) ── -->
+
+  <!-- ── 5. AUTO-EW DIAGNOSTIC ── -->
+  <div id="autoEWDiag" style="background:rgba(77,162,255,0.04);border:1.5px solid rgba(77,162,255,0.25);border-radius:4px;padding:10px 12px;margin-bottom:10px;font-family:'Orbitron',monospace;font-size:9px;display:none;"></div>
+
+  <!-- ── 5b. INTRADAY FAILURE MODE ANALYSIS — what's breaking and where ── -->
+  <div id="failureModeAnalysis" style="background:rgba(192,40,26,0.03);border:1px solid rgba(192,40,26,0.18);border-radius:4px;padding:10px 12px;margin-bottom:10px;font-family:'Orbitron',monospace;font-size:9px;"></div>
 
   <!-- ── Test harnesses (MACD / NOWICK / RSI test buttons + force re-run)
        moved to a collapsed accordion below the failure-mode panel
@@ -11403,8 +11404,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-21j';
+var RULES_VERSION = '2026-06-21l';
 var RULES_VERSION_NOTES = [
+  '2026-06-21 — Commodity post-trade management tuned for class characteristics. Commodities get a longer entry-grace window (1 hour instead of 30 minutes) before counter-bar and alignment-break exits can fire — they have wider true ranges and slower setup development than FX. The fastest of the three alignment-break checks (the medium-term cloud) is skipped for commodities post-entry as it flipped too often during USD-news chop and was producing exits that weren\'t real reversals. Same target / stop / structural-invalidation logic on every trade; this is strictly about giving valid commodity setups more room to develop.',
   '2026-06-21 — MACD detectors expanded to COMMODITIES + CRYPTO. macd-primary now fires on all 4 commodity pairs (conservative conf 1-3 gate matching MAJOR) and all 9 crypto pairs (full conf 1-4 gate matching INDEX/MINOR). Backtest A/B showed +0.51R/trade on ~628 commodity trades and +0.52R/trade on ~1,312 crypto trades. The commodity dashboard cards also moved off the FIB-only display path so the new MACD contribution actually shows up in the per-pair stats (was masked by the legacy FIB-mid read). macd-divergence on the new classes stays deferred to keep alert volume manageable while validating primary live. Post-trigger noise filters also tightened: a 2-bar entry-grace period and a max-favourable-excursion gate on alignment-break exits, which together aim to shrink the post-invalidation bucket without giving back wins.',
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -13077,6 +13079,19 @@ function calcRecentBacktest(k, mode){
         //      valid exit at any MFE.
         var barsSinceTrigger = (triggerBarJ >= 0) ? (j - triggerBarJ) : 0;
         var inProfit         = (maxFavorable >= 0.5);
+        // 2026-06-21l — COMM post-invalidation reduction (ships A + B):
+        //   A. Wider grace period for commodities (4 bars / 60 min vs 2
+        //      bars / 30 min for other classes). COMM has wider ATRs and
+        //      slower entry development; the standard 30-min window
+        //      caught the first retrace but not the longer chop that
+        //      precedes a real commodity move.
+        //   B. 4H EMA cloud alignment-break check skipped for COMM post-
+        //      trigger only. The 4H cloud flips frequently during
+        //      commodity chop (especially around USD news); EW + TL
+        //      alignment checks stay live. CHoCH + counter-bars +
+        //      target/stop unchanged.
+        var minGracePost     = (_btPairClass === 'comm') ? 4 : 2;
+        var skipClCheckPost  = (_btPairClass === 'comm');
         // Opposing m15 CHoCH (NW flip detected via structure scan).
         // postTracker is lazily created at the moment we triggered and
         // is anchored on the ORIGINAL creator i (matches the live
@@ -13097,7 +13112,7 @@ function calcRecentBacktest(k, mode){
         // counter-bars that formed after entry can invalidate.
         // Grace-period gated (#1) but NOT MFE-gated — counter-bar
         // momentum reversals are valid exits at any profit level.
-        if(barsSinceTrigger >= 2 && typeof detectConsecutiveCounterBars === 'function' && triggerBarJ >= 0){
+        if(barsSinceTrigger >= minGracePost && typeof detectConsecutiveCounterBars === 'function' && triggerBarJ >= 0){
           var ctrPost = detectConsecutiveCounterBars(m15Bars, triggerBarJ, j, alignedDir, minProm);
           if(ctrPost > triggerBarJ){
             resolved = 'invalidated'; failureMode = 'counter-bars-post-trigger'; resolvedAt = j; break;
@@ -13109,8 +13124,10 @@ function calcRecentBacktest(k, mode){
         // alignmentBroken=true. Mirror that here.
         //
         // 2026-06-21h: all three alignment-break checks (EW / TL / 4H
-        // cloud) are now gated on (barsSinceTrigger >= 2) AND
-        // (!inProfit). See the noise-filter comment above target/stop.
+        // cloud) are now gated on (barsSinceTrigger >= minGracePost)
+        // AND (!inProfit). See the noise-filter comment above
+        // target/stop. 2026-06-21l: COMM uses minGracePost=4 (vs 2 for
+        // other classes) AND skips the 4H cloud check entirely.
         //
         // CRITICAL: do NOT call updateTLDir() from inside the post-trigger
         // loop — it mutates the outer loop's `lastH1IdxSeen` cursor and
@@ -13122,7 +13139,7 @@ function calcRecentBacktest(k, mode){
         // the post-trigger bar LOCALLY instead — read-only, no shared
         // cursor advance. EW is fine because ewDirAtTime is a cached pure
         // lookup with no shared mutable cursor.
-        if(barsSinceTrigger >= 2 && !inProfit){
+        if(barsSinceTrigger >= minGracePost && !inProfit){
           var ewAtJpost = (typeof ewDirAtTime === 'function') ? ewDirAtTime(k, m15Ts[j]) : null;
           if(ewAtJpost && ewAtJpost !== alignedDir){
             resolved = 'invalidated'; failureMode = 'alignment-broken-ew-post-trigger'; resolvedAt = j; break;
@@ -13145,9 +13162,15 @@ function calcRecentBacktest(k, mode){
             }
             // v6 — 4H EMA cloud post-trigger check (4/4 parity). Read from
             // the precomputed clDirAtH1Idx array (no shared-cursor mutation).
-            var clAtJpost = (h1IdxJpost < clDirAtH1Idx.length) ? clDirAtH1Idx[h1IdxJpost] : null;
-            if(clAtJpost && clAtJpost !== alignedDir){
-              resolved = 'invalidated'; failureMode = 'alignment-broken-cl-post-trigger'; resolvedAt = j; break;
+            // 2026-06-21l — skipped for COMM (ship B): the 4H cloud flips
+            // too often on commodities during chop / USD news, generating
+            // post-invalidations that aren't real reversals. EW + TL above
+            // still fire for COMM.
+            if(!skipClCheckPost){
+              var clAtJpost = (h1IdxJpost < clDirAtH1Idx.length) ? clDirAtH1Idx[h1IdxJpost] : null;
+              if(clAtJpost && clAtJpost !== alignedDir){
+                resolved = 'invalidated'; failureMode = 'alignment-broken-cl-post-trigger'; resolvedAt = j; break;
+              }
             }
           }
         }
