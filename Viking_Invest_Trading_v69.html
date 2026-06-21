@@ -910,12 +910,18 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 }
 
 /* ── PDF EXPORT DOCUMENT (rendered offscreen, captured by html2canvas) ── */
-/* Kept offscreen so the on-page layout never shifts. CSS vars are re-
-   defined locally so SVG donuts that reference --bull etc. resolve to
-   solid hex inside the canvas snapshot (html2canvas resolves vars from
-   the captured element's computed styles, not the global :root). */
+/* 2026-06-21i — kept ON-SCREEN at fixed left:0/top:0 with opacity:0
+   and pointer-events:none. The earlier `top:-10000px` approach gave
+   blank PDFs on iOS Safari (mobile WebKit silently fails to snapshot
+   elements whose layout extends 4000+px above the viewport). Opacity:0
+   keeps the element fully renderable from html2canvas's perspective
+   without flashing on screen. CSS vars are redefined locally so SVG
+   donuts that reference --bull etc. resolve to solid hex inside the
+   canvas snapshot (html2canvas resolves vars from the captured
+   element's computed styles, not the global :root). */
 .vi-pdf-doc{
-  position:absolute;top:-10000px;left:0;
+  position:fixed;top:0;left:0;z-index:-1;
+  opacity:0;pointer-events:none;
   width:794px;            /* A4 width @ 96dpi ≈ 210mm */
   background:#ffffff;color:#1c1a17;
   font-family:'Mukta','Helvetica Neue',Arial,sans-serif;font-size:12px;line-height:1.55;
@@ -11339,7 +11345,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-21h';
+var RULES_VERSION = '2026-06-21i';
 var RULES_VERSION_NOTES = [
   '2026-06-21 — MACD detectors expanded to COMMODITIES + CRYPTO. macd-primary now fires on all 4 commodity pairs (conservative conf 1-3 gate matching MAJOR) and all 9 crypto pairs (full conf 1-4 gate matching INDEX/MINOR). Backtest A/B showed +0.51R/trade on ~628 commodity trades and +0.52R/trade on ~1,312 crypto trades. macd-divergence on the new classes stays deferred to keep alert volume manageable while validating primary live. Post-trigger noise filters also tightened: a 2-bar entry-grace period and a max-favourable-excursion gate on alignment-break exits, which together aim to shrink the post-invalidation bucket without giving back wins.',
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
@@ -12145,8 +12151,13 @@ function calcRecentBacktest(k, mode){
   // for those classes in auto-ew/structural mode and the detector
   // branches silently skip (the if-condition checks m15MacdAtIdx).
   // That's why MINOR + MAJOR cards didn't move after the MACD ship.
+  // 2026-06-21i — same applies to COMM + CRYPTO now that macd-primary
+  // is production for those classes (2026-06-21h ship). Without this
+  // gate update, the COMM + CRYPTO cards report identical numbers to
+  // pre-ship because the production-mode detector silently skipped.
   var m15MacdAtIdx = ((_btUseMACDCross || _btUseMacdPrimary || _btUseMacdDivergence || _btCollectDiag || _btUseMinorMacdExp
-                       || _btPairClass === 'minor' || _btPairClass === 'major') && typeof _macdSeries === 'function')
+                       || _btPairClass === 'minor' || _btPairClass === 'major'
+                       || _btPairClass === 'comm'  || _btPairClass === 'crypto') && typeof _macdSeries === 'function')
     ? (function(){
         var closes = new Array(m15Bars.length);
         for(var mi = 0; mi < m15Bars.length; mi++) closes[mi] = m15Bars[mi].c;
@@ -18422,11 +18433,16 @@ function _renderCCIVariantPanel(host, commodityKeys){
     document.body.appendChild(doc);
 
     var filename = 'viking-edge-investor-report-' + now.toISOString().slice(0,10) + '.pdf';
+    // 2026-06-21i — scale dropped from 2 to 1.5 because the 4-page
+    // doc at scale 2 produces an 8720px-tall canvas (1588×8720 ≈ 14M
+    // px) which is right at the iOS Safari canvas memory ceiling and
+    // returns blank on some devices. 1.5 still gives crisp text on
+    // A4 print + screen, well clear of the 16M-px limit.
     var opt = {
       margin: 0,
       filename: filename,
-      image: {type:'jpeg', quality:0.96},
-      html2canvas: {scale:2, useCORS:true, backgroundColor:'#ffffff', letterRendering:true, logging:false},
+      image: {type:'jpeg', quality:0.95},
+      html2canvas: {scale:1.5, useCORS:true, backgroundColor:'#ffffff', letterRendering:true, logging:false},
       jsPDF: {unit:'mm', format:'a4', orientation:'portrait', compress:true},
       pagebreak: {mode:['css','legacy']}
     };
@@ -18436,7 +18452,18 @@ function _renderCCIVariantPanel(host, commodityKeys){
       _resetPdfBtn(btn);
     };
 
-    html2pdf().set(opt).from(doc).save().then(cleanup).catch(function(err){
+    // Wait for webfonts to be ready before snapshotting — otherwise
+    // Orbitron/Mukta swap to a fallback mid-capture on slow connections
+    // and the PDF text looks wrong (or blank if the @font-face hasn't
+    // resolved yet on first use). `document.fonts.ready` resolves
+    // immediately on modern browsers if everything's already loaded.
+    var fontsReady = (document.fonts && document.fonts.ready)
+      ? document.fonts.ready
+      : Promise.resolve();
+
+    fontsReady.then(function(){
+      return html2pdf().set(opt).from(doc).save();
+    }).then(cleanup).catch(function(err){
       console.error('PDF generation failed', err);
       alert('Could not generate the PDF. Please try again — if the problem persists, check your browser console.');
       cleanup();
