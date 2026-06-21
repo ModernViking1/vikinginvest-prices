@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-21T00:25:58.333192+00:00",
-  "generated_ms": 1782001558333,
-  "detector_last_check": "2026-06-21T00:25:58.240600+00:00",
+  "generated": "2026-06-21T00:31:13.736506+00:00",
+  "generated_ms": 1782001873736,
+  "detector_last_check": "2026-06-21T00:31:13.077580+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 7,
-    "armed": 2,
-    "triggered": 5,
+    "total": 9,
+    "armed": 3,
+    "triggered": 6,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "xrpusd:1782000900000:wick",
+      "pair": "xrpusd",
+      "sym": "XRPUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 1.1492,
+      "stop": 1.1543,
+      "target": 1.1441,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1782000900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782001873736,
+      "source": "server-detector"
+    },
     {
       "id": "ethusd:1781993700000:wick",
       "pair": "ethusd",
@@ -24,7 +45,7 @@
       "method": "wick",
       "r_size": 1.0,
       "dir": "bull",
-      "state": "armed",
+      "state": "triggered",
       "entry": 1734.1,
       "stop": 1718.91,
       "target": 1749.2899999999997,
@@ -33,8 +54,8 @@
       "nw": "bull",
       "cl": "bull",
       "armedAt": 1781993700000,
-      "triggeredAt": null,
-      "lastSeenAt": 1782001558333,
+      "triggeredAt": 1782000900000,
+      "lastSeenAt": 1782001873736,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,7 @@
       "cl": "bull",
       "armedAt": 1781993700000,
       "triggeredAt": null,
-      "lastSeenAt": 1782001558333,
+      "lastSeenAt": 1782001873736,
       "source": "server-detector"
     },
     {
@@ -76,7 +97,7 @@
       "cl": "neutral",
       "armedAt": 1781898300000,
       "triggeredAt": 1781898300000,
-      "lastSeenAt": 1782001558333,
+      "lastSeenAt": 1782001873736,
       "source": "server-detector"
     },
     {
@@ -97,7 +118,7 @@
       "cl": "bull",
       "armedAt": 1781887500000,
       "triggeredAt": 1781887500000,
-      "lastSeenAt": 1782001558333,
+      "lastSeenAt": 1782001873736,
       "source": "server-detector"
     },
     {
@@ -118,7 +139,7 @@
       "cl": "bull",
       "armedAt": 1781887500000,
       "triggeredAt": 1781887500000,
-      "lastSeenAt": 1782001558333,
+      "lastSeenAt": 1782001873736,
       "source": "server-detector"
     },
     {
@@ -139,7 +160,28 @@
       "cl": "bull",
       "armedAt": 1780326900000,
       "triggeredAt": 1781995500000,
-      "lastSeenAt": 1782001558333,
+      "lastSeenAt": 1782001873736,
+      "source": "server-detector"
+    },
+    {
+      "id": "xrpusd:1780326900000:fib",
+      "pair": "xrpusd",
+      "sym": "XRPUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 1.147964,
+      "stop": 1.1543,
+      "target": 1.1416279999999999,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1780326900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782001873736,
       "source": "server-detector"
     },
     {
@@ -160,7 +202,7 @@
       "cl": "bull",
       "armedAt": 1780287300000,
       "triggeredAt": 1781995500000,
-      "lastSeenAt": 1782001558333,
+      "lastSeenAt": 1782001873736,
       "source": "server-detector"
     }
   ]
