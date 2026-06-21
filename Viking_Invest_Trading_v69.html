@@ -1623,7 +1623,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       </div>
       <div id="releaseNotes" style="padding:12px 14px;font-size:11px;line-height:1.7;color:var(--inkm);font-family:'Mukta',sans-serif;">
         <div style="font-family:'Orbitron',monospace;font-size:10px;letter-spacing:0.5px;color:var(--ink);"><strong>Viking Edge</strong> &middot; <span id="vi-mkt-count">Markets</span> &middot; v69 &middot; Build <span id="buildStamp">BUILD_TIMESTAMP_UTC</span></div>
-        <div style="margin-top:8px;"><strong>MACD detectors expanded to MINORs + MAJORs.</strong> macd-primary + macd-divergence now fire for all 13 MINOR pairs (~+2,800R conservative profit estimate), and macd-primary additionally fires for all 7 MAJOR pairs (~+580R). Backtest WRs: MINOR macd-primary 75-81% / MINOR macd-divergence 67-71% / MAJOR macd-primary 72.8-80% (USDJPY 78.2%, GBPUSD 80.0%). Previously near-silent MINOR pairs (eurgbp, nzdchf, eursgd, usdsgd, nzdjpy, cadjpy) now receive 200-240 high-WR trades each via the MACD trigger path that doesn't require 4/4 alignment. Same SL/TP as INDEX MACDs: entry at the MACD-cross bar's low/high, structural stop on the 8-bar pivot, fixed 1:1 R:R target. Production gates: INDEX/MINOR macd-primary conf ≥1, MAJOR macd-primary conf 1-3 (skips the 47.6% MAJOR 4/4 cliff), INDEX/MINOR macd-divergence conf 1-3. MAJOR macd-divergence deferred to keep alert volume manageable while validating primary live first. <strong>Per-pair ATR ceiling — MAJOR + INDEX wick.</strong> Each pair has its own ATR(14)% ceiling sized to the pair's actual P75 trigger distribution. INDEX MACDs run unfiltered (their Q4 is best). <strong>Per-pair MID-BAND block — GBP/NZD.</strong> Targeted skip when ATR is in 0.055–0.072%. <strong>Diagnostic upgrades.</strong> Trigger-source comparison, per-source × per-quartile WR matrix, per-pair × per-quartile WR matrix, MAJOR + MINOR MACD expansion test (per-confluence breakdown). Append <code>?sw_reset=1</code> to the URL if a stale cache ever needs a manual reset.</div>
+        <div style="margin-top:8px;"><strong>MACD detectors expanded to MINORs + MAJORs.</strong> macd-primary fires for all 13 MINOR pairs AND all 7 MAJOR pairs. macd-divergence runs on INDEX only (rolled back from MINORs to isolate macd-primary impact + reduce alert volume; ~+1,030R deferred). System-wide profit jumped 12× (from +271R to +3,573R) on the latest 365-day backtest. Backtest WRs: MINOR macd-primary 75-81% / MINOR macd-divergence 67-71% / MAJOR macd-primary 72.8-80% (USDJPY 78.2%, GBPUSD 80.0%). Previously near-silent MINOR pairs (eurgbp, nzdchf, eursgd, usdsgd, nzdjpy, cadjpy) now receive 200-240 high-WR trades each via the MACD trigger path that doesn't require 4/4 alignment. Same SL/TP as INDEX MACDs: entry at the MACD-cross bar's low/high, structural stop on the 8-bar pivot, fixed 1:1 R:R target. Production gates: INDEX/MINOR macd-primary conf ≥1, MAJOR macd-primary conf 1-3 (skips the 47.6% MAJOR 4/4 cliff), INDEX/MINOR macd-divergence conf 1-3. MAJOR macd-divergence deferred to keep alert volume manageable while validating primary live first. <strong>Per-pair ATR ceiling — MAJOR + INDEX wick.</strong> Each pair has its own ATR(14)% ceiling sized to the pair's actual P75 trigger distribution. INDEX MACDs run unfiltered (their Q4 is best). <strong>Per-pair MID-BAND block — GBP/NZD.</strong> Targeted skip when ATR is in 0.055–0.072%. <strong>Diagnostic upgrades.</strong> Trigger-source comparison, per-source × per-quartile WR matrix, per-pair × per-quartile WR matrix, MAJOR + MINOR MACD expansion test (per-confluence breakdown). Append <code>?sw_reset=1</code> to the URL if a stale cache ever needs a manual reset.</div>
       </div>
     </div>
     <div class="logsect">
@@ -2180,7 +2180,15 @@ function _btMethodFor(k){
 function _btProfileFor(k){
   var m = (typeof MKTS !== 'undefined') ? MKTS[k] : null;
   if(!m) return {source: 'auto-ew', method: 'wick'};
-  if(m.t === 'comm' || m.t === 'index') return {source: 'auto-ew', method: 'fib'};
+  // 2026-06-21b — INDEX moved from 'fib' to 'wick' method. INDEX
+  // pairs now run three parallel detectors in production (wick +
+  // MACD-primary + MACD-divergence). The 'fib' method only read
+  // rb.hybrid.midWins which is FIB-only — masked the MACD trades
+  // entirely from the dashboard cards (showed 5-12 trades per pair
+  // when ~2,550 INDEX MACD trades were live in the cache). 'wick'
+  // method reads rb.wins which is the aggregate across all three
+  // detectors. COMM stays on 'fib' (no MACDs there).
+  if(m.t === 'comm') return {source: 'auto-ew', method: 'fib'};
   if(m.t === 'major' && k !== 'audusd') return {source: 'structural', method: 'wick'};
   return {source: 'auto-ew', method: 'wick'};
 }
@@ -8472,44 +8480,28 @@ function seedLog(){logItems=[
   {k:'audnzd',dir:'note',msg:'&#9888; AUD/NZD PARTIAL 2/4 &#183; Macro bull cloud rising &#10003; &#183; RSI bear divergence at HH &#8722; Await Hourly rejection and 15m CHoCH.',t:'10:52',col:'var(--gold)',bg:'var(--goldt)',sym:'AUD/NZD'}];loggedSess={'eurusd-bull':true,'audusd-bull':true,'nzdusd-bull':true,'usdchf-bear':true,'usdsgd-bear':true,'xauusd-bull':true,'xagusd-bull':true,'usoil-bull':true,'de40-bear':true,'eurnzd-bear':true,'euraud-bear':true};renderLog();}
 
 // ── Status Bar ────────────────────────────────────────────────
+// 2026-06-21d — DXY prefix + "4/4 SIGNALS ACTIVE" label removed.
+// "4/4" was inaccurate because signals now come from three trigger
+// types (wick 4/4, MACD-primary 1-3, MACD-divergence 1-3) at
+// varying confluence levels — not all are 4/4 aligned. DXY direction
+// is irrelevant for MINOR cross-pairs (no USD leg), CRYPTO, and
+// INDEX, so the DXY-aligned/contrary counter applied selectively
+// to ~half the universe and confused the headline. Cleaner to just
+// show the active list with a generic SIGNALS ACTIVE label.
 function updateStatusBar(){
   var firing=Object.keys(MKTS).filter(function(k){ return k !== 'dxy' && isFire(k); });
   var bar=document.getElementById('statusBar'),title=document.getElementById('statusTitle'),msg=document.getElementById('statusMsg'),badges=document.getElementById('sbadges');
-  var dxyReg = getDXYRegime();
-  var dxyPx = MKTS.dxy ? MKTS.dxy.px : '—';
-  // Build DXY regime prefix with a dot indicator
-  var dxyPrefix = '';
-  if(dxyReg.strength >= 2){
-    var col = dxyReg.dir === 'bull' ? 'var(--bull)' : 'var(--bear)';
-    var arrow = dxyReg.dir === 'bull' ? '&#9650;' : '&#9660;';
-    var regimeWord = dxyReg.dir === 'bull' ? 'BULL' : 'BEAR';
-    dxyPrefix = '<span style="display:inline-block;padding:1px 6px;margin-right:6px;background:rgba(107,63,160,0.12);color:var(--purple);border:1px solid var(--purple);border-radius:2px;font-size:9px;letter-spacing:.5px;">DXY '+regimeWord+' '+dxyReg.strength+'/4 '+arrow+' '+dxyPx+'</span>';
-  } else {
-    dxyPrefix = '<span style="display:inline-block;padding:1px 6px;margin-right:6px;background:rgba(154,144,136,0.12);color:var(--neu);border:1px solid var(--neu);border-radius:2px;font-size:9px;letter-spacing:.5px;">DXY NEUTRAL '+dxyPx+'</span>';
-  }
   if(!firing.length){
     bar.className='sbar';
-    title.innerHTML=dxyPrefix + 'Monitoring ' + Object.keys(MKTS).length + ' Markets';
+    title.innerHTML='Monitoring ' + Object.keys(MKTS).length + ' Markets';
     msg.textContent='Monitoring ' + Object.keys(MKTS).length + ' pairs — no Viking Edge setups firing right now.';
     badges.innerHTML='';
   } else {
     var hasBear=firing.some(function(k){return sc(k).dir==='bear';}),
         hasBull=firing.some(function(k){return sc(k).dir==='bull';});
     bar.className='sbar '+(hasBear&&!hasBull?'fb':hasBull&&!hasBear?'fg':'fb');
-    title.innerHTML = dxyPrefix + '&#9889; '+firing.length+' 4/4 SIGNALS ACTIVE';
-    // Count alignment for active signals only
-    var aligned = 0, contrary = 0;
-    firing.forEach(function(k){
-      var a = getDXYAlignment(k);
-      if(a === 'aligned') aligned++;
-      else if(a === 'contrary') contrary++;
-    });
-    var confSuffix = '';
-    if(dxyReg.strength >= 2 && (aligned + contrary) > 0){
-      confSuffix = ' &#183; <span style="color:var(--bull);">'+aligned+' DXY-aligned</span>';
-      if(contrary > 0) confSuffix += ', <span style="color:var(--bear);">'+contrary+' contrary</span>';
-    }
-    msg.innerHTML='Active: '+firing.map(function(k){return MKTS[k].sym;}).join(', ') + confSuffix;
+    title.innerHTML = '&#9889; '+firing.length+' SIGNALS ACTIVE';
+    msg.innerHTML='Active: '+firing.map(function(k){return MKTS[k].sym;}).join(', ');
     badges.innerHTML=firing.map(function(k){
       var score=sc(k),
           col=score.dir==='bear'?'var(--bear)':'var(--bull)',
@@ -11232,7 +11224,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-21a';
+var RULES_VERSION = '2026-06-21d';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -12281,10 +12273,12 @@ function calcRecentBacktest(k, mode){
     // contrarian + 4/4 fully aligned). Test mode captures all 0-4
     // buckets so we can see per-confluence WR.
     // 2026-06-20m — extended to MAJOR pairs too (test only).
-    // 2026-06-20n — MINOR promoted to PRODUCTION. Same 1-3 confluence
-    // window as INDEX (skip 0/4 + 4/4).
-    if(((_btPairClass === 'index') || (_btPairClass === 'minor')
-        || (_btUseMinorMacdExp && _btPairClass === 'major'))
+    // 2026-06-21c — MINOR rolled back to test-mode-only. macd-primary
+    // is the higher-WR detector on MINORs (75-81% vs divergence
+    // 67-71%); paused divergence to simplify alert volume + isolate
+    // the impact of macd-primary live.
+    if(((_btPairClass === 'index')
+        || (_btUseMinorMacdExp && (_btPairClass === 'minor' || _btPairClass === 'major')))
        && !_btUseMacdPrimary && !_btUseMacdDivergence
        && !_btUse3of4 && !_btUse2of4 && !_btUse1of4
        && m15MacdAtIdx

@@ -2022,7 +2022,9 @@ def detect_macd_divergence(bars, ew_dir, tl_dir, nw_dir, cl_dir,
     across confluence 1-3 (mirror of INDEX deploy gate). Same
     confluence window (skip 0/4 and 4/4) for safety.
     """
-    if pair_class not in ('index', 'minor'):
+    # 2026-06-21c — MINOR rolled back; INDEX-only at production.
+    # See call-site comment for rationale.
+    if pair_class != 'index':
         return None
     n = len(bars)
     if n < 35:
@@ -2377,12 +2379,12 @@ def scan_pairs(intraday_data, historical_data):
                 print(f'  ⚠ MACD-primary detector failed for {pair}: {e}')
 
         # MACD-divergence parallel trigger (2026-06-17 — Phase 1 deploy).
-        # INDEX + MINOR (2026-06-20n) — 4/4 and 0/4 buckets skipped inside
-        # the detector; only confluence ∈ {1,2,3} produces a 'triggered'
-        # signal. MINOR promoted after macd-expansion backtest showed
-        # 67-71% WR / +0.35-0.42R EV across confluence buckets.
+        # 2026-06-21c — MINOR rolled back. macd-primary is the higher-WR
+        # detector on MINORs (75-81% vs divergence 67-71%). To simplify
+        # alert volume and isolate the impact of macd-primary, MINOR
+        # divergence is paused. INDEX only at production for divergence.
         divg_sig = None
-        if macdp_pair_class in ('index', 'minor'):
+        if macdp_pair_class == 'index':
             try:
                 divg_sig = detect_macd_divergence(
                     m15, ew, tl, nw, cl, macdp_pair_class)
