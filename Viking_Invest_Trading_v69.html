@@ -11339,8 +11339,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-21g';
+var RULES_VERSION = '2026-06-21h';
 var RULES_VERSION_NOTES = [
+  '2026-06-21 — MACD detectors expanded to COMMODITIES + CRYPTO. macd-primary now fires on all 4 commodity pairs (conservative conf 1-3 gate matching MAJOR) and all 9 crypto pairs (full conf 1-4 gate matching INDEX/MINOR). Backtest A/B showed +0.51R/trade on ~628 commodity trades and +0.52R/trade on ~1,312 crypto trades. macd-divergence on the new classes stays deferred to keep alert volume manageable while validating primary live. Post-trigger noise filters also tightened: a 2-bar entry-grace period and a max-favourable-excursion gate on alignment-break exits, which together aim to shrink the post-invalidation bucket without giving back wins.',
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
   // results, asset-class WR breakdowns, internal file + function
@@ -12286,11 +12287,18 @@ function calcRecentBacktest(k, mode){
     // 4/4 cliff at 47.6% / -0.05R. MAJOR-specific gate: conf 1-3.
     // Divergence on MAJOR stays test-mode-only (deferred to keep
     // alert volume manageable while validating primary live).
-    // 2026-06-21g — test mode extended to CRYPTO + COMM (only fires
-    // when _btUseMinorMacdExp is true). Captures all 0/4-4/4 buckets
-    // so the renderer can show per-confluence WR for these classes.
+    // 2026-06-21g — test mode extended to CRYPTO + COMM (captures
+    // all 0/4-4/4 buckets so the renderer can show per-confluence WR
+    // for these classes).
+    // 2026-06-21h — COMM + CRYPTO promoted to PRODUCTION (primary
+    // only). macd-expansion test confirmed +0.51R/trade EV on COMM
+    // (~628 trades, conf 1-3) and +0.52R/trade EV on CRYPTO (~1,312
+    // trades, conf 1-4). Per-class gates wired below: COMM matches
+    // MAJOR (conf 1-3, skip 0/4 contrarian + small-sample 4/4 decay),
+    // CRYPTO matches INDEX/MINOR (conf 1-4, 4/4 bucket held up at
+    // ~78% WR so kept in). Divergence on COMM + CRYPTO deferred.
     if(((_btPairClass === 'index') || (_btPairClass === 'minor') || (_btPairClass === 'major')
-        || (_btUseMinorMacdExp && (_btPairClass === 'crypto' || _btPairClass === 'comm')))
+        || (_btPairClass === 'comm') || (_btPairClass === 'crypto'))
        && !_btUseMacdPrimary && !_btUse3of4 && !_btUse2of4 && !_btUse1of4
        && m15MacdAtIdx){
       var _mppM0 = m15MacdAtIdx.macd[i-1], _mppM1 = m15MacdAtIdx.macd[i];
@@ -12310,13 +12318,14 @@ function calcRecentBacktest(k, mode){
             if(nwDir === _mppDir) _mppConf++;
             if(clDir === _mppDir) _mppConf++;
             // Production gate per class:
-            //   INDEX / MINOR: confluence >= 1 (skip fully contrarian 0/4)
-            //   MAJOR (2026-06-20o): confluence 1-3 (skip 0/4 contrarian
-            //     AND 4/4 cliff at 47.6% WR / -0.05R)
+            //   INDEX / MINOR / CRYPTO: confluence >= 1 (skip fully contrarian 0/4)
+            //   MAJOR (2026-06-20o) / COMM (2026-06-21h): confluence 1-3
+            //     (skip 0/4 contrarian AND 4/4 cliff — MAJOR 4/4 at
+            //     47.6% WR / -0.05R; COMM 4/4 is small-sample decay)
             // Test mode 'minor-macd-expansion' captures all buckets (>= 0).
             var _mppGate = _btUseMinorMacdExp
               ? true
-              : (_btPairClass === 'major'
+              : ((_btPairClass === 'major' || _btPairClass === 'comm')
                   ? (_mppConf >= 1 && _mppConf <= 3)
                   : (_mppConf >= 1));
             if(_mppGate){

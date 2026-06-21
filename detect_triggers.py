@@ -1903,7 +1903,7 @@ def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
       confluence: 0-4
       shadow: bool — True for the MINOR shadow path
     """
-    if pair_class not in ('index', 'minor', 'major'):
+    if pair_class not in ('index', 'minor', 'major', 'comm', 'crypto'):
         return None
     n = len(bars)
     if n < 35:  # MACD warm-up needs 26 slow + 9 signal
@@ -1950,12 +1950,23 @@ def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
     # AND the 4/4 cliff). MACD-divergence on MAJOR deferred — primary
     # alone keeps alert volume manageable while still capturing the
     # cleanest edge.
-    if pair_class == 'major':
+    # 2026-06-21h — COMM + CRYPTO promoted to LIVE. The macd-expansion
+    # test (now extended to all 5 classes) confirmed positive EV across
+    # conservative buckets:
+    #   COMM   macd-primary conf 1-3: ~628 trades, +0.51R EV/trade
+    #   CRYPTO macd-primary conf 1-4: ~1,312 trades, +0.52R EV/trade
+    # COMM gets the MAJOR-style gate (skip 0/4 contrarian AND the
+    # 4/4 cliff — the 4/4 bucket is small-sample and decayed in the
+    # test). CRYPTO gets the INDEX-style gate (full 1-4 range, no
+    # 4/4 cliff observed; 4/4 bucket actually held up at ~78% WR).
+    # Divergence on COMM + CRYPTO deferred to keep alert volume
+    # manageable while validating primary live.
+    if pair_class in ('major', 'comm'):
         if confluence < 1 or confluence > 3:
             return None  # 0/4 contrarian + 4/4 cliff both skipped
         state = 'triggered'
         shadow = False
-    elif pair_class in ('index', 'minor'):
+    elif pair_class in ('index', 'minor', 'crypto'):
         if confluence < 1:
             return None  # skip fully contrarian (matches INDEX gate)
         state = 'triggered'
@@ -2366,7 +2377,7 @@ def scan_pairs(intraday_data, historical_data):
         #     (logged for forward-test, NOT routed to cBot/Telegram)
         macdp_sig = None
         macdp_pair_class = PAIR_CLASS.get(pair)
-        if macdp_pair_class in ('index', 'minor', 'major'):
+        if macdp_pair_class in ('index', 'minor', 'major', 'comm', 'crypto'):
             try:
                 # Recompute h1_rsi defensively — the 4/4 block above only
                 # runs when aligned_dir is set, but MACD-primary fires
