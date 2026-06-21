@@ -1936,16 +1936,20 @@ def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
         if layer == macd_dir:
             confluence += 1
     # Class-specific deploy gate
-    if pair_class == 'index':
+    # 2026-06-20n — MINOR promoted to LIVE. The macd-expansion test
+    # showed macd-primary on MINORs at 75-81% WR / +0.50 to +0.62R EV
+    # across all confluence buckets — actually better per-trade than
+    # INDEX. Conservative gate matches INDEX (skip the 0/4 contrarian
+    # bucket for safety, even though MINOR 0/4 also showed +0.53R in
+    # the test, we want production behaviour to mirror INDEX until
+    # we have live-trading confirmation).
+    if pair_class in ('index', 'minor'):
         if confluence < 1:
-            return None  # skip fully contrarian on indices (44.2% WR)
+            return None  # skip fully contrarian (matches INDEX gate)
         state = 'triggered'
         shadow = False
-    else:  # minor
-        if confluence != 0:
-            return None  # shadow only on the 0/4 cohort
-        state = 'shadow-triggered'
-        shadow = True
+    else:
+        return None
     # Structural entry / stop / target
     cross_bar = bars[i]
     if macd_dir == 'bull':
@@ -2000,8 +2004,13 @@ def detect_macd_divergence(bars, ew_dir, tl_dir, nw_dir, cl_dir,
     price extreme. Symmetric for bearish. 5-bar pivot pattern with
     +2 forward-bar confirmation; "actionable" only when the most
     recent diverging swing is within 5 m15 bars of the current bar.
+
+    2026-06-20n — extended to MINOR class. MACD-expansion backtest
+    showed macd-divergence on MINORs at 67-71% WR / +0.35-0.42R EV
+    across confluence 1-3 (mirror of INDEX deploy gate). Same
+    confluence window (skip 0/4 and 4/4) for safety.
     """
-    if pair_class != 'index':
+    if pair_class not in ('index', 'minor'):
         return None
     n = len(bars)
     if n < 35:
@@ -2356,11 +2365,12 @@ def scan_pairs(intraday_data, historical_data):
                 print(f'  ⚠ MACD-primary detector failed for {pair}: {e}')
 
         # MACD-divergence parallel trigger (2026-06-17 — Phase 1 deploy).
-        # INDEX class only at production — 4/4 (53%) and 0/4 (69%) buckets
-        # are skipped inside the detector; only confluence ∈ {1,2,3}
-        # produces a 'triggered' signal.
+        # INDEX + MINOR (2026-06-20n) — 4/4 and 0/4 buckets skipped inside
+        # the detector; only confluence ∈ {1,2,3} produces a 'triggered'
+        # signal. MINOR promoted after macd-expansion backtest showed
+        # 67-71% WR / +0.35-0.42R EV across confluence buckets.
         divg_sig = None
-        if macdp_pair_class == 'index':
+        if macdp_pair_class in ('index', 'minor'):
             try:
                 divg_sig = detect_macd_divergence(
                     m15, ew, tl, nw, cl, macdp_pair_class)

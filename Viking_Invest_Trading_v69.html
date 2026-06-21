@@ -1623,7 +1623,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       </div>
       <div id="releaseNotes" style="padding:12px 14px;font-size:11px;line-height:1.7;color:var(--inkm);font-family:'Mukta',sans-serif;">
         <div style="font-family:'Orbitron',monospace;font-size:10px;letter-spacing:0.5px;color:var(--ink);"><strong>Viking Edge</strong> &middot; <span id="vi-mkt-count">Markets</span> &middot; v69 &middot; Build <span id="buildStamp">BUILD_TIMESTAMP_UTC</span></div>
-        <div style="margin-top:8px;"><strong>Per-pair ATR ceiling — MAJOR + INDEX wick.</strong> Each pair has its own ATR(14)% ceiling sized to the pair's actual P75 trigger distribution (USDCAD 0.041%, EURUSD 0.071%, AUDUSD 0.111%, SPX500 0.098%, JP225 0.249%, etc.). Replaces the original single per-class threshold which over-cut high-vol pairs and never fired on tight-range pairs. Wick triggers at or above the pair's ceiling are skipped — both live (Telegram + cBot) and in the dashboard backtest cards. <strong>INDEX MACD detectors run unfiltered by design.</strong> Per-source × per-quartile WR confirmed macd-primary and macd-divergence both peak in Q4 (highest ATR) at +0.53R and +0.55R per trade — they need volatility to follow through. INDEX wick (the lowest-EV INDEX source at +0.18R) is the only INDEX path the ceiling touches. <strong>Per-pair MID-BAND block — GBP/NZD.</strong> Per-pair × per-quartile MINOR analysis isolated GBP/NZD's MINOR-class Q3 band (ATR 0.055–0.072%) as a 42.9% WR drag with 16 post-inv attempts, while the same pair runs 80% Q2 and 66.7% Q4. Filter skips GBP/NZD only when ATR falls inside that band — preserves the pair's good Q2/Q4 trades, cuts the bad middle. <strong>Diagnostic upgrades.</strong> Trigger-source comparison (W/L/WR/EV per detector per class), per-source × per-quartile WR matrix (which source-quartile cells are EV-negative), per-pair × per-quartile WR matrix (which pair-quartile cells drag a class). Append <code>?sw_reset=1</code> to the URL if a stale cache ever needs a manual reset.</div>
+        <div style="margin-top:8px;"><strong>MACD detectors promoted to MINORs.</strong> macd-primary + macd-divergence now fire for all 13 MINOR pairs, joining INDEX in production. Backtest showed macd-primary on MINORs at 75-81% WR / +0.50-0.62R EV across confluence buckets (better per-trade than INDEX), and macd-divergence at 67-71% / +0.35-0.42R — together ~+2,800R conservative profit estimate over the 12-month backtest. Previously near-silent pairs (eurgbp, nzdchf, eursgd, usdsgd, nzdjpy, cadjpy) now receive 200-240 high-WR trades each via the MACD trigger path that doesn't require 4/4 alignment. Same SL/TP semantics as INDEX MACDs: entry at the MACD-cross bar's low/high, structural stop on the 8-bar pivot, fixed 1:1 R:R target. Production gate: confluence ≥1 for macd-primary, 1-3 for macd-divergence (mirrors INDEX). <strong>Per-pair ATR ceiling — MAJOR + INDEX wick.</strong> Each pair has its own ATR(14)% ceiling sized to the pair's actual P75 trigger distribution. INDEX MACD detectors run unfiltered (their Q4 is best at +0.53R/+0.55R — they need volatility). <strong>Per-pair MID-BAND block — GBP/NZD.</strong> Targeted skip when ATR is in 0.055–0.072% (the pair's MINOR-Q3 EV-negative cohort) while keeping its good Q2/Q4 trades. <strong>Diagnostic upgrades.</strong> Trigger-source comparison, per-source × per-quartile WR matrix, per-pair × per-quartile WR matrix, MAJOR + MINOR MACD expansion test (per-confluence breakdown). Append <code>?sw_reset=1</code> to the URL if a stale cache ever needs a manual reset.</div>
       </div>
     </div>
     <div class="logsect">
@@ -11232,7 +11232,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-20m';
+var RULES_VERSION = '2026-06-20n';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -12163,7 +12163,12 @@ function calcRecentBacktest(k, mode){
     // floor) so we can see per-confluence WR per MINOR pair.
     // 2026-06-20m — extended to MAJOR pairs too (test only) so USDJPY
     // and other low-WR MAJORs can be evaluated for MACD promotion.
-    if(((_btPairClass === 'index') || (_btUseMinorMacdExp && (_btPairClass === 'minor' || _btPairClass === 'major')))
+    // 2026-06-20n — MINOR promoted to PRODUCTION. macd-expansion test
+    // showed macd-primary on MINORs at 75-81% WR / +0.50-0.62R EV
+    // across all confluence buckets. Production gate matches INDEX
+    // (skip 0/4 contrarian, accept 1-4).
+    if(((_btPairClass === 'index') || (_btPairClass === 'minor')
+        || (_btUseMinorMacdExp && _btPairClass === 'major'))
        && !_btUseMacdPrimary && !_btUse3of4 && !_btUse2of4 && !_btUse1of4
        && m15MacdAtIdx){
       var _mppM0 = m15MacdAtIdx.macd[i-1], _mppM1 = m15MacdAtIdx.macd[i];
@@ -12258,7 +12263,10 @@ function calcRecentBacktest(k, mode){
     // contrarian + 4/4 fully aligned). Test mode captures all 0-4
     // buckets so we can see per-confluence WR.
     // 2026-06-20m — extended to MAJOR pairs too (test only).
-    if(((_btPairClass === 'index') || (_btUseMinorMacdExp && (_btPairClass === 'minor' || _btPairClass === 'major')))
+    // 2026-06-20n — MINOR promoted to PRODUCTION. Same 1-3 confluence
+    // window as INDEX (skip 0/4 + 4/4).
+    if(((_btPairClass === 'index') || (_btPairClass === 'minor')
+        || (_btUseMinorMacdExp && _btPairClass === 'major'))
        && !_btUseMacdPrimary && !_btUseMacdDivergence
        && !_btUse3of4 && !_btUse2of4 && !_btUse1of4
        && m15MacdAtIdx
