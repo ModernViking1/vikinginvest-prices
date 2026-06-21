@@ -955,7 +955,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 @keyframes vi-pdf-spin{to{transform:rotate(360deg);}}
 .vi-pdf-doc *{box-sizing:border-box;}
 .vi-pdf-page{
-  width:100%;min-height:1090px;  /* A4 height @ 96dpi ≈ 297mm minus margins */
+  width:100%;min-height:1123px;  /* A4 height @ 96dpi = 297mm exactly */
   padding:48px 56px 60px 56px;page-break-after:always;
   position:relative;
 }
@@ -1328,6 +1328,27 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 <!-- ════ BACKTEST ════ -->
 <div class="page" id="page-bt">
 
+
+  <!-- ── PER-PAIR BACKTEST CARDS (cards-first layout, 2026-06-21k) ──
+       Per-pair win-rate cards at the top of page-bt; aggregate +
+       failure-mode panels follow immediately below. Educational
+       Rules + Methodology + Force-Re-Run sit AFTER the data so
+       the user sees the numbers first. Test harnesses are in a
+       collapsed <details> further down. ── -->
+  <!-- ── 2. PER-PAIR BACKTEST CARDS (the actual content) ── -->
+  <div class="mktcards" id="mktCards"></div>
+
+  <!-- ── 3. AGGREGATE STATS ROW ── -->
+  <div class="agg-row" id="aggRow"></div>
+
+  <!-- ── 4. (events calendar moved to main dashboard) ── -->
+
+  <!-- ── 5. AUTO-EW DIAGNOSTIC ── -->
+  <div id="autoEWDiag" style="background:rgba(77,162,255,0.04);border:1.5px solid rgba(77,162,255,0.25);border-radius:4px;padding:10px 12px;margin-bottom:10px;font-family:'Orbitron',monospace;font-size:9px;display:none;"></div>
+
+  <!-- ── 5b. INTRADAY FAILURE MODE ANALYSIS — what's breaking and where ── -->
+  <div id="failureModeAnalysis" style="background:rgba(192,40,26,0.03);border:1px solid rgba(192,40,26,0.18);border-radius:4px;padding:10px 12px;margin-bottom:10px;font-family:'Orbitron',monospace;font-size:9px;"></div>
+
   <!-- ── 1. 4/4 CONFLUENCE ENTRY RULES (educational, top) ── -->
   <div class="rules-box">
     <h2>▸ Viking Edge — Entry Rules</h2>
@@ -1389,6 +1410,122 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <span id="btForceRerunStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
   </div>
 
+  <!-- ── Test harnesses (MACD / NOWICK / RSI test buttons + force re-run)
+       moved to a collapsed accordion below the failure-mode panel
+       (2026-06-21k) — see the <details> block near the bottom of
+       page-bt. Per-pair cards now surface immediately after the
+       Entry Rules + Methodology section. ── -->
+  <!-- ── DRY-RUN TEST PANEL (hidden 2026-06-13qq) ─────────────────────
+       Buttons + variant selectors for the 4 in-page rule-test harnesses
+       (counter-bar, SR gating, news blackout, R:R per class). User
+       requested these be hidden from the GUI — the JS handlers
+       (runCounterBarRuleTest(), runSRGatingTest(), runNewsBlackoutTest(),
+       runRRPerClassTest()) are unchanged and remain callable from
+       devtools console. To re-show, remove the wrapper div's
+       style="display:none". ── -->
+  <div id="btTestPanelHost" style="display:none;">
+
+  <!-- ── 1c. COUNTER-BAR RULE TEST — runs the dry-run comparison in-page
+       so a mobile user (no devtools console) can see whether a proposed
+       rule change keeps the dashboard above the 70% WR floor BEFORE
+       it's deployed. Calls compareCounterBarRules() and renders the
+       result in the panel below. The ratio selector lets the user
+       sweep tight/medium/lax without reaching for devtools. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btCounterTestBtn"
+            onclick="runCounterBarRuleTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid var(--purple,#6a5cb8);background:rgba(106,92,184,0.08);color:var(--purple,#6a5cb8);border-radius:3px;cursor:pointer;">
+      🧪 TEST COUNTER-BAR RULE
+    </button>
+    <label style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);letter-spacing:0.4px;">
+      variant
+      <select id="btCounterTestRatio"
+              style="font-family:Orbitron,monospace;font-size:9px;padding:3px 5px;border:1px solid rgba(106,92,184,0.4);background:#fff;color:var(--purple,#6a5cb8);border-radius:3px;margin-left:4px;">
+        <option value="0.25">wick≤body×0.25 (tight)</option>
+        <option value="0.5">wick≤body×0.5 (medium)</option>
+        <option value="1.0">wick≤body×1.0 (lax)</option>
+        <option value="momentum-disabled">Drop 2-bar momentum (CHoCH only)</option>
+        <option value="buffer-3" selected>Opt 1: 3-bar settling buffer</option>
+        <option value="buffer-5">Opt 1: 5-bar settling buffer</option>
+        <option value="close-beyond">Opt 2: require close beyond entry</option>
+      </select>
+    </label>
+    <span id="btCounterTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btCounterTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
+
+  <!-- ── 1d. SR GATING TEST (DE40 / DJ30 only) — dry-run four
+       variants that filter or replace the existing 4/4 fib trades
+       on the two index pairs the user flagged as having low WR
+       even after the 11ee close-beyond deploy. No production data
+       is touched; results render in the panel below. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btSRTestBtn"
+            onclick="runSRGatingTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid var(--purple,#6a5cb8);background:rgba(106,92,184,0.08);color:var(--purple,#6a5cb8);border-radius:3px;cursor:pointer;">
+      🏫 TEST SR GATING (DAX/DJ30)
+    </button>
+    <label style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);letter-spacing:0.4px;">
+      variant
+      <select id="btSRTestVariant"
+              style="font-family:Orbitron,monospace;font-size:9px;padding:3px 5px;border:1px solid rgba(106,92,184,0.4);background:#fff;color:var(--purple,#6a5cb8);border-radius:3px;margin-left:4px;">
+        <option value="sr-window-only" selected>1: SR window only (drop trades outside)</option>
+        <option value="sr-broken-only">2: SR break already in state</option>
+        <option value="sr-tier-only">3: SR direction matches trade</option>
+        <option value="sr-no-44">4: SR break only · ignore 4/4 alignment</option>
+        <option value="sr-orb-failure">5: ORB Failure (fade the failed break)</option>
+        <option value="sr-orb-strong">6: ORB with strength filter (body+ATR)</option>
+        <option value="sr-vwap-pullback">7: VWAP pullback in session</option>
+        <option value="sr-silver-bullet">8: ICT Silver Bullet (FVG in kill zone)</option>
+      </select>
+    </label>
+    <span id="btSRTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btSRTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
+
+  <!-- ── 1e. NEWS BLACKOUT TEST (all currency pairs) — dry-run a
+       filter that drops trades during scheduled high-impact news
+       windows OR on bars with volatility-spike (range > 2.5× ATR).
+       The second filter catches Trump-tweet / unscheduled events
+       which the calendar can't anticipate. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btNewsTestBtn"
+            onclick="runNewsBlackoutTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid var(--purple,#6a5cb8);background:rgba(106,92,184,0.08);color:var(--purple,#6a5cb8);border-radius:3px;cursor:pointer;">
+      🗞 TEST NEWS BLACKOUT
+    </button>
+    <span id="btNewsTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btNewsTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
+
+  <!-- ── 1f. PER-CLASS R:R DRY-RUN — sweeps the target ratio (1:0.5
+       through 1:2) across the universe and reports per-class WR +
+       expected R per trade. Lets us pick the target multiplier that
+       maximises edge per asset class instead of forcing 1:1 on all. ── -->
+  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button id="btRRTestBtn"
+            onclick="runRRPerClassTest();"
+            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid var(--purple,#6a5cb8);background:rgba(106,92,184,0.08);color:var(--purple,#6a5cb8);border-radius:3px;cursor:pointer;">
+      🎯 TEST R:R PER CLASS
+    </button>
+    <span id="btRRTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
+  </div>
+  <div id="btRRTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
+
+  </div><!-- /#btTestPanelHost (hidden test panel) -->
+
+  <!-- ── BACKTEST TEST HARNESSES (collapsed at bottom, 2026-06-21k) ──
+       Moved from the top of the page so the per-pair backtest cards
+       and failure-mode analysis surface first. The test harnesses
+       are still callable for one-off experiments; collapsed to keep
+       the page focused on the production numbers. The JS handlers
+       are lazy-loaded on click via _ensureBacktestTestsLoaded() so
+       there is no init cost from having them mounted here. ── -->
+  <details style="margin:18px 0 12px 0;border:1px solid var(--rule);border-radius:4px;background:rgba(0,0,0,0.02);">
+    <summary style="cursor:pointer;font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--inkd);padding:10px 14px;list-style:none;">
+      🧪 Backtest test harnesses <span style="color:var(--inkd);opacity:0.6;font-weight:400;letter-spacing:0.5px;text-transform:none;">— click to expand · MACD / NOWICK / RSI experiments + force re-run</span>
+    </summary>
+    <div style="padding:8px 14px 14px 14px;">
   <!-- ── 1c. MACD-CROSS FILTER TEST (2026-06-16) ──────────────────────
        Runs the deep walker twice in parallel: native profile vs native
        profile + same-direction 15m MACD(12,26,9) cross within 3 bars
@@ -1596,118 +1733,9 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   </div>
   <div id="btMinorMacdExpResult" style="margin:0 0 12px 0;"></div>
 
-  <!-- ── DRY-RUN TEST PANEL (hidden 2026-06-13qq) ─────────────────────
-       Buttons + variant selectors for the 4 in-page rule-test harnesses
-       (counter-bar, SR gating, news blackout, R:R per class). User
-       requested these be hidden from the GUI — the JS handlers
-       (runCounterBarRuleTest(), runSRGatingTest(), runNewsBlackoutTest(),
-       runRRPerClassTest()) are unchanged and remain callable from
-       devtools console. To re-show, remove the wrapper div's
-       style="display:none". ── -->
-  <div id="btTestPanelHost" style="display:none;">
+    </div>
+  </details>
 
-  <!-- ── 1c. COUNTER-BAR RULE TEST — runs the dry-run comparison in-page
-       so a mobile user (no devtools console) can see whether a proposed
-       rule change keeps the dashboard above the 70% WR floor BEFORE
-       it's deployed. Calls compareCounterBarRules() and renders the
-       result in the panel below. The ratio selector lets the user
-       sweep tight/medium/lax without reaching for devtools. ── -->
-  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-    <button id="btCounterTestBtn"
-            onclick="runCounterBarRuleTest();"
-            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid var(--purple,#6a5cb8);background:rgba(106,92,184,0.08);color:var(--purple,#6a5cb8);border-radius:3px;cursor:pointer;">
-      🧪 TEST COUNTER-BAR RULE
-    </button>
-    <label style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);letter-spacing:0.4px;">
-      variant
-      <select id="btCounterTestRatio"
-              style="font-family:Orbitron,monospace;font-size:9px;padding:3px 5px;border:1px solid rgba(106,92,184,0.4);background:#fff;color:var(--purple,#6a5cb8);border-radius:3px;margin-left:4px;">
-        <option value="0.25">wick≤body×0.25 (tight)</option>
-        <option value="0.5">wick≤body×0.5 (medium)</option>
-        <option value="1.0">wick≤body×1.0 (lax)</option>
-        <option value="momentum-disabled">Drop 2-bar momentum (CHoCH only)</option>
-        <option value="buffer-3" selected>Opt 1: 3-bar settling buffer</option>
-        <option value="buffer-5">Opt 1: 5-bar settling buffer</option>
-        <option value="close-beyond">Opt 2: require close beyond entry</option>
-      </select>
-    </label>
-    <span id="btCounterTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
-  </div>
-  <div id="btCounterTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
-
-  <!-- ── 1d. SR GATING TEST (DE40 / DJ30 only) — dry-run four
-       variants that filter or replace the existing 4/4 fib trades
-       on the two index pairs the user flagged as having low WR
-       even after the 11ee close-beyond deploy. No production data
-       is touched; results render in the panel below. ── -->
-  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-    <button id="btSRTestBtn"
-            onclick="runSRGatingTest();"
-            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid var(--purple,#6a5cb8);background:rgba(106,92,184,0.08);color:var(--purple,#6a5cb8);border-radius:3px;cursor:pointer;">
-      🏫 TEST SR GATING (DAX/DJ30)
-    </button>
-    <label style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);letter-spacing:0.4px;">
-      variant
-      <select id="btSRTestVariant"
-              style="font-family:Orbitron,monospace;font-size:9px;padding:3px 5px;border:1px solid rgba(106,92,184,0.4);background:#fff;color:var(--purple,#6a5cb8);border-radius:3px;margin-left:4px;">
-        <option value="sr-window-only" selected>1: SR window only (drop trades outside)</option>
-        <option value="sr-broken-only">2: SR break already in state</option>
-        <option value="sr-tier-only">3: SR direction matches trade</option>
-        <option value="sr-no-44">4: SR break only · ignore 4/4 alignment</option>
-        <option value="sr-orb-failure">5: ORB Failure (fade the failed break)</option>
-        <option value="sr-orb-strong">6: ORB with strength filter (body+ATR)</option>
-        <option value="sr-vwap-pullback">7: VWAP pullback in session</option>
-        <option value="sr-silver-bullet">8: ICT Silver Bullet (FVG in kill zone)</option>
-      </select>
-    </label>
-    <span id="btSRTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
-  </div>
-  <div id="btSRTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
-
-  <!-- ── 1e. NEWS BLACKOUT TEST (all currency pairs) — dry-run a
-       filter that drops trades during scheduled high-impact news
-       windows OR on bars with volatility-spike (range > 2.5× ATR).
-       The second filter catches Trump-tweet / unscheduled events
-       which the calendar can't anticipate. ── -->
-  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-    <button id="btNewsTestBtn"
-            onclick="runNewsBlackoutTest();"
-            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid var(--purple,#6a5cb8);background:rgba(106,92,184,0.08);color:var(--purple,#6a5cb8);border-radius:3px;cursor:pointer;">
-      🗞 TEST NEWS BLACKOUT
-    </button>
-    <span id="btNewsTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
-  </div>
-  <div id="btNewsTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
-
-  <!-- ── 1f. PER-CLASS R:R DRY-RUN — sweeps the target ratio (1:0.5
-       through 1:2) across the universe and reports per-class WR +
-       expected R per trade. Lets us pick the target multiplier that
-       maximises edge per asset class instead of forcing 1:1 on all. ── -->
-  <div style="margin:8px 0 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-    <button id="btRRTestBtn"
-            onclick="runRRPerClassTest();"
-            style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;padding:6px 12px;border:1px solid var(--purple,#6a5cb8);background:rgba(106,92,184,0.08);color:var(--purple,#6a5cb8);border-radius:3px;cursor:pointer;">
-      🎯 TEST R:R PER CLASS
-    </button>
-    <span id="btRRTestStatus" style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);"></span>
-  </div>
-  <div id="btRRTestResult" style="display:none;background:rgba(106,92,184,0.04);border:1px solid rgba(106,92,184,0.25);border-radius:4px;padding:10px 12px;margin:0 0 12px 0;font-family:'Orbitron',monospace;font-size:9.5px;"></div>
-
-  </div><!-- /#btTestPanelHost (hidden test panel) -->
-
-  <!-- ── 2. PER-PAIR BACKTEST CARDS (the actual content) ── -->
-  <div class="mktcards" id="mktCards"></div>
-
-  <!-- ── 3. AGGREGATE STATS ROW ── -->
-  <div class="agg-row" id="aggRow"></div>
-
-  <!-- ── 4. (events calendar moved to main dashboard) ── -->
-
-  <!-- ── 5. AUTO-EW DIAGNOSTIC ── -->
-  <div id="autoEWDiag" style="background:rgba(77,162,255,0.04);border:1.5px solid rgba(77,162,255,0.25);border-radius:4px;padding:10px 12px;margin-bottom:10px;font-family:'Orbitron',monospace;font-size:9px;display:none;"></div>
-
-  <!-- ── 5b. INTRADAY FAILURE MODE ANALYSIS — what's breaking and where ── -->
-  <div id="failureModeAnalysis" style="background:rgba(192,40,26,0.03);border:1px solid rgba(192,40,26,0.18);border-radius:4px;padding:10px 12px;margin-bottom:10px;font-family:'Orbitron',monospace;font-size:9px;"></div>
 
   <!-- ── 6. DATA READINESS + INTRADAY STATUS (lower priority) ── -->
   <div id="intradayStatusBT" style="display:block;background:var(--sf);border:1px solid var(--rule);border-radius:4px;padding:8px 14px;margin-bottom:8px;font-family:Orbitron,monospace;font-size:9px;letter-spacing:0.5px;">
@@ -18418,7 +18446,21 @@ function _renderCCIVariantPanel(host, commodityKeys){
       btn.disabled = true;
       btn.textContent = '⏳ Generating PDF…';
     }
-    if(typeof html2pdf === 'undefined'){
+    // 2026-06-21k — pulled out of html2pdf entirely. html2pdf's
+    // internal container is positioned at left:-100000px, which is
+    // exactly the offscreen pattern that iOS Safari's html2canvas
+    // silently fails to snapshot (returns empty canvas). Instead we
+    // call html2canvas + jsPDF directly: each .vi-pdf-page rendered
+    // sequentially as its own A4-sized canvas (smaller, sidesteps
+    // the iOS 16M-px canvas memory ceiling) and composed into a
+    // multi-page PDF. Doc is rendered IN-viewport behind a
+    // full-screen overlay so the user sees "Generating…" not the
+    // in-progress layout.
+    var _h2c = window.html2canvas;
+    var _jsPDF = (window.jspdf && window.jspdf.jsPDF)
+              || window.jsPDF
+              || (window.html2pdf && window.html2pdf.jsPDF);
+    if(!_h2c || !_jsPDF){
       alert('PDF library is still loading — please wait a moment and try again.');
       _resetPdfBtn(btn);
       return;
@@ -18457,11 +18499,6 @@ function _renderCCIVariantPanel(host, commodityKeys){
       return;
     }
 
-    // Render the doc INSIDE the viewport (NOT offscreen, NOT opacity:0)
-    // and cover with a full-screen overlay so the user only sees the
-    // "Generating…" indicator. Both elements are torn down in cleanup().
-    // This is the only pattern that survives iOS Safari + html2canvas
-    // (offscreen positioning AND opacity:0 both yield blank snapshots).
     var doc = document.createElement('div');
     doc.className = 'vi-pdf-doc';
     doc.innerHTML = _pdfCoverPage(meta)
@@ -18474,24 +18511,13 @@ function _renderCCIVariantPanel(host, commodityKeys){
     overlay.innerHTML = '<div class="brand">⚓ VIKING EDGE</div>'
       + '<div class="msg">Generating your investor report…</div>'
       + '<div class="spinner"></div>'
-      + '<div class="sub">This usually takes 3–8 seconds.</div>'
+      + '<div class="sub">Rendering <span id="vi-pdf-progress">page 1 of 4</span>…</div>'
       + (isIOS ? '<div class="sub" style="margin-top:14px;max-width:280px;">On iOS, the PDF will open in this tab — tap <strong>Share → Save to Files</strong> to keep it.</div>' : '');
 
     document.body.appendChild(doc);
     document.body.appendChild(overlay);
 
     var filename = 'viking-edge-investor-report-' + now.toISOString().slice(0,10) + '.pdf';
-    // scale 1.5 stays clear of the iOS Safari canvas memory ceiling
-    // (4-page doc at scale 2 hits ~14M px which is right at the 16M
-    // limit and returns blank on tighter devices).
-    var opt = {
-      margin: 0,
-      filename: filename,
-      image: {type:'jpeg', quality:0.95},
-      html2canvas: {scale:1.5, useCORS:true, backgroundColor:'#ffffff', letterRendering:true, logging:false},
-      jsPDF: {unit:'mm', format:'a4', orientation:'portrait', compress:true},
-      pagebreak: {mode:['css','legacy']}
-    };
 
     var cleanup = function(){
       try { document.body.removeChild(doc); } catch(_){}
@@ -18499,34 +18525,69 @@ function _renderCCIVariantPanel(host, commodityKeys){
       _resetPdfBtn(btn);
     };
 
-    // Wait for webfonts to be ready before snapshotting — otherwise
-    // Orbitron / Mukta swap to a fallback mid-capture on slow
-    // connections and the PDF text comes out in a different face.
     var fontsReady = (document.fonts && document.fonts.ready)
       ? document.fonts.ready
       : Promise.resolve();
 
+    // Render each .vi-pdf-page individually. Smaller canvases avoid
+    // the iOS 16M-pixel ceiling; explicit windowWidth/windowHeight
+    // tells html2canvas to "act as if the viewport were this size"
+    // which forces iOS to render the full element even when parts
+    // would otherwise be outside the visible viewport.
+    var renderPage = function(pageEl, pageIdx){
+      var progress = document.getElementById('vi-pdf-progress');
+      if(progress) progress.textContent = 'page ' + (pageIdx + 1) + ' of 4';
+      var w = pageEl.offsetWidth || 794;
+      var h = pageEl.offsetHeight || 1123;
+      return _h2c(pageEl, {
+        scale: 1.5,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        letterRendering: true,
+        logging: false,
+        width: w,
+        height: h,
+        windowWidth: w,
+        windowHeight: h,
+        scrollX: 0,
+        scrollY: 0
+      });
+    };
+
     fontsReady.then(function(){
-      return html2pdf().set(opt).from(doc).outputPdf('blob');
-    }).then(function(blob){
-      // Guardrail — if the canvas snapshot failed, jsPDF still emits
-      // a valid (but ~tiny) PDF. Flag it explicitly so the user knows
-      // something's wrong rather than getting a confusing blank file.
+      // Double-rAF: ensure the layout we just appended has actually
+      // painted before we ask html2canvas to snapshot it.
+      return new Promise(function(r){
+        requestAnimationFrame(function(){ requestAnimationFrame(r); });
+      });
+    }).then(function(){
+      var pages = Array.prototype.slice.call(doc.querySelectorAll('.vi-pdf-page'));
+      var pdf = new _jsPDF({unit:'mm', format:'a4', orientation:'portrait', compress:true});
+      var renderNext = function(idx){
+        if(idx >= pages.length) return Promise.resolve(pdf);
+        return renderPage(pages[idx], idx).then(function(canvas){
+          if(!canvas || !canvas.width || !canvas.height){
+            throw new Error('Page ' + (idx + 1) + ' rendered as empty canvas');
+          }
+          var imgData = canvas.toDataURL('image/jpeg', 0.92);
+          if(idx > 0) pdf.addPage();
+          pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+          return renderNext(idx + 1);
+        });
+      };
+      return renderNext(0);
+    }).then(function(pdf){
+      var blob = pdf.output('blob');
       if(!blob || blob.size < 4000){
         cleanup();
-        alert('PDF generation produced an empty file (' + (blob ? blob.size : 0) + ' bytes). This is usually a transient browser issue — please reload the page and try again.');
+        alert('PDF generation produced an empty file (' + (blob ? blob.size : 0) + ' bytes). Please reload the page and try again.');
         return;
       }
       var url = URL.createObjectURL(blob);
       if(isIOS){
-        // iOS Safari ignores <a download> entirely. Navigate the
-        // current tab to the blob URL — iOS renders the PDF inline
-        // and the user can Share → Save to Files. The overlay is
-        // removed by cleanup() before navigation so the back button
-        // returns to a clean dashboard state.
         cleanup();
         window.location.href = url;
-        // Don't revoke — navigation needs the URL alive.
+        // Don't revoke — current-tab navigation needs the URL alive.
       } else {
         var a = document.createElement('a');
         a.href = url;
