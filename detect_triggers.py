@@ -1903,7 +1903,7 @@ def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
       confluence: 0-4
       shadow: bool — True for the MINOR shadow path
     """
-    if pair_class not in ('index', 'minor'):
+    if pair_class not in ('index', 'minor', 'major'):
         return None
     n = len(bars)
     if n < 35:  # MACD warm-up needs 26 slow + 9 signal
@@ -1943,7 +1943,19 @@ def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
     # bucket for safety, even though MINOR 0/4 also showed +0.53R in
     # the test, we want production behaviour to mirror INDEX until
     # we have live-trading confirmation).
-    if pair_class in ('index', 'minor'):
+    # 2026-06-20o — MAJOR promoted to LIVE (primary only). Test showed
+    # all 7 MAJOR pairs 72.8-80% WR / +0.46-0.60R EV at conf 0-3, but
+    # the 4/4 cell collapsed to 47.6% / -0.05R on n=21 (small but
+    # sharp cliff). MAJOR-specific gate: conf 1-3 (skip 0/4 contrarian
+    # AND the 4/4 cliff). MACD-divergence on MAJOR deferred — primary
+    # alone keeps alert volume manageable while still capturing the
+    # cleanest edge.
+    if pair_class == 'major':
+        if confluence < 1 or confluence > 3:
+            return None  # 0/4 contrarian + 4/4 cliff both skipped
+        state = 'triggered'
+        shadow = False
+    elif pair_class in ('index', 'minor'):
         if confluence < 1:
             return None  # skip fully contrarian (matches INDEX gate)
         state = 'triggered'
@@ -2352,7 +2364,7 @@ def scan_pairs(intraday_data, historical_data):
         #     (logged for forward-test, NOT routed to cBot/Telegram)
         macdp_sig = None
         macdp_pair_class = PAIR_CLASS.get(pair)
-        if macdp_pair_class in ('index', 'minor'):
+        if macdp_pair_class in ('index', 'minor', 'major'):
             try:
                 # Recompute h1_rsi defensively — the 4/4 block above only
                 # runs when aligned_dir is set, but MACD-primary fires

@@ -1623,7 +1623,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       </div>
       <div id="releaseNotes" style="padding:12px 14px;font-size:11px;line-height:1.7;color:var(--inkm);font-family:'Mukta',sans-serif;">
         <div style="font-family:'Orbitron',monospace;font-size:10px;letter-spacing:0.5px;color:var(--ink);"><strong>Viking Edge</strong> &middot; <span id="vi-mkt-count">Markets</span> &middot; v69 &middot; Build <span id="buildStamp">BUILD_TIMESTAMP_UTC</span></div>
-        <div style="margin-top:8px;"><strong>MACD detectors promoted to MINORs.</strong> macd-primary + macd-divergence now fire for all 13 MINOR pairs, joining INDEX in production. Backtest showed macd-primary on MINORs at 75-81% WR / +0.50-0.62R EV across confluence buckets (better per-trade than INDEX), and macd-divergence at 67-71% / +0.35-0.42R — together ~+2,800R conservative profit estimate over the 12-month backtest. Previously near-silent pairs (eurgbp, nzdchf, eursgd, usdsgd, nzdjpy, cadjpy) now receive 200-240 high-WR trades each via the MACD trigger path that doesn't require 4/4 alignment. Same SL/TP semantics as INDEX MACDs: entry at the MACD-cross bar's low/high, structural stop on the 8-bar pivot, fixed 1:1 R:R target. Production gate: confluence ≥1 for macd-primary, 1-3 for macd-divergence (mirrors INDEX). <strong>Per-pair ATR ceiling — MAJOR + INDEX wick.</strong> Each pair has its own ATR(14)% ceiling sized to the pair's actual P75 trigger distribution. INDEX MACD detectors run unfiltered (their Q4 is best at +0.53R/+0.55R — they need volatility). <strong>Per-pair MID-BAND block — GBP/NZD.</strong> Targeted skip when ATR is in 0.055–0.072% (the pair's MINOR-Q3 EV-negative cohort) while keeping its good Q2/Q4 trades. <strong>Diagnostic upgrades.</strong> Trigger-source comparison, per-source × per-quartile WR matrix, per-pair × per-quartile WR matrix, MAJOR + MINOR MACD expansion test (per-confluence breakdown). Append <code>?sw_reset=1</code> to the URL if a stale cache ever needs a manual reset.</div>
+        <div style="margin-top:8px;"><strong>MACD detectors expanded to MINORs + MAJORs.</strong> macd-primary + macd-divergence now fire for all 13 MINOR pairs (~+2,800R conservative profit estimate), and macd-primary additionally fires for all 7 MAJOR pairs (~+580R). Backtest WRs: MINOR macd-primary 75-81% / MINOR macd-divergence 67-71% / MAJOR macd-primary 72.8-80% (USDJPY 78.2%, GBPUSD 80.0%). Previously near-silent MINOR pairs (eurgbp, nzdchf, eursgd, usdsgd, nzdjpy, cadjpy) now receive 200-240 high-WR trades each via the MACD trigger path that doesn't require 4/4 alignment. Same SL/TP as INDEX MACDs: entry at the MACD-cross bar's low/high, structural stop on the 8-bar pivot, fixed 1:1 R:R target. Production gates: INDEX/MINOR macd-primary conf ≥1, MAJOR macd-primary conf 1-3 (skips the 47.6% MAJOR 4/4 cliff), INDEX/MINOR macd-divergence conf 1-3. MAJOR macd-divergence deferred to keep alert volume manageable while validating primary live first. <strong>Per-pair ATR ceiling — MAJOR + INDEX wick.</strong> Each pair has its own ATR(14)% ceiling sized to the pair's actual P75 trigger distribution. INDEX MACDs run unfiltered (their Q4 is best). <strong>Per-pair MID-BAND block — GBP/NZD.</strong> Targeted skip when ATR is in 0.055–0.072%. <strong>Diagnostic upgrades.</strong> Trigger-source comparison, per-source × per-quartile WR matrix, per-pair × per-quartile WR matrix, MAJOR + MINOR MACD expansion test (per-confluence breakdown). Append <code>?sw_reset=1</code> to the URL if a stale cache ever needs a manual reset.</div>
       </div>
     </div>
     <div class="logsect">
@@ -11232,7 +11232,7 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-20n';
+var RULES_VERSION = '2026-06-20o';
 var RULES_VERSION_NOTES = [
   // 2026-06-14ddd — public-facing release notes. Detailed engineering
   // history (specific rule mechanics, threshold values, A/B variant
@@ -12167,8 +12167,12 @@ function calcRecentBacktest(k, mode){
     // showed macd-primary on MINORs at 75-81% WR / +0.50-0.62R EV
     // across all confluence buckets. Production gate matches INDEX
     // (skip 0/4 contrarian, accept 1-4).
-    if(((_btPairClass === 'index') || (_btPairClass === 'minor')
-        || (_btUseMinorMacdExp && _btPairClass === 'major'))
+    // 2026-06-20o — MAJOR promoted to PRODUCTION (primary only). All
+    // 7 MAJOR pairs 72.8-80% WR / +0.46-0.60R EV at conf 0-3, but
+    // 4/4 cliff at 47.6% / -0.05R. MAJOR-specific gate: conf 1-3.
+    // Divergence on MAJOR stays test-mode-only (deferred to keep
+    // alert volume manageable while validating primary live).
+    if(((_btPairClass === 'index') || (_btPairClass === 'minor') || (_btPairClass === 'major'))
        && !_btUseMacdPrimary && !_btUse3of4 && !_btUse2of4 && !_btUse1of4
        && m15MacdAtIdx){
       var _mppM0 = m15MacdAtIdx.macd[i-1], _mppM1 = m15MacdAtIdx.macd[i];
@@ -12187,10 +12191,17 @@ function calcRecentBacktest(k, mode){
             if(tlDir === _mppDir) _mppConf++;
             if(nwDir === _mppDir) _mppConf++;
             if(clDir === _mppDir) _mppConf++;
-            // Production gate: confluence >= 1 (skip fully contrarian 0/4)
-            // Test mode 'minor-macd-expansion' captures all buckets (>= 0)
-            // so the renderer can show per-confluence WR.
-            if(_btUseMinorMacdExp || _mppConf >= 1){
+            // Production gate per class:
+            //   INDEX / MINOR: confluence >= 1 (skip fully contrarian 0/4)
+            //   MAJOR (2026-06-20o): confluence 1-3 (skip 0/4 contrarian
+            //     AND 4/4 cliff at 47.6% WR / -0.05R)
+            // Test mode 'minor-macd-expansion' captures all buckets (>= 0).
+            var _mppGate = _btUseMinorMacdExp
+              ? true
+              : (_btPairClass === 'major'
+                  ? (_mppConf >= 1 && _mppConf <= 3)
+                  : (_mppConf >= 1));
+            if(_mppGate){
               var _mppEntry, _mppStop;
               var _mppBosSlice = m15Bars.slice(Math.max(0, i - BOS_LB), i);
               if(_mppDir === 'bull'){
