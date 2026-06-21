@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-21T01:11:07.568779+00:00",
-  "generated_ms": 1782004267568,
-  "detector_last_check": "2026-06-21T01:11:07.478524+00:00",
+  "generated": "2026-06-21T01:15:57.276925+00:00",
+  "generated_ms": 1782004557276,
+  "detector_last_check": "2026-06-21T01:15:57.187076+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 3,
-    "armed": 0,
+    "total": 5,
+    "armed": 2,
     "triggered": 3,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "xrpusd:1782003600000:wick",
+      "pair": "xrpusd",
+      "sym": "XRPUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 1.1484,
+      "stop": 1.1543,
+      "target": 1.1425,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1782003600000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782004557276,
+      "source": "server-detector"
+    },
     {
       "id": "ftse100:1781898300000:macdp",
       "pair": "ftse100",
@@ -34,7 +55,7 @@
       "cl": "neutral",
       "armedAt": 1781898300000,
       "triggeredAt": 1781898300000,
-      "lastSeenAt": 1782004267568,
+      "lastSeenAt": 1782004557276,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,7 @@
       "cl": "bull",
       "armedAt": 1781887500000,
       "triggeredAt": 1781887500000,
-      "lastSeenAt": 1782004267568,
+      "lastSeenAt": 1782004557276,
       "source": "server-detector"
     },
     {
@@ -76,7 +97,28 @@
       "cl": "bull",
       "armedAt": 1781887500000,
       "triggeredAt": 1781887500000,
-      "lastSeenAt": 1782004267568,
+      "lastSeenAt": 1782004557276,
+      "source": "server-detector"
+    },
+    {
+      "id": "xrpusd:1780326900000:fib",
+      "pair": "xrpusd",
+      "sym": "XRPUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 1.1470404,
+      "stop": 1.1543,
+      "target": 1.1397808,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1780326900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782004557276,
       "source": "server-detector"
     }
   ]
