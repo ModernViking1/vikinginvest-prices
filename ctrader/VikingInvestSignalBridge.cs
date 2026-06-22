@@ -148,6 +148,11 @@ namespace cAlgo.Robots
         private string _killReason = null;
         private string _killUpdated = null;
         private int _signalsSeen, _ordersPlaced, _ordersSkipped, _killBlockedCount, _dailyLimitBlockedCount;
+        // 2026-06-22 — fires once after the first poll returns signals,
+        // emits a single audit log line + Telegram listing every pair in
+        // the engine universe that the broker doesn't have in Market
+        // Watch. Saves grep-ing per-signal "No matching symbol" lines.
+        private bool _universeAuditDone = false;
         // Track which signal id placed each open position so the close
         // event can write a clean execution row tying broker P&L back
         // to the detector signal that created it. positionId → signal id.
@@ -455,6 +460,52 @@ namespace cAlgo.Robots
             // call inside ProcessOneSignal is on the right thread.
             BeginInvokeOnMainThread(() =>
             {
+                // 2026-06-22 — one-shot universe audit on the first
+                // populated poll. Lists every pair in the live feed and
+                // whether the broker has it in Market Watch. The cBot
+                // depends on Symbols.GetSymbol returning non-null, which
+                // in cAlgo requires the symbol to be in cTrader's Market
+                // Watch panel — order-screen visibility alone isn't
+                // enough. This audit makes that requirement explicit at
+                // startup so missing symbols don't silently drop signals
+                // for hours before anyone notices.
+                if (!_universeAuditDone && signals.Count > 0)
+                {
+                    var distinctPairs = new List<string>();
+                    var seenPairs = new HashSet<string>();
+                    foreach (var sig in signals)
+                    {
+                        if (string.IsNullOrEmpty(sig.Pair)) continue;
+                        if (seenPairs.Add(sig.Pair)) distinctPairs.Add(sig.Pair);
+                    }
+                    var missing = new List<string>();
+                    var resolved = new List<string>();
+                    foreach (var p in distinctPairs)
+                    {
+                        if (ResolveSymbol(p) == null) missing.Add(p.ToUpperInvariant());
+                        else resolved.Add(p.ToUpperInvariant());
+                    }
+                    var auditLine = $"📋 [VikingInvest] Universe audit: {resolved.Count}/{distinctPairs.Count} pairs resolved in Market Watch.";
+                    Print(auditLine);
+                    if (missing.Count > 0)
+                    {
+                        var msg = $"❌ Missing from Market Watch (add via cTrader → Market Watch → +): {string.Join(", ", missing)}\n" +
+                                  $"   Signals on these pairs will be skipped until added.";
+                        Print(msg);
+                        TelegramSend($"📋 cBot universe audit on {(Account.IsLive ? "🔴 LIVE" : "🟢 DEMO")} #{Account.Number}\n" +
+                                     $"{resolved.Count}/{distinctPairs.Count} pairs resolved.\n" +
+                                     $"Missing: {string.Join(", ", missing)}\n" +
+                                     $"Add via cTrader → Market Watch → + to enable trading on these.",
+                                     important:true);
+                    }
+                    else if (Account.IsLive)
+                    {
+                        TelegramSend($"📋 cBot universe audit: all {distinctPairs.Count} feed pairs resolved on {Account.BrokerName} #{Account.Number}.",
+                                     important:false);
+                    }
+                    _universeAuditDone = true;
+                }
+
                 foreach (var sig in signals)
                 {
                     try { ProcessOneSignal(sig); }
