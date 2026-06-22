@@ -2398,16 +2398,24 @@ def scan_pairs(intraday_data, historical_data):
 
         # MACD-divergence parallel trigger (2026-06-17 — Phase 1 deploy).
         # 2026-06-21c — MINOR rolled back. macd-primary is the higher-WR
-        # detector on MINORs (75-81% vs divergence 67-71%). To simplify
-        # alert volume and isolate the impact of macd-primary, MINOR
-        # divergence is paused. INDEX only at production for divergence.
+        # detector on MINORs (75-81% vs divergence 67-71%). INDEX only
+        # at production for divergence.
+        # 2026-06-22n — INDEX divergence paused too, per user request:
+        # alert volume on indices was running too high after macd-primary
+        # was expanded to all 5 classes on 2026-06-21. macd-divergence on
+        # INDEX was the larger contributor (74% WR on n=573 vs primary
+        # 78.5% on n=79), so this is a real EV deferment — re-enable by
+        # restoring the `if macdp_pair_class == 'index':` branch below.
+        # detect_macd_divergence() is preserved for the cache backtest
+        # path (still computed by JS calcRecentBacktest for the per-pair
+        # numbers) but no live alerts will fire.
         divg_sig = None
-        if macdp_pair_class == 'index':
-            try:
-                divg_sig = detect_macd_divergence(
-                    m15, ew, tl, nw, cl, macdp_pair_class)
-            except Exception as e:
-                print(f'  ⚠ MACD-divergence detector failed for {pair}: {e}')
+        # if macdp_pair_class == 'index':
+        #     try:
+        #         divg_sig = detect_macd_divergence(
+        #             m15, ew, tl, nw, cl, macdp_pair_class)
+        #     except Exception as e:
+        #         print(f'  ⚠ MACD-divergence detector failed for {pair}: {e}')
 
         # School Run tier — only computed for DE40 and DJ30 (the only
         # pairs in SR_REF_TIMES); for other pairs sr_info stays None
