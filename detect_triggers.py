@@ -2701,8 +2701,14 @@ def format_alert(pair, info, kind):
         stop_str   = _fmt_price(info.get('sig_divg_stop'))
         target_str = _fmt_price(info.get('sig_divg_target'))
         conf       = info.get('sig_divg_confluence')
+        # 2026-06-22 — divg is INDEX-only at production currently; keep
+        # the half-size tag dynamic so future class expansion doesn't
+        # leave the label lying.
+        _divg_cls = PAIR_CLASS.get(pair)
+        _divg_half = _divg_cls in ('index', 'comm')
+        _divg_tag = f"({'half' if _divg_half else 'full'} size · {_divg_cls})"
         text = (
-            f"🔀 <b>MACD-DIVERGENCE — {divg_action} {sym}</b> (half size · index)\n"
+            f"🔀 <b>MACD-DIVERGENCE — {divg_action} {sym}</b> {_divg_tag}\n"
             f"Entry:  <code>{entry_str}</code> (price/MACD divergence at swing pivot)\n"
             f"Stop:   <code>{stop_str}</code>\n"
             f"Target: <code>{target_str}</code> (1:1 R:R)\n"
@@ -2726,8 +2732,14 @@ def format_alert(pair, info, kind):
         stop_str   = _fmt_price(info.get('sig_macdp_stop'))
         target_str = _fmt_price(info.get('sig_macdp_target'))
         conf       = info.get('sig_macdp_confluence')
+        # 2026-06-22 — sizing tag is class-derived now that macdp also
+        # runs on MAJOR/MINOR/CRYPTO at full wick-size (was INDEX/COMM
+        # only previously). Keep the trailing class tag for context.
+        _cls = PAIR_CLASS.get(pair)
+        _is_half = _cls in ('index', 'comm')
+        _size_tag = f"({'half' if _is_half else 'full'} size · {_cls})"
         text = (
-            f"⚡ <b>MACD-PRIMARY — {macdp_action} {sym}</b> (half size · index)\n"
+            f"⚡ <b>MACD-PRIMARY — {macdp_action} {sym}</b> {_size_tag}\n"
             f"Entry:  <code>{entry_str}</code> (15m MACD/Signal cross)\n"
             f"Stop:   <code>{stop_str}</code>\n"
             f"Target: <code>{target_str}</code> (1:1 R:R)\n"

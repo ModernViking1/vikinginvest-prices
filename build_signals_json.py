@@ -179,9 +179,23 @@ def _signal_row(pair: str, info: dict, kind: str, now_ms: int) -> dict | None:
     if cls is None:
         # Pair not in our broker universe — skip silently.
         return None
-    # MACD-primary + MACD-divergence are always half-size on indices
-    # (mirror the FIB convention used for index production trades).
-    method = "fib" if kind in ("fib", "macdp", "divg") else _method_for(pair)
+    # MACD-primary + MACD-divergence sizing:
+    # 2026-06-22 — macdp now fires on MAJOR/MINOR/CRYPTO too, not just
+    # INDEX. Forcing "fib" half-size on every macdp signal was correct
+    # when it was INDEX-only, but on FX pairs the wick variant runs at
+    # full 1.0R and the user expects macdp to match. Route per-pair-
+    # class instead so macdp on a MAJOR/MINOR/CRYPTO comes through as
+    # full-size wick, while INDEX/COMM stays on the half-size fib
+    # policy. divg is still INDEX-only at production so it remains
+    # half-size (matches the INDEX fib policy).
+    if kind == "fib":
+        method = "fib"
+    elif kind == "macdp":
+        method = _method_for(pair)   # class-aware: fib on COMM/INDEX, wick elsewhere
+    elif kind == "divg":
+        method = "fib"               # INDEX-only at production; half-size matches policy
+    else:
+        method = _method_for(pair)
     r_size = _R_per_trade(method)
 
     # Stable idempotency key. The {kind} suffix lets a single setup
