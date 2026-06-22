@@ -516,8 +516,58 @@ namespace cAlgo.Robots
             if (string.IsNullOrEmpty(sig.Id) || string.IsNullOrEmpty(sig.Pair) || string.IsNullOrEmpty(sig.State))
                 return;
 
-            // Only act on triggered signals — armed = not yet a fill,
-            // invalidated = cancelled.
+            // 2026-06-22 — invalidated → close any matching open position.
+            // The backtest WR figures assume invalidations exit the trade at
+            // the invalidation bar (typically -0.2 to -0.5R), NOT at the full
+            // structural stop. If we ignore the invalidated state the live
+            // trade keeps running on its own SL/TP and the live edge ends up
+            // strictly worse than the backtest. The Telegram alert template
+            // literally says "Suggested: exit at market to limit loss before
+            // stop fills." — this branch honours that.
+            if (sig.State == "invalidated")
+            {
+                // Find the open position opened by THIS signal id, if any.
+                // _positionIdToSignalId is the placement-time mapping; we
+                // walk it because there's no reverse index (open positions
+                // are typically ≤5 so the scan is cheap).
+                long matchedPosId = 0;
+                foreach (var kv in _positionIdToSignalId)
+                {
+                    if (kv.Value == sig.Id) { matchedPosId = kv.Key; break; }
+                }
+                if (matchedPosId != 0)
+                {
+                    var pos = Positions.FirstOrDefault(p => p.Id == matchedPosId);
+                    if (pos != null)
+                    {
+                        var close = ClosePosition(pos);
+                        if (close.IsSuccessful)
+                        {
+                            Print($"⚠️ [VikingInvest] INVALIDATED — closed {pos.SymbolName} {pos.TradeType} " +
+                                  $"PID={pos.Id} · net≈{pos.NetProfit:F2} · pips={pos.Pips:F1} · id={sig.Id}");
+                            TelegramSend($"⚠️ Closed {pos.SymbolName} on invalidation (signal flipped). " +
+                                         $"Position {pos.Id} net {pos.NetProfit:F2}", important:true);
+                        }
+                        else
+                        {
+                            Print($"⚠️ [VikingInvest] ClosePosition failed for PID={pos.Id} id={sig.Id}: {close.Error}");
+                        }
+                    }
+                    else if (VerboseLog)
+                    {
+                        // Position already closed (broker SL/TP beat us to it).
+                        Print($"ℹ️ [VikingInvest] id={sig.Id} invalidated but position PID={matchedPosId} already closed.");
+                    }
+                }
+                else if (VerboseLog)
+                {
+                    Print($"ℹ️ [VikingInvest] id={sig.Id} state=invalidated — no open position to close.");
+                }
+                MarkSeen(sig.Id);
+                return;
+            }
+
+            // Only act on triggered signals — armed = not yet a fill.
             if (sig.State != "triggered")
             {
                 if (VerboseLog) Print($"ℹ️ [VikingInvest] id={sig.Id} state={sig.State} — no action.");
