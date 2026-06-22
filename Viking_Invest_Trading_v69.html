@@ -1326,6 +1326,15 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       </div>
     </div>
   </details>
+
+  <!-- ── WEEKLY RECAP SUBSCRIPTION (moved from Investor tab 2026-06-21m) ──
+       Host div populated by _renderSubCard() inside the buildNewsletter
+       IIFE. Empty until session loads; supabase auth-state-change
+       handler re-renders it after sign-in / sign-out. Lives on the
+       dashboard so signed-in users see it without navigating to the
+       Investor tab. ── -->
+  <div id="nl-sub-card-host" style="margin:0 0 10px 0;"></div>
+
   <!-- ── ECONOMIC EVENTS CALENDAR — next 7 days, moved from Backtest tab ── -->
   <div id="eventsSummary" style="background:rgba(200,134,10,0.04);border:1px solid rgba(200,134,10,0.2);border-radius:4px;padding:10px 12px;margin:12px 0 10px;font-family:'Orbitron',monospace;font-size:9px;"></div>
 </div>
@@ -1354,11 +1363,11 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
         <p>Proprietary intraday trigger pattern with <span class="rule-hl">structural stop placement</span> and fixed risk-multiple target. Partial confluence setups (1/4, 2/4, 3/4) are WATCH-only — never entered for the primary path. Trigger mechanics + parameters are reviewed and tuned on each backtest cycle.</p>
       </div>
     </div>
-    <div style="margin-top:14px;padding:11px 13px;background:rgba(200,134,10,0.04);border:1px solid rgba(200,134,10,0.18);border-radius:4px;font-size:10.5px;line-height:1.6;color:var(--inkm);">
-      <strong style="color:var(--gold);font-family:Orbitron,monospace;font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:6px;">▸ Parallel detectors &amp; live execution</strong>
-      Beyond the primary four-layer confluence engine, two momentum-cross detectors run in parallel on selected asset classes (rolled out progressively through 2026: indices first, then minors + majors, then commodities + crypto). Each parallel detector fires independently with its own class-specific confluence gate, capturing setups the primary engine wouldn't take but that the deterministic rule-set still validates. Post-trigger management closes positions on structural invalidation, alignment breakdown (noise-filtered per class), target hit, stop hit, or time-out — no discretionary exits.
+    <div style="margin-top:14px;padding:12px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(240,179,64,0.35);border-left:3px solid #f0b940;border-radius:3px;font-size:11px;line-height:1.65;color:rgba(255,255,255,0.85);">
+      <strong style="color:#f0b940;font-family:Orbitron,monospace;font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:8px;">▸ Parallel detectors &amp; live execution</strong>
+      <span style="color:#fff;">Beyond the primary four-layer confluence engine, two momentum-cross detectors run in parallel on selected asset classes (rolled out progressively through 2026: indices first, then minors + majors, then commodities + crypto).</span> Each parallel detector fires independently with its own class-specific confluence gate, capturing setups the primary engine wouldn't take but that the deterministic rule-set still validates. Post-trigger management closes positions on structural invalidation, alignment breakdown (noise-filtered per class), target hit, stop hit, or time-out &mdash; <span style="color:#fff;">no discretionary exits</span>.
       <br><br>
-      Production signals route through a live broker bridge to cTrader demo accounts with persistent server-side dedup, daily-loss limiter, kill-switch contract, and Telegram alert routing. Broker executions auto-publish back to the dashboard so investor-facing numbers reconcile against broker numbers in real time.
+      <span style="color:#fff;">Production signals route through a live broker bridge to cTrader demo accounts</span> with persistent server-side dedup, daily-loss limiter, kill-switch contract, and Telegram alert routing. Broker executions auto-publish back to the dashboard so investor-facing numbers reconcile against broker numbers in real time.
     </div>
   </div>
 
@@ -1880,7 +1889,10 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       <div class="nl-mast-sub" id="nl-mast-sub">Viking Edge — performance overview for prospective investors</div>
     </div>
 
-    <div id="nl-sub-card-host"></div>
+    <!-- nl-sub-card-host moved to the Dashboard tab on 2026-06-21m so
+         signed-in users see the recap-subscription card without navigating
+         here. _renderSubCard() inside the IIFE still finds the same id
+         and renders into it from any page. -->
 
     <div class="nl-card">
       <div class="nl-card-hd">▸ Overall Performance <span class="nl-card-hd-r" id="nl-overall-window">all resolved trades · 12-month auto-EW backtest</span></div>
@@ -17385,14 +17397,21 @@ function _renderCCIVariantPanel(host, commodityKeys){
     session = (r && r.data) ? r.data.session : null;
     window._vinlSession = session;
     updateStatus();
+    // 2026-06-21m — subscription-card host now lives on the Dashboard.
+    // Render it as soon as the session resolves so signed-in users see
+    // the card on first paint without needing to navigate to Investor.
+    try { window._renderSubCard && window._renderSubCard(); } catch(e){}
   }).catch(function(){});
 
   sb.auth.onAuthStateChange(function(event, newSession){
     session = newSession || null;
     window._vinlSession = session;
-    // Refresh the Investor tab's subscribe card if the user is viewing
-    // it when sign-in / sign-out happens. (2026-06-21f — was page-
-    // newsletter; the Newsletter tab is now folded into page-investor.)
+    // 2026-06-21m — re-render the subscription card on every auth state
+    // change, regardless of which tab is active. The renderer no-ops if
+    // its host div isn't in the DOM.
+    try { window._renderSubCard && window._renderSubCard(); } catch(e){}
+    // Refresh the Investor tab's full digest if the user is viewing it
+    // when sign-in / sign-out happens.
     try {
       var pg = document.getElementById('page-investor');
       if(pg && pg.classList.contains('active') && typeof window.buildNewsletter === 'function'){
@@ -18013,7 +18032,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       return d.toLocaleString('en-US', {month:'short', day:'numeric'});
     };
     t.textContent = 'Week of ' + fmt(weekAgo) + ' – ' + fmt(now);
-    s.textContent = '4/4 confluence performance digest · ' + now.getFullYear();
+    s.textContent = 'Viking Edge — performance digest · ' + now.getFullYear();
   }
 
   function _renderHeadline(agg){
@@ -18206,6 +18225,11 @@ function _renderCCIVariantPanel(host, commodityKeys){
   }
 
   window.buildNewsletter = buildNewsletter;
+  // 2026-06-21m — subscription card host moved to dashboard. Expose the
+  // renderer so the boot path + supabase auth-state handler can call it
+  // from outside the Investor-tab build cycle. Function is a no-op if
+  // the host div isn't present, so calling from anywhere is safe.
+  window._renderSubCard = _renderSubCard;
 
   /* ──────────────────────────────────────────────────────────────
      PDF EXPORT — "Generate PDF Report" button on the Investor tab.

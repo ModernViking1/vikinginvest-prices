@@ -82,11 +82,47 @@ jobs:
             echo "Netlify secrets present — proceeding with deploy."
           fi
 
-      - uses: actions/checkout@v4
+      # 2026-06-21 — pre-flight check against the Netlify Sites API. Catches
+      # expired / revoked / wrong-scope tokens (HTTP 401/403) and missing
+      # sites (404) before the deploy action runs. Without this, an expired
+      # token surfaces as a hard "Error: Forbidden" failure from
+      # nwtgck/actions-netlify, the job goes red, and GitHub sends a
+      # workflow-failure email on every push. Now we treat credential
+      # rot as a known-recoverable state: warn loudly, skip the deploy,
+      # exit clean. The job stays green; ops fixes the secret when ready.
+      - name: Validate Netlify credentials
         if: steps.secrets.outputs.have_secrets == 'true'
+        id: validate
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID:    ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          HTTP_CODE=$(curl -s -o /tmp/netlify-probe.json -w "%{http_code}" \
+            -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+            "https://api.netlify.com/api/v1/sites/$NETLIFY_SITE_ID")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "credentials_valid=true" >> "$GITHUB_OUTPUT"
+            echo "Netlify API returned 200 — credentials valid, proceeding."
+          else
+            echo "credentials_valid=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Netlify API returned HTTP $HTTP_CODE — credentials likely expired, revoked, or scoped to a different site. Skipping deploy gracefully (job exits clean, no failure email)."
+            echo ""
+            echo "To restore the backup-CDN mirror:"
+            echo "  1. https://app.netlify.com/user/applications/personal → generate a new token"
+            echo "  2. Verify the site still exists at https://app.netlify.com/sites"
+            echo "  3. Settings → Secrets and variables → Actions →"
+            echo "     update NETLIFY_AUTH_TOKEN (and NETLIFY_SITE_ID if changed)"
+            echo "  4. Re-run this workflow"
+            echo ""
+            echo "API response body (for debugging):"
+            head -c 500 /tmp/netlify-probe.json || true
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.secrets.outputs.have_secrets == 'true' && steps.validate.outputs.credentials_valid == 'true'
 
       - name: Build _site (mirror of deploy-pages.yml's build step)
-        if: steps.secrets.outputs.have_secrets == 'true'
+        if: steps.secrets.outputs.have_secrets == 'true' && steps.validate.outputs.credentials_valid == 'true'
         run: |
           mkdir -p _site
           cp Viking_Invest_Trading_v*.html _site/ 2>/dev/null || true
@@ -167,7 +203,7 @@ jobs:
           ls -lh _site
 
       - name: Deploy to Netlify
-        if: steps.secrets.outputs.have_secrets == 'true'
+        if: steps.secrets.outputs.have_secrets == 'true' && steps.validate.outputs.credentials_valid == 'true'
         uses: nwtgck/actions-netlify@v3
         with:
           publish-dir: './_site'
