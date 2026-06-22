@@ -36,6 +36,13 @@ import os
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
+
+# 2026-06-22 — Telegram "Open dashboard" links previously hardcoded the
+# GitHub Pages URL in 7 separate f-strings. Users expect the canonical
+# brand URL. Single source of truth here so future surface changes are
+# one-line edits.
+DASHBOARD_URL = 'https://vikinginvest.ai/dashboard.html'
+
 try:
     import requests
 except ImportError:
@@ -2619,7 +2626,7 @@ def format_alert(pair, info, kind):
             f"Ref range: <code>{ref_lo}</code> – <code>{ref_hi}</code>\n"
             f"Current px: <code>{_fmt_price(info.get('price'))}</code>\n"
             f"{layers}\n"
-            f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
+            f"<a href=\"{DASHBOARD_URL}\">Open dashboard</a>"
         )
         return text
 
@@ -2661,7 +2668,7 @@ def format_alert(pair, info, kind):
             f"{_fib_ext_line(entry_val)}"
             f"Current px: <code>{_fmt_price(info['price'])}</code>\n"
             f"{layers}\n"
-            f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
+            f"<a href=\"{DASHBOARD_URL}\">Open dashboard</a>"
         )
         return text
 
@@ -2680,7 +2687,7 @@ def format_alert(pair, info, kind):
             f"{_fib_ext_line(entry_val)}"
             f"Current px: <code>{_fmt_price(info['price'])}</code>\n"
             f"{layers}\n"
-            f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
+            f"<a href=\"{DASHBOARD_URL}\">Open dashboard</a>"
         )
         return text
 
@@ -2702,7 +2709,7 @@ def format_alert(pair, info, kind):
             f"Confluence: <code>{conf}/4</code> layers agree\n"
             f"Current px: <code>{_fmt_price(info['price'])}</code>\n"
             f"{layers}\n"
-            f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
+            f"<a href=\"{DASHBOARD_URL}\">Open dashboard</a>"
         )
         return text
 
@@ -2727,7 +2734,7 @@ def format_alert(pair, info, kind):
             f"Confluence: <code>{conf}/4</code> layers agree\n"
             f"Current px: <code>{_fmt_price(info['price'])}</code>\n"
             f"{layers}\n"
-            f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
+            f"<a href=\"{DASHBOARD_URL}\">Open dashboard</a>"
         )
         return text
 
@@ -2779,7 +2786,7 @@ def format_alert(pair, info, kind):
             f"{loss_R_line}"
             f"Reason: {reason_lbl}\n"
             f"Suggested: exit at market to limit loss before stop fills.\n"
-            f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
+            f"<a href=\"{DASHBOARD_URL}\">Open dashboard</a>"
         )
         return text
 
@@ -2795,7 +2802,7 @@ def format_alert(pair, info, kind):
         f"{arrow} <b>{title} — {action} {sym}</b>\n"
         f"Price: <code>{_fmt_price(info['price'])}</code>\n"
         f"{layers}\n"
-        f"<a href=\"https://modernviking1.github.io/vikinginvest-prices/dashboard.html\">Open dashboard</a>"
+        f"<a href=\"{DASHBOARD_URL}\">Open dashboard</a>"
     )
     return text
 
@@ -3193,6 +3200,53 @@ def main():
                     alerts_sent += 1
                 sr_state.setdefault(today, {}).setdefault(pair, {})[tier] = today_counts + 1
 
+        # 2026-06-22 — MACD-primary / MACD-divergence signal-state TTL.
+        # The detector only returns a non-None macdp/divg sig in the
+        # narrow window where the MACD cross is "fresh" (last bar).
+        # Without preservation, the next detector run (~10 min later)
+        # writes sig_macdp_state=None back to alerts-state.json, and
+        # build_signals_json.py loses the signal before the cBot's
+        # 30-second polling cycle has a chance to act. Result: Telegram
+        # alerts fire (one-shot) but the cBot never sees a "triggered"
+        # signal in signals.json. Fix: carry the previous run's
+        # sig_macdp_* / sig_divg_* fields forward for SIGNAL_TTL_MIN
+        # minutes after the alerted_*_trigger_ts, so the signal stays
+        # in signals.json long enough to reach the cBot's poll loop.
+        # MaxSignalAgeMin in the cBot itself is 60 min — match that.
+        SIGNAL_TTL_MIN = 60
+        def _macdp_ttl_alive():
+            ts = alerted_macdp
+            if not ts: return False
+            try:
+                dt = ts if isinstance(ts, datetime) else datetime.fromisoformat(str(ts).replace('Z','+00:00'))
+                age = (datetime.now(timezone.utc) - dt).total_seconds() / 60.0
+                return age >= 0 and age <= SIGNAL_TTL_MIN
+            except Exception:
+                return False
+        def _divg_ttl_alive():
+            ts = alerted_divg
+            if not ts: return False
+            try:
+                dt = ts if isinstance(ts, datetime) else datetime.fromisoformat(str(ts).replace('Z','+00:00'))
+                age = (datetime.now(timezone.utc) - dt).total_seconds() / 60.0
+                return age >= 0 and age <= SIGNAL_TTL_MIN
+            except Exception:
+                return False
+        def _macdp_field(key):
+            cur = info.get(key)
+            if cur is not None:
+                return cur
+            if _macdp_ttl_alive():
+                return prev.get(key)
+            return None
+        def _divg_field(key):
+            cur = info.get(key)
+            if cur is not None:
+                return cur
+            if _divg_ttl_alive():
+                return prev.get(key)
+            return None
+
         new_state[pair] = {
             'aligned_dir': cur_dir,
             'ew': info['ew'],
@@ -3235,23 +3289,24 @@ def main():
             # 'macdp' signals into signals.json for the cBot. Dedup key
             # `alerted_macdp_trigger_ts` prevents re-alerting the same
             # bar across detector runs.
-            'sig_macdp_state':      info.get('sig_macdp_state'),
-            'sig_macdp_dir':        info.get('sig_macdp_dir'),
-            'sig_macdp_entry':      info.get('sig_macdp_entry'),
-            'sig_macdp_stop':       info.get('sig_macdp_stop'),
-            'sig_macdp_target':     info.get('sig_macdp_target'),
-            'sig_macdp_trigger_ts': info.get('sig_macdp_trigger_ts'),
-            'sig_macdp_confluence': info.get('sig_macdp_confluence'),
-            'sig_macdp_shadow':     bool(info.get('sig_macdp_shadow')),
+            'sig_macdp_state':      _macdp_field('sig_macdp_state'),
+            'sig_macdp_dir':        _macdp_field('sig_macdp_dir'),
+            'sig_macdp_entry':      _macdp_field('sig_macdp_entry'),
+            'sig_macdp_stop':       _macdp_field('sig_macdp_stop'),
+            'sig_macdp_target':     _macdp_field('sig_macdp_target'),
+            'sig_macdp_trigger_ts': _macdp_field('sig_macdp_trigger_ts'),
+            'sig_macdp_confluence': _macdp_field('sig_macdp_confluence'),
+            'sig_macdp_shadow':     bool(_macdp_field('sig_macdp_shadow')),
             'alerted_macdp_trigger_ts': alerted_macdp,
             # MACD-divergence parallel trigger persistence (2026-06-17).
-            'sig_divg_state':       info.get('sig_divg_state'),
-            'sig_divg_dir':         info.get('sig_divg_dir'),
-            'sig_divg_entry':       info.get('sig_divg_entry'),
-            'sig_divg_stop':        info.get('sig_divg_stop'),
-            'sig_divg_target':      info.get('sig_divg_target'),
-            'sig_divg_trigger_ts':  info.get('sig_divg_trigger_ts'),
-            'sig_divg_confluence':  info.get('sig_divg_confluence'),
+            # Same TTL preservation as macdp above.
+            'sig_divg_state':       _divg_field('sig_divg_state'),
+            'sig_divg_dir':         _divg_field('sig_divg_dir'),
+            'sig_divg_entry':       _divg_field('sig_divg_entry'),
+            'sig_divg_stop':        _divg_field('sig_divg_stop'),
+            'sig_divg_target':      _divg_field('sig_divg_target'),
+            'sig_divg_trigger_ts':  _divg_field('sig_divg_trigger_ts'),
+            'sig_divg_confluence':  _divg_field('sig_divg_confluence'),
             'alerted_divg_trigger_ts': alerted_divg,
             'last_check': now_iso,
         }

@@ -17312,8 +17312,52 @@ function _renderCCIVariantPanel(host, commodityKeys){
     return;
   }
 
+  // 2026-06-22 — explicit storage adapter + storageKey so the session
+  // survives across days (users were re-doing the magic-link several
+  // times a day). The SDK defaults to localStorage but iOS Safari can
+  // be aggressive about evicting third-party cookies / storage — being
+  // explicit here makes the persistence intent unambiguous. The actual
+  // refresh-token TTL is set on the Supabase project side: confirm
+  // Authentication → Sessions → "Refresh token reuse interval" is high
+  // (e.g. 7-30 days) and JWT expiry is the default 3600s. Without the
+  // project-side TTL extension, the auto-refresh below can still hit a
+  // dead refresh token after 24h of inactivity.
   var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: {persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: window.localStorage,
+      storageKey: 'sb-vikinginvest-auth-token'
+    }
+  });
+
+  // 2026-06-22 — refresh-on-visible heartbeat. When the user comes back
+  // to a tab that's been backgrounded for hours, the access token may
+  // already have expired AND the auto-refresh timer the SDK installs
+  // may have been throttled by the browser (mobile Safari pauses
+  // timers on background tabs). Force a refresh on visibility-restore
+  // so the next API call has a fresh token instead of a silent 401
+  // that logs the user out.
+  var _lastRefresh = 0;
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState !== 'visible') return;
+    var now = Date.now();
+    if(now - _lastRefresh < 60 * 1000) return;  // throttle to once/min
+    _lastRefresh = now;
+    try {
+      sb.auth.getSession().then(function(r){
+        var s = r && r.data && r.data.session;
+        if(!s) return;
+        // Refresh if access token expires in less than 5 minutes.
+        var expAt = s.expires_at ? s.expires_at * 1000 : 0;
+        if(expAt && (expAt - now) < 5 * 60 * 1000){
+          sb.auth.refreshSession().catch(function(e){
+            console.warn('[VI Auth] visibility-refresh failed:', e && e.message);
+          });
+        }
+      }).catch(function(){});
+    } catch(e){}
   });
   var session = null;
   var wantedPage = null;
