@@ -1327,16 +1327,15 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     </div>
   </details>
 
-  <!-- ── WEEKLY RECAP SUBSCRIPTION (moved from Investor tab 2026-06-21m) ──
-       Host div populated by _renderSubCard() inside the buildNewsletter
-       IIFE. Empty until session loads; supabase auth-state-change
-       handler re-renders it after sign-in / sign-out. Lives on the
-       dashboard so signed-in users see it without navigating to the
-       Investor tab. ── -->
-  <div id="nl-sub-card-host" style="margin:0 0 10px 0;"></div>
-
   <!-- ── ECONOMIC EVENTS CALENDAR — next 7 days, moved from Backtest tab ── -->
   <div id="eventsSummary" style="background:rgba(200,134,10,0.04);border:1px solid rgba(200,134,10,0.2);border-radius:4px;padding:10px 12px;margin:12px 0 10px;font-family:'Orbitron',monospace;font-size:9px;"></div>
+
+  <!-- ── WEEKLY RECAP SUBSCRIPTION (moved below the economic calendar
+       2026-06-22, at the bottom of the dashboard per user request).
+       Host div populated by _renderSubCard() inside the buildNewsletter
+       IIFE. Empty until session loads; supabase auth-state-change
+       handler re-renders it after sign-in / sign-out. ── -->
+  <div id="nl-sub-card-host" style="margin:12px 0 10px;"></div>
 </div>
 
 <!-- ════ BACKTEST ════ -->

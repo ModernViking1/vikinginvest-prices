@@ -440,10 +440,30 @@ namespace cAlgo.Robots
                 Print($"📡 [VikingInvest] Polled {signals.Count} signals from feed. " +
                       $"Kill-switch: {(_killed ? "🛑 KILLED" : "✅ active")}");
 
-            foreach (var sig in signals)
+            // 2026-06-22 — CRITICAL THREADING FIX. PollAndProcess is async:
+            // after `await _http.GetStringAsync(...)` the continuation runs
+            // on a thread-pool thread, NOT the cAlgo main thread. Any cAlgo
+            // API touched from here (Symbols.GetSymbol in ResolveSymbol,
+            // ExecuteMarketOrder, Account.*, Positions) throws "Unable to
+            // invoke target method in current thread" — the exact crash
+            // seen ~5×/day in the production log, which restarts the bot and
+            // means a triggered signal arriving during the dead window is
+            // never converted to an order. It also intermittently killed
+            // the bot on plain poll cycles whenever the HTTP call was slow
+            // enough to force a true async resume. Marshal the entire
+            // signal-processing pass onto the main thread so every cAlgo
+            // call inside ProcessOneSignal is on the right thread.
+            BeginInvokeOnMainThread(() =>
             {
-                ProcessOneSignal(sig);
-            }
+                foreach (var sig in signals)
+                {
+                    try { ProcessOneSignal(sig); }
+                    catch (Exception ex)
+                    {
+                        Print($"⚠️ [VikingInvest] ProcessOneSignal failed for id={sig?.Id}: {ex.Message}");
+                    }
+                }
+            });
         }
 
         // Phase 2 — kill-switch fetch + parse. The file is tiny
@@ -470,13 +490,22 @@ namespace cAlgo.Robots
             _killUpdated  = JsonStr(body, "updated");
             if (wasKilled != _killed)
             {
-                Print(_killed
-                    ? $"🛑 [VikingInvest] KILL-SWITCH ENGAGED — pausing new orders. Reason: {_killReason ?? "(unspecified)"}"
-                    : $"✅ [VikingInvest] KILL-SWITCH RELEASED — resuming new orders. Last reason: {_killReason ?? "(unspecified)"}");
-                TelegramSend(_killed
-                    ? $"🛑 KILL-SWITCH ENGAGED: {_killReason ?? "(unspecified)"}"
-                    : $"✅ KILL-SWITCH RELEASED: {_killReason ?? "(unspecified)"}",
-                    important:true);
+                // 2026-06-22 — same threading rule as PollAndProcess: this
+                // runs in the continuation after `await GetStringAsync`, i.e.
+                // on a thread-pool thread. Marshal the Print/Telegram onto
+                // the main thread to avoid the cross-thread crash.
+                var killedNow = _killed;
+                var reason = _killReason ?? "(unspecified)";
+                BeginInvokeOnMainThread(() =>
+                {
+                    Print(killedNow
+                        ? $"🛑 [VikingInvest] KILL-SWITCH ENGAGED — pausing new orders. Reason: {reason}"
+                        : $"✅ [VikingInvest] KILL-SWITCH RELEASED — resuming new orders. Last reason: {reason}");
+                    TelegramSend(killedNow
+                        ? $"🛑 KILL-SWITCH ENGAGED: {reason}"
+                        : $"✅ KILL-SWITCH RELEASED: {reason}",
+                        important:true);
+                });
             }
         }
 
