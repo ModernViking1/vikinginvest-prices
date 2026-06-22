@@ -1870,48 +1870,6 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       <div class="nl-mast-sub" id="nl-mast-sub">Viking Edge — performance digest · 2026</div>
     </div>
 
-    <!-- ── STRATEGY FRAMEWORK (moved here from Backtest tab 2026-06-21n) ── -->
-    <div class="rules-box">
-      <h2>▸ Viking Edge — Strategy Framework</h2>
-      <div class="rules-grid">
-        <div class="rule-card rc-entry">
-          <h3 style="color:#f0b940;">① Macro Bias</h3>
-          <p>Long-horizon directional bias from higher-timeframe price structure. Sets the <span class="rule-hl">only direction</span> trades can take. Impulsive phases are highest-probability; corrective phases set counter-trend caution zones. Must agree with all four layers before any primary trade fires.</p>
-        </div>
-        <div class="rule-card rc-target">
-          <h3 style="color:#1a7a4a;">② Intermediate Trend Filter</h3>
-          <p>Medium-term momentum filter sitting between the macro bias and the execution-timeframe structure. Filters out trades that fight the prevailing flow even when macro and execution agree. <span class="rule-hl">Must agree with all four layers</span> before any primary trade fires.</p>
-        </div>
-        <div class="rule-card rc-stop">
-          <h3 style="color:#c0281a;">③ Channel Structure</h3>
-          <p>Short-term oscillation framework. Entries only when price is at a channel boundary; mid-channel is stand-aside. A break of the channel is itself a directional confirmation signal feeding into the execution layer.</p>
-        </div>
-        <div class="rule-card rc-filter">
-          <h3 style="color:#4da2ff;">④ Execution Trigger</h3>
-          <p>Proprietary intraday trigger pattern with <span class="rule-hl">structural stop placement</span> and fixed risk-multiple target. Partial confluence setups (1/4, 2/4, 3/4) are WATCH-only — never entered for the primary path. Trigger mechanics + parameters are reviewed and tuned on each backtest cycle.</p>
-        </div>
-      </div>
-      <div style="margin-top:14px;padding:12px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(240,179,64,0.35);border-left:3px solid #f0b940;border-radius:3px;font-size:11px;line-height:1.65;color:rgba(255,255,255,0.85);">
-        <strong style="color:#f0b940;font-family:Orbitron,monospace;font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:8px;">▸ Parallel detectors &amp; live execution</strong>
-        <span style="color:#fff;">Beyond the primary four-layer confluence engine, two momentum-cross detectors run in parallel on selected asset classes (rolled out progressively through 2026: indices first, then minors + majors, then commodities + crypto).</span> Each parallel detector fires independently with its own class-specific confluence gate, capturing setups the primary engine wouldn't take but that the deterministic rule-set still validates. Post-trigger management closes positions on structural invalidation, alignment breakdown (noise-filtered per class), target hit, stop hit, or time-out &mdash; <span style="color:#fff;">no discretionary exits</span>.
-        <br><br>
-        <span style="color:#fff;">Production signals route through a live broker bridge to cTrader demo accounts</span> with persistent server-side dedup, daily-loss limiter, kill-switch contract, and Telegram alert routing. Broker executions auto-publish back to the dashboard so investor-facing numbers reconcile against broker numbers in real time.
-      </div>
-    </div>
-
-    <!-- ── METHODOLOGY NOTE — per-class production routing, IP-shielded ── -->
-    <div style="background:rgba(200,134,10,0.06);border:1px solid rgba(200,134,10,0.25);border-radius:4px;padding:10px 13px;margin:10px 0 14px 0;font-size:10.5px;line-height:1.55;color:var(--inkm);">
-      <div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:5px;">Methodology &middot; production routing per pair class</div>
-      Each pair routes to the macro-detection profile + execution profile + risk-sizing tier that performed best in the May 2026 cross-validation review. Three macro profiles and two execution profiles are active across the universe, with class-specific risk sizing. The same backtest engine runs across all classes; profile selection is data-driven from the per-pair edge curve.
-      <ul style="margin:5px 0 4px 18px;padding:0;">
-        <li><strong style="color:var(--inkd);">FX majors</strong> &mdash; selective routing per pair: optimal macro profile is per-pair-validated and may differ within the class.</li>
-        <li><strong style="color:var(--purple);">FX minors + emerging crosses</strong> &mdash; standard routing, full risk allocation.</li>
-        <li><strong style="color:var(--gold);">Commodities + indices</strong> &mdash; half-size risk allocation. Wider true ranges + slower setup development handled by a class-specific post-trigger window.</li>
-        <li><strong style="color:var(--bull);">Cryptocurrencies</strong> &mdash; full universe in production since 2026-06-21, including the highest-conviction confluence band where the four-layer engine confirms the momentum-cross trigger.</li>
-      </ul>
-      Live signals and Telegram alerts follow the same per-class routing. Full per-class allocation table, threshold values, trigger mechanics, and the full rule fingerprint are available <strong>under NDA</strong> via the Investor Relations panel below.
-    </div>
-
     <div class="nl-card">
       <div class="nl-card-hd">▸ Overall Performance <span class="nl-card-hd-r" id="nl-overall-window">all resolved trades · 12-month auto-EW backtest</span></div>
       <div class="nl-headline">
@@ -1964,6 +1922,50 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
       <div class="pf-investor-fine">
         Materials shared on request typically include: company overview &amp; team background, the proprietary strategy methodology white paper (under NDA), 12-month backtest summary across all 39 active pairs, current production WR &amp; net-R figures, technology stack &amp; data-pipeline architecture, and roadmap. All requests are responded to within two business days.
       </div>
+    </div>
+
+
+    <!-- ── STRATEGY FRAMEWORK + METHODOLOGY (bottom of Investor tab,
+         green-themed per 2026-06-22 user request) ── -->
+    <div class="rules-box" style="background:linear-gradient(160deg,#0d5a36 0%,#082d1a 100%);">
+      <h2>▸ Viking Edge — Strategy Framework</h2>
+      <div class="rules-grid">
+        <div class="rule-card rc-entry">
+          <h3 style="color:#f0b940;">① Macro Bias</h3>
+          <p>Long-horizon directional bias from higher-timeframe price structure. Sets the <span class="rule-hl">only direction</span> trades can take. Impulsive phases are highest-probability; corrective phases set counter-trend caution zones. Must agree with all four layers before any primary trade fires.</p>
+        </div>
+        <div class="rule-card rc-target">
+          <h3 style="color:#1a7a4a;">② Intermediate Trend Filter</h3>
+          <p>Medium-term momentum filter sitting between the macro bias and the execution-timeframe structure. Filters out trades that fight the prevailing flow even when macro and execution agree. <span class="rule-hl">Must agree with all four layers</span> before any primary trade fires.</p>
+        </div>
+        <div class="rule-card rc-stop">
+          <h3 style="color:#c0281a;">③ Channel Structure</h3>
+          <p>Short-term oscillation framework. Entries only when price is at a channel boundary; mid-channel is stand-aside. A break of the channel is itself a directional confirmation signal feeding into the execution layer.</p>
+        </div>
+        <div class="rule-card rc-filter">
+          <h3 style="color:#4da2ff;">④ Execution Trigger</h3>
+          <p>Proprietary intraday trigger pattern with <span class="rule-hl">structural stop placement</span> and fixed risk-multiple target. Partial confluence setups (1/4, 2/4, 3/4) are WATCH-only — never entered for the primary path. Trigger mechanics + parameters are reviewed and tuned on each backtest cycle.</p>
+        </div>
+      </div>
+      <div style="margin-top:14px;padding:12px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(240,179,64,0.35);border-left:3px solid #f0b940;border-radius:3px;font-size:11px;line-height:1.65;color:rgba(255,255,255,0.85);">
+        <strong style="color:#f0b940;font-family:Orbitron,monospace;font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:8px;">▸ Parallel detectors &amp; live execution</strong>
+        <span style="color:#fff;">Beyond the primary four-layer confluence engine, two momentum-cross detectors run in parallel on selected asset classes (rolled out progressively through 2026: indices first, then minors + majors, then commodities + crypto).</span> Each parallel detector fires independently with its own class-specific confluence gate, capturing setups the primary engine wouldn't take but that the deterministic rule-set still validates. Post-trigger management closes positions on structural invalidation, alignment breakdown (noise-filtered per class), target hit, stop hit, or time-out &mdash; <span style="color:#fff;">no discretionary exits</span>.
+        <br><br>
+        <span style="color:#fff;">Production signals route through a live broker bridge to cTrader demo accounts</span> with persistent server-side dedup, daily-loss limiter, kill-switch contract, and Telegram alert routing. Broker executions auto-publish back to the dashboard so investor-facing numbers reconcile against broker numbers in real time.
+      </div>
+    </div>
+
+    <!-- ── METHODOLOGY NOTE — per-class production routing, IP-shielded ── -->
+    <div style="background:rgba(13,90,54,0.06);border:1px solid rgba(13,90,54,0.30);border-left:3px solid #0d5a36;border-radius:4px;padding:10px 13px;margin:10px 0 14px 0;font-size:10.5px;line-height:1.55;color:var(--inkm);">
+      <div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#0d5a36;margin-bottom:5px;">Methodology &middot; production routing per pair class</div>
+      Each pair routes to the macro-detection profile + execution profile + risk-sizing tier that performed best in the May 2026 cross-validation review. Three macro profiles and two execution profiles are active across the universe, with class-specific risk sizing. The same backtest engine runs across all classes; profile selection is data-driven from the per-pair edge curve.
+      <ul style="margin:5px 0 4px 18px;padding:0;">
+        <li><strong style="color:var(--inkd);">FX majors</strong> &mdash; selective routing per pair: optimal macro profile is per-pair-validated and may differ within the class.</li>
+        <li><strong style="color:var(--purple);">FX minors + emerging crosses</strong> &mdash; standard routing, full risk allocation.</li>
+        <li><strong style="color:var(--gold);">Commodities + indices</strong> &mdash; half-size risk allocation. Wider true ranges + slower setup development handled by a class-specific post-trigger window.</li>
+        <li><strong style="color:var(--bull);">Cryptocurrencies</strong> &mdash; full universe in production since 2026-06-21, including the highest-conviction confluence band where the four-layer engine confirms the momentum-cross trigger.</li>
+      </ul>
+      Live signals and Telegram alerts follow the same per-class routing. Full per-class allocation table, threshold values, trigger mechanics, and the full rule fingerprint are available <strong>under NDA</strong> via the Investor Relations panel below.
     </div>
 
     <div class="nl-foot">

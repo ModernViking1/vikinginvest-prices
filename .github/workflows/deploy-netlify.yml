@@ -203,7 +203,16 @@ jobs:
           ls -lh _site
 
       - name: Deploy to Netlify
+        id: deploy
         if: steps.secrets.outputs.have_secrets == 'true' && steps.validate.outputs.credentials_valid == 'true'
+        # 2026-06-22 — continue-on-error so a 403 from the deploy API (which
+        # the read-scope Sites API probe in `validate` can't detect) doesn't
+        # red the job and trigger a failure email. The actual outcome is
+        # surfaced by the `Deploy result` step below as a workflow warning.
+        # The Sites API returning 200 confirms the token can READ the site;
+        # if the deploy still 403s the token is missing DEPLOY/WRITE scope
+        # and the user needs to regenerate it.
+        continue-on-error: true
         uses: nwtgck/actions-netlify@v3
         with:
           publish-dir: './_site'
@@ -216,3 +225,12 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID:    ${{ secrets.NETLIFY_SITE_ID }}
         timeout-minutes: 5
+
+      - name: Deploy result
+        if: steps.secrets.outputs.have_secrets == 'true' && steps.validate.outputs.credentials_valid == 'true'
+        run: |
+          if [ "${{ steps.deploy.outcome }}" = "success" ]; then
+            echo "Netlify deploy succeeded."
+          else
+            echo "::warning::Netlify deploy step exited with '${{ steps.deploy.outcome }}'. The credential probe earlier returned 200 (token can READ the site) but the deploy itself was rejected — almost always because the personal access token has read scope but NOT deploy/write scope. Regenerate the token with full scope at https://app.netlify.com/user/applications/personal and update the NETLIFY_AUTH_TOKEN secret. Job will stay green; the GitHub Pages mirror continues serving production."
+          fi
