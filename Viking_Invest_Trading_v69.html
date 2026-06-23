@@ -1030,7 +1030,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   <div class="viauth-card vipro-card">
     <button type="button" class="viauth-close" onclick="window.__viAuthClose&&window.__viAuthClose()" aria-label="Close">&times;</button>
     <div class="viauth-eyebrow" id="viauth-eyebrow">Restricted access</div>
-    <h2 id="viauth-title">Sign in to view Performance, Signals &amp; Backtest</h2>
+    <h2 id="viauth-title">Sign in to view the Investor tab</h2>
     <p id="viauth-intro">Already registered? Enter your email and we&rsquo;ll send a one-tap sign-in link. First time here? <a href="#" id="viauth-switch-to-register" onclick="event.preventDefault();window.__viAuthSetMode&&window.__viAuthSetMode('register');">Register instead</a>.</p>
     <form id="viauth-form" class="vipro-form">
       <label>Email <span class="vipro-req">*</span><input type="email" id="viauth-email" placeholder="you@example.com" autocomplete="email" required></label>
@@ -17351,33 +17351,59 @@ function _renderCCIVariantPanel(host, commodityKeys){
     }
   });
 
-  // 2026-06-22 — refresh-on-visible heartbeat. When the user comes back
-  // to a tab that's been backgrounded for hours, the access token may
-  // already have expired AND the auto-refresh timer the SDK installs
-  // may have been throttled by the browser (mobile Safari pauses
-  // timers on background tabs). Force a refresh on visibility-restore
-  // so the next API call has a fresh token instead of a silent 401
-  // that logs the user out.
+  // 2026-06-23 — overnight log-out fix (v2). The previous version only
+  // refreshed if expires_at was within 5 minutes. Overnight on iOS that
+  // 5-minute window passes hours ago — by the time the user returns
+  // the access token is already long expired AND the SDK's background
+  // auto-refresh has been throttled by mobile Safari while the tab was
+  // backgrounded. So:
+  //   1. ALWAYS refresh on visibility-restore (no expiry condition)
+  //   2. ALSO refresh every 20 min while tab is foregrounded, so a
+  //      live tab never goes stale to begin with
+  //   3. On hard page-load, eagerly refresh BEFORE deciding to show the
+  //      auth modal — gives Supabase one more shot to revive the
+  //      session from the still-stored refresh token before we give up
+  //
+  // Note: the durable fix for "still signed in tomorrow morning" lives
+  // in the Supabase Dashboard, not here — set Authentication → Sessions
+  // → "Refresh token reuse interval" to 7-30 days and JWT expiry to
+  // its max. Without that, the refresh token itself can rot overnight
+  // regardless of how aggressive the client-side refresh is.
+  function _refreshSessionSafe(reason){
+    try {
+      sb.auth.refreshSession().then(function(r){
+        if(r && r.error){
+          console.warn('[VI Auth] refresh (' + reason + ') failed:', r.error.message);
+        }
+      }).catch(function(e){
+        console.warn('[VI Auth] refresh (' + reason + ') threw:', e && e.message);
+      });
+    } catch(e){}
+  }
   var _lastRefresh = 0;
   document.addEventListener('visibilitychange', function(){
     if(document.visibilityState !== 'visible') return;
     var now = Date.now();
     if(now - _lastRefresh < 60 * 1000) return;  // throttle to once/min
     _lastRefresh = now;
-    try {
-      sb.auth.getSession().then(function(r){
-        var s = r && r.data && r.data.session;
-        if(!s) return;
-        // Refresh if access token expires in less than 5 minutes.
-        var expAt = s.expires_at ? s.expires_at * 1000 : 0;
-        if(expAt && (expAt - now) < 5 * 60 * 1000){
-          sb.auth.refreshSession().catch(function(e){
-            console.warn('[VI Auth] visibility-refresh failed:', e && e.message);
-          });
-        }
-      }).catch(function(){});
-    } catch(e){}
+    _refreshSessionSafe('visibility');
   });
+  // Foreground heartbeat: every 20 minutes, if the tab is visible, push
+  // a refresh through. setInterval is throttled to ~1/min minimum on
+  // backgrounded mobile tabs anyway, so this is effectively visible-only.
+  setInterval(function(){
+    if(document.visibilityState === 'visible'){
+      _lastRefresh = Date.now();
+      _refreshSessionSafe('interval');
+    }
+  }, 20 * 60 * 1000);
+  // Eager refresh on first paint: gives Supabase a chance to revive a
+  // recently-expired session before any UI decides to show the auth
+  // wall. Runs once, 200ms after this script block finishes.
+  setTimeout(function(){
+    _lastRefresh = Date.now();
+    _refreshSessionSafe('boot');
+  }, 200);
   var session = null;
   var wantedPage = null;
   // Expose for the Newsletter tab's subscribe card. session is kept in
@@ -17421,7 +17447,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       if(registerBlock) registerBlock.style.display = '';
       if(btn) btn.textContent = 'Register & send access link';
       if(eyebrow) eyebrow.textContent = 'Restricted access — register to view';
-      if(title) title.textContent = 'Register to view Performance, Signals & Backtest';
+      if(title) title.textContent = 'Register to view the Investor tab';
       if(intro) intro.innerHTML = 'Registration is free and takes 30 seconds. We use the details below to personalise your dashboard and route the right alert categories to the right traders. <strong>Your details are never shared with third parties.</strong>';
       if(switchToReg) switchToReg.style.display = 'none';
       if(switchToSign) switchToSign.style.display = '';
@@ -17429,7 +17455,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       if(registerBlock) registerBlock.style.display = 'none';
       if(btn) btn.textContent = 'Send sign-in link';
       if(eyebrow) eyebrow.textContent = 'Restricted access';
-      if(title) title.textContent = 'Sign in to view Performance, Signals & Backtest';
+      if(title) title.textContent = 'Sign in to view the Investor tab';
       if(intro) intro.innerHTML = 'Already registered? Enter your email and we&rsquo;ll send a one-tap sign-in link. First time here? <a href="#" onclick="event.preventDefault();window.__viAuthSetMode&&window.__viAuthSetMode(\'register\');">Register instead</a>.';
       if(switchToReg) switchToReg.style.display = '';
       if(switchToSign) switchToSign.style.display = 'none';
