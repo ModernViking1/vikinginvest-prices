@@ -18523,6 +18523,90 @@ function _renderCCIVariantPanel(host, commodityKeys){
       + '</tr>';
   }
 
+  // 2026-06-23 — risk-metric block. Industry-standard fund factsheet
+  // additions: expectancy (avg R per trade), profit factor (gross-win
+  // ÷ gross-loss), and max simulated drawdown in R. For a fixed 1:1
+  // R:R engine each win contributes +1R, each loss -1R, so expectancy
+  // is 2·WR−1, profit factor is WR/(1−WR), and DD is the worst
+  // peak-to-trough excursion on the chronological cumulative-R series.
+  // Drawdown sourced from the actual trade log (not a closed-form) so
+  // it stays honest if the engine ever drops 1:1.
+  function _pdfComputeRiskMetrics(){
+    var allRecent = (typeof _loadRecentBtCache === 'function')
+      ? _loadRecentBtCache('auto-ew') : null;
+    if(!allRecent) return null;
+    // Build a chronologically-sorted list of (ts, r) trade outcomes
+    // across every active pair.
+    var rows = [];
+    var totalW = 0, totalL = 0;
+    Object.keys(MKTS || {}).forEach(function(k){
+      var cls = _classOfPair(k);
+      if(!cls) return;
+      var rb = allRecent[k];
+      if(!rb) return;
+      var method = (typeof _btMethodFor === 'function') ? _btMethodFor(k) : 'wick';
+      var src = (method === 'fib' && rb.hybrid && Array.isArray(rb.hybrid.midTrades))
+                ? rb.hybrid.midTrades
+                : (Array.isArray(rb.trades) ? rb.trades : null);
+      if(!src) return;
+      for(var i = 0; i < src.length; i++){
+        var t = src[i];
+        if(!t) continue;
+        var ts = t.creatorTs;
+        if(typeof ts === 'string') ts = Date.parse(ts);
+        if(!ts || isNaN(ts)) continue;
+        if(t.outcome === 'win'){ rows.push({ts:ts, r:+1}); totalW++; }
+        else if(t.outcome === 'loss'){ rows.push({ts:ts, r:-1}); totalL++; }
+      }
+    });
+    if(rows.length === 0) return null;
+    rows.sort(function(a,b){ return a.ts - b.ts; });
+    // Walk: running cumulative R, peak, and current drawdown.
+    var cum = 0, peak = 0, maxDD = 0;
+    for(var j = 0; j < rows.length; j++){
+      cum += rows[j].r;
+      if(cum > peak) peak = cum;
+      var dd = cum - peak;  // negative
+      if(dd < maxDD) maxDD = dd;
+    }
+    var resolved = totalW + totalL;
+    var expectancy = resolved > 0 ? (totalW - totalL) / resolved : 0;
+    var profitFactor = totalL > 0 ? (totalW / totalL) : (totalW > 0 ? Infinity : 0);
+    return {
+      resolved: resolved,
+      expectancy: expectancy,        // R per trade
+      profitFactor: profitFactor,    // ratio
+      maxDrawdownR: Math.abs(maxDD), // positive value
+      cumR: cum                       // overall simulated R
+    };
+  }
+
+  function _pdfRiskMetricsBlock(){
+    var m = _pdfComputeRiskMetrics();
+    if(!m){
+      return '<div class="vi-pdf-body" style="font-style:italic;color:#5a5550;">Risk metrics unavailable — backtest cache still loading.</div>';
+    }
+    var pfTxt = isFinite(m.profitFactor) ? m.profitFactor.toFixed(2) : '∞';
+    var stats = [
+      { lbl: 'Expectancy',     val: (m.expectancy>=0 ? '+' : '') + m.expectancy.toFixed(3) + 'R', sub: 'avg R per resolved trade' },
+      { lbl: 'Profit factor',  val: pfTxt + '×',          sub: 'gross wins ÷ gross losses' },
+      { lbl: 'Max drawdown',   val: '−' + m.maxDrawdownR.toFixed(0) + 'R', sub: 'worst peak-to-trough on log' },
+      { lbl: 'Cumulative',     val: (m.cumR>=0 ? '+' : '') + m.cumR.toFixed(0) + 'R', sub: 'sim P&L since cache start' }
+    ];
+    var tiles = '';
+    stats.forEach(function(s){
+      tiles += '<div style="flex:1;padding:11px 13px;background:#f7f4ef;border:1px solid #e6e1d8;border-radius:4px;text-align:center;">'
+            + '<div style="font-family:Orbitron,monospace;font-size:8.5px;letter-spacing:1.6px;color:#5a5550;text-transform:uppercase;margin-bottom:6px;">' + _esc(s.lbl) + '</div>'
+            + '<div style="font-family:Orbitron,monospace;font-size:18px;font-weight:900;color:#1a7a4a;margin-bottom:4px;">' + _esc(s.val) + '</div>'
+            + '<div style="font-size:9px;color:#5a5550;font-style:italic;">' + _esc(s.sub) + '</div>'
+            + '</div>';
+    });
+    return '<div style="display:flex;gap:8px;margin-top:6px;">' + tiles + '</div>'
+         + '<div class="vi-pdf-body" style="font-size:10px;color:#5a5550;margin-top:6px;font-style:italic;">'
+         + 'Computed from the chronological resolved-trade log (12-month rolling cache). Expectancy and profit factor assume the engine\'s 1:1 risk-to-reward target; max drawdown is the worst observed peak-to-trough excursion of cumulative R, not a closed-form estimate.'
+         + '</div>';
+  }
+
   // Pie-slice colours — chosen for max contrast on white, consistent
   // with the green-gold-blue family the rest of the dashboard uses.
   var CLS_PIE_COLOR = {
@@ -18674,9 +18758,9 @@ function _renderCCIVariantPanel(host, commodityKeys){
       +     '<thead><tr><th>Period</th><th class="r">Wins</th><th class="r">Losses</th><th class="r">Trades</th><th class="r">Win&nbsp;Rate</th></tr></thead>'
       +     '<tbody>'
       +       _pdfPeriodRow('Inception to date', '12-month rolling cache', overall)
-      +       + _pdfPeriodRow('Year to date', 'Jan 1 ' + now.getFullYear() + ' → today', ytd)
-      +       + _pdfPeriodRow('Month to date', monthName + ' 1 → today', mtd)
-      +       + _pdfPeriodRow('Trailing 7 days', 'creator bar within 7d', wk)
+      +       _pdfPeriodRow('Year to date', 'Jan 1 ' + now.getFullYear() + ' → today', ytd)
+      +       _pdfPeriodRow('Month to date', monthName + ' 1 → today', mtd)
+      +       _pdfPeriodRow('Trailing 7 days', 'creator bar within 7d', wk)
       +     '</tbody>'
       +   '</table>'
       +   '<div class="vi-pdf-callout">'
@@ -18685,6 +18769,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
       +     'extreme of the entry context. Slippage and spread are not modelled in the headline WR; the Performance tab on '
       +     'the live dashboard carries net-R figures that include simulated friction.'
       +   '</div>'
+      +   '<div class="vi-pdf-section-h" style="margin-top:18px;">▸ Risk &amp; Edge Metrics</div>'
+      +     _pdfRiskMetricsBlock()
       +   '<div class="vi-pdf-section-h" style="margin-top:18px;">▸ Performance by Asset Class</div>'
       +   '<table class="vi-pdf-table">'
       +     '<thead><tr><th>Segment</th><th class="r">Wins</th><th class="r">Losses</th><th class="r">Trades</th><th class="r">Win&nbsp;Rate</th></tr></thead>'
