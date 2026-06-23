@@ -214,6 +214,28 @@ namespace cAlgo.Robots
             Positions.Closed += OnPositionClosed;
 
             _http.DefaultRequestHeaders.UserAgent.ParseAdd("VikingInvest-cTrader-Bot/1.0");
+            // 2026-06-23 — force CDN revalidation on every poll. The
+            // CacheBust(?t=minute) query trick does NOTHING on the two
+            // feed endpoints we use: raw.githubusercontent.com (Fastly,
+            // max-age=300) and jsDelivr @main (caches branch refs for
+            // HOURS) both key their cache on PATH ONLY and ignore the
+            // query string. Result: the bot was acting on signals.json
+            // up to 5 min (raw) / hours (jsDelivr) stale, so fast
+            // trigger→invalidate transitions around the London/NY opens
+            // were missed — a 'triggered' alert fired on Telegram while
+            // the bot's cached feed still showed armed/invalidated, or
+            // didn't contain the signal at all. no-cache forces Fastly /
+            // jsDelivr to revalidate against origin (GitHub) each fetch,
+            // bringing staleness down to seconds. Kept the query bust as
+            // belt-and-braces for any intermediary that DOES vary on it.
+            _http.DefaultRequestHeaders.CacheControl =
+                new System.Net.Http.Headers.CacheControlHeaderValue
+                {
+                    NoCache = true,
+                    NoStore = true,
+                    MustRevalidate = true
+                };
+            _http.DefaultRequestHeaders.Pragma.ParseAdd("no-cache");
 
             // Effective parameters AFTER live-mode override.
             var effRisk = EffectiveRiskPct;
