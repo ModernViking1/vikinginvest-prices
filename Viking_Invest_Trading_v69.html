@@ -11592,6 +11592,24 @@ function _loadRecentBtCache(mode){
     // added have no fingerprint field and are accepted (one-off grace
     // period — they'll naturally expire under the TTL within 24h).
     if(parsed.fingerprint && parsed.fingerprint !== RULES_FINGERPRINT()) return null;
+    // 2026-06-23 — data-freshness check. The cache stores trades
+    // computed against the historical OHLC available at save time
+    // (intradayUpdated marks the intraday-ohlc.json feed timestamp
+    // that was loaded then). If the feed has since advanced — e.g.
+    // user kept the tab open and fetch-data.yml pushed new bars —
+    // the cache no longer covers the latest triggers and we force a
+    // rebuild instead of silently serving stale data. Caches written
+    // before this field existed (no intradayUpdated) get the same
+    // grace as pre-fingerprint caches: accepted until natural TTL.
+    var feedNow = window._intradayFeedUpdated;
+    if(parsed.intradayUpdated && feedNow && parsed.intradayUpdated !== feedNow){
+      // Optional: log once per session so it's visible in DevTools.
+      if(!window._btCacheBustedThisSession){
+        window._btCacheBustedThisSession = true;
+        try { console.info('[VI] Backtest cache invalidated — intraday feed advanced from', parsed.intradayUpdated, 'to', feedNow); } catch(_){}
+      }
+      return null;
+    }
     // Strip dropped pairs — stale cache entries from before a pair was
     // removed would otherwise still render a card (e.g. NZD/CAD seen on
     // mobile 2026-06-10 even after MKTS removal). Defensive: cache may
@@ -11683,6 +11701,13 @@ function _saveRecentBtCache(data, mode){
     localStorage.setItem(_cacheKeyForMode(mode), JSON.stringify({
       timestamp: Date.now(),
       fingerprint: RULES_FINGERPRINT(),
+      // 2026-06-23 — stamp the intraday feed version this cache was
+      // built against. _loadRecentBtCache compares against
+      // window._intradayFeedUpdated on next load and invalidates if
+      // fresher bars are available, so users don't see yesterday's
+      // last-trade after fetch-data has pushed several hours of new
+      // intraday candles.
+      intradayUpdated: window._intradayFeedUpdated || null,
       data: slim
     }));
   } catch(e){

@@ -10,10 +10,15 @@
 // Strategy:
 //   - HTML: network-first with cache fallback. Online users always get
 //     the latest deploy. Offline users get the last good copy.
-//   - JS / CSS: cache-first with background revalidate. Lazy-loaded
-//     chunks (dashboard-tests.js, dashboard-backtest-ui.js) use cache-
-//     bust query strings; `ignoreSearch:true` matches them to a single
-//     cached entry per file so we don't balloon storage.
+//   - JS / CSS: network-first with cache fallback (2026-06-23). Was
+//     cache-first with background revalidate, which produced the
+//     classic "you have to reload twice to get the new bundle"
+//     problem on every deploy — same-origin lazy-loaded chunks
+//     (dashboard-tests.js, dashboard-backtest-ui.js) shipped with
+//     stale code in the cached copy until the user hit reload again.
+//     Cost of going network-first is one extra fetch per page load
+//     (~200KB combined post-minify) — well within budget on modern
+//     networks. Offline users still get the cache fallback.
 //   - JSON / data feeds: bypass entirely.
 //   - Cross-origin: bypass entirely (Supabase, jsDelivr, etc.).
 //
@@ -77,21 +82,22 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // JS / CSS — cache-first with background revalidate. Lazy-loaded
-  // chunks use cache-bust query strings; ignoreSearch matches them all
-  // to a single cached entry per file.
+  // JS / CSS — network-first with cache fallback (2026-06-23). See
+  // strategy comment block above. Mirrors the HTML handler exactly so
+  // every same-origin resource updates immediately on the next page
+  // load after a deploy, with the cache serving as the offline net.
+  // ignoreSearch:true on the fallback so a network failure for
+  // .../dashboard-tests.js?v=NEW still resolves against the cached
+  // .../dashboard-tests.js?v=OLD (better than serving a hard 504).
   if (url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {
     event.respondWith(
-      caches.match(req, { ignoreSearch: true }).then(cached => {
-        const fetchPromise = fetch(req).then(resp => {
-          if (resp && resp.ok && resp.type !== 'opaque') {
-            const copy = resp.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
-          }
-          return resp;
-        }).catch(() => cached);
-        return cached || fetchPromise;
-      })
+      fetch(req).then(resp => {
+        if (resp && resp.ok && resp.type !== 'opaque') {
+          const copy = resp.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
+        }
+        return resp;
+      }).catch(() => caches.match(req, { ignoreSearch: true }))
     );
     return;
   }
