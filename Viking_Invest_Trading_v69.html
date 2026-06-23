@@ -1381,6 +1381,17 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   <!-- ── 5b. INTRADAY FAILURE MODE ANALYSIS — what's breaking and where ── -->
   <div id="failureModeAnalysis" style="background:rgba(192,40,26,0.03);border:1px solid rgba(192,40,26,0.18);border-radius:4px;padding:10px 12px;margin-bottom:10px;font-family:'Orbitron',monospace;font-size:9px;"></div>
 
+  <!-- ── INTRADAY FAILURE MODE — LIVE (2026-06-23). Sibling box driven by
+       window._brokerExecutions (closed broker fills from the cBot via
+       executions.json). Separate from the simulated panel above because
+       the live taxonomy is broker-fill-driven (target-hit / stop-hit /
+       cBot-invalidation / manual) — narrower than the simulated post-
+       trigger structural taxonomy. Two boxes lets the user compare the
+       same pair row-by-row across both surfaces without forcing either
+       into the other's category set. Renderer: renderLiveFailureMode()
+       (see dashboard-backtest-ui.js); auto-refreshes on every CDN poll. ── -->
+  <div id="failureModeAnalysisLive" style="background:rgba(13,90,54,0.04);border:1px solid rgba(13,90,54,0.20);border-radius:4px;padding:10px 12px;margin-bottom:10px;font-family:'Orbitron',monospace;font-size:9px;"></div>
+
   <!-- ── Test harnesses (MACD / NOWICK / RSI test buttons + force re-run)
        moved to a collapsed accordion below the failure-mode panel
        (2026-06-21k) — see the <details> block near the bottom of
@@ -13684,6 +13695,7 @@ function _runForceRerunVariants(btn, statusEl){
       // Re-render every dependent surface
       try { if(typeof refreshBacktestWR === 'function') refreshBacktestWR(); } catch(e){}
       try { if(typeof renderFailureModeAnalysis === 'function') renderFailureModeAnalysis(); } catch(e){}
+      try { if(typeof _renderLiveFailureMode === 'function') _renderLiveFailureMode(); } catch(e){}
       try { Object.keys(MKTS).forEach(function(k){ if(typeof refreshAlert === 'function') refreshAlert(k); }); } catch(e){}
       // CCI variant panel results are cached per session; clear on
       // force-rerun so the panel recomputes against the now-fresh
@@ -19760,6 +19772,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       // re-fetching.
       window._brokerExecutions = d.executions;
       try { _renderBrokerStrip(); } catch(_){}
+      try { _renderLiveFailureMode(); } catch(_){}
       // Early-out if the count hasn't changed since last poll.
       var total = d.counts && d.counts.total != null ? d.counts.total : d.executions.length;
       if(total === _execLastTotal) return;
@@ -19832,6 +19845,202 @@ function _renderCCIVariantPanel(host, commodityKeys){
                  + '<span>cTrader bridge active &middot; last event ' + lastSeen + '</span>'
                  + '<span>Today UTC: <strong>'+todayPlaced+'</strong> placed &middot; <strong>'+todayWins+'</strong>W / <strong>'+todayLosses+'</strong>L &middot; <span class="pf-broker-R '+rClass+'">'+rText+'</span></span>';
     el.style.display = 'flex';
+  }
+
+  // 2026-06-23 — LIVE failure-mode panel. Sibling to the simulated
+  // failureModeAnalysis box on the Backtest tab. Driven entirely by
+  // window._brokerExecutions (cBot-published broker fills via
+  // executions.json). The cBot's ClassifyCloseReason already labels
+  // each closed row as 'target-hit' / 'stop-hit' / 'manual-or-broker';
+  // we extend that into 5 buckets for trader-actionable insight:
+  //   - target-hit         (broker TP fill — clean win)
+  //   - stop-clean         (broker SL fill — clean loss, no progress)
+  //   - stop-after-progress (broker SL fill but exit ≥ 50% of way to TP
+  //                         at any prior point — would have been an
+  //                         "stopped-after-partial-progress" in sim)
+  //   - cbot-invalidation  (cBot ClosePosition() fired on invalidated
+  //                         signal — see 2026-06-22 invalidation fix)
+  //   - manual             (close came from outside the bot)
+  // The progress / cbot-invalidation distinctions rely on optional
+  // fields the cBot may not yet emit — they degrade silently to
+  // generic stop-hit / manual-or-broker when absent.
+  function _renderLiveFailureMode(){
+    var host = document.getElementById('failureModeAnalysisLive');
+    if(!host) return;
+    var execs = (window._brokerExecutions || []).filter(function(r){
+      return r && r.event === 'closed' && r.pair;
+    });
+    if(!execs.length){
+      host.innerHTML = '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;margin-bottom:6px;">▸ Intraday failure mode &middot; LIVE</div>'
+                     + '<div style="font-size:10px;color:var(--inkd);font-family:Mukta,sans-serif;letter-spacing:0;">Awaiting closed broker executions. This panel mirrors the simulated breakdown above using actual cTrader fills once the cBot has published its first closes. Auto-refreshes on every CDN poll (60s).</div>';
+      return;
+    }
+
+    // ── Classify each closed execution into one of 5 buckets ──
+    function classify(r){
+      // Optional richer signal from the cBot — if present, use it.
+      var reason = (r.reason || '').toLowerCase();
+      var closeSource = (r.close_source || '').toLowerCase();  // future cBot field
+      if(closeSource === 'cbot-invalidation' || reason === 'cbot-invalidation') return 'cbot-invalidation';
+      if(reason === 'target-hit') return 'target-hit';
+      // For stop-hits, see if max favourable excursion (if cBot starts
+      // recording it) ever crossed 50% of the way to target.
+      var mfeR = (typeof r.mfe_r === 'number') ? r.mfe_r : null;
+      if(reason === 'stop-hit'){
+        return (mfeR != null && mfeR >= 0.5) ? 'stop-after-progress' : 'stop-clean';
+      }
+      // Anything else (manual-or-broker, unknown) → manual bucket.
+      return 'manual';
+    }
+
+    // Aggregate per-pair.
+    var byPair = {};
+    var aggC = {'target-hit':0,'stop-clean':0,'stop-after-progress':0,'cbot-invalidation':0,'manual':0};
+    var totalR = 0, totalNet = 0, totalW = 0, totalL = 0;
+    execs.forEach(function(r){
+      var bucket = classify(r);
+      aggC[bucket]++;
+      if(typeof r.realized_r === 'number'){ totalR += r.realized_r; }
+      if(typeof r.net_profit === 'number'){ totalNet += r.net_profit; }
+      if(r.realized_r > 0) totalW++;
+      else if(r.realized_r < 0) totalL++;
+      var p = byPair[r.pair] || (byPair[r.pair] = {
+        trades:0, wins:0, losses:0, R:0, net:0,
+        buckets:{'target-hit':0,'stop-clean':0,'stop-after-progress':0,'cbot-invalidation':0,'manual':0}
+      });
+      p.trades++;
+      if(r.realized_r > 0) p.wins++; else if(r.realized_r < 0) p.losses++;
+      if(typeof r.realized_r === 'number') p.R += r.realized_r;
+      if(typeof r.net_profit === 'number') p.net += r.net_profit;
+      p.buckets[bucket]++;
+    });
+
+    // Map sim data per-pair for side-by-side WR comparison.
+    var simWR = {};
+    try {
+      if(typeof _loadRecentBtCache === 'function'){
+        var cache = _loadRecentBtCache('auto-ew') || {};
+        Object.keys(cache).forEach(function(k){
+          var rb = cache[k];
+          if(!rb) return;
+          var w = rb.wins || 0, l = rb.losses || 0;
+          if(w + l >= 20) simWR[k] = w / (w + l) * 100;
+        });
+      }
+    } catch(e){}
+
+    var pct = function(num, den){ return den > 0 ? (num/den*100) : 0; };
+    var fmtR = function(v){ return (v>=0?'+':'') + v.toFixed(2) + 'R'; };
+    var fmtPct = function(v){ return v.toFixed(0) + '%'; };
+    var pctColor = function(p){
+      if(p >= 70) return '#0d5a36';
+      if(p >= 60) return '#c8860a';
+      if(p >= 50) return '#d97706';
+      return '#c0281a';
+    };
+
+    var liveWR = pct(totalW, totalW + totalL);
+    var winShare = pct(aggC['target-hit'], execs.length);
+    var stopCleanShare = pct(aggC['stop-clean'], execs.length);
+    var stopProgShare  = pct(aggC['stop-after-progress'], execs.length);
+    var cbotInvShare   = pct(aggC['cbot-invalidation'], execs.length);
+    var manualShare    = pct(aggC['manual'], execs.length);
+
+    var smallSample = execs.length < 20;
+    var sampleNote = smallSample
+      ? '<span style="color:#c0281a;font-weight:700;">⚠ small sample (' + execs.length + ' closed)</span> — figures stabilise around n≥30. '
+      : '';
+
+    // ── Header + aggregate stats row ──
+    var headerHtml = '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">'
+                   + '<span>▸ Intraday failure mode &middot; LIVE</span>'
+                   + '<span style="font-size:8.5px;color:var(--inkd);letter-spacing:0.6px;font-weight:400;">' + execs.length + ' closed &middot; ' + fmtR(totalR) + ' realised &middot; ' + fmtPct(liveWR) + ' WR</span>'
+                   + '</div>';
+
+    var statsRow = '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px;font-size:9px;">'
+                 + _liveStatTile('🎯 Target hit', aggC['target-hit'], winShare, '#0d5a36')
+                 + _liveStatTile('🛑 Stop clean', aggC['stop-clean'], stopCleanShare, '#c0281a')
+                 + _liveStatTile('📉 Stop after MFE', aggC['stop-after-progress'], stopProgShare, '#d97706')
+                 + _liveStatTile('⚠️ cBot invalidation', aggC['cbot-invalidation'], cbotInvShare, '#c8860a')
+                 + _liveStatTile('🛠 Manual / other', aggC['manual'], manualShare, '#5a5550')
+                 + '</div>';
+
+    // ── Per-pair table ──
+    var pairKeys = Object.keys(byPair).sort(function(a,b){ return byPair[b].trades - byPair[a].trades; });
+    var rows = pairKeys.map(function(k){
+      var p = byPair[k];
+      var wr = pct(p.wins, p.wins + p.losses);
+      // Dominant bucket.
+      var dom = null, domN = -1;
+      Object.keys(p.buckets).forEach(function(b){
+        if(p.buckets[b] > domN){ dom = b; domN = p.buckets[b]; }
+      });
+      var domLabel = ({
+        'target-hit': '🎯 Target hit',
+        'stop-clean': '🛑 Stop clean',
+        'stop-after-progress': '📉 Stop after MFE',
+        'cbot-invalidation': '⚠️ cBot invalidation',
+        'manual': '🛠 Manual / other'
+      })[dom] || dom;
+      var simShown = (typeof simWR[k] === 'number')
+        ? '<span style="color:var(--inkd);">vs sim ' + simWR[k].toFixed(0) + '%</span>'
+        : '<span style="color:var(--inkd);opacity:0.5;">vs sim —</span>';
+      var liveWrTxt = (p.wins + p.losses) > 0 ? fmtPct(wr) : '—';
+      var deltaTxt = '';
+      if(typeof simWR[k] === 'number' && (p.wins + p.losses) >= 5){
+        var d = wr - simWR[k];
+        var dCol = d >= 0 ? '#0d5a36' : '#c0281a';
+        deltaTxt = ' <span style="color:' + dCol + ';font-weight:700;">' + (d>=0?'+':'') + d.toFixed(0) + 'pp</span>';
+      }
+      return '<tr>'
+           + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;">' + (k.toUpperCase()) + '</td>'
+           + '<td style="padding:5px 8px;text-align:right;">' + p.trades + '</td>'
+           + '<td style="padding:5px 8px;text-align:right;color:' + pctColor(wr) + ';font-weight:700;">' + liveWrTxt + deltaTxt + '</td>'
+           + '<td style="padding:5px 8px;text-align:right;color:' + (p.R>=0?'#0d5a36':'#c0281a') + ';">' + fmtR(p.R) + '</td>'
+           + '<td style="padding:5px 8px;font-size:8.5px;letter-spacing:0.2px;color:var(--inkm);">' + domLabel + ' <span style="opacity:0.6;">(' + domN + '/' + p.trades + ')</span> &middot; ' + simShown + '</td>'
+           + '</tr>';
+    }).join('');
+
+    var tableHtml = '<div style="font-size:8.5px;color:var(--inkd);margin-bottom:4px;letter-spacing:0.4px;">' + sampleNote
+                  + 'Per-pair breakdown · live close reasons aggregated from cTrader fills · "Δ vs sim" shows live WR minus simulated WR (where sample ≥ 5 / sim ≥ 20)'
+                  + '</div>'
+                  + '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;">'
+                  + '<table style="width:100%;border-collapse:collapse;font-size:9.5px;font-family:Orbitron,monospace;">'
+                  + '<thead><tr style="background:rgba(13,90,54,0.06);color:#0d5a36;font-weight:700;letter-spacing:0.5px;text-align:left;">'
+                  +   '<th style="padding:6px 8px;">Pair</th>'
+                  +   '<th style="padding:6px 8px;text-align:right;">N</th>'
+                  +   '<th style="padding:6px 8px;text-align:right;">Live WR</th>'
+                  +   '<th style="padding:6px 8px;text-align:right;">Realised R</th>'
+                  +   '<th style="padding:6px 8px;">Dominant close · sim WR</th>'
+                  + '</tr></thead>'
+                  + '<tbody>' + rows + '</tbody></table></div>';
+
+    // ── Interpretation hint when one bucket dominates ──
+    var hint = '';
+    if(execs.length >= 10){
+      var biggest = Object.keys(aggC).reduce(function(a,b){ return aggC[a] >= aggC[b] ? a : b; });
+      var hintText = ({
+        'stop-clean':           'Most live losses are clean stop-outs (trade went the wrong way from entry). The pre-entry filter is letting in setups that don\'t move in the trade direction — review entry confluence / RSI gates.',
+        'stop-after-progress':  'Most live losses reached significant MFE before stopping out. Stops may be too tight — consider widening or trailing once MFE crosses a threshold.',
+        'cbot-invalidation':    'Most exits are cBot invalidation closes. Post-trigger noise filters are catching real reversals — good signal hygiene, but check that the simulated WR isn\'t over-counting these as wins.',
+        'manual':               'Most closes are manual / non-bot. Operator is intervening — log the reasons to feed back into the rule set.',
+        'target-hit':           'Most closes are target hits — engine performing as designed.'
+      })[biggest];
+      if(hintText){
+        hint = '<div style="margin-top:8px;padding:8px 10px;background:rgba(13,90,54,0.05);border-left:3px solid #0d5a36;font-size:9px;line-height:1.5;color:var(--inkm);font-family:Mukta,sans-serif;letter-spacing:0;">'
+             + '<strong style="color:#0d5a36;">Read:</strong> ' + hintText
+             + '</div>';
+      }
+    }
+
+    host.innerHTML = headerHtml + statsRow + tableHtml + hint;
+  }
+  function _liveStatTile(label, n, pct, accent){
+    return '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;padding:7px 8px;text-align:center;">'
+         + '<div style="font-size:8px;letter-spacing:0.5px;color:var(--inkd);margin-bottom:3px;">' + label + '</div>'
+         + '<div style="font-family:Orbitron,monospace;font-size:14px;font-weight:900;color:' + accent + ';">' + n + '</div>'
+         + '<div style="font-size:8px;color:var(--inkd);letter-spacing:0.3px;">' + pct.toFixed(0) + '% of closed</div>'
+         + '</div>';
   }
   function _fetchKillSwitchFromSignals(){
     // signals.json is built every ~10 min by build_signals_json.py and
