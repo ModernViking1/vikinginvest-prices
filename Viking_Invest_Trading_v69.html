@@ -20033,7 +20033,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       }
     }
 
-    host.innerHTML = headerHtml + statsRow + tableHtml + hint;
+    host.innerHTML = headerHtml + statsRow + tableHtml + hint + _liveLossesList(execs);
   }
   function _liveStatTile(label, n, pct, accent){
     return '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;padding:7px 8px;text-align:center;">'
@@ -20042,6 +20042,346 @@ function _renderCCIVariantPanel(host, commodityKeys){
          + '<div style="font-size:8px;color:var(--inkd);letter-spacing:0.3px;">' + pct.toFixed(0) + '% of closed</div>'
          + '</div>';
   }
+
+  // ───────────────────────────────────────────────────────────────────
+  // PHASE 1 FAILED-TRADE INSPECTOR (2026-06-23)
+  // Per-loss "🔬 Replay" modal. Click a row in the Recent Losses list
+  // on the live failure-mode panel → opens an overlay with the trade
+  // context + four named hypothesis A/Bs that walk historical bars
+  // forward from entry to see whether a parameter tweak would have
+  // flipped the outcome. NOT an auto-tuner — purely a learning surface.
+  // The user reads the hypothesis verdicts, spots patterns across
+  // multiple losses, and only THEN proposes a rule change (which gets
+  // tested independently in Phase 2 with walk-forward discipline).
+  // ───────────────────────────────────────────────────────────────────
+
+  // Pick the highest-quality m15 OHLC source available for a pair —
+  // priority matches the chart renderer at line ~2935 (DEEP_HIST →
+  // INTRADAY → HISTORY price-point fallback).
+  function _replayGetBars(pair){
+    var bars = null;
+    if(typeof DEEP_HIST !== 'undefined' && DEEP_HIST[pair] && DEEP_HIST[pair].m15 && DEEP_HIST[pair].m15.length){
+      var dh = DEEP_HIST[pair].m15;
+      if(dh[0] && typeof dh[0].h !== 'undefined') return { bars: dh, src: 'DEEP_HIST.m15' };
+    }
+    if(typeof INTRADAY !== 'undefined' && INTRADAY[pair] && INTRADAY[pair].length){
+      var id = INTRADAY[pair];
+      if(id[0] && typeof id[0].h !== 'undefined') return { bars: id, src: 'INTRADAY.ohlc' };
+    }
+    return { bars: [], src: 'unavailable' };
+  }
+
+  // Walk forward through bars from entryIdx looking for whichever of
+  // (slPrice, tpPrice) gets hit first. dir = 'bull' (long) or 'bear'.
+  // Returns { hit: 'sl'|'tp'|'expired', barIdx, rAtClose }.
+  function _replayWalk(bars, entryIdx, dir, entryPx, slPrice, tpPrice, maxBars){
+    var R = Math.abs(entryPx - slPrice);
+    var fwdEnd = Math.min(bars.length, entryIdx + 1 + (maxBars || 24));
+    for(var j = entryIdx + 1; j < fwdEnd; j++){
+      var b = bars[j];
+      if(dir === 'bull'){
+        if(b.l <= slPrice) return { hit: 'sl', barIdx: j, rAtClose: -(entryPx - slPrice) / R };
+        if(b.h >= tpPrice) return { hit: 'tp', barIdx: j, rAtClose:  (tpPrice - entryPx) / R };
+      } else {
+        if(b.h >= slPrice) return { hit: 'sl', barIdx: j, rAtClose: -(slPrice - entryPx) / R };
+        if(b.l <= tpPrice) return { hit: 'tp', barIdx: j, rAtClose:  (entryPx - tpPrice) / R };
+      }
+    }
+    return { hit: 'expired', barIdx: fwdEnd - 1, rAtClose: 0 };
+  }
+
+  // Walk forward and report the maximum favourable excursion in R
+  // (signed +ve for trades that moved any distance toward target before
+  // closing). Used by H2 (move-stop-to-breakeven) and H3 (partial take).
+  function _replayMfe(bars, entryIdx, dir, entryPx, slPrice, maxBars){
+    var R = Math.abs(entryPx - slPrice);
+    if(R <= 0) return { mfeR: 0, barAtMfe: entryIdx };
+    var fwdEnd = Math.min(bars.length, entryIdx + 1 + (maxBars || 24));
+    var maxR = 0, barAtMfe = entryIdx;
+    for(var j = entryIdx + 1; j < fwdEnd; j++){
+      var b = bars[j];
+      // Stop walking after SL hit — MFE can only be earned while alive.
+      if(dir === 'bull'){
+        if(b.l <= slPrice) break;
+        var favBull = (b.h - entryPx) / R;
+        if(favBull > maxR){ maxR = favBull; barAtMfe = j; }
+      } else {
+        if(b.h >= slPrice) break;
+        var favBear = (entryPx - b.l) / R;
+        if(favBear > maxR){ maxR = favBear; barAtMfe = j; }
+      }
+    }
+    return { mfeR: maxR, barAtMfe: barAtMfe };
+  }
+
+  // Find the bar index closest to (but not before) the given creator ts.
+  function _replayFindEntryBar(bars, creatorTs){
+    if(!creatorTs || !bars || !bars.length) return -1;
+    for(var i = 0; i < bars.length; i++){
+      var t = bars[i].t || bars[i].ts || 0;
+      if(t >= creatorTs - 60000){ return i; }   // -1min tolerance
+    }
+    return -1;
+  }
+
+  // Run the four hypotheses for a single loss execution row.
+  function _replayAnalyse(exec){
+    var pair  = exec.pair;
+    var entry = exec.entry_filled || exec.entry_attempt || 0;
+    var stop  = exec.stop;
+    var tgt   = exec.target;
+    var dir   = exec.dir;       // 'bull' | 'bear'
+    if(!pair || !entry || !stop || !tgt || (dir !== 'bull' && dir !== 'bear')){
+      return { error: 'Trade row missing the price levels needed for replay (entry / stop / target / dir).' };
+    }
+    var got = _replayGetBars(pair);
+    if(!got.bars.length) return { error: 'No historical bars available for ' + pair + ' — DEEP_HIST and INTRADAY both empty.' };
+
+    var sidParts = (exec.signal_id || '').split(':');
+    var creatorTs = parseInt(sidParts[1], 10) || exec.ts || 0;
+    var entryIdx = _replayFindEntryBar(got.bars, creatorTs);
+    if(entryIdx < 0 || entryIdx >= got.bars.length - 2){
+      return { error: 'Could not locate the entry bar in history (creator ts ' + creatorTs + ' / ' + got.src + ').' };
+    }
+
+    var Rdist = Math.abs(entry - stop);
+
+    // H1 — Wider stop (1.5× R). Walk with original target.
+    var widerStop = dir === 'bull' ? entry - 1.5 * Rdist : entry + 1.5 * Rdist;
+    var h1 = _replayWalk(got.bars, entryIdx, dir, entry, widerStop, tgt, 24);
+
+    // H2 — Move stop to breakeven once MFE reaches +0.5R.
+    // First compute the MFE on the original trade. If MFE crossed
+    // +0.5R, the breakeven stop was armed BEFORE the trade hit its
+    // original SL. We then claim a 0R exit (assumed to be hit when
+    // price came back through entry).
+    var mfeInfo = _replayMfe(got.bars, entryIdx, dir, entry, stop, 24);
+    var h2;
+    if(mfeInfo.mfeR >= 0.5){
+      h2 = { hit: 'be', rAtClose: 0, mfeR: mfeInfo.mfeR };
+    } else {
+      h2 = { hit: 'sl', rAtClose: -1, mfeR: mfeInfo.mfeR };
+    }
+
+    // H3 — Take +0.5R partial profit. Did price reach +0.5R level
+    // before SL? If yes, exit at +0.5R; if no, original outcome stands.
+    var partialTgt = dir === 'bull' ? entry + 0.5 * Rdist : entry - 0.5 * Rdist;
+    var h3 = _replayWalk(got.bars, entryIdx, dir, entry, stop, partialTgt, 24);
+    if(h3.hit === 'tp'){
+      h3.rAtClose = 0.5;
+      h3.label = 'reached +0.5R';
+    }
+
+    // H4 — Time-of-day filter. Major session boundaries (UTC):
+    // 08:00 London open, 13:00 NY pre-open, 16:00 LDN close.
+    // Within ±30min of any boundary = filter would have skipped.
+    var triggerDate = new Date(creatorTs);
+    var triggerHr   = triggerDate.getUTCHours();
+    var triggerMin  = triggerDate.getUTCMinutes();
+    var triggerMinOfDay = triggerHr * 60 + triggerMin;
+    var boundariesMin = [8*60, 13*60, 16*60, 21*60]; // LDN open, NY pre-open, LDN close, NY close
+    var minutesToNearest = Infinity;
+    boundariesMin.forEach(function(bm){
+      var d = Math.abs(triggerMinOfDay - bm);
+      d = Math.min(d, 1440 - d);  // wrap-around
+      if(d < minutesToNearest) minutesToNearest = d;
+    });
+    var h4 = {
+      withinWindow: minutesToNearest <= 30,
+      minutesToNearest: minutesToNearest,
+      triggerUtc: ('0' + triggerHr).slice(-2) + ':' + ('0' + triggerMin).slice(-2)
+    };
+
+    return {
+      entryIdx: entryIdx, barsSrc: got.src, Rdist: Rdist,
+      actual: { rAtClose: exec.realized_r, reason: exec.reason, mfeR: exec.mfe_r || mfeInfo.mfeR },
+      H1: h1, H2: h2, H3: h3, H4: h4
+    };
+  }
+
+  function _replayRenderModal(exec, A){
+    var pair = (exec.pair || '').toUpperCase();
+    var dirArrow = exec.dir === 'bull' ? '▲ BUY' : '▼ SELL';
+    var dirColor = exec.dir === 'bull' ? '#0d5a36' : '#c0281a';
+    var rAct = (typeof exec.realized_r === 'number') ? exec.realized_r.toFixed(2) + 'R' : '?R';
+    var netAct = (typeof exec.net_profit === 'number') ? (exec.net_profit >= 0 ? '+' : '') + exec.net_profit.toFixed(2) : '?';
+    var tsTxt = exec.ts ? new Date(exec.ts).toISOString().replace('T',' ').slice(0,16) + 'Z' : '?';
+
+    var ctxRows = [
+      ['Pair · dir',     '<span style="color:' + dirColor + ';font-weight:700;">' + pair + ' ' + dirArrow + '</span>'],
+      ['Closed at',      tsTxt],
+      ['Entry · stop · target', exec.entry_filled + ' · ' + exec.stop + ' · ' + exec.target],
+      ['Exit price',     (exec.exit_price || '?')],
+      ['Realised',       '<span style="color:#c0281a;font-weight:700;">' + rAct + ' (' + netAct + ')</span>'],
+      ['Close reason',   exec.reason || 'manual-or-broker'],
+      ['Close source',   exec.close_source || '(broker)'],
+      ['Signal id',      '<code style="font-size:9.5px;">' + (exec.signal_id || '?') + '</code>']
+    ];
+    var ctxHtml = ctxRows.map(function(r){
+      return '<tr><td style="padding:3px 8px;color:var(--inkd);">' + r[0] + '</td>'
+           +     '<td style="padding:3px 8px;font-family:Orbitron,monospace;">' + r[1] + '</td></tr>';
+    }).join('');
+
+    if(A.error){
+      var errBody = '<div style="padding:14px 16px;background:rgba(192,40,26,0.06);border-left:3px solid #c0281a;color:var(--inkm);font-size:11px;line-height:1.5;">'
+                  + '<strong style="color:#c0281a;">Replay unavailable.</strong> ' + A.error
+                  + '</div>';
+      return _replayWrapModal(pair, dirArrow, ctxHtml, errBody);
+    }
+
+    function verdict(kind, text, ok){
+      var bg = ok === true ? 'rgba(13,90,54,0.08)' : ok === false ? 'rgba(192,40,26,0.06)' : 'rgba(200,134,10,0.06)';
+      var bd = ok === true ? '#0d5a36' : ok === false ? '#c0281a' : '#c8860a';
+      var ic = ok === true ? '✅' : ok === false ? '❌' : '◐';
+      return '<div style="padding:10px 12px;background:' + bg + ';border-left:3px solid ' + bd + ';border-radius:3px;font-size:10.5px;line-height:1.5;color:var(--inkm);">'
+           + '<div style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:1.2px;color:' + bd + ';font-weight:700;text-transform:uppercase;margin-bottom:5px;">' + ic + ' ' + kind + '</div>'
+           + text + '</div>';
+    }
+
+    var h1Card;
+    if(A.H1.hit === 'tp'){
+      h1Card = verdict('H1 · wider stop (1.5R)', '<strong>Would have hit target.</strong> A stop 50% wider than the structural extreme survived long enough for price to reach the +1R target at bar +' + (A.H1.barIdx - A.entryIdx) + '. Loss avoided: −1R → +1R (net ΔR ≈ +2.0). Caution: hot fix is to widen stops, but doing so universally also lets bigger losers run on trades that would have stopped cleanly either way.', true);
+    } else if(A.H1.hit === 'sl'){
+      h1Card = verdict('H1 · wider stop (1.5R)', '<strong>Still would have stopped.</strong> Price extended past the wider stop level too. Loosening the stop on this setup would not have helped — the entry was directionally wrong rather than just too-tight.', false);
+    } else {
+      h1Card = verdict('H1 · wider stop (1.5R)', 'Trade would still be open at the end of the 6h window (neither wider stop nor original target was hit). Inconclusive on a wider-stop fix.', null);
+    }
+
+    var h2Card;
+    if(A.H2.hit === 'be'){
+      h2Card = verdict('H2 · breakeven stop after +0.5R MFE', '<strong>Would have exited at breakeven.</strong> Price reached +' + A.H2.mfeR.toFixed(2) + 'R favourable excursion before stopping; a stop-to-breakeven rule at the +0.5R checkpoint would have closed this at 0R instead of −1R. Net ΔR ≈ +1.0.', true);
+    } else {
+      h2Card = verdict('H2 · breakeven stop after +0.5R MFE', '<strong>Never reached +0.5R MFE</strong> (peak was +' + A.H2.mfeR.toFixed(2) + 'R). The breakeven trigger wouldn\'t have armed in time — this trade went against us from the open.', false);
+    }
+
+    var h3Card;
+    if(A.H3.hit === 'tp'){
+      h3Card = verdict('H3 · take +0.5R partial', '<strong>Reached +0.5R level.</strong> A partial-take rule at +0.5R would have realised +0.5R before the stop hit, reducing the net loss from −1R to −0.5R. Net ΔR ≈ +0.5. Trade still failed; this is a damage-reducer, not a winner-maker.', true);
+    } else {
+      h3Card = verdict('H3 · take +0.5R partial', 'Price never reached +0.5R favourable on this trade. Partial-take rule would not have triggered. No improvement.', false);
+    }
+
+    var h4Card;
+    if(A.H4.withinWindow){
+      h4Card = verdict('H4 · time-of-day filter', '<strong>Trade fired at ' + A.H4.triggerUtc + ' UTC — only ' + A.H4.minutesToNearest + ' min from a session boundary.</strong> A "skip ±30min around 08:00 / 13:00 / 16:00 / 21:00 UTC" filter would have blocked this entry. Useful if multiple losses cluster in these windows.', true);
+    } else {
+      h4Card = verdict('H4 · time-of-day filter', 'Trade fired at ' + A.H4.triggerUtc + ' UTC — ' + A.H4.minutesToNearest + ' min from the nearest session boundary, well outside the ±30min filter. The filter would not have blocked this entry.', false);
+    }
+
+    var sumDelta = 0;
+    var wins = 0;
+    [A.H1, A.H2, A.H3].forEach(function(h){
+      if(h.hit === 'tp' || h.hit === 'be'){ wins++; }
+    });
+    if(A.H4.withinWindow) wins++;
+    var summaryLine = '<div style="padding:10px 14px;background:linear-gradient(135deg,#0d5a36 0%,#082d1a 100%);color:#fff;border-radius:3px;margin-top:10px;font-size:11px;line-height:1.55;letter-spacing:0.2px;">'
+                    + '<strong style="color:#c8860a;font-family:Orbitron,monospace;letter-spacing:1.5px;font-size:9.5px;text-transform:uppercase;">Read:</strong> '
+                    + wins + ' of 4 hypotheses would have improved this outcome. ' + (wins === 0 ? 'This trade looks like a clean directional loss — no easy lever to pull retrospectively.' : wins === 1 ? 'Single lever — note which one, then check if it replicates across the next handful of losses before changing the rule set.' : 'Multiple levers fire — check correlation: if H2 + H3 both pass, the trade reached MFE before stopping (stops may be tight on this pair). If H4 also fires, time-of-day clustering is worth investigating.')
+                    + '</div>';
+
+    var hypoGrid = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+                 + h1Card + h2Card + h3Card + h4Card
+                 + '</div>' + summaryLine;
+    var srcLine = '<div style="font-size:8.5px;color:var(--inkd);margin-top:8px;letter-spacing:0.3px;">'
+                + 'Bars source: <code>' + A.barsSrc + '</code> · 1R distance: ' + (A.Rdist || 0).toFixed(5) + ' price units · window: 24 m15 bars (6h)'
+                + '</div>';
+
+    return _replayWrapModal(pair, dirArrow, ctxHtml, hypoGrid + srcLine);
+  }
+
+  function _replayWrapModal(pair, dirArrow, ctxHtml, body){
+    return '<div onclick="event.stopPropagation()" style="background:#fff;border-radius:6px;max-width:760px;width:100%;max-height:90vh;overflow-y:auto;padding:0;box-shadow:0 12px 32px rgba(0,0,0,0.32);font-family:Mukta,sans-serif;color:var(--ink);">'
+         +   '<div style="display:flex;align-items:baseline;justify-content:space-between;padding:18px 22px 12px;border-bottom:1px solid var(--rule);">'
+         +     '<div>'
+         +       '<div style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:3px;color:var(--gold);text-transform:uppercase;margin-bottom:4px;">🔬 Failed-trade inspector</div>'
+         +       '<h2 style="font-family:Orbitron,monospace;font-size:18px;font-weight:900;letter-spacing:1px;margin:0;">' + pair + ' · ' + dirArrow + '</h2>'
+         +     '</div>'
+         +     '<button onclick="window.__viReplayClose()" style="background:transparent;border:none;font-size:24px;color:var(--inkd);cursor:pointer;line-height:1;">×</button>'
+         +   '</div>'
+         +   '<div style="padding:14px 22px;border-bottom:1px solid var(--rule);">'
+         +     '<div style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:1.4px;color:var(--inkd);text-transform:uppercase;margin-bottom:6px;">Trade context</div>'
+         +     '<table style="width:100%;font-size:10.5px;border-collapse:collapse;">' + ctxHtml + '</table>'
+         +   '</div>'
+         +   '<div style="padding:14px 22px;">'
+         +     '<div style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:1.4px;color:var(--inkd);text-transform:uppercase;margin-bottom:8px;">Hypothesis A/B · what would have flipped this?</div>'
+         +     body
+         +   '</div>'
+         + '</div>';
+  }
+
+  window.__viReplayClose = function(){
+    var o = document.getElementById('vi-replay-overlay');
+    if(o) o.style.display = 'none';
+  };
+  window.__viReplayLoss = function(index){
+    var losses = window._viRecentLosses || [];
+    var exec = losses[index];
+    if(!exec) return;
+    var analysis = _replayAnalyse(exec);
+    var modalHtml = _replayRenderModal(exec, analysis);
+    var overlay = document.getElementById('vi-replay-overlay');
+    if(!overlay){
+      overlay = document.createElement('div');
+      overlay.id = 'vi-replay-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(28,26,23,0.78);z-index:9998;display:none;align-items:flex-start;justify-content:center;padding:24px;backdrop-filter:blur(4px);overflow-y:auto;';
+      overlay.onclick = function(){ window.__viReplayClose(); };
+      document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = modalHtml;
+    overlay.style.display = 'flex';
+  };
+
+  // "Recent Losses" table appended to the live failure-mode panel.
+  function _liveLossesList(execs){
+    var losses = (execs || []).filter(function(r){
+      return r && r.event === 'closed' && (r.realized_r < 0 || (typeof r.net_profit === 'number' && r.net_profit < 0));
+    }).sort(function(a, b){ return (b.ts || 0) - (a.ts || 0); }).slice(0, 20);
+    if(!losses.length) return '';
+    window._viRecentLosses = losses;
+    var rows = losses.map(function(L, i){
+      var ts = L.ts ? new Date(L.ts) : null;
+      var tsTxt = ts ? (
+        ('0' + ts.getUTCDate()).slice(-2) + ' ' +
+        ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][ts.getUTCMonth()] + ' ' +
+        ('0' + ts.getUTCHours()).slice(-2) + ':' + ('0' + ts.getUTCMinutes()).slice(-2) + 'Z'
+      ) : '?';
+      var pairTxt = (L.pair || '').toUpperCase();
+      var dirTxt = L.dir === 'bull' ? '▲' : '▼';
+      var rTxt = (typeof L.realized_r === 'number') ? L.realized_r.toFixed(2) + 'R' : '?';
+      var reasonShort = ({
+        'stop-hit': '🛑 Stop',
+        'target-hit': '🎯 Target',
+        'manual-or-broker': '🛠 Manual',
+        'cbot-invalidation': '⚠️ cBot inv.'
+      })[L.reason] || (L.reason || '?');
+      return '<tr style="border-bottom:1px solid rgba(13,90,54,0.08);">'
+           + '<td style="padding:5px 8px;color:var(--inkd);">' + tsTxt + '</td>'
+           + '<td style="padding:5px 8px;font-weight:700;">' + pairTxt + ' <span style="color:' + (L.dir === 'bull' ? '#0d5a36' : '#c0281a') + ';">' + dirTxt + '</span></td>'
+           + '<td style="padding:5px 8px;text-align:right;color:#c0281a;font-weight:700;">' + rTxt + '</td>'
+           + '<td style="padding:5px 8px;color:var(--inkm);font-size:9px;">' + reasonShort + '</td>'
+           + '<td style="padding:5px 8px;text-align:right;"><button onclick="window.__viReplayLoss(' + i + ')" style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.5px;padding:3px 9px;background:rgba(13,90,54,0.08);color:#0d5a36;border:1px solid rgba(13,90,54,0.35);border-radius:3px;cursor:pointer;">🔬 Replay</button></td>'
+           + '</tr>';
+    }).join('');
+    return '<div style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(13,90,54,0.25);">'
+         + '<div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:1.2px;color:#0d5a36;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;align-items:baseline;">'
+         +   '<span>📒 Recent Losses</span>'
+         +   '<span style="font-weight:400;font-size:8.5px;color:var(--inkd);letter-spacing:0.4px;">last ' + losses.length + ' · click 🔬 to inspect</span>'
+         + '</div>'
+         + '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;">'
+         +   '<table style="width:100%;border-collapse:collapse;font-family:Orbitron,monospace;font-size:9.5px;">'
+         +     '<thead><tr style="background:rgba(13,90,54,0.05);color:var(--inkd);text-align:left;letter-spacing:0.4px;">'
+         +       '<th style="padding:6px 8px;font-weight:700;">When (UTC)</th>'
+         +       '<th style="padding:6px 8px;font-weight:700;">Pair · dir</th>'
+         +       '<th style="padding:6px 8px;text-align:right;font-weight:700;">R</th>'
+         +       '<th style="padding:6px 8px;font-weight:700;">Reason</th>'
+         +       '<th style="padding:6px 8px;text-align:right;font-weight:700;">Inspect</th>'
+         +     '</tr></thead>'
+         +     '<tbody>' + rows + '</tbody>'
+         +   '</table>'
+         + '</div>'
+         + '</div>';
+  }
+
   function _fetchKillSwitchFromSignals(){
     // signals.json is built every ~10 min by build_signals_json.py and
     // includes the kill_switch payload in its envelope. Fetch + cache so
