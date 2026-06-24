@@ -760,6 +760,23 @@ namespace cAlgo.Robots
                 return;
             }
 
+            // 2026-06-24 — one-position-per-pair guard. Two DIFFERENT signal
+            // ids on the same instrument (a wick + a fib trigger, or two wick
+            // triggers on different bars) would each open a position, stacking
+            // correlated exposure on one symbol and burning the Max-positions
+            // budget on a single bet. The backtest WR is computed one-trade-
+            // per-signal with no such stacking, so we cap live to one open
+            // position per resolved broker symbol to keep the live edge aligned
+            // with the simulated edge. Check the resolved symbol.Name (not the
+            // feed pair) so aliased instruments collapse correctly. Mark seen
+            // so the duplicate trigger doesn't re-evaluate every poll.
+            if (Positions.Any(p => p.Label == OrderLabel && p.SymbolName == symbol.Name))
+            {
+                Print($"⏭ [VikingInvest] Already holding {symbol.Name} — skipping id={sig.Id} (one-per-pair).");
+                MarkSeen(sig.Id); _ordersSkipped++;
+                return;
+            }
+
             // Concurrency check — count our open positions by label.
             var ourOpen = Positions.Count(p => p.Label == OrderLabel);
             if (ourOpen >= EffectiveMaxPositions)
