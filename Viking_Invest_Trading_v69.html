@@ -1030,7 +1030,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   <div class="viauth-card vipro-card">
     <button type="button" class="viauth-close" onclick="window.__viAuthClose&&window.__viAuthClose()" aria-label="Close">&times;</button>
     <div class="viauth-eyebrow" id="viauth-eyebrow">Restricted access</div>
-    <h2 id="viauth-title">Sign in to view the Investor tab</h2>
+    <h2 id="viauth-title">Sign in to view the Performance, Investor and Backtest tabs</h2>
     <p id="viauth-intro">Already registered? Enter your email and we&rsquo;ll send a one-tap sign-in link. First time here? <a href="#" id="viauth-switch-to-register" onclick="event.preventDefault();window.__viAuthSetMode&&window.__viAuthSetMode('register');">Register instead</a>.</p>
     <form id="viauth-form" class="vipro-form">
       <label>Email <span class="vipro-req">*</span><input type="email" id="viauth-email" placeholder="you@example.com" autocomplete="email" required></label>
@@ -17485,7 +17485,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       if(registerBlock) registerBlock.style.display = '';
       if(btn) btn.textContent = 'Register & send access link';
       if(eyebrow) eyebrow.textContent = 'Restricted access — register to view';
-      if(title) title.textContent = 'Register to view the Investor tab';
+      if(title) title.textContent = 'Register to view the Performance, Investor and Backtest tabs';
       if(intro) intro.innerHTML = 'Registration is free and takes 30 seconds. We use the details below to personalise your dashboard and route the right alert categories to the right traders. <strong>Your details are never shared with third parties.</strong>';
       if(switchToReg) switchToReg.style.display = 'none';
       if(switchToSign) switchToSign.style.display = '';
@@ -17493,7 +17493,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       if(registerBlock) registerBlock.style.display = 'none';
       if(btn) btn.textContent = 'Send sign-in link';
       if(eyebrow) eyebrow.textContent = 'Restricted access';
-      if(title) title.textContent = 'Sign in to view the Investor tab';
+      if(title) title.textContent = 'Sign in to view the Performance, Investor and Backtest tabs';
       if(intro) intro.innerHTML = 'Already registered? Enter your email and we&rsquo;ll send a one-tap sign-in link. First time here? <a href="#" onclick="event.preventDefault();window.__viAuthSetMode&&window.__viAuthSetMode(\'register\');">Register instead</a>.';
       if(switchToReg) switchToReg.style.display = '';
       if(switchToSign) switchToSign.style.display = 'none';
