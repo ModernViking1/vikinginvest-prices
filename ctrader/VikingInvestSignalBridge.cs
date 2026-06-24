@@ -1214,9 +1214,13 @@ namespace cAlgo.Robots
             try
             {
                 var url = $"https://api.github.com/repos/{GhRepoOwner}/{GhRepoName}/dispatches";
-                // Wrap the execution line as the client_payload. The line
-                // is already valid JSON for one object — we just nest it.
-                var body = "{\"event_type\":\"cbot-execution\",\"client_payload\":" + executionJsonLine + "}";
+                // GitHub's repository_dispatch caps client_payload at 10 TOP-
+                // LEVEL properties and returns 422 otherwise. The execution
+                // row carries ~24 fields, so we nest the whole row under a
+                // single "row" key — client_payload then has exactly one
+                // property. The ingest workflow reads client_payload.row.
+                // (executionJsonLine is already a valid JSON object string.)
+                var body = "{\"event_type\":\"cbot-execution\",\"client_payload\":{\"row\":" + executionJsonLine + "}}";
                 using var req = new HttpRequestMessage(HttpMethod.Post, url);
                 req.Headers.Add("Accept", "application/vnd.github+json");
                 req.Headers.Add("User-Agent", "VikingInvest-cTrader-Bot/1.0");

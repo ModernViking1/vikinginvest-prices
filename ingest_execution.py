@@ -7,8 +7,13 @@ Validates one cBot execution event (received via the
 to executions.json with dedup, bounded retention, and schema enforcement.
 
 Run path:
-    workflow → env PAYLOAD = JSON.stringify(github.event.client_payload)
+    workflow → env PAYLOAD = toJSON(github.event.client_payload.row)
              → this script reads PAYLOAD, validates, appends.
+
+    The cBot nests the execution row under a single "row" key because
+    GitHub's repository_dispatch caps client_payload at 10 top-level
+    properties (422 otherwise) and the row carries ~24 fields. So
+    PAYLOAD here is the row object itself, not the wrapper.
 
 Idempotency:
     Dedup key = (signal_id, event, ts). The cBot is allowed to retry

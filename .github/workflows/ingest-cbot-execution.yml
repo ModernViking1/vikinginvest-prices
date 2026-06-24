@@ -40,11 +40,17 @@ name: Ingest cBot Execution
 #     "ts":            1717852800000   (epoch ms)
 #   }
 #
+# IMPORTANT — GitHub's repository_dispatch caps client_payload at 10
+# TOP-LEVEL properties (returns HTTP 422 otherwise). The execution row
+# has ~24 fields, so the cBot nests the whole row under a single "row"
+# key: client_payload = {"row": { ...24 fields... }}. Every step below
+# therefore reads github.event.client_payload.row, not client_payload.
+#
 # Trigger:
 #   curl -X POST -H "Authorization: token $PAT" \
 #        -H "Accept: application/vnd.github+json" \
 #        https://api.github.com/repos/ModernViking1/vikinginvest-prices/dispatches \
-#        -d '{"event_type":"cbot-execution","client_payload":{...}}'
+#        -d '{"event_type":"cbot-execution","client_payload":{"row":{...}}}'
 
 on:
   repository_dispatch:
@@ -72,7 +78,7 @@ jobs:
 
       - name: Validate + append to executions.json
         env:
-          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+          PAYLOAD: ${{ toJSON(github.event.client_payload.row) }}
         run: |
           python3 ingest_execution.py
 
@@ -92,7 +98,7 @@ jobs:
           SIGID=$(python3 -c "import json,os; print(json.loads(os.environ['PAYLOAD']).get('signal_id','?'))")
           git commit -m "cbot: $EVENT — $SIGID"
         env:
-          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+          PAYLOAD: ${{ toJSON(github.event.client_payload.row) }}
 
       - name: Push with race-retry
         run: |
@@ -130,7 +136,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
-          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+          PAYLOAD: ${{ toJSON(github.event.client_payload.row) }}
         run: |
           set +e
           python3 - <<'PY'
