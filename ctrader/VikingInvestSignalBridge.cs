@@ -73,7 +73,13 @@ namespace cAlgo.Robots
         [Parameter("Dry run (log only)", DefaultValue = false, Group = "Safety")]
         public bool DryRun { get; set; }
 
-        [Parameter("Verbose logging", DefaultValue = true, Group = "Debug")]
+        // 2026-06-24 — default OFF. The invalidated-signal branch sits ahead
+        // of the dedup gate (so a position opened mid-poll still gets closed),
+        // which means every dead signal in the feed re-logs on every 30s poll.
+        // With a couple dozen stale invalidations that's a wall of noise that
+        // buries the lines that matter (placed / closed / kill-switch). Flip
+        // to true per-instance when actively debugging.
+        [Parameter("Verbose logging", DefaultValue = false, Group = "Debug")]
         public bool VerboseLog { get; set; }
 
         // ── Phase 3.5 — auto-publish executions back to the repo ──
