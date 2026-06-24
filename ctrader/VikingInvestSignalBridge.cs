@@ -157,6 +157,17 @@ namespace cAlgo.Robots
         // event can write a clean execution row tying broker P&L back
         // to the detector signal that created it. positionId → signal id.
         private Dictionary<long, string> _positionIdToSignalId = new Dictionary<long, string>();
+        // 2026-06-24 — Phase 1 failed-trade inspector hooks.
+        // _positionMaxFavR     : running MFE in R per open position, sampled
+        //                        once per poll tick (≥5s). Coarse but ample
+        //                        for multi-hour intraday trades — answers
+        //                        "did this loss ever run into profit first?".
+        // _positionCloseSource : "cbot_invalidation" / "manual" / "broker".
+        //                        Stamped by whichever code path triggers the
+        //                        close; OnPositionClosed reads it and falls
+        //                        back to "broker" if nothing stamped it.
+        private Dictionary<long, double> _positionMaxFavR     = new Dictionary<long, double>();
+        private Dictionary<long, string> _positionCloseSource = new Dictionary<long, string>();
         // Phase 4 — daily loss tracker. Realized R is summed per UTC day
         // (key = "yyyy-MM-dd") and persisted to disk so a cBot restart
         // mid-day doesn't reset the budget. When the day's negative R
@@ -301,7 +312,41 @@ namespace cAlgo.Robots
 
         protected override void OnTimer()
         {
+            // Sample max-favourable-excursion for every open position first
+            // (cheap, synchronous, main-thread) so even if PollAndProcess
+            // does nothing this tick we keep the MFE trace fresh.
+            SampleOpenPositionMfe();
             _ = PollAndProcess();
+        }
+
+        // 2026-06-24 — Phase 1 inspector. Walk open positions and record the
+        // furthest each has run into profit, expressed in R (favourable price
+        // move ÷ stop distance). Stored per position-id; OnPositionClosed
+        // reads the final value into the execution row. Sampling on the poll
+        // tick (not OnTick) keeps this off the hot path — a few-second
+        // resolution is plenty to distinguish "never went green" from "ran to
+        // +1.5R then reversed", which is the only thing the inspector needs.
+        private void SampleOpenPositionMfe()
+        {
+            try
+            {
+                foreach (var pos in Positions)
+                {
+                    if (pos.Label != OrderLabel) continue;
+                    if (!pos.StopLoss.HasValue || pos.EntryPrice <= 0) continue;
+                    var stopDistPx = Math.Abs(pos.EntryPrice - pos.StopLoss.Value);
+                    if (stopDistPx <= 0) continue;
+                    var nowPx = pos.TradeType == TradeType.Buy ? pos.Symbol.Bid : pos.Symbol.Ask;
+                    var favPx = pos.TradeType == TradeType.Buy
+                                ? (nowPx - pos.EntryPrice)
+                                : (pos.EntryPrice - nowPx);
+                    var favR = favPx / stopDistPx;
+                    double prev = 0;
+                    _positionMaxFavR.TryGetValue(pos.Id, out prev);
+                    if (favR > prev) _positionMaxFavR[pos.Id] = favR;
+                }
+            }
+            catch { /* defensive — never let the MFE trace crash the poll */ }
         }
 
         protected override void OnStop()
@@ -613,6 +658,10 @@ namespace cAlgo.Robots
                     var pos = Positions.FirstOrDefault(p => p.Id == matchedPosId);
                     if (pos != null)
                     {
+                        // Stamp the source BEFORE closing so the synchronous
+                        // Positions.Closed callback (OnPositionClosed) reads
+                        // "cbot_invalidation" rather than the "broker" default.
+                        _positionCloseSource[pos.Id] = "cbot_invalidation";
                         var close = ClosePosition(pos);
                         if (close.IsSuccessful)
                         {
@@ -839,6 +888,14 @@ namespace cAlgo.Robots
             }
             catch { /* defensive — never let stats math crash the bot */ }
 
+            // Phase 1 inspector — pull the MFE trace + close-source stamp for
+            // this position. Default close-source to "broker" (SL/TP fill or
+            // manual close in cTrader) when nothing in our code stamped it.
+            double mfeR = 0;
+            _positionMaxFavR.TryGetValue(p.Id, out mfeR);
+            string closeSrc;
+            if (!_positionCloseSource.TryGetValue(p.Id, out closeSrc)) closeSrc = "broker";
+
             WriteExecution(new ExecutionRow
             {
                 Event       = "closed",
@@ -857,10 +914,14 @@ namespace cAlgo.Robots
                 Swap        = p.Swap,
                 RealizedR   = realizedR,
                 Reason      = ClassifyCloseReason(p),
+                MfeR        = mfeR,
+                CloseSource = closeSrc,
                 AccountMode = Account.IsLive ? "live" : "demo",
                 Account     = Account.Number,
             });
             if (sigId != null) _positionIdToSignalId.Remove(p.Id);
+            _positionMaxFavR.Remove(p.Id);
+            _positionCloseSource.Remove(p.Id);
             Print($"📒 [VikingInvest] Position closed {p.SymbolName} {p.TradeType} · " +
                   $"net={p.NetProfit:F2} R={realizedR:F2} signal={sigId ?? "(unlinked)"}");
 
@@ -1062,6 +1123,8 @@ namespace cAlgo.Robots
             public double Swap;
             public double RealizedR;
             public string Reason;
+            public double MfeR;             // max favourable excursion in R (Phase 1 inspector)
+            public string CloseSource;      // cbot_invalidation | manual | broker
             public string AccountMode;      // "demo" | "live"
             public long   Account;
         }
@@ -1096,6 +1159,8 @@ namespace cAlgo.Robots
                 F(sb, "swap",          r.Swap);                                          sb.Append(',');
                 F(sb, "realized_r",    r.RealizedR);                                     sb.Append(',');
                 F(sb, "reason",        r.Reason);                                        sb.Append(',');
+                F(sb, "mfe_r",         r.MfeR);                                          sb.Append(',');
+                F(sb, "close_source",  r.CloseSource);                                   sb.Append(',');
                 F(sb, "account_mode",  r.AccountMode);                                   sb.Append(',');
                 F(sb, "account",       r.Account);
                 sb.Append('}');
