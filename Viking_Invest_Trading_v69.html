@@ -8866,6 +8866,16 @@ function switchPage(p){
   // the mobile cold-start path. buildBacktest is idempotent so the
   // re-entry on subsequent navigations is a clean re-render.
   if(p === 'bt' && typeof buildBacktest === 'function') setTimeout(buildBacktest, 30);
+  // 2026-06-24 — render the LIVE failure-mode panel (sibling of the
+  // simulated red panel). The function is defined inside the broker-
+  // executions IIFE and exposed via window._renderLiveFailureMode.
+  // Without this hook the panel only renders inside the IIFE's own
+  // executions.json fetch callback — which 404s in dev / before the
+  // cBot has published any closes — so the user lands on the tab and
+  // sees an empty div.
+  if(p === 'bt' && typeof window._renderLiveFailureMode === 'function'){
+    setTimeout(function(){ try { window._renderLiveFailureMode(); } catch(_){ } }, 40);
+  }
 }
 window.addEventListener('resize',function(){if(activeMkt!=='overview')drawChart(activeMkt);var pPerf=document.getElementById('page-performance');if(pPerf && pPerf.classList.contains('active'))drawEquity();});
 
@@ -20106,6 +20116,12 @@ function _renderCCIVariantPanel(host, commodityKeys){
 
     host.innerHTML = headerHtml + statsRow + tableHtml + hint + _liveLossesList(execs);
   }
+  // Expose so the global switchPage hook in setUpRouting() (which lives
+  // outside this IIFE) can render the empty-state placeholder when the
+  // user lands on the Backtest tab before executions.json has loaded.
+  // Without this, typeof _renderLiveFailureMode === 'function' returned
+  // 'undefined' at the hook site and the panel never appeared.
+  try { window._renderLiveFailureMode = _renderLiveFailureMode; } catch(_){}
   function _liveStatTile(label, n, pct, accent){
     return '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;padding:7px 8px;text-align:center;">'
          + '<div style="font-size:8px;letter-spacing:0.5px;color:var(--inkd);margin-bottom:3px;">' + label + '</div>'
