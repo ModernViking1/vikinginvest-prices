@@ -8847,6 +8847,16 @@ function switchPage(p){
   var pg = document.getElementById('page-'+p);
   if(pg) pg.classList.add('active');
   if(p === 'dash' && activeMkt !== 'overview') setTimeout(function(){drawChart(activeMkt);}, 60);
+  // 2026-06-24 — tabs that actually consume the 41 MB historical-ohlc
+  // pull trigger the deep-history fetch on demand. The Dashboard tab
+  // gets EW / structural-estimate labels (which is the same fallback
+  // that already runs while historical-ohlc.json is missing) and so
+  // doesn't kick the heavy load. Avoids the 300-500 MB V8 parse spike
+  // that wedges low-spec laptops mid-boot.
+  if((p === 'investor' || p === 'performance' || p === 'bt')
+     && typeof window._kickDeepHist === 'function'){
+    window._kickDeepHist();
+  }
   // Investor tab — render the Newsletter donut / class breakdown /
   // this week cards into their new slots on page-investor.
   if(p === 'investor' && typeof buildNewsletter === 'function') setTimeout(buildNewsletter, 30);
@@ -16721,10 +16731,21 @@ function startLiveEngine(){
     }
   });
 
-  // Load 12-month deep historical OHLC (Option D). Powers full-window backtest.
-  // First load may be 6-8MB compressed, so don't block UI. Cached locally for
-  // 12 hours; background refresh picks up new server publishes.
-  fetchDeepHistorical().then(function(n){
+  // 2026-06-24 — DEFERRED. historical-ohlc.json is ~41 MB raw JSON;
+  // V8's parse balloons the renderer to 300-500 MB on desktop
+  // Chromium, which wedges less-spec laptops mid-boot ("page isn't
+  // responding"). Mobile Safari handles the same parse more
+  // gracefully because of its more aggressive memory-pressure GC.
+  // Move it off the boot critical path: pull only when the user
+  // actually navigates to a tab that NEEDS the deep history
+  // (Backtest / Performance / Investor), OR after a 30 s idle
+  // grace period so users who stay on the Dashboard still
+  // eventually get full WR labels. The Dashboard's live-signal
+  // cards run off signals.json (14 KB) and intraday-ohlc.json
+  // (615 KB) — they show EW / structural estimate labels until
+  // the deep history arrives, which is the same fallback that
+  // already happens when historical-ohlc.json is unavailable.
+  var _onDeepHistLoaded = function(n){
     if(n > 0){
       var cacheNote = (window._deepHistCacheWrote === false)
         ? ' · cache write failed ('+(window._deepHistCacheErr||'quota')+') — in-memory only this session'
@@ -16816,7 +16837,31 @@ function startLiveEngine(){
     } else if(window._deepHistErr){
       addNote('📚 Deep history unavailable ('+window._deepHistErr+') — tried: '+((window._deepHistTried||[]).join(', '))+' — backtest uses buffered data only');
     }
-  });
+  };
+  // Idempotent kicker — switchPage hooks call this for the data-
+  // hungry tabs. Guards against double-fetch (e.g. user toggles
+  // between tabs rapidly before the first fetch resolves).
+  window._kickDeepHist = function(){
+    if(window._deepHistKicked) return;
+    window._deepHistKicked = true;
+    try {
+      fetchDeepHistorical().then(_onDeepHistLoaded).catch(function(e){
+        addNote('⚠️ Deep history fetch threw: '+(e && e.message || e));
+        // Reset so a tab change can retry.
+        window._deepHistKicked = false;
+      });
+    } catch(e){
+      addNote('⚠️ _kickDeepHist crashed: '+(e && e.message || e));
+      window._deepHistKicked = false;
+    }
+  };
+  // Background safety net: 30 s after boot, pull the deep history
+  // anyway if no tab change has triggered it yet. By then the
+  // dashboard's first paint + intraday backfill are well behind us
+  // so the V8 parse cost lands on an idle main thread and is far
+  // less likely to wedge the browser. Users who actually need
+  // backtest data will have hit a tab and triggered it sooner.
+  setTimeout(function(){ try { window._kickDeepHist(); } catch(_){} }, 30000);
 
   // Load 15-min intraday accumulator (Option B). Reports status for awareness
   // but doesn't gate any current functionality. Once minTicks ≥ INTRADAY_THRESHOLD
