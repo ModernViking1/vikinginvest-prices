@@ -20766,9 +20766,9 @@ function _renderCCIVariantPanel(host, commodityKeys){
     if(!A.H5.available){
       h5Card = verdict('H5 · 4H trend filter', 'Insufficient h1 history at the trade time to compute a 4H trend probe (need ≥16 h1 bars before entry). Inconclusive.', null);
     } else if(A.H5.blocked){
-      h5Card = verdict('H5 · 4H trend filter', '<strong>Trade was AGAINST the higher-timeframe trend</strong> (HTF ' + A.H5.htfDir + ', ' + (A.H5.htfPct >= 0 ? '+' : '') + A.H5.htfPct.toFixed(2) + '% over the prior 16h; trade direction was ' + dir + '). A "longs only when HTF is up, shorts only when HTF is down" gate would have blocked this entry. High-leverage filter to validate.', true);
+      h5Card = verdict('H5 · 4H trend filter', '<strong>Trade was AGAINST the higher-timeframe trend</strong> (HTF ' + A.H5.htfDir + ', ' + (A.H5.htfPct >= 0 ? '+' : '') + A.H5.htfPct.toFixed(2) + '% over the prior 16h; trade direction was ' + exec.dir + '). A "longs only when HTF is up, shorts only when HTF is down" gate would have blocked this entry. High-leverage filter to validate.', true);
     } else {
-      h5Card = verdict('H5 · 4H trend filter', 'Trade direction (' + dir + ') matched the HTF trend (' + (A.H5.htfPct >= 0 ? '+' : '') + A.H5.htfPct.toFixed(2) + '% over the prior 16h). The HTF filter would NOT have blocked this entry — the loss happened despite the trend agreeing.', false);
+      h5Card = verdict('H5 · 4H trend filter', 'Trade direction (' + exec.dir + ') matched the HTF trend (' + (A.H5.htfPct >= 0 ? '+' : '') + A.H5.htfPct.toFixed(2) + '% over the prior 16h). The HTF filter would NOT have blocked this entry — the loss happened despite the trend agreeing.', false);
     }
 
     var h6Card;
