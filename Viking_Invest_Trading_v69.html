@@ -20180,19 +20180,58 @@ function _renderCCIVariantPanel(host, commodityKeys){
   // tested independently in Phase 2 with walk-forward discipline).
   // ───────────────────────────────────────────────────────────────────
 
-  // Pick the highest-quality m15 OHLC source available for a pair —
-  // priority matches the chart renderer at line ~2935 (DEEP_HIST →
-  // INTRADAY → HISTORY price-point fallback).
-  function _replayGetBars(pair){
-    var bars = null;
+  // Bar timestamps come in two shapes depending on source:
+  //   - historical-ohlc.json (DEEP_HIST): ISO string "2026-06-25T01:30:00.000000000Z"
+  //   - intraday-ohlc.json   (INTRADAY):  ISO string "2026-06-25T01:30:00Z"
+  //   - in-browser builds:                already epoch ms
+  // The replay engine compares against creatorTs (epoch ms from the
+  // signal id), so we normalise here. Returns NaN if neither shape
+  // parses — callers treat that as "skip this bar".
+  function _replayBarTs(b){
+    if(!b) return NaN;
+    var t = b.t;
+    if(t == null) t = b.ts;
+    if(t == null) return NaN;
+    if(typeof t === 'number') return t;
+    var parsed = Date.parse(t);
+    return isNaN(parsed) ? NaN : parsed;
+  }
+
+  // Pick the highest-quality m15 OHLC source available for a pair, and
+  // prefer the one that actually contains the trade's creator timestamp.
+  // DEEP_HIST (historical-ohlc.json) has 12 months of depth but the JSON
+  // is regenerated on a slower schedule, so the very latest live trades
+  // can sit AFTER its last bar. INTRADAY (intraday-ohlc.json) is the
+  // rolling current feed — shorter window, near-realtime. When DEEP_HIST
+  // doesn't cover creatorTs we fall through to INTRADAY automatically;
+  // a static priority (the previous behaviour) silently broke replay
+  // for any trade more recent than the last DEEP_HIST bar.
+  function _replayGetBars(pair, creatorTs){
+    var dhOk = false, dhBars = null;
     if(typeof DEEP_HIST !== 'undefined' && DEEP_HIST[pair] && DEEP_HIST[pair].m15 && DEEP_HIST[pair].m15.length){
       var dh = DEEP_HIST[pair].m15;
-      if(dh[0] && typeof dh[0].h !== 'undefined') return { bars: dh, src: 'DEEP_HIST.m15' };
+      if(dh[0] && typeof dh[0].h !== 'undefined'){
+        dhBars = dh;
+        var dhLastTs = _replayBarTs(dh[dh.length - 1]);
+        dhOk = !creatorTs || (dhLastTs && dhLastTs >= creatorTs);
+      }
     }
+    var idOk = false, idBars = null;
     if(typeof INTRADAY !== 'undefined' && INTRADAY[pair] && INTRADAY[pair].length){
       var id = INTRADAY[pair];
-      if(id[0] && typeof id[0].h !== 'undefined') return { bars: id, src: 'INTRADAY.ohlc' };
+      if(id[0] && typeof id[0].h !== 'undefined'){
+        idBars = id;
+        var idLastTs = _replayBarTs(id[id.length - 1]);
+        idOk = !creatorTs || (idLastTs && idLastTs >= creatorTs);
+      }
     }
+    // DEEP_HIST first when it covers the trade (more depth before entry
+    // for context); else fall through to INTRADAY; else whichever has
+    // any bars at all so the user still gets a useful "unreachable" hint.
+    if(dhOk) return { bars: dhBars, src: 'DEEP_HIST.m15' };
+    if(idOk) return { bars: idBars, src: 'INTRADAY.ohlc' };
+    if(dhBars) return { bars: dhBars, src: 'DEEP_HIST.m15' };
+    if(idBars) return { bars: idBars, src: 'INTRADAY.ohlc' };
     return { bars: [], src: 'unavailable' };
   }
 
@@ -20240,11 +20279,15 @@ function _renderCCIVariantPanel(host, commodityKeys){
   }
 
   // Find the bar index closest to (but not before) the given creator ts.
+  // Uses _replayBarTs to coerce ISO-string and numeric-ms shapes to a
+  // common ms value — the previous string-vs-number comparison silently
+  // matched nothing on historical-ohlc.json's ISO timestamps.
   function _replayFindEntryBar(bars, creatorTs){
     if(!creatorTs || !bars || !bars.length) return -1;
+    var threshold = creatorTs - 60000;          // -1min tolerance
     for(var i = 0; i < bars.length; i++){
-      var t = bars[i].t || bars[i].ts || 0;
-      if(t >= creatorTs - 60000){ return i; }   // -1min tolerance
+      var t = _replayBarTs(bars[i]);
+      if(!isNaN(t) && t >= threshold) return i;
     }
     return -1;
   }
@@ -20259,14 +20302,25 @@ function _renderCCIVariantPanel(host, commodityKeys){
     if(!pair || !entry || !stop || !tgt || (dir !== 'bull' && dir !== 'bear')){
       return { error: 'Trade row missing the price levels needed for replay (entry / stop / target / dir).' };
     }
-    var got = _replayGetBars(pair);
-    if(!got.bars.length) return { error: 'No historical bars available for ' + pair + ' — DEEP_HIST and INTRADAY both empty.' };
-
     var sidParts = (exec.signal_id || '').split(':');
     var creatorTs = parseInt(sidParts[1], 10) || exec.ts || 0;
+    var got = _replayGetBars(pair, creatorTs);
+    if(!got.bars.length) return { error: 'No historical bars available for ' + pair + ' — DEEP_HIST and INTRADAY both empty.' };
+
     var entryIdx = _replayFindEntryBar(got.bars, creatorTs);
     if(entryIdx < 0 || entryIdx >= got.bars.length - 2){
-      return { error: 'Could not locate the entry bar in history (creator ts ' + creatorTs + ' / ' + got.src + ').' };
+      // Most common cause when this fires now is "trade too recent —
+      // not enough bars after entry to walk through the hypotheses".
+      // Surface that distinction so the user knows whether the data
+      // is missing or just hasn't accumulated yet.
+      var detail;
+      if(entryIdx < 0){
+        detail = 'no bar at or after the creator timestamp';
+      } else {
+        detail = 'entry bar found at index ' + entryIdx + ' but only '
+               + (got.bars.length - entryIdx - 1) + ' bar(s) after — need ≥2 to walk hypotheses';
+      }
+      return { error: 'Could not locate the entry bar in history (creator ts ' + creatorTs + ' / ' + got.src + ': ' + detail + ').' };
     }
 
     var Rdist = Math.abs(entry - stop);
