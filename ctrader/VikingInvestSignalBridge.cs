@@ -58,7 +58,15 @@ namespace cAlgo.Robots
         [Parameter("Max open positions", DefaultValue = 5, MinValue = 1, MaxValue = 50, Group = "Risk")]
         public int MaxOpenPositions { get; set; }
 
-        [Parameter("Max spread (pips)", DefaultValue = 3.0, MinValue = 0.1, MaxValue = 50.0, Group = "Risk")]
+        // 2026-06-25 — widened demo from 3.0 → 5.0 so cross/exotic pairs
+        // (EURNOK, XPTUSD, NZD crosses) aren't auto-skipped during normal
+        // sessions. Their bid-ask spreads sit 3-5 pips on IC Markets even
+        // outside news windows, so the old 3.0 gate was silently dropping
+        // a chunk of signals the engine generated. Live cap stays at 2.0
+        // (LiveMaxSpreadPips) — real money rewards conservatism, and the
+        // demo run will tell us per-pair how much extra spread the wider
+        // cap actually buys us before we lift the live cap.
+        [Parameter("Max spread (pips)", DefaultValue = 5.0, MinValue = 0.1, MaxValue = 50.0, Group = "Risk")]
         public double MaxSpreadPips { get; set; }
 
         [Parameter("Max signal age (minutes)", DefaultValue = 60, MinValue = 5, MaxValue = 720, Group = "Risk")]
