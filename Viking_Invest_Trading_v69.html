@@ -19950,48 +19950,47 @@ function _renderCCIVariantPanel(host, commodityKeys){
     if(!host) return;
     var all = (window._brokerExecutions || []);
 
-    // ── Live-cohort window ──────────────────────────────────────────
-    // This panel reflects ONLY the trades in the current live batch —
-    // the positions opened in this cBot run — not the whole rolling
-    // executions.json history (which retains a year of events and can
-    // hold a messier book from before a flatten / redeploy).
-    //
-    // The cohort is anchored on the earliest STILL-OPEN position: a
-    // "placed" row with no matching "closed" row by position_id. Every
-    // close at/after that anchor belongs to the batch being watched.
-    // The anchor is persisted to localStorage so the window doesn't snap
-    // back to "all" the moment the last position in the batch closes
-    // (book momentarily flat). When a fresh batch opens later, the
-    // anchor rolls forward to it automatically.
-    var closedPids = {};
+    // ── Live window: TODAY UTC ─────────────────────────────────────
+    // 2026-06-25 — scope the panel to UTC-day rather than chasing a
+    // per-batch cohort anchor. Mid-session new placements would push the
+    // "earliest still-open" anchor forward and silently exclude earlier
+    // closes from the same trading session, which made the panel look
+    // mostly empty even on busy nights. UTC-day matches the cBot's own
+    // daily-R reset (CheckDailyLimit rolls at 00:00 UTC) so the live
+    // panel and the cBot's day accounting agree on what "today" means.
+    // Trades that close shortly after a midnight roll therefore start
+    // a fresh window cleanly.
+    var nowMs = Date.now();
+    var utcNow = new Date(nowMs);
+    var anchor = Date.UTC(utcNow.getUTCFullYear(), utcNow.getUTCMonth(), utcNow.getUTCDate());
+    var closedPidsToday = {};
     all.forEach(function(r){
-      if(r && r.event === 'closed' && r.position_id != null) closedPids[r.position_id] = 1;
+      if(r && r.event === 'closed' && r.position_id != null && (r.ts || 0) >= anchor){
+        closedPidsToday[r.position_id] = 1;
+      }
     });
-    var openPlaced = all.filter(function(r){
-      return r && r.event === 'placed' && r.position_id != null && !closedPids[r.position_id];
-    });
-    var anchor = null;
-    var openTs = openPlaced.map(function(r){ return r.ts; })
-                           .filter(function(t){ return typeof t === 'number'; });
-    if(openTs.length){
-      anchor = Math.min.apply(null, openTs);
-      try { localStorage.setItem('vit_live_cohort_anchor', String(anchor)); } catch(e){}
-    } else {
-      try { var s = localStorage.getItem('vit_live_cohort_anchor'); if(s) anchor = +s; } catch(e){}
-    }
-    var openCount = openPlaced.length;
+    // "Still-open" = placed today and not yet closed (closes can be from
+    // any day, but for the empty-state count we just need "how many
+    // entries from today haven't closed yet").
+    var openCount = all.filter(function(r){
+      if(!(r && r.event === 'placed' && r.position_id != null)) return false;
+      if((r.ts || 0) < anchor) return false;
+      // closed at any point in the executions feed counts as closed
+      return !all.some(function(x){
+        return x && x.event === 'closed' && x.position_id === r.position_id;
+      });
+    }).length;
 
     var execs = all.filter(function(r){
-      if(!(r && r.event === 'closed' && r.pair)) return false;
-      if(anchor == null) return true;                       // no cohort known → show what we have
-      return (typeof r.ts === 'number') ? r.ts >= anchor : true;
+      return r && r.event === 'closed' && r.pair
+          && typeof r.ts === 'number' && r.ts >= anchor;
     });
     if(!execs.length){
       var awaitMsg = openCount > 0
-        ? ('Watching ' + openCount + ' open position' + (openCount === 1 ? '' : 's') + ' in the current live batch. '
-           + 'This panel fills in with the actual cTrader outcome (target / stop / invalidation) as each of these trades closes. Auto-refreshes on every CDN poll (60s).')
-        : 'Awaiting closed broker executions. This panel mirrors the simulated breakdown above using actual cTrader fills, scoped to the current live batch, once the cBot has published its first closes. Auto-refreshes on every CDN poll (60s).';
-      host.innerHTML = '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;margin-bottom:6px;">▸ Intraday failure mode &middot; LIVE</div>'
+        ? ('Watching ' + openCount + ' open position' + (openCount === 1 ? '' : 's') + ' opened so far today. '
+           + 'This panel fills in with the actual cTrader outcome (target / stop / invalidation) as each of today\'s trades closes. Auto-refreshes on every CDN poll (60s).')
+        : 'Awaiting today\'s first closed broker execution. This panel mirrors the simulated breakdown above using actual cTrader fills, scoped to the current UTC day, and resets at 00:00 UTC alongside the cBot\'s daily-R accounting. Auto-refreshes on every CDN poll (60s).';
+      host.innerHTML = '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;margin-bottom:6px;">▸ Intraday failure mode &middot; LIVE <span style="font-weight:400;opacity:0.7;">· today UTC</span></div>'
                      + '<div style="font-size:10px;color:var(--inkd);font-family:Mukta,sans-serif;letter-spacing:0;">' + awaitMsg + '</div>';
       return;
     }
@@ -20073,7 +20072,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
 
     // ── Header + aggregate stats row ──
     var headerHtml = '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">'
-                   + '<span>▸ Intraday failure mode &middot; LIVE <span style="font-weight:400;opacity:0.7;">· current batch</span></span>'
+                   + '<span>▸ Intraday failure mode &middot; LIVE <span style="font-weight:400;opacity:0.7;">· today UTC</span></span>'
                    + '<span style="font-size:8.5px;color:var(--inkd);letter-spacing:0.6px;font-weight:400;">' + execs.length + ' closed' + (openCount > 0 ? ' &middot; ' + openCount + ' still open' : '') + ' &middot; ' + fmtR(totalR) + ' realised &middot; ' + fmtPct(liveWR) + ' WR</span>'
                    + '</div>';
 
