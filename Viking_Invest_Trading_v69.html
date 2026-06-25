@@ -20557,10 +20557,115 @@ function _renderCCIVariantPanel(host, commodityKeys){
       triggerUtc: ('0' + triggerHr).slice(-2) + ':' + ('0' + triggerMin).slice(-2)
     };
 
+    // ── H5 — Higher-timeframe (4H) trend filter ───────────────────
+    // Read h1 bars from DEEP_HIST, walk back from creator ts to find
+    // the most recent ≥16 h1 bars (4H window ≈ 16 hourly closes is
+    // overkill — we use the last 16 h1 closes as a single trend probe).
+    // Trend = sign of (close[last] - close[first]). Trade direction
+    // must match. If it doesn't, the HTF filter would have blocked.
+    var h5 = { available: false, blocked: false };
+    try {
+      if(typeof DEEP_HIST !== 'undefined' && DEEP_HIST[pair] && DEEP_HIST[pair].h1){
+        var h1Bars = DEEP_HIST[pair].h1;
+        // Find newest h1 bar at or before creatorTs.
+        var lastH1Idx = -1;
+        for(var hi = h1Bars.length - 1; hi >= 0; hi--){
+          var hT = _replayBarTs(h1Bars[hi]);
+          if(!isNaN(hT) && hT <= creatorTs){ lastH1Idx = hi; break; }
+        }
+        if(lastH1Idx >= 15){
+          var first = h1Bars[lastH1Idx - 15];
+          var last  = h1Bars[lastH1Idx];
+          var firstC = (first && (first.c != null ? first.c : first.p)) || 0;
+          var lastC  = (last  && (last.c  != null ? last.c  : last.p))  || 0;
+          if(firstC > 0 && lastC > 0){
+            var htfDir = lastC > firstC ? 'bull' : (lastC < firstC ? 'bear' : null);
+            var htfPct = ((lastC - firstC) / firstC) * 100;
+            h5 = {
+              available: true,
+              htfDir: htfDir,
+              htfPct: htfPct,
+              blocked: (htfDir && htfDir !== dir)
+            };
+          }
+        }
+      }
+    } catch(e){ /* h5 stays unavailable on any computation error */ }
+
+    // ── H6 — Per-pair cool-off (2 losses in last 24h before THIS trade) ─
+    // Mirrors the live cool-off gate now active server-side. Looks at
+    // executions BEFORE this trade's ts to avoid cheating with hindsight.
+    var thisTs = exec.ts || creatorTs;
+    var window24hMs = 24 * 3600 * 1000;
+    var priorOnPair = (window._brokerExecutions || []).filter(function(r){
+      return r && r.event === 'closed' && r.pair === pair
+          && typeof r.ts === 'number' && r.ts < thisTs && r.ts >= (thisTs - window24hMs);
+    }).sort(function(a, b){ return b.ts - a.ts; });
+    var priorLast2 = priorOnPair.slice(0, 2);
+    var h6 = {
+      priorTrades: priorOnPair.length,
+      lastTwoR: priorLast2.map(function(r){ return r.realized_r; }),
+      blocked: priorLast2.length === 2
+            && priorLast2.every(function(r){ return (r.realized_r || 0) < 0; })
+    };
+
+    // ── H7 — macdp tightening on FX minors ────────────────────────
+    // Approximation: we don't carry the per-signal confluence on the
+    // execution row, so "tighten macdp on minors" effectively means
+    // "block all macdp entries on minors" at the inspector level. If
+    // promoted to a live rule we'd want the actual conf threshold —
+    // for now this gives a directional read: do macdp-on-minor losses
+    // cluster enough to justify a class-specific gate?
+    var pairKind = (function(){
+      try {
+        return (typeof MKTS !== 'undefined' && MKTS[pair] && MKTS[pair].t) || null;
+      } catch(_){ return null; }
+    })();
+    var sidKind = (sidParts[2] || '').toLowerCase();
+    var h7 = {
+      pairClass: pairKind,
+      sigKind: sidKind,
+      blocked: (sidKind === 'macdp' && pairKind === 'minor')
+    };
+
+    // ── H8 — News-window blackout (±30min around high-impact event) ──
+    // EVENTS is loaded by fetchEvents() and stays in scope. Each event
+    // has time (ISO), currency, impact. Match if currency appears in
+    // the pair (USD events match anything with USD, EUR events EURUSD/
+    // EURNZD, etc) AND impact === 'high' AND |Δt| ≤ 30 min.
+    var h8 = { available: false, blocked: false, nearest: null };
+    try {
+      var events = (typeof EVENTS !== 'undefined' && EVENTS) || [];
+      var pairUpper = pair.toUpperCase();
+      var blackoutMs = 30 * 60 * 1000;
+      var bestDelta = Infinity, bestEv = null;
+      events.forEach(function(ev){
+        if(!ev || ev.impact !== 'high') return;
+        var ccy = (ev.currency || '').toUpperCase();
+        if(!ccy || pairUpper.indexOf(ccy) === -1) return;
+        var evMs = Date.parse(ev.time);
+        if(isNaN(evMs)) return;
+        var delta = Math.abs(thisTs - evMs);
+        if(delta < bestDelta){ bestDelta = delta; bestEv = ev; }
+      });
+      if(bestEv){
+        h8 = {
+          available: true,
+          blocked: bestDelta <= blackoutMs,
+          nearest: bestEv,
+          deltaMin: Math.round(bestDelta / 60000)
+        };
+      } else {
+        // No events loaded or none matched — mark as "no signal" rather
+        // than implicit pass, so the verdict card explains the gap.
+        h8 = { available: events.length > 0, blocked: false, nearest: null };
+      }
+    } catch(e){ /* h8 stays unavailable */ }
+
     return {
       entryIdx: entryIdx, barsSrc: got.src, Rdist: Rdist,
       actual: { rAtClose: exec.realized_r, reason: exec.reason, mfeR: exec.mfe_r || mfeInfo.mfeR },
-      H1: h1, H2: h2, H3: h3, H4: h4
+      H1: h1, H2: h2, H3: h3, H4: h4, H5: h5, H6: h6, H7: h7, H8: h8
     };
   }
 
@@ -20633,19 +20738,62 @@ function _renderCCIVariantPanel(host, commodityKeys){
       h4Card = verdict('H4 · time-of-day filter', 'Trade fired at ' + A.H4.triggerUtc + ' UTC — ' + A.H4.minutesToNearest + ' min from the nearest session boundary, well outside the ±30min filter. The filter would not have blocked this entry.', false);
     }
 
-    var sumDelta = 0;
+    var h5Card;
+    if(!A.H5.available){
+      h5Card = verdict('H5 · 4H trend filter', 'Insufficient h1 history at the trade time to compute a 4H trend probe (need ≥16 h1 bars before entry). Inconclusive.', null);
+    } else if(A.H5.blocked){
+      h5Card = verdict('H5 · 4H trend filter', '<strong>Trade was AGAINST the higher-timeframe trend</strong> (HTF ' + A.H5.htfDir + ', ' + (A.H5.htfPct >= 0 ? '+' : '') + A.H5.htfPct.toFixed(2) + '% over the prior 16h; trade direction was ' + dir + '). A "longs only when HTF is up, shorts only when HTF is down" gate would have blocked this entry. High-leverage filter to validate.', true);
+    } else {
+      h5Card = verdict('H5 · 4H trend filter', 'Trade direction (' + dir + ') matched the HTF trend (' + (A.H5.htfPct >= 0 ? '+' : '') + A.H5.htfPct.toFixed(2) + '% over the prior 16h). The HTF filter would NOT have blocked this entry — the loss happened despite the trend agreeing.', false);
+    }
+
+    var h6Card;
+    if(A.H6.blocked){
+      var rTxt = A.H6.lastTwoR.map(function(r){ return (r >= 0 ? '+' : '') + (r || 0).toFixed(2) + 'R'; }).join(' + ');
+      h6Card = verdict('H6 · 2-loss cool-off (24h)', '<strong>Pair had ' + A.H6.priorTrades + ' prior closes in the last 24h; the most recent 2 were both losses</strong> (' + rTxt + '). The "pause pair after 2 consecutive losses" gate (now live as of 2026-06-25) would have blocked this entry. This is exactly the failure mode the gate was added for.', true);
+    } else if(A.H6.priorTrades === 0){
+      h6Card = verdict('H6 · 2-loss cool-off (24h)', 'No prior closes on this pair in the 24h before entry. Cool-off gate has nothing to act on — inconclusive.', null);
+    } else {
+      h6Card = verdict('H6 · 2-loss cool-off (24h)', 'Prior 24h closes on this pair: ' + A.H6.priorTrades + '. The 2-loss cool-off gate would NOT have triggered (either fewer than 2 prior trades, or at least one was a win). This loss is independent, not part of a streak.', false);
+    }
+
+    var h7Card;
+    if(A.H7.blocked){
+      h7Card = verdict('H7 · macdp tightening on minors', '<strong>Trade was a macdp signal on an FX minor</strong> (' + pair.toUpperCase() + ' = minor class). A "block macdp on minors" gate (or equivalently: require confluence ≥ 2 for macdp on minors) would have prevented this entry. If multiple macdp-on-minor losses cluster, the class-specific gate is justified.', true);
+    } else if(A.H7.sigKind !== 'macdp'){
+      h7Card = verdict('H7 · macdp tightening on minors', 'Signal type was <code>' + (A.H7.sigKind || '?') + '</code> (not macdp). H7 only applies to macdp entries — inconclusive on this trade.', null);
+    } else {
+      h7Card = verdict('H7 · macdp tightening on minors', 'macdp signal on a ' + (A.H7.pairClass || '?') + ' (not a minor). The minor-class macdp gate would not affect this trade.', false);
+    }
+
+    var h8Card;
+    if(!A.H8.available){
+      h8Card = verdict('H8 · news-window blackout', 'No high-impact events in the feed to test against (events.json window may not cover this trade\'s timestamp). Inconclusive.', null);
+    } else if(A.H8.blocked){
+      h8Card = verdict('H8 · news-window blackout', '<strong>High-impact ' + A.H8.nearest.currency + ' event "' + A.H8.nearest.title + '" within ±30min of entry</strong> (Δ = ' + A.H8.deltaMin + ' min). A "no trades ±30min around high-impact events on matching currencies" filter would have blocked this entry. Volatility around the news likely drove the stop-out.', true);
+    } else {
+      var nearTxt = A.H8.nearest
+        ? ' Nearest matching event: ' + A.H8.nearest.currency + ' "' + A.H8.nearest.title + '" at Δ ' + A.H8.deltaMin + ' min.'
+        : '';
+      h8Card = verdict('H8 · news-window blackout', 'Entry was outside the ±30min blackout window for any high-impact event matching the pair\'s currencies.' + nearTxt + ' The news filter would not have blocked this entry.', false);
+    }
+
     var wins = 0;
     [A.H1, A.H2, A.H3].forEach(function(h){
       if(h.hit === 'tp' || h.hit === 'be'){ wins++; }
     });
     if(A.H4.withinWindow) wins++;
+    if(A.H5.blocked) wins++;
+    if(A.H6.blocked) wins++;
+    if(A.H7.blocked) wins++;
+    if(A.H8.blocked) wins++;
     var summaryLine = '<div style="padding:10px 14px;background:linear-gradient(135deg,#0d5a36 0%,#082d1a 100%);color:#fff;border-radius:3px;margin-top:10px;font-size:11px;line-height:1.55;letter-spacing:0.2px;">'
                     + '<strong style="color:#c8860a;font-family:Orbitron,monospace;letter-spacing:1.5px;font-size:9.5px;text-transform:uppercase;">Read:</strong> '
-                    + wins + ' of 4 hypotheses would have improved this outcome. ' + (wins === 0 ? 'This trade looks like a clean directional loss — no easy lever to pull retrospectively.' : wins === 1 ? 'Single lever — note which one, then check if it replicates across the next handful of losses before changing the rule set.' : 'Multiple levers fire — check correlation: if H2 + H3 both pass, the trade reached MFE before stopping (stops may be tight on this pair). If H4 also fires, time-of-day clustering is worth investigating.')
+                    + wins + ' of 8 hypotheses would have improved this outcome. ' + (wins === 0 ? 'This trade looks like a clean directional loss — no easy lever to pull retrospectively.' : wins === 1 ? 'Single lever — note which one, then check if it replicates across the next handful of losses before changing the rule set.' : 'Multiple levers fire — promote whichever consistently flips losses across ≥10 trades without killing winners. Adversarial check: if a hypothesis blocks here but its live deployment would have blocked several recent WINS, the gate is too aggressive.')
                     + '</div>';
 
     var hypoGrid = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
-                 + h1Card + h2Card + h3Card + h4Card
+                 + h1Card + h2Card + h3Card + h4Card + h5Card + h6Card + h7Card + h8Card
                  + '</div>' + summaryLine;
     var srcLine = '<div style="font-size:8.5px;color:var(--inkd);margin-top:8px;letter-spacing:0.3px;">'
                 + 'Bars source: <code>' + A.barsSrc + '</code> · 1R distance: ' + (A.Rdist || 0).toFixed(5) + ' price units · window: 24 m15 bars (6h)'
