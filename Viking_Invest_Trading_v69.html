@@ -1034,6 +1034,11 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     <p id="viauth-intro">Already registered? Enter your email and we&rsquo;ll send a one-tap sign-in link. First time here? <a href="#" id="viauth-switch-to-register" onclick="event.preventDefault();window.__viAuthSetMode&&window.__viAuthSetMode('register');">Register instead</a>.</p>
     <form id="viauth-form" class="vipro-form">
       <label>Email <span class="vipro-req">*</span><input type="email" id="viauth-email" placeholder="you@example.com" autocomplete="email" required></label>
+      <label>
+        Password <span class="vipro-req">*</span>
+        <input type="password" id="viauth-password" placeholder="" autocomplete="current-password" required minlength="10">
+      </label>
+      <div class="viauth-hint" id="viauth-pw-hint" style="display:none;">Min 10 characters, must include at least one uppercase letter, one lowercase letter, and one digit.</div>
       <!-- ── Fields below show only in register mode (viauth-mode=register) ── -->
       <div id="viauth-register-fields" style="display:none;">
         <div class="vipro-row">
@@ -1079,9 +1084,11 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
           We process the details above to personalise your trading experience and route the right alert categories to the right traders. Lawful basis: consent (newsletter) and legitimate interest (personalisation). You can edit or delete this data at any time by signing in and using the <em>Edit profile</em> link in the topbar, or by emailing <a href="mailto:hello@vikinginvest.ai">hello@vikinginvest.ai</a>.
         </div>
       </div>
-      <button type="submit" id="viauth-btn">Send sign-in link</button>
-      <div style="text-align:center;font-size:11px;color:var(--inkd);margin-top:6px;" id="viauth-switch-row">
+      <button type="submit" id="viauth-btn">Sign in</button>
+      <div style="text-align:center;font-size:11px;color:var(--inkd);margin-top:6px;display:flex;flex-direction:column;gap:4px;" id="viauth-switch-row">
         <a href="#" id="viauth-switch-to-signin" style="display:none;" onclick="event.preventDefault();window.__viAuthSetMode&&window.__viAuthSetMode('signin');">&larr; Already have an account? Sign in</a>
+        <a href="#" id="viauth-forgot" onclick="event.preventDefault();window.__viAuthForgotPassword&&window.__viAuthForgotPassword();">Forgot password? Send reset email</a>
+        <a href="#" id="viauth-magic" onclick="event.preventDefault();window.__viAuthMagicLink&&window.__viAuthMagicLink();">Sign in with a magic link instead</a>
       </div>
     </form>
     <div id="viauth-msg" class="viauth-msg"></div>
@@ -17531,23 +17538,139 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var intro         = document.getElementById('viauth-intro');
     var switchToReg   = document.getElementById('viauth-switch-to-register');
     var switchToSign  = document.getElementById('viauth-switch-to-signin');
+    var pwInput  = document.getElementById('viauth-password');
+    var pwHint   = document.getElementById('viauth-pw-hint');
+    var forgot   = document.getElementById('viauth-forgot');
     if(_viAuthMode === 'register'){
       if(registerBlock) registerBlock.style.display = '';
-      if(btn) btn.textContent = 'Register & send access link';
+      if(btn) btn.textContent = 'Register';
       if(eyebrow) eyebrow.textContent = 'Restricted access — register to view';
       if(title) title.textContent = 'Register to view the Performance, Investor and Backtest tabs';
-      if(intro) intro.innerHTML = 'Registration is free and takes 30 seconds. We use the details below to personalise your dashboard and route the right alert categories to the right traders. <strong>Your details are never shared with third parties.</strong>';
+      if(intro) intro.innerHTML = 'Registration is free and takes 30 seconds. Pick a password and we’ll send one email to confirm your address — after that, every sign-in is one-step. <strong>Your details are never shared with third parties.</strong>';
       if(switchToReg) switchToReg.style.display = 'none';
       if(switchToSign) switchToSign.style.display = '';
+      if(pwInput) pwInput.setAttribute('autocomplete', 'new-password');
+      if(pwHint)  pwHint.style.display = '';
+      if(forgot)  forgot.style.display = 'none';
     } else {
       if(registerBlock) registerBlock.style.display = 'none';
-      if(btn) btn.textContent = 'Send sign-in link';
+      if(btn) btn.textContent = 'Sign in';
       if(eyebrow) eyebrow.textContent = 'Restricted access';
       if(title) title.textContent = 'Sign in to view the Performance, Investor and Backtest tabs';
-      if(intro) intro.innerHTML = 'Already registered? Enter your email and we&rsquo;ll send a one-tap sign-in link. First time here? <a href="#" onclick="event.preventDefault();window.__viAuthSetMode&&window.__viAuthSetMode(\'register\');">Register instead</a>.';
+      if(intro) intro.innerHTML = 'Enter your email and password to sign in. First time here? <a href="#" onclick="event.preventDefault();window.__viAuthSetMode&&window.__viAuthSetMode(\'register\');">Register instead</a>. Previously registered without a password? Use the reset-email link below to set one.';
       if(switchToReg) switchToReg.style.display = '';
       if(switchToSign) switchToSign.style.display = 'none';
+      if(pwInput) pwInput.setAttribute('autocomplete', 'current-password');
+      if(pwHint)  pwHint.style.display = 'none';
+      if(forgot)  forgot.style.display = '';
     }
+  };
+
+  // 2026-06-25 — password helpers
+  //
+  // Policy: ≥10 chars, must contain at least one uppercase letter, one
+  // lowercase letter, and one digit. No symbol requirement — the length
+  // gate plus the three character classes give a strong enough policy
+  // for a single-user trading dashboard, and zero-symbol passphrases
+  // are more typeable on mobile. Validate on register only; sign-in
+  // accepts whatever the account was set up with (Supabase decides if
+  // it's right). Reset/recovery flows reuse this validator.
+  window.__viAuthValidatePassword = function(pw){
+    if(!pw || pw.length < 10) return 'Password must be at least 10 characters.';
+    if(!/[A-Z]/.test(pw))     return 'Password must include at least one uppercase letter.';
+    if(!/[a-z]/.test(pw))     return 'Password must include at least one lowercase letter.';
+    if(!/[0-9]/.test(pw))     return 'Password must include at least one digit.';
+    return null;
+  };
+
+  // Magic-link fallback. Useful for: (a) users who registered before
+  // passwords were a thing and don't want to do the reset dance,
+  // (b) one-off sign-ins from a device the user doesn't want to store
+  // their password on. Re-uses the existing signInWithOtp path so the
+  // backend post-signin profile-rehydrate logic still fires.
+  window.__viAuthMagicLink = function(){
+    var email = (document.getElementById('viauth-email') || {}).value;
+    email = (email || '').trim();
+    var msg = document.getElementById('viauth-msg');
+    if(!email){
+      msg.className='viauth-msg viauth-err';
+      msg.textContent = 'Enter your email above first, then click "Magic link".';
+      return;
+    }
+    msg.className='viauth-msg'; msg.textContent = 'Sending magic link…';
+    sb.auth.signInWithOtp({
+      email: email,
+      options: { emailRedirectTo: window.location.origin + window.location.pathname }
+    }).then(function(r){
+      if(r && r.error){
+        msg.className='viauth-msg viauth-err';
+        msg.textContent = r.error.message || 'Could not send magic link.';
+      } else {
+        msg.className='viauth-msg viauth-ok';
+        msg.textContent = '✓ Magic link sent to ' + email + '. Check your inbox.';
+      }
+    }).catch(function(e){
+      msg.className='viauth-msg viauth-err';
+      msg.textContent = (e && e.message) || 'Network error — try again.';
+    });
+  };
+
+  // Forgot / set password. Sends a recovery email; when the user
+  // clicks the link, Supabase brings them back to this URL with
+  // type=recovery in the hash, and the onAuthStateChange "PASSWORD_RECOVERY"
+  // event fires (handled below) — at which point we prompt them
+  // inline to set a new password and call updateUser. Same path
+  // works for users who never set a password (they're just setting
+  // one for the first time).
+  window.__viAuthForgotPassword = function(){
+    var email = (document.getElementById('viauth-email') || {}).value;
+    email = (email || '').trim();
+    var msg = document.getElementById('viauth-msg');
+    if(!email){
+      msg.className='viauth-msg viauth-err';
+      msg.textContent = 'Enter your email above first, then click "Forgot password".';
+      return;
+    }
+    msg.className='viauth-msg'; msg.textContent = 'Sending reset email…';
+    sb.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname
+    }).then(function(r){
+      if(r && r.error){
+        msg.className='viauth-msg viauth-err';
+        msg.textContent = r.error.message || 'Could not send reset email.';
+      } else {
+        msg.className='viauth-msg viauth-ok';
+        msg.textContent = '✓ Reset email sent to ' + email + '. Click the link in your inbox, then set a new password.';
+      }
+    }).catch(function(e){
+      msg.className='viauth-msg viauth-err';
+      msg.textContent = (e && e.message) || 'Network error — try again.';
+    });
+  };
+
+  // Prompt the recovered user to set a new password, then write it
+  // via updateUser. Reuses the validator so the policy stays in one
+  // place. Sits as a tiny inline prompt rather than a new modal so
+  // mobile users don't lose context after the email-link round-trip.
+  window.__viAuthPromptSetPassword = function(){
+    var attempt = function(){
+      var pw1 = window.prompt('Set a new password (≥10 chars, with upper, lower, digit):');
+      if(pw1 == null) return;            // user dismissed
+      var err = window.__viAuthValidatePassword(pw1);
+      if(err){ alert(err); return attempt(); }
+      var pw2 = window.prompt('Confirm new password:');
+      if(pw2 == null) return;
+      if(pw2 !== pw1){ alert('Passwords do not match.'); return attempt(); }
+      sb.auth.updateUser({ password: pw1 }).then(function(r){
+        if(r && r.error){
+          alert('Could not set password: ' + (r.error.message || 'unknown'));
+        } else {
+          alert('Password updated. You are signed in.');
+          try { window.__viAuthClose && window.__viAuthClose(); } catch(_){}
+        }
+      });
+    };
+    attempt();
   };
   window.__viAuthOpen = function(){
     var m = document.getElementById('viauth-modal');
@@ -17607,6 +17730,17 @@ function _renderCCIVariantPanel(host, commodityKeys){
   sb.auth.onAuthStateChange(function(event, newSession){
     session = newSession || null;
     window._vinlSession = session;
+    // 2026-06-25 — handle the round-trip from a "Forgot password" email.
+    // Supabase fires PASSWORD_RECOVERY once the recovery link's token
+    // has been exchanged for a session. We then prompt the user to
+    // set a new password right here so they don't have to navigate
+    // anywhere else. Defer one tick so the auth-state UI has updated
+    // first (status badge, gated panels) before the prompt blocks.
+    if(event === 'PASSWORD_RECOVERY'){
+      setTimeout(function(){
+        try { window.__viAuthPromptSetPassword && window.__viAuthPromptSetPassword(); } catch(_){}
+      }, 50);
+    }
     // 2026-06-21m — re-render the subscription card on every auth state
     // change, regardless of which tab is active. The renderer no-ops if
     // its host div isn't in the DOM.
@@ -17954,6 +18088,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
           return !!(el && el.checked);
         };
         var email      = val('viauth-email');
+        var password   = val('viauth-password');
         var firstName  = val('viauth-firstname');
         var lastName   = val('viauth-lastname');
         var country    = val('viauth-country');
@@ -17966,16 +18101,29 @@ function _renderCCIVariantPanel(host, commodityKeys){
         var msg = document.getElementById('viauth-msg');
         var btn = document.getElementById('viauth-btn');
 
-        // 2026-06-15ppp — only require profile fields in REGISTER mode.
-        // SIGN-IN mode just needs the email — Supabase issues a magic
-        // link and the user lands back signed in (no questionnaire).
         var isRegister = (_viAuthMode === 'register');
         if(!email){
           msg.className='viauth-msg viauth-err';
           msg.textContent = 'Email is required.';
           return;
         }
+        if(!password){
+          msg.className='viauth-msg viauth-err';
+          msg.textContent = 'Password is required.';
+          return;
+        }
+        // 2026-06-25 — password strength on REGISTER only. We can't
+        // re-validate on sign-in because the policy may differ from
+        // whatever the account was created with, and Supabase will
+        // reject the wrong password regardless. Same for the magic-
+        // link / reset-email recovery paths.
         if(isRegister){
+          var pwErr = window.__viAuthValidatePassword(password);
+          if(pwErr){
+            msg.className='viauth-msg viauth-err';
+            msg.textContent = pwErr;
+            return;
+          }
           if(!firstName || !lastName || !country || !role){
             msg.className='viauth-msg viauth-err';
             msg.textContent = 'Please complete all required fields (marked *).';
@@ -17988,22 +18136,12 @@ function _renderCCIVariantPanel(host, commodityKeys){
           }
         }
 
-        msg.className='viauth-msg'; msg.textContent = isRegister ? 'Sending market access link…' : 'Sending sign-in link…';
+        msg.className='viauth-msg'; msg.textContent = isRegister ? 'Creating account…' : 'Signing in…';
         btn.disabled = true;
 
-        // 2026-06-15hhh — full registration payload bundled into the
-        // signInWithOtp metadata. New users get the full profile on
-        // first sign-up; for existing users Supabase preserves the
-        // metadata it already has (so re-registration doesn't blow
-        // away data captured earlier).
-        //
-        // Backup-stash to localStorage so the post-signin updateUser
-        // path can re-apply the profile for users whose OTP call
-        // landed in the "already exists" branch (where signInWithOtp's
-        // data argument is silently dropped by Supabase).
-        // 2026-06-15ppp — sign-in mode sends NO profile data so we don't
-        // overwrite existing user metadata with empty strings. Register
-        // mode bundles the full profile.
+        // Register-mode profile metadata. Same stash-to-localStorage
+        // fallback as before for the case where Supabase silently drops
+        // the data arg (e.g. a "user already registered" branch).
         var meta = isRegister ? {
           telegram_id:  telegram || null,
           first_name:   firstName,
@@ -18032,22 +18170,47 @@ function _renderCCIVariantPanel(host, commodityKeys){
           } catch(e){}
         }
 
-        sb.auth.signInWithOtp({
-          email: email,
-          options: {
-            emailRedirectTo: window.location.origin + window.location.pathname,
-            data: meta
-          }
-        }).then(function(r){
+        var authCall = isRegister
+          ? sb.auth.signUp({
+              email: email,
+              password: password,
+              options: {
+                emailRedirectTo: window.location.origin + window.location.pathname,
+                data: meta
+              }
+            })
+          : sb.auth.signInWithPassword({
+              email: email,
+              password: password
+            });
+
+        authCall.then(function(r){
           btn.disabled = false;
           if(r && r.error){
             msg.className='viauth-msg viauth-err';
-            msg.textContent = r.error.message || 'Could not send link.';
+            var m = r.error.message || 'Authentication failed.';
+            // Friendlier mapping of common Supabase error strings.
+            if(/invalid login credentials/i.test(m)){
+              m = 'Wrong email or password. If you registered before passwords were added, use the "Forgot password" link below to set one.';
+            } else if(/user already registered/i.test(m)){
+              m = 'This email is already registered. Use Sign in (or "Forgot password" if you don\'t have one yet).';
+            } else if(/email rate limit/i.test(m)){
+              m = 'Too many requests for this email — wait a minute and try again.';
+            }
+            msg.textContent = m;
+          } else if(isRegister && r && r.data && r.data.user && !r.data.session){
+            // Supabase email-confirmation flow: signUp returned the
+            // user but no session because confirmation is on. They
+            // must click the confirmation email before they can sign
+            // in with the password they just set.
+            msg.className='viauth-msg viauth-ok';
+            msg.textContent = '✓ Registered. We sent a confirmation email to ' + email + ' — click the link to activate. Then come back and sign in with your password.';
+          } else if(isRegister){
+            msg.className='viauth-msg viauth-ok';
+            msg.textContent = '✓ Registered and signed in. Welcome.';
           } else {
             msg.className='viauth-msg viauth-ok';
-            msg.textContent = isRegister
-              ? ('✓ Registration complete — access link sent to ' + email + '. Check your inbox to sign in.')
-              : ('✓ Sign-in link sent to ' + email + '. Check your inbox.');
+            msg.textContent = '✓ Signed in.';
           }
         }).catch(function(err){
           btn.disabled = false;
