@@ -1134,21 +1134,15 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
           <label class="vipro-check vipro-class-check"><input type="checkbox" id="vipro-cls-index"  checked><span>Indices</span></label>
           <label class="vipro-check vipro-class-check"><input type="checkbox" id="vipro-cls-crypto" checked><span>Crypto</span></label>
         </div>
-        <div class="vipro-classes-hd" style="margin-top:10px;">
-          School Run (DE40 / DJ30 only)
-          <span class="vipro-opt">(opening-range tier alerts &mdash; <a href="#" onclick="event.preventDefault();var el=document.getElementById('viproSRHelp');if(el)el.style.display=el.style.display==='block'?'none':'block';" style="color:var(--gold);">what's this?</a>)</span>
-        </div>
-        <div id="viproSRHelp" style="display:none;font-size:9.5px;color:var(--inkm);line-height:1.5;background:rgba(0,0,0,0.03);padding:8px 10px;border-radius:3px;margin:6px 0;">
-          5/5 = Viking Edge + School Run break aligned (rarest, highest quality &mdash; ~1/month per pair).
-          4/5 = 3/4 partial confluence + SR break (medium frequency, untested WR &mdash; treat as exploratory).
-          3/5 = 2/4 weak confluence + SR break (speculative &mdash; opt in only if you want the noisiest tier).
-          Per-pair daily caps: 5/5 = 1, 4/5 = 2, 3/5 = 1.
-        </div>
-        <div class="vipro-classes-grid">
-          <label class="vipro-check vipro-class-check"><input type="checkbox" id="vipro-cls-sr_5_5" checked><span>5/5 &#9733;</span></label>
-          <label class="vipro-check vipro-class-check"><input type="checkbox" id="vipro-cls-sr_4_5"><span>4/5 partial</span></label>
-          <label class="vipro-check vipro-class-check"><input type="checkbox" id="vipro-cls-sr_3_5"><span>3/5 speculative</span></label>
-        </div>
+        <!-- 2026-06-25 — School Run tier checkboxes removed. SR is
+             suspended pending statistical decidability (full-history
+             backtest: 5/5 n=2, 4/5 n=2, 3/5 n=1 decided — none cross
+             the strategy's own n>=30 / +5pp uplift gate). Detection
+             continues server-side for the research stream; live alerts
+             are suppressed in detect_triggers.py (SR_LIVE_ALERTS_ENABLED).
+             Existing user metadata with sr_5_5/sr_4_5/sr_3_5 keys is
+             left in Supabase untouched — orphan, harmless, no routing
+             matches it any more. -->
       </div>
       <label class="vipro-check">
         <input type="checkbox" id="vipro-newsletter">
@@ -11481,8 +11475,9 @@ var RECENT_BT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24 hours
 // instead of waiting up to 24h for the TTL to expire — and there is no
 // way to silently skip the invalidation since the fingerprint is derived
 // from the same constants the engine uses, not a hand-bumped key.
-var RULES_VERSION = '2026-06-23a';
+var RULES_VERSION = '2026-06-25a';
 var RULES_VERSION_NOTES = [
+  '2026-06-25 — School Run tier alerts (DE40 / DJ30 opening-range overlay) moved to research-only status. Detection and per-day state recording continue server-side so the research backlog keeps growing, but live alerts and feed tagging are suspended pending a statistically decidable sample. The core Viking Edge engine, the 4/4 confluence trigger, and every other alert class are unaffected — only the SR overlay channel is paused. SR will return when the live sample crosses the strategy\'s own minimum-decidability threshold and the cohort lift can be measured with confidence.',
   '2026-06-23 — Backtest cache version bump to flush in-browser caches that were holding pre-09:00 trade logs. No rule logic changed; this exists purely to force a rebuild against the day\'s fresh intraday OHLC so the per-pair trade lists pick up triggers that fired between the cache stamp and now. Same engine, same per-class production routing, same risk per trade.',
   '2026-06-21 — Commodity post-trade management tuned for class characteristics. Commodities get a longer entry-grace window (1 hour instead of 30 minutes) before counter-bar and alignment-break exits can fire — they have wider true ranges and slower setup development than FX. The fastest of the three alignment-break checks (the medium-term cloud) is skipped for commodities post-entry as it flipped too often during USD-news chop and was producing exits that weren\'t real reversals. Same target / stop / structural-invalidation logic on every trade; this is strictly about giving valid commodity setups more room to develop.',
   '2026-06-21 — MACD detectors expanded to COMMODITIES + CRYPTO. macd-primary now fires on all 4 commodity pairs (conservative conf 1-3 gate matching MAJOR) and all 9 crypto pairs (full conf 1-4 gate matching INDEX/MINOR). Backtest A/B showed +0.51R/trade on ~628 commodity trades and +0.52R/trade on ~1,312 crypto trades. The commodity dashboard cards also moved off the FIB-only display path so the new MACD contribution actually shows up in the per-pair stats (was masked by the legacy FIB-mid read). macd-divergence on the new classes stays deferred to keep alert volume manageable while validating primary live. Post-trigger noise filters also tightened: a 2-bar entry-grace period and a max-favourable-excursion gate on alignment-break exits, which together aim to shrink the post-invalidation bucket without giving back wins.',
@@ -17703,12 +17698,15 @@ function _renderCCIVariantPanel(host, commodityKeys){
   // detect_triggers.py). Order matters — VIPRO_CLASS_DEFAULTS uses
   // the same indexing to decide which boxes start checked for new
   // subscribers.
-  var VIPRO_CLASS_KEYS = ['major','minor','comm','index','crypto','sr_5_5','sr_4_5','sr_3_5'];
-  // Default-on for the new subscriber (no prior profile row). 5/5 is
-  // on by default (rare + highest-quality); 4/5 + 3/5 are off until
-  // the user opts in via the profile modal — too noisy to push by
-  // default until live WR data confirms the cohort lift.
-  var VIPRO_CLASS_DEFAULTS = ['major','minor','comm','index','crypto','sr_5_5'];
+  // 2026-06-25 — sr_5_5 / sr_4_5 / sr_3_5 removed from the lists. The
+  // School Run alert tier is suspended (see detect_triggers.py
+  // SR_LIVE_ALERTS_ENABLED comment block) until the live sample is
+  // statistically decidable. Existing users' stored alert_classes
+  // arrays may still contain orphan sr_* keys — harmless, they just
+  // route to nothing now. Re-add to both arrays + restore the HTML
+  // checkboxes when SR is reinstated.
+  var VIPRO_CLASS_KEYS = ['major','minor','comm','index','crypto'];
+  var VIPRO_CLASS_DEFAULTS = ['major','minor','comm','index','crypto'];
   function _viProClassEl(cls){ return document.getElementById('vipro-cls-' + cls); }
 
   function _viProGetForm(){

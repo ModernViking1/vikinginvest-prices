@@ -208,6 +208,17 @@ SR_TIER_TO_KIND = {
     '3/5': 'sr_3_5',
 }
 
+# 2026-06-25 — School Run alerts SUSPENDED. backtest_school_run_full
+# shows: 5/5 n=2 decided, 4/5 n=2, 3/5 n=1, ASR-5/5 n=2 across the
+# full history — none cross the n>=30 / +5pp uplift gate the strategy
+# itself enforces. Re-enable when the live sample reaches statistical
+# decidability. Detection + per-day state recording still RUNS — the
+# baseline tier counts continue to accrue in alerts-state.json so a
+# future restart starts from a clean dedup cursor and the research
+# backtests have fresh data to walk. Only the actual Telegram emission
+# and the live-feed payload tagging are gated below.
+SR_LIVE_ALERTS_ENABLED = False
+
 
 def _find_sr_ref_candle(pair, m15):
     """Most recent reference candle within window_bars of the latest
@@ -3202,6 +3213,18 @@ def main():
             elif today_counts >= limit:
                 # Quiet skip — daily ceiling reached.
                 pass
+            elif not SR_LIVE_ALERTS_ENABLED:
+                # SUSPENDED — record the would-have-fired event for the
+                # research backlog (counts still rise so we can later
+                # measure "how often would SR have fired" vs the live
+                # decided sample) but don't send to Telegram or include
+                # in the signals.json feed. See SR_LIVE_ALERTS_ENABLED
+                # comment block for re-enable criteria.
+                action = 'BUY' if sr_info.get('engine_dir') == 'bull' else 'SELL'
+                print(f'  SUPPRESSED(sr,{tier}): {pair} {action} state={sr_info.get("state")} '
+                      f'confluence={sr_info.get("confluence")}/4 '
+                      f'(SR_LIVE_ALERTS_ENABLED=False — recording only)')
+                sr_state.setdefault(today, {}).setdefault(pair, {})[tier] = today_counts + 1
             else:
                 action = 'BUY' if sr_info.get('engine_dir') == 'bull' else 'SELL'
                 print(f'  ALERT(sr,{tier}): {pair} {action} state={sr_info.get("state")} '
