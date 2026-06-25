@@ -247,13 +247,29 @@ def build_signals(state: dict) -> dict:
     pairs = state.get("pairs", {}) or {}
     out: list[dict] = []
 
+    # 2026-06-25 — per-pair cool-off: skip TRIGGERED rows on any pair
+    # currently paused. Same helper detect_triggers.py uses to gate
+    # Telegram, so server + cBot agree without a state round-trip.
+    # Invalidations / armed rows still flow — only triggered (which is
+    # what the cBot acts on) is suppressed. Fails open on any error.
+    try:
+        from detect_triggers import compute_cooloff_pairs
+        cooloff_pairs = compute_cooloff_pairs()
+    except Exception:
+        cooloff_pairs = {}
+
     for pair, info in pairs.items():
         if not isinstance(info, dict):
             continue
         for kind in ("wick", "fib", "macdp", "divg"):
             row = _signal_row(pair, info, kind, now_ms)
-            if row is not None:
-                out.append(row)
+            if row is None:
+                continue
+            if pair in cooloff_pairs and row.get("state") == "triggered":
+                # Don't append — cBot will not place. Armed / invalidated
+                # rows on this pair continue to flow normally.
+                continue
+            out.append(row)
 
     # Newest-first ordering so the EA can early-exit on the first
     # already-seen id without paging through stale rows.

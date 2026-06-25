@@ -219,6 +219,66 @@ SR_TIER_TO_KIND = {
 # and the live-feed payload tagging are gated below.
 SR_LIVE_ALERTS_ENABLED = False
 
+# 2026-06-25 — per-pair cool-off after consecutive losses.
+# When a pair's last N closed trades (from executions.json) were all
+# losses, that pair gets paused for COOLOFF_HOURS — no new TRIGGER
+# alerts on Telegram, no new triggered signals into signals.json (so
+# the cBot doesn't place either). Invalidation alerts still fire
+# (those are exit signals — we always want them through). Rule
+# resets automatically when the next UTC day rolls or COOLOFF_HOURS
+# elapses, whichever comes first. Imported by build_signals_json so
+# both scripts agree on which pairs are paused without coordinating
+# via alerts-state.
+COOLOFF_LOSS_COUNT = 2            # N consecutive losses to trigger
+COOLOFF_HOURS      = 6            # how long the pair is paused
+EXECUTIONS_PATH    = 'executions.json'
+
+
+def compute_cooloff_pairs(executions_path=EXECUTIONS_PATH,
+                          loss_count=COOLOFF_LOSS_COUNT,
+                          hours=COOLOFF_HOURS):
+    """Return {pair: cooloff_until_iso} for pairs currently paused.
+
+    A pair is in cool-off iff its LAST `loss_count` closed trades were
+    all losses (realized_r < 0) AND the most recent of those losses
+    occurred within the last `hours`. The cool-off expires at
+    `last_loss_ts + hours`. Reads executions.json directly so server +
+    cBot agree on the state without an alerts-state round-trip.
+    Returns {} on any error so a missing/corrupt file fails OPEN
+    (cool-off is a safety brake, not a hard requirement).
+    """
+    try:
+        with open(executions_path) as f:
+            payload = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+    execs = payload.get('executions') or []
+    # Bucket closes by pair, newest-first.
+    by_pair = {}
+    for r in execs:
+        if (r or {}).get('event') != 'closed':
+            continue
+        pair = r.get('pair')
+        if not pair:
+            continue
+        by_pair.setdefault(pair, []).append(r)
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    cutoff_ms = now_ms - hours * 3600 * 1000
+    paused = {}
+    for pair, rows in by_pair.items():
+        rows.sort(key=lambda r: r.get('ts') or 0, reverse=True)
+        last_n = rows[:loss_count]
+        if len(last_n) < loss_count:
+            continue
+        if not all((r.get('realized_r') or 0) < 0 for r in last_n):
+            continue
+        most_recent_loss_ts = last_n[0].get('ts') or 0
+        if most_recent_loss_ts < cutoff_ms:
+            continue
+        expires_ms = most_recent_loss_ts + hours * 3600 * 1000
+        paused[pair] = datetime.fromtimestamp(expires_ms / 1000, tz=timezone.utc).isoformat()
+    return paused
+
 
 def _find_sr_ref_candle(pair, m15):
     """Most recent reference candle within window_bars of the latest
@@ -2929,6 +2989,13 @@ def main():
     new_state = {}
     now_iso = datetime.now(timezone.utc).isoformat()
 
+    # 2026-06-25 — load per-pair cool-off map once for the whole run.
+    # See compute_cooloff_pairs / COOLOFF_* comment block above.
+    cooloff_pairs = compute_cooloff_pairs()
+    if cooloff_pairs:
+        for cp, until in cooloff_pairs.items():
+            print(f'COOLOFF: {cp} paused until {until} (last {COOLOFF_LOSS_COUNT} closed trades were losses)')
+
     for pair, info in current.items():
         prev = prev_state.get(pair, {})
         prev_dir = prev.get('aligned_dir')
@@ -3028,6 +3095,13 @@ def main():
                 # checking, but skip the Telegram send.
                 print(f'  skip(trigger,stale): {pair} creator={cur_creator_ts} trigger_ts={info.get("sig_trigger_ts")} age={trigger_age:.1f}min > {MAX_TRIGGER_AGE_MIN} — not alerting')
                 alerted_creator = cur_creator_ts
+            elif is_new_trigger and pair in cooloff_pairs:
+                # Per-pair cool-off — dedup the creator so we don't
+                # re-evaluate every cycle, but skip Telegram + don't
+                # let the trigger reach signals.json (handled in
+                # build_signals_json via the same cool-off helper).
+                print(f'  skip(trigger,cooloff): {pair} creator={cur_creator_ts} — paired in cool-off until {cooloff_pairs[pair]}')
+                alerted_creator = cur_creator_ts
             elif is_new_trigger:
                 age_tag = f' (fresh, age={trigger_age:.1f}min)' if trigger_age is not None else ''
                 print(f'  ALERT(trigger): {pair} -> triggered (creator={cur_creator_ts}, entry={info.get("sig_entry")}){age_tag}')
@@ -3075,6 +3149,9 @@ def main():
                 # Quietly mark as alerted (wick alert already covered it).
                 print(f'  skip(fib,wick-also): {pair} creator={cur_creator_ts} wick alert sent — fib suppressed')
                 alerted_fib = cur_creator_ts
+            elif is_new_fib and pair in cooloff_pairs:
+                print(f'  skip(fib,cooloff): {pair} creator={cur_creator_ts} — paired in cool-off until {cooloff_pairs[pair]}')
+                alerted_fib = cur_creator_ts
             elif is_new_fib:
                 fib_age_tag = f' (fresh, age={fib_age:.1f}min)' if fib_age is not None else ''
                 print(f'  ALERT(fib): {pair} -> fib-triggered (creator={cur_creator_ts}, entry={info.get("sig_fib_entry")}){fib_age_tag}')
@@ -3108,6 +3185,9 @@ def main():
                 if is_new_macdp and is_first_run:
                     print(f'  baseline(macdp): {pair} already macd-triggered — recorded, not alerting')
                     alerted_macdp = cur_macdp_trigger_ts
+                elif is_new_macdp and pair in cooloff_pairs:
+                    print(f'  skip(macdp,cooloff): {pair} — paired in cool-off until {cooloff_pairs[pair]}')
+                    alerted_macdp = cur_macdp_trigger_ts
                 elif is_new_macdp:
                     print(f'  ALERT(macdp): {pair} -> macd-primary triggered '
                           f'(dir={info.get("sig_macdp_dir")}, '
@@ -3127,6 +3207,9 @@ def main():
             is_new_divg = (cur_divg_trigger_ts != alerted_divg)
             if is_new_divg and is_first_run:
                 print(f'  baseline(divg): {pair} already divergence-triggered — recorded, not alerting')
+                alerted_divg = cur_divg_trigger_ts
+            elif is_new_divg and pair in cooloff_pairs:
+                print(f'  skip(divg,cooloff): {pair} — paired in cool-off until {cooloff_pairs[pair]}')
                 alerted_divg = cur_divg_trigger_ts
             elif is_new_divg:
                 print(f'  ALERT(divg): {pair} -> divergence triggered '
