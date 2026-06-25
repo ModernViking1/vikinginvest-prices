@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-25T13:31:14.805962+00:00",
-  "generated_ms": 1782394274696,
-  "detector_last_check": "2026-06-25T13:31:12.762447+00:00",
+  "generated": "2026-06-25T13:35:55.884100+00:00",
+  "generated_ms": 1782394555776,
+  "detector_last_check": "2026-06-25T13:35:55.288504+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 14,
-    "armed": 2,
-    "triggered": 10,
+    "total": 17,
+    "armed": 4,
+    "triggered": 11,
     "invalidated": 2
   },
   "signals": [
+    {
+      "id": "btcusd:1782394200000:wick",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 61248.33,
+      "stop": 61666.2,
+      "target": 60830.46000000001,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1782394200000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782394555776,
+      "source": "server-detector"
+    },
     {
       "id": "dj30:1782394200000:wick",
       "pair": "dj30",
@@ -25,16 +46,37 @@
       "r_size": 0.5,
       "dir": "bull",
       "state": "armed",
-      "entry": 52256.0,
-      "stop": 52089.625,
-      "target": 52422.375,
+      "entry": 52245.0,
+      "stop": 52078.625,
+      "target": 52411.375,
       "ew": "bull",
       "tl": "bull",
       "nw": "bull",
       "cl": "bull",
       "armedAt": 1782394200000,
       "triggeredAt": null,
-      "lastSeenAt": 1782394274696,
+      "lastSeenAt": 1782394555776,
+      "source": "server-detector"
+    },
+    {
+      "id": "eurnok:1782394200000:wick",
+      "pair": "eurnok",
+      "sym": "EURNOK",
+      "cls": "minor",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 11.23107,
+      "stop": 11.1831,
+      "target": 11.279040000000002,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1782394200000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782394555776,
       "source": "server-detector"
     },
     {
@@ -55,7 +97,7 @@
       "cl": "bull",
       "armedAt": 1782394200000,
       "triggeredAt": 1782394200000,
-      "lastSeenAt": 1782394274696,
+      "lastSeenAt": 1782394555776,
       "source": "server-detector"
     },
     {
@@ -76,7 +118,28 @@
       "cl": "bear",
       "armedAt": 1782394200000,
       "triggeredAt": 1782394200000,
-      "lastSeenAt": 1782394274696,
+      "lastSeenAt": 1782394555776,
+      "source": "server-detector"
+    },
+    {
+      "id": "spx500:1782394200000:macdp",
+      "pair": "spx500",
+      "sym": "SPX500",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 7444.9,
+      "stop": 7450.4,
+      "target": 7439.4,
+      "ew": "bull",
+      "tl": "neutral",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1782394200000,
+      "triggeredAt": 1782394200000,
+      "lastSeenAt": 1782394555776,
       "source": "server-detector"
     },
     {
@@ -93,11 +156,11 @@
       "target": 7439.4,
       "ew": "bull",
       "tl": "neutral",
-      "nw": "neutral",
+      "nw": "bear",
       "cl": "bear",
       "armedAt": 1782394200000,
       "triggeredAt": 1782394200000,
-      "lastSeenAt": 1782394274696,
+      "lastSeenAt": 1782394555776,
       "source": "server-detector"
     },
     {
@@ -118,28 +181,7 @@
       "cl": "bear",
       "armedAt": 1782394200000,
       "triggeredAt": 1782394200000,
-      "lastSeenAt": 1782394274696,
-      "source": "server-detector"
-    },
-    {
-      "id": "eurnok:1782393300000:wick",
-      "pair": "eurnok",
-      "sym": "EURNOK",
-      "cls": "minor",
-      "method": "wick",
-      "r_size": 1.0,
-      "dir": "bull",
-      "state": "invalidated",
-      "entry": 11.2229,
-      "stop": 11.1831,
-      "target": 11.262699999999999,
-      "ew": "bull",
-      "tl": "bull",
-      "nw": "bull",
-      "cl": "bull",
-      "armedAt": 1782393300000,
-      "triggeredAt": null,
-      "lastSeenAt": 1782394274696,
+      "lastSeenAt": 1782394555776,
       "source": "server-detector"
     },
     {
@@ -160,7 +202,7 @@
       "cl": "bear",
       "armedAt": 1782393300000,
       "triggeredAt": 1782393300000,
-      "lastSeenAt": 1782394274696,
+      "lastSeenAt": 1782394555776,
       "source": "server-detector"
     },
     {
@@ -181,7 +223,7 @@
       "cl": "bear",
       "armedAt": 1782391500000,
       "triggeredAt": 1782391500000,
-      "lastSeenAt": 1782394274696,
+      "lastSeenAt": 1782394555776,
       "source": "server-detector"
     },
     {
@@ -202,7 +244,7 @@
       "cl": "bear",
       "armedAt": 1782391500000,
       "triggeredAt": 1782391500000,
-      "lastSeenAt": 1782394274696,
+      "lastSeenAt": 1782394555776,
       "source": "server-detector"
     },
     {
@@ -223,7 +265,7 @@
       "cl": "bull",
       "armedAt": 1782391500000,
       "triggeredAt": 1782393300000,
-      "lastSeenAt": 1782394274696,
+      "lastSeenAt": 1782394555776,
       "source": "server-detector"
     },
     {
@@ -244,7 +286,7 @@
       "cl": "bull",
       "armedAt": 1782391500000,
       "triggeredAt": 1782393300000,
-      "lastSeenAt": 1782394274696,
+      "lastSeenAt": 1782394555776,
       "source": "server-detector"
     },
     {
@@ -265,7 +307,7 @@
       "cl": "bull",
       "armedAt": 1782391500000,
       "triggeredAt": 1782391500000,
-      "lastSeenAt": 1782394274696,
+      "lastSeenAt": 1782394555776,
       "source": "server-detector"
     },
     {
@@ -277,16 +319,16 @@
       "r_size": 0.5,
       "dir": "bull",
       "state": "armed",
-      "entry": 52344.6212,
-      "stop": 52089.625,
-      "target": 52599.6174,
+      "entry": 52349.0712,
+      "stop": 52078.625,
+      "target": 52619.5174,
       "ew": "bull",
       "tl": "bull",
       "nw": "bull",
       "cl": "bull",
       "armedAt": 1782301500000,
       "triggeredAt": null,
-      "lastSeenAt": 1782394274696,
+      "lastSeenAt": 1782394555776,
       "source": "server-detector"
     },
     {
@@ -298,16 +340,37 @@
       "r_size": 0.5,
       "dir": "bull",
       "state": "invalidated",
-      "entry": 11.229450799999999,
+      "entry": 11.23466058,
       "stop": 11.1831,
-      "target": 11.275801599999998,
+      "target": 11.28622116,
       "ew": "bull",
       "tl": "bull",
       "nw": "bull",
       "cl": "bull",
       "armedAt": 1780989300000,
       "triggeredAt": null,
-      "lastSeenAt": 1782394274696,
+      "lastSeenAt": 1782394555776,
+      "source": "server-detector"
+    },
+    {
+      "id": "btcusd:1780440300000:fib",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 60951.52314,
+      "stop": 61666.2,
+      "target": 60236.84628,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1780440300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782394555776,
       "source": "server-detector"
     }
   ]
