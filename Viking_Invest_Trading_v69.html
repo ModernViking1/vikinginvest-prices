@@ -8875,7 +8875,18 @@ function switchPage(p){
   // cBot has published any closes — so the user lands on the tab and
   // sees an empty div.
   if(p === 'bt' && typeof window._renderLiveFailureMode === 'function'){
-    setTimeout(function(){ try { window._renderLiveFailureMode(); } catch(_){ } }, 40);
+    // 2026-06-25 — force-fetch executions.json on tab open so the panel
+    // doesn't render the empty state for minutes while waiting for the
+    // 20s background poll to fire. The fetcher itself re-calls the
+    // renderer once data lands, so a single force-fetch updates both.
+    setTimeout(function(){
+      try {
+        if(typeof window._fetchExecutionsFromCDN === 'function'){
+          window._fetchExecutionsFromCDN(true);
+        }
+      } catch(_){}
+      try { window._renderLiveFailureMode(); } catch(_){}   // render whatever we have NOW
+    }, 40);
   }
 }
 window.addEventListener('resize',function(){if(activeMkt!=='overview')drawChart(activeMkt);var pPerf=document.getElementById('page-performance');if(pPerf && pPerf.classList.contains('active'))drawEquity();});
@@ -20001,10 +20012,18 @@ function _renderCCIVariantPanel(host, commodityKeys){
   var _execLastFetchMs    = 0;
   var _execLastTotal      = 0;
   var _execAlreadyApplied = (typeof Set !== 'undefined') ? new Set() : null;
-  function _fetchExecutionsFromCDN(){
-    if(Date.now() - _execLastFetchMs < 60000) return;
+  function _fetchExecutionsFromCDN(force){
+    // 2026-06-25 — tightened freshness. Was 60s min between fetches +
+    // 5-min URL bucket → effective worst-case staleness was ~5 min,
+    // which made the LIVE panel render the empty state for minutes
+    // after opening even when fresh executions existed on the repo.
+    // Now: 20s min between background polls + 30s URL bucket (the
+    // cadence the cBot publishes at), AND a `force` arg the tab-switch
+    // hook uses to bypass the rate limit and trigger an immediate
+    // fetch when the user lands on the Backtest tab.
+    if(!force && Date.now() - _execLastFetchMs < 20000) return;
     _execLastFetchMs = Date.now();
-    var url = 'https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/executions.json?t=' + Math.floor(Date.now()/300000);
+    var url = 'https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/executions.json?t=' + Math.floor(Date.now()/30000);
     fetch(url, {cache:'no-store'}).then(function(r){
       if(!r.ok) throw new Error('HTTP'+r.status);
       return r.json();
@@ -20346,6 +20365,11 @@ function _renderCCIVariantPanel(host, commodityKeys){
   // Without this, typeof _renderLiveFailureMode === 'function' returned
   // 'undefined' at the hook site and the panel never appeared.
   try { window._renderLiveFailureMode = _renderLiveFailureMode; } catch(_){}
+  // 2026-06-25 — expose the executions fetcher so the global switchPage
+  // hook for the Backtest tab can force an immediate poll (bypassing the
+  // background-poll rate limit), avoiding the "panel renders empty for
+  // up to 5 min on tab open" stall.
+  try { window._fetchExecutionsFromCDN = _fetchExecutionsFromCDN; } catch(_){}
   function _liveStatTile(label, n, pct, accent){
     return '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;padding:7px 8px;text-align:center;">'
          + '<div style="font-size:8px;letter-spacing:0.5px;color:var(--inkd);margin-bottom:3px;">' + label + '</div>'
