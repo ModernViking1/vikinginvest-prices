@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-26T17:46:06.788640+00:00",
-  "generated_ms": 1782495966728,
-  "detector_last_check": "2026-06-26T17:46:06.657554+00:00",
+  "generated": "2026-06-26T17:50:58.310739+00:00",
+  "generated_ms": 1782496258206,
+  "detector_last_check": "2026-06-26T17:50:57.686267+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
+    "total": 3,
     "armed": 1,
-    "triggered": 1,
+    "triggered": 2,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "spx500:1782495900000:macdp",
+      "pair": "spx500",
+      "sym": "SPX500",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 7394.2,
+      "stop": 7413.9,
+      "target": 7374.5,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bear",
+      "armedAt": 1782495900000,
+      "triggeredAt": 1782495900000,
+      "lastSeenAt": 1782496258206,
+      "source": "server-detector"
+    },
     {
       "id": "xptusd:1782494100000:macdp",
       "pair": "xptusd",
@@ -34,7 +55,7 @@
       "cl": "neutral",
       "armedAt": 1782494100000,
       "triggeredAt": 1782494100000,
-      "lastSeenAt": 1782495966728,
+      "lastSeenAt": 1782496258206,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,7 @@
       "cl": "bull",
       "armedAt": 1782490500000,
       "triggeredAt": null,
-      "lastSeenAt": 1782495966728,
+      "lastSeenAt": 1782496258206,
       "source": "server-detector"
     }
   ]
