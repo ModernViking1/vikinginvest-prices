@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-25T23:55:53.209397+00:00",
-  "generated_ms": 1782431753103,
-  "detector_last_check": "2026-06-25T23:55:53.008999+00:00",
+  "generated": "2026-06-26T00:01:27.170329+00:00",
+  "generated_ms": 1782432087063,
+  "detector_last_check": "2026-06-26T00:01:26.968672+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
-    "armed": 0,
+    "total": 4,
+    "armed": 2,
     "triggered": 2,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "ethusd:1782431100000:wick",
+      "pair": "ethusd",
+      "sym": "ETHUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 1569.64,
+      "stop": 1580.82,
+      "target": 1558.4600000000003,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1782431100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782432087063,
+      "source": "server-detector"
+    },
     {
       "id": "nas100:1782431100000:divg",
       "pair": "nas100",
@@ -34,7 +55,7 @@
       "cl": "bear",
       "armedAt": 1782431100000,
       "triggeredAt": 1782431100000,
-      "lastSeenAt": 1782431753103,
+      "lastSeenAt": 1782432087063,
       "source": "server-detector"
     },
     {
@@ -51,11 +72,32 @@
       "target": 71591.3,
       "ew": "bull",
       "tl": "bear",
-      "nw": "bear",
-      "cl": "neutral",
+      "nw": "bull",
+      "cl": "bull",
       "armedAt": 1782429300000,
       "triggeredAt": 1782429300000,
-      "lastSeenAt": 1782431753103,
+      "lastSeenAt": 1782432087063,
+      "source": "server-detector"
+    },
+    {
+      "id": "ethusd:1780287300000:fib",
+      "pair": "ethusd",
+      "sym": "ETHUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 1564.91848,
+      "stop": 1580.82,
+      "target": 1549.0169600000002,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1780287300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782432087063,
       "source": "server-detector"
     }
   ]
