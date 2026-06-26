@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-26T00:25:50.788235+00:00",
-  "generated_ms": 1782433550683,
-  "detector_last_check": "2026-06-26T00:25:50.591452+00:00",
+  "generated": "2026-06-26T00:31:16.207088+00:00",
+  "generated_ms": 1782433876096,
+  "detector_last_check": "2026-06-26T00:31:15.465651+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,14 +10,14 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
-    "armed": 0,
+    "total": 4,
+    "armed": 2,
     "triggered": 2,
     "invalidated": 0
   },
   "signals": [
     {
-      "id": "dj30:1782432900000:divg",
+      "id": "dj30:1782433800000:divg",
       "pair": "dj30",
       "sym": "DJ30",
       "cls": "index",
@@ -25,16 +25,37 @@
       "r_size": 0.5,
       "dir": "bull",
       "state": "triggered",
-      "entry": 52158.5,
+      "entry": 52179.5,
       "stop": 52095.0,
-      "target": 52222.0,
+      "target": 52264.0,
       "ew": "bull",
       "tl": "bull",
       "nw": "neutral",
       "cl": "bull",
+      "armedAt": 1782433800000,
+      "triggeredAt": 1782433800000,
+      "lastSeenAt": 1782433876096,
+      "source": "server-detector"
+    },
+    {
+      "id": "btcusd:1782432900000:wick",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 59791.98,
+      "stop": 60166.55,
+      "target": 59417.41,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
       "armedAt": 1782432900000,
-      "triggeredAt": 1782432900000,
-      "lastSeenAt": 1782433550683,
+      "triggeredAt": null,
+      "lastSeenAt": 1782433876096,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,28 @@
       "cl": "bear",
       "armedAt": 1782431100000,
       "triggeredAt": 1782431100000,
-      "lastSeenAt": 1782433550683,
+      "lastSeenAt": 1782433876096,
+      "source": "server-detector"
+    },
+    {
+      "id": "btcusd:1780440300000:fib",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 59673.45378,
+      "stop": 60166.55,
+      "target": 59180.357560000004,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1780440300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782433876096,
       "source": "server-detector"
     }
   ]
