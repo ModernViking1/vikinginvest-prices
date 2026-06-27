@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-27T14:55:48.608324+00:00",
-  "generated_ms": 1782572148501,
-  "detector_last_check": "2026-06-27T14:55:48.398417+00:00",
+  "generated": "2026-06-27T15:01:17.196565+00:00",
+  "generated_ms": 1782572477090,
+  "detector_last_check": "2026-06-27T15:01:17.000208+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 3,
-    "armed": 0,
-    "triggered": 1,
+    "total": 5,
+    "armed": 1,
+    "triggered": 2,
     "invalidated": 2
   },
   "signals": [
+    {
+      "id": "solusd:1782570600000:wick",
+      "pair": "solusd",
+      "sym": "SOLUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 72.48,
+      "stop": 72.09,
+      "target": 72.87,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1782570600000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782572477090,
+      "source": "server-detector"
+    },
     {
       "id": "cadjpy:1782506700000:macdp",
       "pair": "cadjpy",
@@ -34,7 +55,7 @@
       "cl": "bear",
       "armedAt": 1782506700000,
       "triggeredAt": 1782506700000,
-      "lastSeenAt": 1782572148501,
+      "lastSeenAt": 1782572477090,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,7 @@
       "cl": "bull",
       "armedAt": 1782506700000,
       "triggeredAt": null,
-      "lastSeenAt": 1782572148501,
+      "lastSeenAt": 1782572477090,
       "source": "server-detector"
     },
     {
@@ -76,7 +97,28 @@
       "cl": "bull",
       "armedAt": 1780916400000,
       "triggeredAt": null,
-      "lastSeenAt": 1782572148501,
+      "lastSeenAt": 1782572477090,
+      "source": "server-detector"
+    },
+    {
+      "id": "solusd:1780326900000:fib",
+      "pair": "solusd",
+      "sym": "SOLUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 72.65304,
+      "stop": 72.09,
+      "target": 73.21608,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780326900000,
+      "triggeredAt": 1782572400000,
+      "lastSeenAt": 1782572477090,
       "source": "server-detector"
     }
   ]
