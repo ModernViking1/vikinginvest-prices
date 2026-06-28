@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-28T01:11:04.290646+00:00",
-  "generated_ms": 1782609064179,
-  "detector_last_check": "2026-06-28T01:11:04.086963+00:00",
+  "generated": "2026-06-28T01:16:01.474463+00:00",
+  "generated_ms": 1782609361365,
+  "detector_last_check": "2026-06-28T01:16:01.272220+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,31 +10,31 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 4,
-    "armed": 0,
-    "triggered": 2,
+    "total": 5,
+    "armed": 2,
+    "triggered": 1,
     "invalidated": 2
   },
   "signals": [
     {
-      "id": "btcusd:1782605700000:macdp",
-      "pair": "btcusd",
-      "sym": "BTCUSD",
+      "id": "suiusd:1782608400000:wick",
+      "pair": "suiusd",
+      "sym": "SUIUSD",
       "cls": "crypto",
       "method": "wick",
       "r_size": 1.0,
-      "dir": "bull",
-      "state": "triggered",
-      "entry": 60036.94,
-      "stop": 59765.1,
-      "target": 60308.780000000006,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 0.684,
+      "stop": 0.6883,
+      "target": 0.6797000000000001,
       "ew": "bear",
-      "tl": "bull",
-      "nw": "neutral",
+      "tl": "bear",
+      "nw": "bear",
       "cl": "bear",
-      "armedAt": 1782605700000,
-      "triggeredAt": 1782605700000,
-      "lastSeenAt": 1782609064179,
+      "armedAt": 1782608400000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782609361365,
       "source": "server-detector"
     },
     {
@@ -55,7 +55,7 @@
       "cl": "bear",
       "armedAt": 1782506700000,
       "triggeredAt": 1782506700000,
-      "lastSeenAt": 1782609064179,
+      "lastSeenAt": 1782609361365,
       "source": "server-detector"
     },
     {
@@ -76,7 +76,7 @@
       "cl": "bull",
       "armedAt": 1782506700000,
       "triggeredAt": null,
-      "lastSeenAt": 1782609064179,
+      "lastSeenAt": 1782609361365,
       "source": "server-detector"
     },
     {
@@ -97,7 +97,28 @@
       "cl": "bull",
       "armedAt": 1780916400000,
       "triggeredAt": null,
-      "lastSeenAt": 1782609064179,
+      "lastSeenAt": 1782609361365,
+      "source": "server-detector"
+    },
+    {
+      "id": "suiusd:1780424100000:fib",
+      "pair": "suiusd",
+      "sym": "SUIUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 0.6827022,
+      "stop": 0.6883,
+      "target": 0.6771044,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1780424100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782609361365,
       "source": "server-detector"
     }
   ]
