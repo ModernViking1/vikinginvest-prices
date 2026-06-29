@@ -2071,6 +2071,18 @@ def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
         r = stop - entry
     if r <= 0:
         return None
+    # 2026-06-25 — DEGENERATE-STOP FLOOR. When the structural extreme
+    # lands on (or one tick from) the cross bar, r collapses to near
+    # zero. Such a signal is meaningless AND dangerous downstream: the
+    # cBot's risk-based sizing divides by the stop distance and explodes
+    # the position, while the broker drops the sub-minimum protective
+    # stop. Reject anything tighter than MIN_STOP_REL of price (≈ a few
+    # pips on FX). The cBot has its own absolute pip floor as the hard
+    # safety net; this keeps degenerate signals out of the feed +
+    # Telegram in the first place.
+    MIN_STOP_REL = 0.0003   # 3 bps of price (~3 pips on a 1.0000 quote)
+    if r < entry * MIN_STOP_REL:
+        return None
     target = entry + r if macd_dir == 'bull' else entry - r
     return {
         'state': state,

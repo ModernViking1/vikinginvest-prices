@@ -72,6 +72,26 @@ namespace cAlgo.Robots
         [Parameter("Max signal age (minutes)", DefaultValue = 60, MinValue = 5, MaxValue = 720, Group = "Risk")]
         public int MaxSignalAgeMin { get; set; }
 
+        // 2026-06-25 — CATASTROPHE GUARDS (added after a USDCHF macdp
+        // signal with a 0.7-pip stop produced a 680-lot naked position).
+        //
+        // MinStopPips: reject any signal whose entry→stop distance is
+        // below this floor. A near-zero stop is ALWAYS a degenerate
+        // signal (structural stop landed on the entry bar) and it does
+        // two dangerous things at once: (1) risk-based sizing divides by
+        // a tiny denominator and explodes the position, (2) the stop is
+        // below the broker's minimum distance so it gets silently dropped
+        // and the position opens naked. Floor it.
+        [Parameter("Min stop distance (pips)", DefaultValue = 3.0, MinValue = 0.0, MaxValue = 100.0, Group = "Risk")]
+        public double MinStopPips { get; set; }
+
+        // MaxPositionLots: absolute hard ceiling on position size, in
+        // LOTS, independent of the risk-based calc and the broker's own
+        // (effectively unlimited) max. Last line of defence — even if the
+        // sizing math goes wrong again, we never place more than this.
+        [Parameter("Max position size (lots)", DefaultValue = 100.0, MinValue = 0.01, MaxValue = 10000.0, Group = "Risk")]
+        public double MaxPositionLots { get; set; }
+
         [Parameter("Order label", DefaultValue = "VikingInvest", Group = "Identity")]
         public string OrderLabel { get; set; }
 
@@ -803,6 +823,22 @@ namespace cAlgo.Robots
                 return;
             }
 
+            // 2026-06-25 — CATASTROPHE GUARD 1: minimum stop distance.
+            // A degenerate signal with a near-zero stop (structural stop
+            // landed on the entry bar) both explodes the position size
+            // and gets its protective stop silently dropped by the broker
+            // (below min distance). Reject BEFORE sizing. Compute slPips
+            // here (was below) so the gate runs first.
+            var slPips = Math.Abs(sig.Entry - sig.Stop) / symbol.PipSize;
+            var tpPips = Math.Abs(sig.Target - sig.Entry) / symbol.PipSize;
+            if (slPips < MinStopPips)
+            {
+                Print($"🛑 [VikingInvest] Stop too tight on {symbol.Name}: {slPips:F2} < {MinStopPips} pips — DEGENERATE signal, skipping id={sig.Id}");
+                TelegramSend($"🛑 Rejected {symbol.Name} {sig.Dir}: stop only {slPips:F2} pips (< {MinStopPips}). Degenerate signal — not placed.", important: Account.IsLive);
+                MarkSeen(sig.Id); _ordersSkipped++;
+                return;
+            }
+
             // Risk-based volume sizing. Factors in the signal's r_size
             // (1.0 wick, 0.5 fib) so commodity / index trades take half
             // size automatically — matching the dashboard's net-R math.
@@ -816,8 +852,17 @@ namespace cAlgo.Robots
                 return;
             }
 
-            var slPips = Math.Abs(sig.Entry - sig.Stop) / symbol.PipSize;
-            var tpPips = Math.Abs(sig.Target - sig.Entry) / symbol.PipSize;
+            // CATASTROPHE GUARD 2: absolute lot ceiling. Independent of
+            // the risk calc and the broker's (effectively unlimited) max.
+            // Even if sizing math misfires, we never place more than this.
+            var maxUnits = symbol.QuantityToVolumeInUnits(MaxPositionLots);
+            if (maxUnits > 0 && volume > maxUnits)
+            {
+                Print($"🛑 [VikingInvest] Sized volume {volume} units exceeds cap {maxUnits} ({MaxPositionLots} lots) on {symbol.Name} — capping. id={sig.Id}");
+                TelegramSend($"⚠️ {symbol.Name} {sig.Dir} sized to {volume} units (> {MaxPositionLots}-lot cap) — capped. Check stop distance on this signal.", important: Account.IsLive);
+                volume = (long)symbol.NormalizeVolumeInUnits(maxUnits, RoundingMode.Down);
+            }
+
             var direction = sig.Dir == "bull" ? TradeType.Buy : TradeType.Sell;
 
             if (DryRun)
@@ -832,6 +877,27 @@ namespace cAlgo.Robots
                                             slPips, tpPips, "viking-" + sig.Id);
             if (result.IsSuccessful)
             {
+                // 2026-06-25 — CATASTROPHE GUARD 3: never hold a naked
+                // position. If the broker accepted the order but dropped
+                // the protective stop (SL below min distance, or any other
+                // reason), the position has no downside cap. Try once to
+                // set it explicitly; if it STILL has no SL, close the
+                // position immediately rather than let it run unbounded.
+                var pos = result.Position;
+                if (!pos.StopLoss.HasValue)
+                {
+                    Print($"⚠️ [VikingInvest] {symbol.Name} opened with NO stop loss — attempting to set SL={sig.Stop:F5}");
+                    try { pos.ModifyStopLossPrice(sig.Stop); } catch (Exception ex) { Print($"   ModifyStopLossPrice threw: {ex.Message}"); }
+                    if (!pos.StopLoss.HasValue)
+                    {
+                        Print($"🛑 [VikingInvest] SL still not set on {symbol.Name} PID={pos.Id} — CLOSING to avoid a naked position. id={sig.Id}");
+                        TelegramSend($"🛑 {symbol.Name} {sig.Dir} opened WITHOUT a stop and the stop couldn't be attached (likely below broker min distance). Position CLOSED immediately to avoid unbounded risk. id={sig.Id}", important: true);
+                        try { ClosePosition(pos); } catch (Exception ex) { Print($"   Emergency ClosePosition threw: {ex.Message}"); }
+                        MarkSeen(sig.Id); _ordersSkipped++;
+                        return;
+                    }
+                    Print($"✅ [VikingInvest] SL attached on retry: {symbol.Name} SL={pos.StopLoss}");
+                }
                 Print($"✅ [VikingInvest] Order placed {direction} {symbol.Name} {volume:F0} units · " +
                       $"id={sig.Id} position-id={result.Position.Id}");
                 _ordersPlaced++;
