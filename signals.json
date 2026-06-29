@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-29T05:55:57.534599+00:00",
-  "generated_ms": 1782712557427,
-  "detector_last_check": "2026-06-29T05:55:57.332767+00:00",
+  "generated": "2026-06-29T06:01:26.354649+00:00",
+  "generated_ms": 1782712886245,
+  "detector_last_check": "2026-06-29T06:01:25.057213+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 11,
-    "armed": 4,
+    "total": 12,
+    "armed": 5,
     "triggered": 7,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "jp225:1782712800000:divg",
+      "pair": "jp225",
+      "sym": "JP225",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 69482.3,
+      "stop": 68632.3,
+      "target": 70332.3,
+      "ew": "bull",
+      "tl": "bear",
+      "nw": "bull",
+      "cl": "neutral",
+      "armedAt": 1782712800000,
+      "triggeredAt": 1782712800000,
+      "lastSeenAt": 1782712886245,
+      "source": "server-detector"
+    },
     {
       "id": "audnzd:1782711900000:macdp",
       "pair": "audnzd",
@@ -34,28 +55,7 @@
       "cl": "neutral",
       "armedAt": 1782711900000,
       "triggeredAt": 1782711900000,
-      "lastSeenAt": 1782712557427,
-      "source": "server-detector"
-    },
-    {
-      "id": "jp225:1782711900000:divg",
-      "pair": "jp225",
-      "sym": "JP225",
-      "cls": "index",
-      "method": "fib",
-      "r_size": 0.5,
-      "dir": "bull",
-      "state": "triggered",
-      "entry": 69197.3,
-      "stop": 68632.3,
-      "target": 69762.3,
-      "ew": "bull",
-      "tl": "bear",
-      "nw": "bull",
-      "cl": "neutral",
-      "armedAt": 1782711900000,
-      "triggeredAt": 1782711900000,
-      "lastSeenAt": 1782712557427,
+      "lastSeenAt": 1782712886245,
       "source": "server-detector"
     },
     {
@@ -76,7 +76,7 @@
       "cl": "bear",
       "armedAt": 1782711000000,
       "triggeredAt": null,
-      "lastSeenAt": 1782712557427,
+      "lastSeenAt": 1782712886245,
       "source": "server-detector"
     },
     {
@@ -97,7 +97,7 @@
       "cl": "bear",
       "armedAt": 1782711000000,
       "triggeredAt": null,
-      "lastSeenAt": 1782712557427,
+      "lastSeenAt": 1782712886245,
       "source": "server-detector"
     },
     {
@@ -118,7 +118,7 @@
       "cl": "neutral",
       "armedAt": 1782710100000,
       "triggeredAt": 1782710100000,
-      "lastSeenAt": 1782712557427,
+      "lastSeenAt": 1782712886245,
       "source": "server-detector"
     },
     {
@@ -134,33 +134,54 @@
       "stop": 29392.8,
       "target": 29286.2,
       "ew": "bear",
-      "tl": "bull",
+      "tl": "neutral",
       "nw": "bull",
       "cl": "bear",
       "armedAt": 1782710100000,
       "triggeredAt": 1782710100000,
-      "lastSeenAt": 1782712557427,
+      "lastSeenAt": 1782712886245,
       "source": "server-detector"
     },
     {
-      "id": "suiusd:1782709200000:macdp",
-      "pair": "suiusd",
-      "sym": "SUIUSD",
-      "cls": "crypto",
-      "method": "wick",
-      "r_size": 1.0,
+      "id": "xauusd:1782708300000:wick",
+      "pair": "xauusd",
+      "sym": "XAUUSD",
+      "cls": "comm",
+      "method": "fib",
+      "r_size": 0.5,
       "dir": "bear",
-      "state": "triggered",
-      "entry": 0.6853,
-      "stop": 0.6932,
-      "target": 0.6774,
+      "state": "armed",
+      "entry": 4058.03,
+      "stop": 4076.015,
+      "target": 4040.0450000000005,
       "ew": "bear",
-      "tl": "bull",
+      "tl": "bear",
       "nw": "bear",
       "cl": "bear",
-      "armedAt": 1782709200000,
-      "triggeredAt": 1782709200000,
-      "lastSeenAt": 1782712557427,
+      "armedAt": 1782708300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782712886245,
+      "source": "server-detector"
+    },
+    {
+      "id": "xauusd:1782708300000:fib",
+      "pair": "xauusd",
+      "sym": "XAUUSD",
+      "cls": "comm",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 4052.86043,
+      "stop": 4076.015,
+      "target": 4029.7058600000005,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1782708300000,
+      "triggeredAt": 1782710100000,
+      "lastSeenAt": 1782712886245,
       "source": "server-detector"
     },
     {
@@ -181,7 +202,7 @@
       "cl": "bear",
       "armedAt": 1782707400000,
       "triggeredAt": 1782711900000,
-      "lastSeenAt": 1782712557427,
+      "lastSeenAt": 1782712886245,
       "source": "server-detector"
     },
     {
@@ -202,7 +223,7 @@
       "cl": "bear",
       "armedAt": 1782707400000,
       "triggeredAt": 1782711000000,
-      "lastSeenAt": 1782712557427,
+      "lastSeenAt": 1782712886245,
       "source": "server-detector"
     },
     {
@@ -223,7 +244,7 @@
       "cl": "bear",
       "armedAt": 1782486000000,
       "triggeredAt": null,
-      "lastSeenAt": 1782712557427,
+      "lastSeenAt": 1782712886245,
       "source": "server-detector"
     },
     {
@@ -244,7 +265,7 @@
       "cl": "bear",
       "armedAt": 1782486000000,
       "triggeredAt": null,
-      "lastSeenAt": 1782712557427,
+      "lastSeenAt": 1782712886245,
       "source": "server-detector"
     }
   ]
