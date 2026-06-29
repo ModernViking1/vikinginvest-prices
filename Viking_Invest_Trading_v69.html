@@ -20868,54 +20868,207 @@ function _renderCCIVariantPanel(host, commodityKeys){
     overlay.style.display = 'flex';
   };
 
-  // "Recent Losses" table appended to the live failure-mode panel.
+  // "Recent Losses" — grouped by pair. Each pair shows its loss count +
+  // total R + a single "Diagnose" button that runs every one of that
+  // pair's losses through the 8-hypothesis replay and produces a
+  // CONSOLIDATED recommendation (which mitigations would have flipped
+  // the most losses on that pair). One-off single-trade inspection is
+  // still available from inside the consolidated modal.
   function _liveLossesList(execs){
     var losses = (execs || []).filter(function(r){
       return r && r.event === 'closed' && (r.realized_r < 0 || (typeof r.net_profit === 'number' && r.net_profit < 0));
-    }).sort(function(a, b){ return (b.ts || 0) - (a.ts || 0); }).slice(0, 20);
+    }).sort(function(a, b){ return (b.ts || 0) - (a.ts || 0); }).slice(0, 50);
     if(!losses.length) return '';
     window._viRecentLosses = losses;
-    var rows = losses.map(function(L, i){
-      var ts = L.ts ? new Date(L.ts) : null;
-      var tsTxt = ts ? (
-        ('0' + ts.getUTCDate()).slice(-2) + ' ' +
-        ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][ts.getUTCMonth()] + ' ' +
-        ('0' + ts.getUTCHours()).slice(-2) + ':' + ('0' + ts.getUTCMinutes()).slice(-2) + 'Z'
-      ) : '?';
-      var pairTxt = (L.pair || '').toUpperCase();
-      var dirTxt = L.dir === 'bull' ? '▲' : '▼';
-      var rTxt = (typeof L.realized_r === 'number') ? L.realized_r.toFixed(2) + 'R' : '?';
-      var reasonShort = ({
-        'stop-hit': '🛑 Stop',
-        'target-hit': '🎯 Target',
-        'manual-or-broker': '🛠 Manual',
-        'cbot-invalidation': '⚠️ cBot inv.'
-      })[L.reason] || (L.reason || '?');
+    // Group by pair.
+    var byPair = {};
+    losses.forEach(function(L){
+      var p = L.pair || '?';
+      (byPair[p] || (byPair[p] = [])).push(L);
+    });
+    window._viLossesByPair = byPair;
+    // Sort pairs by loss count desc, then total |R| desc.
+    var pairKeys = Object.keys(byPair).sort(function(a, b){
+      var d = byPair[b].length - byPair[a].length;
+      if(d) return d;
+      var sumR = function(arr){ return arr.reduce(function(s, r){ return s + (r.realized_r || 0); }, 0); };
+      return sumR(byPair[a]) - sumR(byPair[b]);
+    });
+    var rows = pairKeys.map(function(p){
+      var arr = byPair[p];
+      var n = arr.length;
+      var totR = arr.reduce(function(s, r){ return s + (r.realized_r || 0); }, 0);
+      var pairTxt = p.toUpperCase();
+      var lastTs = Math.max.apply(null, arr.map(function(r){ return r.ts || 0; }));
+      var lt = lastTs ? new Date(lastTs) : null;
+      var ltTxt = lt ? (('0' + lt.getUTCHours()).slice(-2) + ':' + ('0' + lt.getUTCMinutes()).slice(-2) + 'Z') : '?';
+      var btnLabel = n > 1 ? ('🔬 Diagnose (' + n + ')') : '🔬 Replay';
       return '<tr style="border-bottom:1px solid rgba(13,90,54,0.08);">'
-           + '<td style="padding:5px 8px;color:var(--inkd);">' + tsTxt + '</td>'
-           + '<td style="padding:5px 8px;font-weight:700;">' + pairTxt + ' <span style="color:' + (L.dir === 'bull' ? '#0d5a36' : '#c0281a') + ';">' + dirTxt + '</span></td>'
-           + '<td style="padding:5px 8px;text-align:right;color:#c0281a;font-weight:700;">' + rTxt + '</td>'
-           + '<td style="padding:5px 8px;color:var(--inkm);font-size:9px;">' + reasonShort + '</td>'
-           + '<td style="padding:5px 8px;text-align:right;"><button onclick="window.__viReplayLoss(' + i + ')" style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.5px;padding:3px 9px;background:rgba(13,90,54,0.08);color:#0d5a36;border:1px solid rgba(13,90,54,0.35);border-radius:3px;cursor:pointer;">🔬 Replay</button></td>'
+           + '<td style="padding:5px 8px;font-weight:700;">' + pairTxt + '</td>'
+           + '<td style="padding:5px 8px;text-align:right;color:#c0281a;font-weight:700;">' + n + '</td>'
+           + '<td style="padding:5px 8px;text-align:right;color:#c0281a;font-weight:700;">' + totR.toFixed(2) + 'R</td>'
+           + '<td style="padding:5px 8px;color:var(--inkd);font-size:9px;">last ' + ltTxt + '</td>'
+           + '<td style="padding:5px 8px;text-align:right;"><button onclick="window.__viReplayPair(\'' + p + '\')" style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.5px;padding:3px 9px;background:rgba(13,90,54,0.08);color:#0d5a36;border:1px solid rgba(13,90,54,0.35);border-radius:3px;cursor:pointer;">' + btnLabel + '</button></td>'
            + '</tr>';
     }).join('');
     return '<div style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(13,90,54,0.25);">'
          + '<div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:1.2px;color:#0d5a36;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;align-items:baseline;">'
-         +   '<span>📒 Recent Losses</span>'
-         +   '<span style="font-weight:400;font-size:8.5px;color:var(--inkd);letter-spacing:0.4px;">last ' + losses.length + ' · click 🔬 to inspect</span>'
+         +   '<span>📒 Losses by pair</span>'
+         +   '<span style="font-weight:400;font-size:8.5px;color:var(--inkd);letter-spacing:0.4px;">' + pairKeys.length + ' pair' + (pairKeys.length === 1 ? '' : 's') + ' · ' + losses.length + ' losses · click to diagnose</span>'
          + '</div>'
          + '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;">'
          +   '<table style="width:100%;border-collapse:collapse;font-family:Orbitron,monospace;font-size:9.5px;">'
          +     '<thead><tr style="background:rgba(13,90,54,0.05);color:var(--inkd);text-align:left;letter-spacing:0.4px;">'
-         +       '<th style="padding:6px 8px;font-weight:700;">When (UTC)</th>'
-         +       '<th style="padding:6px 8px;font-weight:700;">Pair · dir</th>'
-         +       '<th style="padding:6px 8px;text-align:right;font-weight:700;">R</th>'
-         +       '<th style="padding:6px 8px;font-weight:700;">Reason</th>'
-         +       '<th style="padding:6px 8px;text-align:right;font-weight:700;">Inspect</th>'
+         +       '<th style="padding:6px 8px;font-weight:700;">Pair</th>'
+         +       '<th style="padding:6px 8px;text-align:right;font-weight:700;">Losses</th>'
+         +       '<th style="padding:6px 8px;text-align:right;font-weight:700;">Total R</th>'
+         +       '<th style="padding:6px 8px;font-weight:700;">Latest</th>'
+         +       '<th style="padding:6px 8px;text-align:right;font-weight:700;">Diagnose</th>'
          +     '</tr></thead>'
          +     '<tbody>' + rows + '</tbody>'
          +   '</table>'
          + '</div>'
+         + '</div>';
+  }
+
+  // Which hypotheses "fired" (would have improved/blocked) for one
+  // analysed loss. Single source of truth reused by the single-trade
+  // summary and the per-pair consolidation.
+  var _VI_HYPO_LABELS = {
+    H1: 'Wider stop (1.5R)',  H2: 'Breakeven after +0.5R', H3: 'Partial +0.5R',
+    H4: 'Time-of-day filter', H5: '4H trend filter',       H6: '2-loss cool-off',
+    H7: 'macdp minors gate',  H8: 'News blackout'
+  };
+  // H1-H3 tune the EXIT (damage reduction); H4-H8 are ENTRY filters
+  // (would have blocked the trade outright). Entry filters are the more
+  // actionable "should we add this gate" levers.
+  var _VI_HYPO_KIND = { H1:'exit', H2:'exit', H3:'exit', H4:'entry', H5:'entry', H6:'entry', H7:'entry', H8:'entry' };
+  function _replayHypoFlags(A){
+    if(!A || A.error) return null;
+    return {
+      H1: !!(A.H1 && A.H1.hit === 'tp'),
+      H2: !!(A.H2 && A.H2.hit === 'be'),
+      H3: !!(A.H3 && A.H3.hit === 'tp'),
+      H4: !!(A.H4 && A.H4.withinWindow),
+      H5: !!(A.H5 && A.H5.blocked),
+      H6: !!(A.H6 && A.H6.blocked),
+      H7: !!(A.H7 && A.H7.blocked),
+      H8: !!(A.H8 && A.H8.blocked)
+    };
+  }
+
+  // Consolidated per-pair replay. Runs every loss for `pair` through
+  // _replayAnalyse, tallies hypothesis fire-rates, and renders a
+  // recommendation: deploy whichever lever flips a majority of the
+  // pair's losses. analysable = losses with usable history; the rest
+  // are reported as un-replayable (too recent / no bars).
+  window.__viReplayPair = function(pair){
+    var losses = (window._viLossesByPair && window._viLossesByPair[pair]) || [];
+    if(!losses.length) return;
+    var analysed = losses.map(function(L){ return { exec: L, A: _replayAnalyse(L), flags: null }; });
+    analysed.forEach(function(o){ o.flags = _replayHypoFlags(o.A); });
+    var modalHtml = _replayRenderPairModal(pair, analysed);
+    var overlay = document.getElementById('vi-replay-overlay');
+    if(!overlay){
+      overlay = document.createElement('div');
+      overlay.id = 'vi-replay-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(28,26,23,0.78);z-index:9998;display:none;align-items:flex-start;justify-content:center;padding:24px;backdrop-filter:blur(4px);overflow-y:auto;';
+      overlay.onclick = function(){ window.__viReplayClose(); };
+      document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = modalHtml;
+    overlay.style.display = 'flex';
+  };
+
+  function _replayRenderPairModal(pair, analysed){
+    var pairU = (pair || '').toUpperCase();
+    var n = analysed.length;
+    var usable = analysed.filter(function(o){ return o.flags; });
+    var totR = analysed.reduce(function(s, o){ return s + (o.exec.realized_r || 0); }, 0);
+
+    // Tally fire counts per hypothesis across usable losses.
+    var keys = ['H5','H6','H7','H8','H4','H1','H2','H3']; // entry filters first
+    var counts = {}; keys.forEach(function(k){ counts[k] = 0; });
+    usable.forEach(function(o){
+      keys.forEach(function(k){ if(o.flags[k]) counts[k]++; });
+    });
+
+    var pct = function(c){ return usable.length ? Math.round(c / usable.length * 100) : 0; };
+    var barRow = function(k){
+      var c = counts[k], p = pct(c);
+      var strong = p >= 60 && usable.length >= 2;
+      var col = strong ? '#0d5a36' : (p >= 30 ? '#c8860a' : '#b8b2aa');
+      var kindTag = _VI_HYPO_KIND[k] === 'entry'
+        ? '<span style="font-size:7.5px;color:#0d5a36;border:1px solid rgba(13,90,54,0.3);border-radius:2px;padding:0 3px;margin-left:5px;">ENTRY</span>'
+        : '<span style="font-size:7.5px;color:#8a6a0a;border:1px solid rgba(200,134,10,0.3);border-radius:2px;padding:0 3px;margin-left:5px;">EXIT</span>';
+      return '<tr>'
+           + '<td style="padding:4px 8px;font-size:9px;white-space:nowrap;">' + k + ' · ' + _VI_HYPO_LABELS[k] + kindTag + '</td>'
+           + '<td style="padding:4px 8px;width:42%;">'
+           +   '<div style="background:rgba(0,0,0,0.06);border-radius:2px;height:9px;overflow:hidden;"><div style="width:' + p + '%;height:100%;background:' + col + ';"></div></div>'
+           + '</td>'
+           + '<td style="padding:4px 8px;text-align:right;font-family:Orbitron,monospace;font-size:9px;font-weight:700;color:' + col + ';">' + c + '/' + usable.length + (strong ? ' ★' : '') + '</td>'
+           + '</tr>';
+    };
+    var tallyTable = '<table style="width:100%;border-collapse:collapse;">' + keys.map(barRow).join('') + '</table>';
+
+    // Recommendation: levers firing on ≥60% of usable losses (n≥2).
+    var recs = keys.filter(function(k){ return usable.length >= 2 && pct(counts[k]) >= 60; });
+    var recHtml;
+    if(!usable.length){
+      recHtml = 'None of this pair\'s losses could be replayed yet (too recent, or no historical bars). Check back once the m15 history catches up.';
+    } else if(!recs.length){
+      recHtml = 'No single lever flips a clear majority of ' + pairU + '\'s losses — they look like independent directional losses rather than one systematic flaw. Hold; keep gathering data before changing rules for this pair.';
+    } else {
+      var entryRecs = recs.filter(function(k){ return _VI_HYPO_KIND[k] === 'entry'; });
+      var exitRecs  = recs.filter(function(k){ return _VI_HYPO_KIND[k] === 'exit'; });
+      recHtml = 'On ' + pairU + ', ';
+      var parts = recs.map(function(k){ return '<strong>' + k + ' (' + _VI_HYPO_LABELS[k] + ')</strong> ' + counts[k] + '/' + usable.length; });
+      recHtml += parts.join(', ') + ' would have changed a majority of losses. ';
+      if(entryRecs.length){
+        recHtml += 'The entry filter' + (entryRecs.length > 1 ? 's' : '') + ' (' + entryRecs.join(', ') + ') ' + (entryRecs.length > 1 ? 'are' : 'is') + ' the strongest candidate' + (entryRecs.length > 1 ? 's' : '') + ' to deploy for this pair. ';
+      }
+      if(exitRecs.length){
+        recHtml += 'Exit-management lever' + (exitRecs.length > 1 ? 's' : '') + ' (' + exitRecs.join(', ') + ') would reduce damage but not avoid the trade. ';
+      }
+      recHtml += '<br><span style="color:#c8860a;">Adversarial check before deploying:</span> confirm the same filter would NOT have blocked this pair\'s recent WINNERS — a gate that kills losses and winners equally is net-negative.';
+    }
+
+    // Per-trade breakdown.
+    var tradeRows = analysed.map(function(o){
+      var L = o.exec;
+      var t = L.ts ? new Date(L.ts) : null;
+      var tt = t ? (('0' + t.getUTCDate()).slice(-2) + ' ' + ('0' + t.getUTCHours()).slice(-2) + ':' + ('0' + t.getUTCMinutes()).slice(-2) + 'Z') : '?';
+      var firedTxt;
+      if(!o.flags){ firedTxt = '<span style="color:var(--inkd);">not replayable</span>'; }
+      else {
+        var fired = keys.filter(function(k){ return o.flags[k]; });
+        firedTxt = fired.length ? fired.join(' ') : '<span style="color:var(--inkd);">none</span>';
+      }
+      return '<tr style="border-top:1px solid rgba(0,0,0,0.05);">'
+           + '<td style="padding:3px 8px;color:var(--inkd);font-size:8.5px;">' + tt + '</td>'
+           + '<td style="padding:3px 8px;font-size:8.5px;">' + (L.dir === 'bull' ? '▲' : '▼') + ' ' + ((L.realized_r||0).toFixed(2)) + 'R</td>'
+           + '<td style="padding:3px 8px;font-size:8.5px;font-family:Orbitron,monospace;color:#0d5a36;">' + firedTxt + '</td>'
+           + '</tr>';
+    }).join('');
+
+    var body = '<div style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:1.2px;color:var(--inkd);text-transform:uppercase;margin-bottom:8px;">Which lever flips the most ' + pairU + ' losses?</div>'
+             + tallyTable
+             + '<div style="margin-top:6px;font-size:8px;color:var(--inkd);letter-spacing:0.3px;">★ = fired on ≥60% of replayable losses (n≥2). Bars show fire-rate across ' + usable.length + ' of ' + n + ' losses replayed.</div>'
+             + '<div style="margin-top:12px;padding:11px 13px;background:linear-gradient(135deg,#0d5a36 0%,#082d1a 100%);color:#fff;border-radius:3px;font-size:11px;line-height:1.55;">'
+             +   '<strong style="color:#c8860a;font-family:Orbitron,monospace;letter-spacing:1.5px;font-size:9.5px;text-transform:uppercase;">Recommendation:</strong> ' + recHtml
+             + '</div>'
+             + '<div style="margin-top:12px;font-family:Orbitron,monospace;font-size:9px;letter-spacing:1.2px;color:var(--inkd);text-transform:uppercase;margin-bottom:4px;">Per-trade breakdown (hypotheses that fired)</div>'
+             + '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;"><table style="width:100%;border-collapse:collapse;">' + tradeRows + '</table></div>';
+
+    return '<div onclick="event.stopPropagation()" style="background:#fff;border-radius:6px;max-width:760px;width:100%;max-height:90vh;overflow-y:auto;padding:0;box-shadow:0 12px 32px rgba(0,0,0,0.32);font-family:Mukta,sans-serif;color:var(--ink);">'
+         +   '<div style="display:flex;align-items:baseline;justify-content:space-between;padding:18px 22px 12px;border-bottom:1px solid var(--rule);">'
+         +     '<div>'
+         +       '<div style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:3px;color:var(--gold);text-transform:uppercase;margin-bottom:4px;">🔬 Consolidated diagnosis</div>'
+         +       '<h2 style="font-family:Orbitron,monospace;font-size:18px;font-weight:900;letter-spacing:1px;margin:0;">' + pairU + ' · ' + n + ' loss' + (n === 1 ? '' : 'es') + ' · ' + totR.toFixed(2) + 'R</h2>'
+         +     '</div>'
+         +     '<button onclick="window.__viReplayClose()" style="background:transparent;border:none;font-size:24px;color:var(--inkd);cursor:pointer;line-height:1;">×</button>'
+         +   '</div>'
+         +   '<div style="padding:16px 22px;">' + body + '</div>'
          + '</div>';
   }
 
