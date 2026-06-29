@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-29T03:55:53.922052+00:00",
-  "generated_ms": 1782705353813,
-  "detector_last_check": "2026-06-29T03:55:53.719046+00:00",
+  "generated": "2026-06-29T04:01:25.102272+00:00",
+  "generated_ms": 1782705684997,
+  "detector_last_check": "2026-06-29T04:01:24.249345+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,54 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 5,
+    "total": 6,
     "armed": 2,
-    "triggered": 3,
+    "triggered": 4,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "spx500:1782705600000:divg",
+      "pair": "spx500",
+      "sym": "SPX500",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 7407.2,
+      "stop": 7409.2,
+      "target": 7405.2,
+      "ew": "bear",
+      "tl": "bull",
+      "nw": "neutral",
+      "cl": "bear",
+      "armedAt": 1782705600000,
+      "triggeredAt": 1782705600000,
+      "lastSeenAt": 1782705684997,
+      "source": "server-detector"
+    },
+    {
+      "id": "usdcad:1782705600000:macdp",
+      "pair": "usdcad",
+      "sym": "USDCAD",
+      "cls": "major",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 1.41906,
+      "stop": 1.4182,
+      "target": 1.41992,
+      "ew": "bull",
+      "tl": "neutral",
+      "nw": "bear",
+      "cl": "bull",
+      "armedAt": 1782705600000,
+      "triggeredAt": 1782705600000,
+      "lastSeenAt": 1782705684997,
+      "source": "server-detector"
+    },
     {
       "id": "jp225:1782704700000:macdp",
       "pair": "jp225",
@@ -34,28 +76,7 @@
       "cl": "neutral",
       "armedAt": 1782704700000,
       "triggeredAt": 1782704700000,
-      "lastSeenAt": 1782705353813,
-      "source": "server-detector"
-    },
-    {
-      "id": "spx500:1782704700000:divg",
-      "pair": "spx500",
-      "sym": "SPX500",
-      "cls": "index",
-      "method": "fib",
-      "r_size": 0.5,
-      "dir": "bear",
-      "state": "triggered",
-      "entry": 7403.6,
-      "stop": 7406.4,
-      "target": 7400.800000000001,
-      "ew": "bear",
-      "tl": "bull",
-      "nw": "neutral",
-      "cl": "neutral",
-      "armedAt": 1782704700000,
-      "triggeredAt": 1782704700000,
-      "lastSeenAt": 1782705353813,
+      "lastSeenAt": 1782705684997,
       "source": "server-detector"
     },
     {
@@ -73,10 +94,10 @@
       "ew": "bear",
       "tl": "bull",
       "nw": "neutral",
-      "cl": "neutral",
+      "cl": "bear",
       "armedAt": 1782703800000,
       "triggeredAt": 1782703800000,
-      "lastSeenAt": 1782705353813,
+      "lastSeenAt": 1782705684997,
       "source": "server-detector"
     },
     {
@@ -97,7 +118,7 @@
       "cl": "bull",
       "armedAt": 1782702000000,
       "triggeredAt": null,
-      "lastSeenAt": 1782705353813,
+      "lastSeenAt": 1782705684997,
       "source": "server-detector"
     },
     {
@@ -118,7 +139,7 @@
       "cl": "bull",
       "armedAt": 1780326900000,
       "triggeredAt": null,
-      "lastSeenAt": 1782705353813,
+      "lastSeenAt": 1782705684997,
       "source": "server-detector"
     }
   ]
