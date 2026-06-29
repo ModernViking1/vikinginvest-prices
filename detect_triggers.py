@@ -1977,6 +1977,22 @@ MACDP_HTF_BLOCK_NEUTRAL = False
 # if live data later shows counter-4H divergence underperforming.
 DIVG_HTF_FILTER = False
 
+# 2026-06-29 — DEGENERATE-STOP FLOOR, hoisted to a module constant and
+# raised 3 bps → 5 bps. In a tight 15m range the macdp/divg structural
+# stop can collapse to ~1 pip (the AUDNZD 1.22030/1.22020 case), which
+# is untradeable after a 2-4 pip spread and dangerous downstream
+# (sizing explosion + dropped broker stop). 5 bps ≈ 6 pips on a 1.2000
+# cross / 5.4 pips on a 1.0800 major — comfortably above typical spread.
+# Applied to BOTH macdp and divg detectors. The cBot's MinStopPips
+# (absolute pips, broker-side) is the independent hard floor; this keeps
+# degenerate signals out of the feed + Telegram in the first place.
+MIN_STOP_REL = 0.0005
+
+
+def _stop_too_tight(r, entry):
+    """True if the entry→stop distance is below the degenerate floor."""
+    return entry is not None and r is not None and r < entry * MIN_STOP_REL
+
 
 def _htf_blocks(macd_dir, cl_dir, enabled=True, block_neutral=None):
     """True if the 4H-trend filter should reject a signal of macd_dir
@@ -2112,17 +2128,8 @@ def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
         r = stop - entry
     if r <= 0:
         return None
-    # 2026-06-25 — DEGENERATE-STOP FLOOR. When the structural extreme
-    # lands on (or one tick from) the cross bar, r collapses to near
-    # zero. Such a signal is meaningless AND dangerous downstream: the
-    # cBot's risk-based sizing divides by the stop distance and explodes
-    # the position, while the broker drops the sub-minimum protective
-    # stop. Reject anything tighter than MIN_STOP_REL of price (≈ a few
-    # pips on FX). The cBot has its own absolute pip floor as the hard
-    # safety net; this keeps degenerate signals out of the feed +
-    # Telegram in the first place.
-    MIN_STOP_REL = 0.0003   # 3 bps of price (~3 pips on a 1.0000 quote)
-    if r < entry * MIN_STOP_REL:
+    # Degenerate-stop floor — see MIN_STOP_REL comment block.
+    if _stop_too_tight(r, entry):
         return None
     target = entry + r if macd_dir == 'bull' else entry - r
     return {
@@ -2253,6 +2260,11 @@ def detect_macd_divergence(bars, ew_dir, tl_dir, nw_dir, cl_dir,
         stop = struct_high
         r = stop - entry
     if r <= 0:
+        return None
+    # Degenerate-stop floor (2026-06-29) — divergence was previously
+    # missing this guard, so a tight 15m range could produce a ~1-pip
+    # target here too. See MIN_STOP_REL comment block.
+    if _stop_too_tight(r, entry):
         return None
 
     target = entry + r if div_dir == 'bull' else entry - r
