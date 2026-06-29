@@ -1951,6 +1951,43 @@ def macd_series(closes, fast=12, slow=26, signal=9):
     return macd, sig
 
 
+# 2026-06-25 — H5: 4H-trend filter for the parallel MACD detectors.
+# The wick/fib 4/4 gate ALREADY requires the 4H cloud (cl) to agree —
+# cl is one of the four AND-ed layers. The macdp/divg paths, by design,
+# fire on a confluence COUNT (>=1 layer), so they can run directly
+# counter to the 4H trend. That is the dominant cause of the recurring
+# counter-trend losses the failed-trade inspector kept flagging under
+# H5 (e.g. repeated NZDUSD longs into a clearly bearish 4H cloud).
+#
+# Deploy H5 across pairs by blocking any macdp/divg signal whose
+# direction is the DIRECT OPPOSITE of the 4H cloud. A neutral cloud
+# (ranging / indeterminate — calc_4h_cloud_dir returns 'neutral') is
+# allowed so we don't gut volume in trendless regimes; flip
+# MACDP_HTF_BLOCK_NEUTRAL to True to tighten to "trade only in a clear,
+# aligned 4H trend". Wick/fib are unaffected (already cl-gated).
+MACDP_HTF_FILTER = True
+MACDP_HTF_BLOCK_NEUTRAL = False
+
+# Divergence is EXEMPT by default. It is a reversal/momentum-failure
+# signal — it deliberately fires against the prevailing move, and its
+# own Phase-1 backtest shows the 4/4 fully-aligned cell is its WORST
+# (52.9% WR) while 1-3 confluence (partly counter-trend) is where the
+# edge lives. Forcing 4H alignment would push divergence toward its
+# weakest configuration, so H5 is not applied to it. Flip to True only
+# if live data later shows counter-4H divergence underperforming.
+DIVG_HTF_FILTER = False
+
+
+def _htf_blocks(macd_dir, cl_dir, enabled=True, block_neutral=None):
+    """True if the 4H-trend filter should reject a signal of macd_dir
+    given the 4H cloud direction cl_dir."""
+    if not enabled:
+        return False
+    if cl_dir in ('bull', 'bear'):
+        return cl_dir != macd_dir
+    return MACDP_HTF_BLOCK_NEUTRAL if block_neutral is None else block_neutral
+
+
 def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
                        h1_rsi, pair_class,
                        lookback_struct=8):
@@ -2000,6 +2037,10 @@ def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
     elif m0 >= s0 and m1 < s1:
         macd_dir = 'bear'
     else:
+        return None
+    # H5 — 4H-trend filter (2026-06-25). Reject signals fighting the 4H
+    # cloud. See MACDP_HTF_FILTER comment block above.
+    if _htf_blocks(macd_dir, cl_dir, enabled=MACDP_HTF_FILTER):
         return None
     # RSI centerline filter
     if h1_rsi is None:
@@ -2181,6 +2222,11 @@ def detect_macd_divergence(bars, ew_dir, tl_dir, nw_dir, cl_dir,
             div_dir = 'bear'
 
     if div_dir is None:
+        return None
+
+    # H5 — 4H-trend filter (2026-06-25). EXEMPT by default for
+    # divergence (reversal signal — see DIVG_HTF_FILTER comment).
+    if _htf_blocks(div_dir, cl_dir, enabled=DIVG_HTF_FILTER):
         return None
 
     confluence = 0
