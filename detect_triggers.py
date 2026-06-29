@@ -2101,7 +2101,21 @@ def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
             return None  # 0/4 contrarian + 4/4 cliff both skipped
         state = 'triggered'
         shadow = False
-    elif pair_class in ('index', 'minor', 'crypto'):
+    elif pair_class == 'minor':
+        # 2026-06-29 — H7: minor-class gate tightened conf>=1 -> conf>=2.
+        # Live macd-primary on minors came in at 32% WR / -0.61R per
+        # trade over 31 closes (-18.87R), vs the 75-81% the backtest
+        # promoted them on. The gap concentrates in the weak 1/4
+        # confluence entries, where a tight 1:1 structural stop is eaten
+        # by the wider minor-pair spread (3-5 pips). Requiring >=2 layers
+        # keeps the higher-quality minor signals (which DO win, e.g.
+        # eurgbp) and cuts the spread-dominated chop. Re-widen to >=1 if
+        # live conf-2+ minors prove the edge survives the spread.
+        if confluence < 2:
+            return None
+        state = 'triggered'
+        shadow = False
+    elif pair_class in ('index', 'crypto'):
         if confluence < 1:
             return None  # skip fully contrarian (matches INDEX gate)
         state = 'triggered'
