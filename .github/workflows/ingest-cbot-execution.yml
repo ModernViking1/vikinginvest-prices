@@ -76,46 +76,49 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Validate + append to executions.json
+      - name: Validate payload (fail fast on malformed dispatch)
         env:
           PAYLOAD: ${{ toJSON(github.event.client_payload.row) }}
         run: |
           python3 ingest_execution.py
 
-      - name: Commit + push (race-retry)
-        run: |
-          set -e
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add executions.json
-          if git diff --staged --quiet; then
-            echo "No change to executions.json (duplicate event dropped by ingest_execution.py)"
-            exit 0
-          fi
-          # Compact subject so the audit trail is greppable: event-type
-          # and signal-id make repeat events easy to find.
-          EVENT=$(python3 -c "import json,os; print(json.loads(os.environ['PAYLOAD']).get('event','?'))")
-          SIGID=$(python3 -c "import json,os; print(json.loads(os.environ['PAYLOAD']).get('signal_id','?'))")
-          git commit -m "cbot: $EVENT — $SIGID"
+      - name: Append + push (reset-reapply retry)
         env:
           PAYLOAD: ${{ toJSON(github.event.client_payload.row) }}
-
-      - name: Push with race-retry
         run: |
-          MAX_ATTEMPTS=5
+          # 2026-06-29 — reset-reapply instead of rebase. The old loop
+          # did `git rebase origin/main || git rebase --abort`, which
+          # CONFLICTS on executions.json whenever another commit touched
+          # it between checkout and push (a concurrent ingest, or the
+          # data-publishing CI). On conflict it aborted and the event was
+          # LOST. ingest_execution.py is idempotent (dedup by
+          # signal_id+event+ts) and only appends, so on each attempt we
+          # hard-reset to the freshest remote and re-apply the append —
+          # no rebase, no conflict, no lost events.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          MAX_ATTEMPTS=6
           for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            git fetch origin main
+            git reset --hard origin/main
+            python3 ingest_execution.py
+            git add executions.json
+            if git diff --staged --quiet; then
+              echo "No change (duplicate event already ingested) — done."
+              exit 0
+            fi
+            EVENT=$(python3 -c "import json,os; print(json.loads(os.environ['PAYLOAD']).get('event','?'))")
+            SIGID=$(python3 -c "import json,os; print(json.loads(os.environ['PAYLOAD']).get('signal_id','?'))")
+            git commit -m "cbot: $EVENT — $SIGID"
             if git push origin main 2>&1; then
               echo "✅ executions.json appended on attempt $attempt"
               exit 0
             fi
-            if [ "$attempt" -eq "$MAX_ATTEMPTS" ]; then
-              echo "::warning::Push failed after $MAX_ATTEMPTS attempts — event will be re-dispatched if cBot retries"
-              exit 1
-            fi
-            git fetch origin main
-            git rebase origin/main || git rebase --abort
+            echo "push lost the race on attempt $attempt — re-syncing and re-applying"
             sleep $((attempt * 2))
           done
+          echo "::warning::Push failed after $MAX_ATTEMPTS attempts — local JSONL on the VPS retains the row for manual import"
+          exit 1
 
       - name: Purge CDN
         run: |
