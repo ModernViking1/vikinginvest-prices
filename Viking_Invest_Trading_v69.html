@@ -20408,6 +20408,60 @@ function _renderCCIVariantPanel(host, commodityKeys){
     return isNaN(parsed) ? NaN : parsed;
   }
 
+  // 2026-06-29 — 4H EMA21/55 cloud direction at a point in time, mirroring
+  // calc_4h_cloud_dir() in detect_triggers.py and the clDirAtH1Idx walk in
+  // calcRecentBacktest. The LIVE H5 filter blocks on THIS measure (the 4H
+  // cloud), not the old 16-bar h1 close-diff proxy the inspector used — so
+  // the inspector must compute the same thing or its verdict overstates
+  // what live H5 actually does. Returns 'bull' | 'bear' | 'neutral'.
+  // Aggregates h1 bars (t <= uptoTs) into UTC-aligned 4H closes, then
+  // EMA21/55 with the price-through-cloud + 3-bar momentum-reversal guards.
+  function _replay4hCloudDir(h1Bars, uptoTs){
+    if(!h1Bars || !h1Bars.length) return 'neutral';
+    // Build UTC-aligned 4H closes up to uptoTs (close = last h1 close in bucket).
+    var buckets = [];   // [{key, close}]
+    var lastKey = null;
+    for(var i = 0; i < h1Bars.length; i++){
+      var b = h1Bars[i];
+      var t = _replayBarTs(b);
+      if(isNaN(t) || t > uptoTs) continue;
+      var c = (b.c != null) ? b.c : b.p;
+      if(c == null) continue;
+      var d = new Date(t);
+      var bh = Math.floor(d.getUTCHours() / 4) * 4;
+      var key = d.getUTCFullYear() + '-' + d.getUTCMonth() + '-' + d.getUTCDate() + '-' + bh;
+      if(key === lastKey){ buckets[buckets.length - 1].close = c; }
+      else { buckets.push({ key: key, close: c }); lastKey = key; }
+    }
+    var closes = buckets.map(function(x){ return x.close; });
+    if(closes.length < 55) return 'neutral';
+    var ema = function(arr, n){
+      var k = 2 / (n + 1), e = null;
+      for(var j = 0; j < arr.length; j++){
+        if(j < n - 1) continue;
+        if(j === n - 1){ var s = 0; for(var z = 0; z < n; z++) s += arr[z]; e = s / n; }
+        else { e = arr[j] * k + e * (1 - k); }
+      }
+      return e;
+    };
+    var e21 = ema(closes, 21), e55 = ema(closes, 55);
+    if(e21 == null || e55 == null) return 'neutral';
+    var last = closes[closes.length - 1];
+    var r4 = closes.slice(-4);
+    var revBull = r4.length === 4 && r4[1] < r4[0] && r4[2] < r4[1] && r4[3] < r4[2];
+    var revBear = r4.length === 4 && r4[1] > r4[0] && r4[2] > r4[1] && r4[3] > r4[2];
+    if(e21 > e55){
+      if(last < e21 && last < e55) return 'neutral';
+      if(revBull) return 'neutral';
+      return 'bull';
+    } else if(e21 < e55){
+      if(last > e21 && last > e55) return 'neutral';
+      if(revBear) return 'neutral';
+      return 'bear';
+    }
+    return 'neutral';
+  }
+
   // Pick the highest-quality m15 OHLC source available for a pair, and
   // prefer the one that actually contains the trade's creator timestamp.
   // DEEP_HIST (historical-ohlc.json) has 12 months of depth but the JSON
@@ -20583,37 +20637,32 @@ function _renderCCIVariantPanel(host, commodityKeys){
     };
 
     // ── H5 — Higher-timeframe (4H) trend filter ───────────────────
-    // Read h1 bars from DEEP_HIST, walk back from creator ts to find
-    // the most recent ≥16 h1 bars (4H window ≈ 16 hourly closes is
-    // overkill — we use the last 16 h1 closes as a single trend probe).
-    // Trend = sign of (close[last] - close[first]). Trade direction
-    // must match. If it doesn't, the HTF filter would have blocked.
-    var h5 = { available: false, blocked: false };
+    // 2026-06-29 — now matches the LIVE filter exactly so the verdict
+    // can't overstate what production does:
+    //   • measure = the 4H EMA21/55 cloud (calc_4h_cloud_dir), NOT the
+    //     old 16-bar h1 close-diff proxy;
+    //   • live H5 blocks ONLY a macd-primary signal whose direction is
+    //     the DIRECT OPPOSITE of the cloud (a neutral cloud is allowed —
+    //     MACDP_HTF_BLOCK_NEUTRAL=False server-side);
+    //   • divergence is EXEMPT (DIVG_HTF_FILTER=False — reversal signal);
+    //   • wick/fib are already 4/4-gated (the cloud is one of the four
+    //     AND-ed layers), so H5 isn't a separate lever for them.
+    // scope ∈ 'macdp' | 'divg-exempt' | 'already-gated' | 'unknown'.
+    var h5SidKind = (sidParts[2] || '').toLowerCase();
+    var h5 = { available: false, blocked: false, scope: 'unknown', cloud: null };
     try {
-      if(typeof DEEP_HIST !== 'undefined' && DEEP_HIST[pair] && DEEP_HIST[pair].h1){
-        var h1Bars = DEEP_HIST[pair].h1;
-        // Find newest h1 bar at or before creatorTs.
-        var lastH1Idx = -1;
-        for(var hi = h1Bars.length - 1; hi >= 0; hi--){
-          var hT = _replayBarTs(h1Bars[hi]);
-          if(!isNaN(hT) && hT <= creatorTs){ lastH1Idx = hi; break; }
-        }
-        if(lastH1Idx >= 15){
-          var first = h1Bars[lastH1Idx - 15];
-          var last  = h1Bars[lastH1Idx];
-          var firstC = (first && (first.c != null ? first.c : first.p)) || 0;
-          var lastC  = (last  && (last.c  != null ? last.c  : last.p))  || 0;
-          if(firstC > 0 && lastC > 0){
-            var htfDir = lastC > firstC ? 'bull' : (lastC < firstC ? 'bear' : null);
-            var htfPct = ((lastC - firstC) / firstC) * 100;
-            h5 = {
-              available: true,
-              htfDir: htfDir,
-              htfPct: htfPct,
-              blocked: (htfDir && htfDir !== dir)
-            };
-          }
-        }
+      var h5Cloud = null;
+      if(typeof DEEP_HIST !== 'undefined' && DEEP_HIST[pair] && DEEP_HIST[pair].h1 && DEEP_HIST[pair].h1.length){
+        h5Cloud = _replay4hCloudDir(DEEP_HIST[pair].h1, creatorTs);
+      }
+      if(h5SidKind === 'divg'){
+        h5 = { available: true, blocked: false, scope: 'divg-exempt', cloud: h5Cloud };
+      } else if(h5SidKind === 'wick' || h5SidKind === 'fib'){
+        h5 = { available: true, blocked: false, scope: 'already-gated', cloud: h5Cloud };
+      } else {
+        // macdp (or unknown → treat as macdp, the H5-governed path)
+        var blk = (h5Cloud === 'bull' || h5Cloud === 'bear') && h5Cloud !== dir;
+        h5 = { available: h5Cloud != null, blocked: blk, scope: 'macdp', cloud: h5Cloud };
       }
     } catch(e){ /* h5 stays unavailable on any computation error */ }
 
@@ -20764,12 +20813,20 @@ function _renderCCIVariantPanel(host, commodityKeys){
     }
 
     var h5Card;
-    if(!A.H5.available){
-      h5Card = verdict('H5 · 4H trend filter', 'Insufficient h1 history at the trade time to compute a 4H trend probe (need ≥16 h1 bars before entry). Inconclusive.', null);
+    var h5Cloud = A.H5.cloud || 'unknown';
+    if(A.H5.scope === 'divg-exempt'){
+      h5Card = verdict('H5 · 4H trend filter', '<strong>Not applied — divergence is exempt.</strong> This was a divergence (reversal) signal; the live H5 filter deliberately leaves divergence alone (its edge comes from leaning against the shorter-term trend). 4H cloud here was <strong>' + h5Cloud + '</strong>.', null);
+    } else if(A.H5.scope === 'already-gated'){
+      h5Card = verdict('H5 · 4H trend filter', 'Not a separate lever — this wick/fib setup is already 4/4-gated, so the 4H cloud had to agree at entry. 4H cloud: <strong>' + h5Cloud + '</strong>.', null);
+    } else if(!A.H5.available){
+      h5Card = verdict('H5 · 4H trend filter', 'Insufficient 4H history at the trade time to compute the cloud. Inconclusive.', null);
     } else if(A.H5.blocked){
-      h5Card = verdict('H5 · 4H trend filter', '<strong>Trade was AGAINST the higher-timeframe trend</strong> (HTF ' + A.H5.htfDir + ', ' + (A.H5.htfPct >= 0 ? '+' : '') + A.H5.htfPct.toFixed(2) + '% over the prior 16h; trade direction was ' + exec.dir + '). A "longs only when HTF is up, shorts only when HTF is down" gate would have blocked this entry. High-leverage filter to validate.', true);
+      h5Card = verdict('H5 · 4H trend filter', '<strong>Live H5 WOULD have blocked this.</strong> The macd-primary entry (' + exec.dir + ') was directly opposite the 4H cloud (<strong>' + h5Cloud + '</strong>). This is the filter doing its job — confirm it didn\'t also block this pair\'s recent winners.', true);
     } else {
-      h5Card = verdict('H5 · 4H trend filter', 'Trade direction (' + exec.dir + ') matched the HTF trend (' + (A.H5.htfPct >= 0 ? '+' : '') + A.H5.htfPct.toFixed(2) + '% over the prior 16h). The HTF filter would NOT have blocked this entry — the loss happened despite the trend agreeing.', false);
+      var why = (h5Cloud === 'neutral')
+        ? 'the 4H cloud was <strong>neutral</strong> (ranging), which live H5 ALLOWS by design — only a directly-opposite cloud blocks.'
+        : 'the macd-primary direction (' + exec.dir + ') agreed with the 4H cloud (<strong>' + h5Cloud + '</strong>).';
+      h5Card = verdict('H5 · 4H trend filter', 'Live H5 would NOT have blocked this — ' + why + ' The loss happened despite (or outside) the trend filter.', false);
     }
 
     var h6Card;
