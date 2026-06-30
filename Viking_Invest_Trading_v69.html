@@ -20203,22 +20203,36 @@ function _renderCCIVariantPanel(host, commodityKeys){
 
     // ── Classify each closed execution into one of 5 buckets ──
     function classify(r){
-      // Optional richer signal from the cBot — if present, use it.
       var reason = (r.reason || '').toLowerCase();
       // 2026-06-30 — normalise '_' → '-' so the cBot's stamped value
-      // "cbot_invalidation" matches the bucket key "cbot-invalidation"
-      // (the two had drifted apart, mis-bucketing every invalidation
-      // close as "manual / other").
+      // "cbot_invalidation" matches the bucket key "cbot-invalidation".
       var closeSource = (r.close_source || '').toLowerCase().replace(/_/g, '-');
+      // cBot-initiated invalidation always wins (it's the true source).
       if(closeSource === 'cbot-invalidation' || reason === 'cbot-invalidation') return 'cbot-invalidation';
-      if(reason === 'target-hit') return 'target-hit';
-      // For stop-hits, see if max favourable excursion (if cBot starts
-      // recording it) ever crossed 50% of the way to target.
+
+      // 2026-06-30 — RE-DERIVE target/stop from the actual price levels
+      // rather than trusting the cBot's stored `reason`. The pre-2026-06-30
+      // cBot mislabelled index/metal TP fills (overshoot > 2 pips) as
+      // "manual-or-broker"; re-deriving here corrects those HISTORICAL
+      // rows on screen too, not just trades closed after the cBot rebuild.
+      // Direction-aware "reached or passed the level". Falls back to the
+      // stored reason when price levels are missing.
+      var entry = r.entry_filled || r.entry_attempt;
+      var exit = r.exit_price, tgt = r.target, stp = r.stop, dir = r.dir;
+      var derived = null;
+      if(typeof exit === 'number' && exit > 0 && (dir === 'bull' || dir === 'bear')){
+        if(typeof tgt === 'number' && tgt > 0 &&
+           (dir === 'bull' ? exit >= tgt : exit <= tgt)) derived = 'target-hit';
+        else if(typeof stp === 'number' && stp > 0 &&
+           (dir === 'bull' ? exit <= stp : exit >= stp)) derived = 'stop-hit';
+      }
+      var eff = derived || reason;
+      if(eff === 'target-hit') return 'target-hit';
       var mfeR = (typeof r.mfe_r === 'number') ? r.mfe_r : null;
-      if(reason === 'stop-hit'){
+      if(eff === 'stop-hit'){
         return (mfeR != null && mfeR >= 0.5) ? 'stop-after-progress' : 'stop-clean';
       }
-      // Anything else (manual-or-broker, unknown) → manual bucket.
+      // Closed between the levels with no bot stamp → genuine manual/other.
       return 'manual';
     }
 
