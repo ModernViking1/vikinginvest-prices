@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-30T07:41:11.957309+00:00",
-  "generated_ms": 1782805271852,
-  "detector_last_check": "2026-06-30T07:41:11.756220+00:00",
+  "generated": "2026-06-30T07:45:56.110223+00:00",
+  "generated_ms": 1782805556003,
+  "detector_last_check": "2026-06-30T07:45:55.196634+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -12,10 +12,52 @@
   "counts": {
     "total": 5,
     "armed": 2,
-    "triggered": 1,
-    "invalidated": 2
+    "triggered": 3,
+    "invalidated": 0
   },
   "signals": [
+    {
+      "id": "ftse100:1782805500000:divg",
+      "pair": "ftse100",
+      "sym": "FTSE100",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 10544.5,
+      "stop": 10514.8,
+      "target": 10574.2,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "neutral",
+      "cl": "bull",
+      "armedAt": 1782805500000,
+      "triggeredAt": 1782805500000,
+      "lastSeenAt": 1782805556003,
+      "source": "server-detector"
+    },
+    {
+      "id": "spx500:1782805500000:divg",
+      "pair": "spx500",
+      "sym": "SPX500",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 7464.8,
+      "stop": 7470.2,
+      "target": 7459.400000000001,
+      "ew": "bear",
+      "tl": "bull",
+      "nw": "neutral",
+      "cl": "neutral",
+      "armedAt": 1782805500000,
+      "triggeredAt": 1782805500000,
+      "lastSeenAt": 1782805556003,
+      "source": "server-detector"
+    },
     {
       "id": "dj30:1782804600000:divg",
       "pair": "dj30",
@@ -34,28 +76,7 @@
       "cl": "bull",
       "armedAt": 1782804600000,
       "triggeredAt": 1782804600000,
-      "lastSeenAt": 1782805271852,
-      "source": "server-detector"
-    },
-    {
-      "id": "ftse100:1782804600000:wick",
-      "pair": "ftse100",
-      "sym": "FTSE100",
-      "cls": "index",
-      "method": "fib",
-      "r_size": 0.5,
-      "dir": "bull",
-      "state": "invalidated",
-      "entry": null,
-      "stop": 10514.8,
-      "target": null,
-      "ew": "bull",
-      "tl": "bull",
-      "nw": "bull",
-      "cl": "bull",
-      "armedAt": 1782804600000,
-      "triggeredAt": null,
-      "lastSeenAt": 1782805271852,
+      "lastSeenAt": 1782805556003,
       "source": "server-detector"
     },
     {
@@ -76,28 +97,7 @@
       "cl": "bear",
       "armedAt": 1782802800000,
       "triggeredAt": null,
-      "lastSeenAt": 1782805271852,
-      "source": "server-detector"
-    },
-    {
-      "id": "ftse100:1781873100000:fib",
-      "pair": "ftse100",
-      "sym": "FTSE100",
-      "cls": "index",
-      "method": "fib",
-      "r_size": 0.5,
-      "dir": "bull",
-      "state": "invalidated",
-      "entry": null,
-      "stop": 10514.8,
-      "target": null,
-      "ew": "bull",
-      "tl": "bull",
-      "nw": "bull",
-      "cl": "bull",
-      "armedAt": 1781873100000,
-      "triggeredAt": null,
-      "lastSeenAt": 1782805271852,
+      "lastSeenAt": 1782805556003,
       "source": "server-detector"
     },
     {
@@ -118,7 +118,7 @@
       "cl": "bear",
       "armedAt": 1780433100000,
       "triggeredAt": null,
-      "lastSeenAt": 1782805271852,
+      "lastSeenAt": 1782805556003,
       "source": "server-detector"
     }
   ]
