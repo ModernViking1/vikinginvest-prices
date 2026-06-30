@@ -92,6 +92,21 @@ namespace cAlgo.Robots
         [Parameter("Max position size (lots)", DefaultValue = 100.0, MinValue = 0.01, MaxValue = 10000.0, Group = "Risk")]
         public double MaxPositionLots { get; set; }
 
+        // 2026-06-30 — MAX ENTRY DEVIATION. The cBot market-fills a
+        // triggered signal up to 30s-60min after its trigger price. On
+        // fast instruments the market has drifted far by fill time
+        // (SPX500 entries landed ~189% of R from the signal price, oil
+        // 58-76%), which decouples the live trade from the modelled one
+        // — the dominant live-vs-sim gap. This gate skips a signal when
+        // the current market is more than MaxEntryDeviationPctOfR of the
+        // signal's R distance away from sig.Entry (either direction —
+        // adverse drift = worse fill; favourable drift = the structural
+        // stop/target levels no longer apply). Default 0.30 (30% of R).
+        // The proper fix is limit orders at sig.Entry; this is the
+        // pragmatic market-order version. Set 0 to disable the gate.
+        [Parameter("Max entry deviation (% of R, 0=off)", DefaultValue = 0.30, MinValue = 0.0, MaxValue = 5.0, Group = "Risk")]
+        public double MaxEntryDeviationPctOfR { get; set; }
+
         [Parameter("Order label", DefaultValue = "VikingInvest", Group = "Identity")]
         public string OrderLabel { get; set; }
 
@@ -837,6 +852,30 @@ namespace cAlgo.Robots
                 TelegramSend($"🛑 Rejected {symbol.Name} {sig.Dir}: stop only {slPips:F2} pips (< {MinStopPips}). Degenerate signal — not placed.", important: Account.IsLive);
                 MarkSeen(sig.Id); _ordersSkipped++;
                 return;
+            }
+
+            // 2026-06-30 — MAX ENTRY DEVIATION gate. If the market has
+            // drifted too far from the signal's entry price by the time
+            // we'd fill (market-fill latency), the live trade no longer
+            // matches the modelled setup. Skip rather than chase. R is the
+            // signal's stop distance; compare the price we'd actually fill
+            // at (Ask for a buy, Bid for a sell) to sig.Entry. See the
+            // MaxEntryDeviationPctOfR comment block.
+            if (MaxEntryDeviationPctOfR > 0)
+            {
+                var rDist = Math.Abs(sig.Entry - sig.Stop);
+                var fillRef = sig.Dir == "bull" ? symbol.Ask : symbol.Bid;
+                if (rDist > 0 && fillRef > 0)
+                {
+                    var devR = Math.Abs(fillRef - sig.Entry) / rDist;
+                    if (devR > MaxEntryDeviationPctOfR)
+                    {
+                        Print($"⏭ [VikingInvest] Entry drifted on {symbol.Name}: market {fillRef:F5} is {devR:P0} of R from signal entry {sig.Entry:F5} (cap {MaxEntryDeviationPctOfR:P0}) — skipping id={sig.Id}");
+                        TelegramSend($"⏭ Skipped {symbol.Name} {sig.Dir}: entry drifted {devR:P0} of R from signal price before fill (cap {MaxEntryDeviationPctOfR:P0}). Setup has run — not chased.", important: Account.IsLive);
+                        MarkSeen(sig.Id); _ordersSkipped++;
+                        return;
+                    }
+                }
             }
 
             // Risk-based volume sizing. Factors in the signal's r_size

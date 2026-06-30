@@ -30,7 +30,17 @@ intraday win-rate matures. Not investor-facing. Keep it short.
   management. Non-negotiable before going live. Cheapest path: ask IC
   Markets for a free broker VPS. Revisit when ready to harden / go live.
 
-## 🔧 PRIORITY post-freeze fix — max-entry-deviation gate (cBot)
+## ✅ SHIPPED 2026-06-30 — max-entry-deviation gate (cBot, needs rebuild)
+
+Built. cBot param `Max entry deviation (% of R, 0=off)`, default 0.30.
+Skips a signal when the market has drifted > that fraction of R from
+sig.Entry by fill time (Ask for a buy, Bid for a sell). Verified: the
+SPX500 81%-of-R drift would be skipped; clean FX fills pass. Tunable
+per-instance; watch the skip-rate vs execution-cost improvement and
+adjust 0.30 up/down. **Operator: rebuild the cBot to activate.**
+Original analysis below for reference.
+
+## 🔧 (shipped) Original rationale — max-entry-deviation gate
 
 **The single highest-leverage fix the execution-cost report exposed.**
 The cBot market-fills a triggered signal up to 30s–60min after the
