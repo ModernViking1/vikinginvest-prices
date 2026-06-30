@@ -1823,6 +1823,11 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
     </div>
 
     <div class="pf-card">
+      <div class="pf-card-hd">▸ Institutional Metrics <span class="pf-card-hd-r" id="pf-inst-window">YTD · simulated</span></div>
+      <div id="pf-inst-host"><div class="pf-empty">awaiting backtest cache…</div></div>
+    </div>
+
+    <div class="pf-card">
       <div class="pf-card-hd">▸ Performance by Asset Class <span class="pf-card-hd-r" id="pf-cls-window">YTD</span></div>
       <div id="pf-cls-host"><div class="pf-empty">awaiting backtest cache…</div></div>
     </div>
@@ -19767,6 +19772,151 @@ function _renderCCIVariantPanel(host, commodityKeys){
     } catch(e){}
   }
 
+  // ── INSTITUTIONAL METRICS (2026-06-30) ─────────────────────────────
+  // Sharpe / Sortino / Calmar / max-DD / monthly distribution /
+  // benchmark correlation — the metrics institutions actually allocate
+  // on (win rate is a retail metric). Computed from the trade set's
+  // daily R-return series. Ratios (Sharpe/Sortino/Calmar) are
+  // SCALE-INVARIANT to the R→% conversion (numerator + denominator both
+  // scale by risk-per-trade), so they're valid in pure R-space without
+  // assuming a risk %. Correlation uses monthly strategy R vs monthly
+  // benchmark % returns (SPX500 from DEEP_HIST.daily) — degrades to "—"
+  // when the benchmark series isn't loaded. Risk-free rate assumed 0.
+  function _computeInstitutionalMetrics(trades){
+    var out = { ok:false };
+    if(!trades || !trades.length) return out;
+    // Daily R-return series (UTC day bucket), chronological.
+    var dayMap = {};
+    trades.forEach(function(t){
+      if(typeof t.ts !== 'number') return;
+      var dt = new Date(t.ts);
+      var dayMs = Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate());
+      dayMap[dayMs] = (dayMap[dayMs] || 0) + (t.rDelta || 0);
+    });
+    var dayKeys = Object.keys(dayMap).map(Number).sort(function(a,b){ return a-b; });
+    if(dayKeys.length < 2) return out;
+    var dailyR = dayKeys.map(function(k){ return dayMap[k]; });
+    var n = dailyR.length;
+    var mean = dailyR.reduce(function(s,x){ return s+x; }, 0) / n;
+    var variance = dailyR.reduce(function(s,x){ return s + (x-mean)*(x-mean); }, 0) / (n - 1);
+    var sd = Math.sqrt(variance);
+    var downSq = dailyR.reduce(function(s,x){ return s + (x < 0 ? x*x : 0); }, 0) / n;
+    var downSd = Math.sqrt(downSq);
+    var ANN = Math.sqrt(252);  // trading-day annualisation
+    var sharpe  = sd > 0 ? (mean / sd) * ANN : null;
+    var sortino = downSd > 0 ? (mean / downSd) * ANN : (mean > 0 ? Infinity : null);
+    // Equity curve (cumulative R) → max drawdown in R.
+    var cum = 0, peak = 0, maxDD = 0;
+    dailyR.forEach(function(r){ cum += r; if(cum > peak) peak = cum; var dd = peak - cum; if(dd > maxDD) maxDD = dd; });
+    var totalR = cum;
+    var annRetR = mean * 252;                 // annualised R return
+    var calmar = maxDD > 0 ? (annRetR / maxDD) : (annRetR > 0 ? Infinity : null);
+    // Monthly distribution (calendar UTC month) of summed R.
+    var monMap = {};
+    trades.forEach(function(t){
+      if(typeof t.ts !== 'number') return;
+      var dt = new Date(t.ts);
+      var key = dt.getUTCFullYear() + '-' + ('0'+(dt.getUTCMonth()+1)).slice(-2);
+      monMap[key] = (monMap[key] || 0) + (t.rDelta || 0);
+    });
+    var monKeys = Object.keys(monMap).sort();
+    var monVals = monKeys.map(function(k){ return monMap[k]; });
+    var posMonths = monVals.filter(function(v){ return v > 0; }).length;
+    var bestMon = monVals.length ? Math.max.apply(null, monVals) : 0;
+    var worstMon = monVals.length ? Math.min.apply(null, monVals) : 0;
+    // Benchmark correlation — monthly strategy R vs monthly SPX % return.
+    var corr = null, corrBench = 'SPX500', corrN = 0;
+    try {
+      var bench = (typeof DEEP_HIST !== 'undefined' && DEEP_HIST.spx500 && DEEP_HIST.spx500.daily) || null;
+      if(bench && bench.length > 30){
+        var benchMon = {};   // key → {first, last}
+        bench.forEach(function(b){
+          var t = (b.t != null) ? (typeof b.t === 'number' ? b.t : Date.parse(b.t)) : null;
+          if(t == null || isNaN(t)) return;
+          var c = (b.c != null) ? b.c : b.p;
+          if(c == null) return;
+          var dt = new Date(t);
+          var key = dt.getUTCFullYear() + '-' + ('0'+(dt.getUTCMonth()+1)).slice(-2);
+          var rec = benchMon[key] || (benchMon[key] = { first:c, firstT:t, last:c, lastT:t });
+          if(t < rec.firstT){ rec.first = c; rec.firstT = t; }
+          if(t > rec.lastT){ rec.last = c; rec.lastT = t; }
+        });
+        var sx = [], sy = [];
+        monKeys.forEach(function(k){
+          var bm = benchMon[k];
+          if(bm && bm.first > 0){ sx.push(monMap[k]); sy.push((bm.last - bm.first) / bm.first); }
+        });
+        if(sx.length >= 3){
+          var mx = sx.reduce(function(s,v){return s+v;},0)/sx.length;
+          var my = sy.reduce(function(s,v){return s+v;},0)/sy.length;
+          var cov=0, vx=0, vy=0;
+          for(var i=0;i<sx.length;i++){ cov+=(sx[i]-mx)*(sy[i]-my); vx+=(sx[i]-mx)*(sx[i]-mx); vy+=(sy[i]-my)*(sy[i]-my); }
+          corr = (vx>0 && vy>0) ? cov/Math.sqrt(vx*vy) : null;
+          corrN = sx.length;
+        }
+      }
+    } catch(e){ corr = null; }
+    return {
+      ok:true, days:n, totalR:totalR,
+      sharpe:sharpe, sortino:sortino, calmar:calmar,
+      maxDD:maxDD, annRetR:annRetR,
+      months:monKeys, monthVals:monVals, posMonths:posMonths,
+      bestMon:bestMon, worstMon:worstMon, monthCount:monKeys.length,
+      corr:corr, corrBench:corrBench, corrN:corrN
+    };
+  }
+
+  function _renderInstitutionalMetrics(trades, usingBaked){
+    var host = document.getElementById('pf-inst-host');
+    if(!host) return;
+    if(usingBaked || !trades || !trades.length){
+      host.innerHTML = '<div class="pf-empty">Institutional metrics require the per-trade backtest cache (timestamps + R per trade). <strong>Building it in the background</strong> — populates automatically, or open the Backtest tab to compute it now.</div>';
+      return;
+    }
+    var m = _computeInstitutionalMetrics(trades);
+    if(!m.ok){
+      host.innerHTML = '<div class="pf-empty">Not enough dated trades in this window to compute risk-adjusted metrics (need ≥2 active trading days). Widen the timeframe.</div>';
+      return;
+    }
+    var fmt = function(v, dp){ if(v == null) return '—'; if(v === Infinity) return '∞'; return (v>=0?'':'') + v.toFixed(dp == null ? 2 : dp); };
+    var ratColor = function(v, good, ok){ if(v == null) return 'var(--inkd)'; if(v >= good) return 'var(--bull)'; if(v >= ok) return 'var(--gold)'; return 'var(--bear)'; };
+    var tile = function(label, val, sub, color){
+      return '<div style="background:var(--card,#fff);border:1px solid var(--rule);border-radius:4px;padding:9px 10px;text-align:center;">'
+           + '<div style="font-size:9px;letter-spacing:0.5px;color:var(--inkd);text-transform:uppercase;margin-bottom:4px;">'+label+'</div>'
+           + '<div style="font-family:Orbitron,monospace;font-size:17px;font-weight:900;color:'+(color||'var(--ink)')+';">'+val+'</div>'
+           + '<div style="font-size:8.5px;color:var(--inkd);letter-spacing:0.3px;margin-top:2px;">'+(sub||'')+'</div></div>';
+    };
+    var grid = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;">'
+             + tile('Sharpe', fmt(m.sharpe), 'annualised, rf=0', ratColor(m.sharpe, 1.5, 0.8))
+             + tile('Sortino', fmt(m.sortino), 'downside-adj.', ratColor(m.sortino, 2.0, 1.0))
+             + tile('Calmar', fmt(m.calmar), 'ann.ret / maxDD', ratColor(m.calmar, 1.0, 0.5))
+             + tile('Max Drawdown', '-' + fmt(m.maxDD,1) + 'R', 'peak-to-trough', 'var(--bear)')
+             + tile('Ann. Return', (m.annRetR>=0?'+':'') + fmt(m.annRetR,0) + 'R', 'mean × 252', m.annRetR>=0?'var(--bull)':'var(--bear)')
+             + tile('β-corr ' + m.corrBench, m.corr==null?'—':fmt(m.corr), m.corr==null?'benchmark loading':('n='+m.corrN+' months'), m.corr==null?'var(--inkd)':(Math.abs(m.corr)<0.3?'var(--bull)':'var(--gold)'))
+             + '</div>';
+    // Monthly distribution mini-bars.
+    var maxAbs = Math.max(1, Math.max.apply(null, m.monthVals.map(function(v){ return Math.abs(v); })));
+    var bars = m.months.map(function(k, i){
+      var v = m.monthVals[i];
+      var h = Math.round(Math.abs(v)/maxAbs * 38);
+      var col = v >= 0 ? 'var(--bull)' : 'var(--bear)';
+      var lbl = k.slice(2).replace('-', "'");  // YY'MM
+      return '<div title="'+k+': '+(v>=0?'+':'')+v.toFixed(2)+'R" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;flex:1;min-width:16px;">'
+           + '<div style="font-size:7px;color:'+(v>=0?'var(--bull)':'var(--bear)')+';margin-bottom:1px;">'+(v>=0?'+':'')+v.toFixed(0)+'</div>'
+           + '<div style="width:70%;height:'+Math.max(2,h)+'px;background:'+col+';border-radius:1px;"></div>'
+           + '<div style="font-size:7px;color:var(--inkd);margin-top:2px;writing-mode:horizontal-tb;">'+lbl+'</div></div>';
+    }).join('');
+    var monHtml = '<div style="margin-top:14px;">'
+                + '<div style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:0.8px;color:var(--inkd);text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;">'
+                +   '<span>Monthly R distribution</span>'
+                +   '<span style="font-weight:400;">'+m.posMonths+'/'+m.monthCount+' positive · best +'+m.bestMon.toFixed(1)+'R · worst '+m.worstMon.toFixed(1)+'R</span>'
+                + '</div>'
+                + '<div style="display:flex;align-items:flex-end;gap:3px;height:64px;padding:4px 2px;background:rgba(13,90,54,0.03);border:1px solid var(--rule);border-radius:3px;overflow-x:auto;">'+bars+'</div></div>';
+    var note = '<div style="margin-top:10px;font-size:9px;color:var(--inkd);line-height:1.5;font-family:Mukta,sans-serif;letter-spacing:0;">'
+             + '<strong style="color:var(--gold);">Methodology:</strong> computed on <strong>simulated backtest</strong> trades over '+m.days+' active trading days. Returns expressed in R (risk units); ratios are scale-invariant to the R→% conversion. Sharpe/Sortino annualised ×√252, risk-free 0. Calmar = annualised return ÷ max drawdown. Benchmark correlation = monthly strategy R vs monthly '+m.corrBench+' return. <strong>These will recompute on the live broker track record as it matures</strong> — the credible figures for an investor pack.</div>';
+    host.innerHTML = grid + monHtml + note;
+  }
+
   // Build the Extended Metrics card — surfaces stats the KPI strip
   // and class table can't fit: expectancy, max drawdown, avg win/loss
   // R, longest streaks, trade frequency, and a top-3/bottom-3 ranking
@@ -21455,6 +21605,9 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var extWin = document.getElementById('pf-ext-window');
     if(extWin) extWin.textContent = win.short + (usingBaked ? ' · baseline figures' : '');
     _renderExtMetrics(trades, byCls, totals, usingBaked);
+    var instWin = document.getElementById('pf-inst-window');
+    if(instWin) instWin.textContent = win.short + ' · simulated';
+    try { _renderInstitutionalMetrics(trades, usingBaked); } catch(e){}
     _renderClassTable(byCls);
     var tWin = document.getElementById('pf-trades-window');
     if(tWin) tWin.textContent = win.short + ' · most recent first';
