@@ -30,6 +30,36 @@ intraday win-rate matures. Not investor-facing. Keep it short.
   management. Non-negotiable before going live. Cheapest path: ask IC
   Markets for a free broker VPS. Revisit when ready to harden / go live.
 
+## 🔧 PRIORITY post-freeze fix — max-entry-deviation gate (cBot)
+
+**The single highest-leverage fix the execution-cost report exposed.**
+The cBot market-fills a triggered signal up to 30s–60min after the
+signal's trigger price. On fast instruments the market has drifted far
+by fill time: SPX500 entries landed ~189% of R (one fill 28 pts off a
+6.7-pt stop), XRPUSD ~140%. The backtest assumes entry AT the signal
+price; live enters wherever the market drifted to — this decoupling is
+the dominant live-vs-sim WR gap, NOT broker spread.
+
+Fix (cBot, needs rebuild): before `ExecuteMarketOrder`, compare the
+current market to `sig.Entry`. If it has moved more than ~25–30% of R
+(`|market - sig.Entry| / |sig.Entry - sig.Stop|`) in the adverse
+direction, SKIP — the R structure the signal modelled no longer
+exists. Cheap, principled, kills the catastrophic fills while keeping
+the well-behaved ones (eurusd ~9%).
+
+Proper long-term alternative: place a LIMIT/STOP order AT `sig.Entry`
+instead of a market order — fills only at the modelled price (or
+better) or not at all, which is exactly what the backtest assumes.
+Eliminates drift regardless of latency.
+
+Note on "go real-time": faster data cadence would *reduce* the drift
+but NOT remove it — a market order fills at "now", never at the signal
+price, so any non-zero latency leaves a gap. Matching the ORDER TYPE
+to the backtest (limit at entry) closes it without rebuilding the
+batch pipeline into a streaming system. Real-time is a big infra
+project; the deviation gate / limit order solves this defect for ~30
+lines of cBot.
+
 ## ▶ Recommended next steps WHILE awaiting more live data
 
 1. **Change-freeze on detector logic (~1–2 weeks).** Highest priority and
