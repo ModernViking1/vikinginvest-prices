@@ -18879,6 +18879,43 @@ function _renderCCIVariantPanel(host, commodityKeys){
          + '</div>';
   }
 
+  // 2026-06-30 — Institutional risk-adjusted metrics block for the PDF.
+  // Reuses _gatherTrades(0) (all-time) + _computeInstitutionalMetrics so
+  // the figures match the dashboard's Institutional Metrics card exactly.
+  function _pdfInstitutionalBlock(){
+    var trades = (typeof _gatherTrades === 'function') ? _gatherTrades(0) : [];
+    var m = (typeof _computeInstitutionalMetrics === 'function') ? _computeInstitutionalMetrics(trades) : null;
+    if(!m || !m.ok){
+      return '<div class="vi-pdf-body" style="font-style:italic;color:#5a5550;">Risk-adjusted metrics unavailable — backtest cache still loading.</div>';
+    }
+    var ready = m.ratiosReady;
+    var fmt = function(v, dp){ if(v == null) return '—'; return (v>=0?'':'') + v.toFixed(dp == null ? 2 : dp); };
+    var stats = [
+      { lbl:'Sharpe',  val: ready ? fmt(m.sharpe) : '—', sub:'monthly · annualised' },
+      { lbl:'Sortino', val: ready ? fmt(m.sortino) : '—', sub:'downside-adjusted' },
+      { lbl:'Calmar',  val: ready ? fmt(m.calmar) : '—', sub:'ann. return ÷ max DD' },
+      { lbl:'Max drawdown', val:'−' + fmt(m.maxDD,1) + 'R', sub:'peak-to-trough' },
+      { lbl:'Monthly consistency', val:m.posMonths + '/' + m.monthCount, sub:'positive months' },
+      { lbl:'Corr · ' + m.corrBench, val:m.corr==null ? '—' : fmt(m.corr), sub:'monthly, vs benchmark' }
+    ];
+    var tiles = '';
+    stats.forEach(function(s){
+      tiles += '<div style="flex:1 1 30%;min-width:120px;padding:11px 13px;background:#f7f4ef;border:1px solid #e6e1d8;border-radius:4px;text-align:center;">'
+            + '<div style="font-family:Orbitron,monospace;font-size:8.5px;letter-spacing:1.4px;color:#5a5550;text-transform:uppercase;margin-bottom:6px;">' + _esc(s.lbl) + '</div>'
+            + '<div style="font-family:Orbitron,monospace;font-size:18px;font-weight:900;color:#1a7a4a;margin-bottom:4px;">' + _esc(s.val) + '</div>'
+            + '<div style="font-size:9px;color:#5a5550;font-style:italic;">' + _esc(s.sub) + '</div>'
+            + '</div>';
+    });
+    var caveat = ready
+      ? 'Sharpe / Sortino computed from monthly returns (annualised ×√12, the institutional convention), risk-free 0; Calmar = annualised return ÷ max drawdown; correlation vs ' + m.corrBench + ', monthly. '
+      : 'Risk-adjusted ratios populate at ≥' + m.minMonths + ' months of history (currently ' + m.monthCount + '). ';
+    return '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">' + tiles + '</div>'
+         + '<div class="vi-pdf-body" style="font-size:10px;color:#5a5550;margin-top:6px;font-style:italic;">'
+         + caveat
+         + '<strong>These are simulated (frictionless) figures and run higher than live trading will; the audited live track record produces the figures for allocation.</strong>'
+         + '</div>';
+  }
+
   // Pie-slice colours — chosen for max contrast on white, consistent
   // with the green-gold-blue family the rest of the dashboard uses.
   var CLS_PIE_COLOR = {
@@ -19043,6 +19080,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
       +   '</div>'
       +   '<div class="vi-pdf-section-h" style="margin-top:18px;">▸ Risk &amp; Edge Metrics</div>'
       +     _pdfRiskMetricsBlock()
+      +   '<div class="vi-pdf-section-h" style="margin-top:18px;">▸ Institutional Risk-Adjusted Metrics</div>'
+      +     _pdfInstitutionalBlock()
       +   '<div class="vi-pdf-section-h" style="margin-top:18px;">▸ Performance by Asset Class</div>'
       +   '<table class="vi-pdf-table">'
       +     '<thead><tr><th>Segment</th><th class="r">Wins</th><th class="r">Losses</th><th class="r">Trades</th><th class="r">Win&nbsp;Rate</th></tr></thead>'
@@ -19797,21 +19836,17 @@ function _renderCCIVariantPanel(host, commodityKeys){
     if(dayKeys.length < 2) return out;
     var dailyR = dayKeys.map(function(k){ return dayMap[k]; });
     var n = dailyR.length;
-    var mean = dailyR.reduce(function(s,x){ return s+x; }, 0) / n;
-    var variance = dailyR.reduce(function(s,x){ return s + (x-mean)*(x-mean); }, 0) / (n - 1);
-    var sd = Math.sqrt(variance);
-    var downSq = dailyR.reduce(function(s,x){ return s + (x < 0 ? x*x : 0); }, 0) / n;
-    var downSd = Math.sqrt(downSq);
-    var ANN = Math.sqrt(252);  // trading-day annualisation
-    var sharpe  = sd > 0 ? (mean / sd) * ANN : null;
-    var sortino = downSd > 0 ? (mean / downSd) * ANN : (mean > 0 ? Infinity : null);
-    // Equity curve (cumulative R) → max drawdown in R.
+    // Max drawdown from the daily equity curve (finest peak-to-trough).
     var cum = 0, peak = 0, maxDD = 0;
     dailyR.forEach(function(r){ cum += r; if(cum > peak) peak = cum; var dd = peak - cum; if(dd > maxDD) maxDD = dd; });
     var totalR = cum;
-    var annRetR = mean * 252;                 // annualised R return
-    var calmar = maxDD > 0 ? (annRetR / maxDD) : (annRetR > 0 ? Infinity : null);
-    // Monthly distribution (calendar UTC month) of summed R.
+    // 2026-06-30 — Sharpe/Sortino/Calmar from MONTHLY returns, not daily.
+    // Daily aggregation across ~40 pairs/day treats intraday trades as
+    // independent (they aren't — same regime), which inflated the ratios
+    // absurdly (Sharpe ~30). Monthly returns are the institutional
+    // convention and don't over-annualise. Gated at >=6 months — below
+    // that the estimate is noise → null (renders "—"), so short windows
+    // (Today/Week) stop showing garbage.
     var monMap = {};
     trades.forEach(function(t){
       if(typeof t.ts !== 'number') return;
@@ -19824,6 +19859,20 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var posMonths = monVals.filter(function(v){ return v > 0; }).length;
     var bestMon = monVals.length ? Math.max.apply(null, monVals) : 0;
     var worstMon = monVals.length ? Math.min.apply(null, monVals) : 0;
+    var MIN_MONTHS = 6;
+    var sharpe = null, sortino = null, calmar = null, annRetR = null;
+    if(monKeys.length >= MIN_MONTHS){
+      var nm = monVals.length;
+      var meanM = monVals.reduce(function(s,x){ return s+x; }, 0) / nm;
+      var varM = monVals.reduce(function(s,x){ return s + (x-meanM)*(x-meanM); }, 0) / (nm - 1);
+      var sdM = Math.sqrt(varM);
+      var downM = Math.sqrt(monVals.reduce(function(s,x){ return s + (x < 0 ? x*x : 0); }, 0) / nm);
+      var ANN_M = Math.sqrt(12);
+      sharpe  = sdM > 0 ? (meanM / sdM) * ANN_M : null;          // null if no variance
+      sortino = downM > 0 ? (meanM / downM) * ANN_M : null;       // null (not ∞) if no down months
+      annRetR = meanM * 12;
+      calmar  = maxDD > 0 ? (annRetR / maxDD) : null;            // null (not ∞) if no drawdown
+    }
     // Benchmark correlation — monthly strategy R vs monthly SPX % return.
     var corr = null, corrBench = 'SPX500', corrN = 0;
     try {
@@ -19860,6 +19909,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       ok:true, days:n, totalR:totalR,
       sharpe:sharpe, sortino:sortino, calmar:calmar,
       maxDD:maxDD, annRetR:annRetR,
+      ratiosReady:(monKeys.length >= MIN_MONTHS), minMonths:MIN_MONTHS,
       months:monKeys, monthVals:monVals, posMonths:posMonths,
       bestMon:bestMon, worstMon:worstMon, monthCount:monKeys.length,
       corr:corr, corrBench:corrBench, corrN:corrN
@@ -19886,12 +19936,13 @@ function _renderCCIVariantPanel(host, commodityKeys){
            + '<div style="font-family:Orbitron,monospace;font-size:17px;font-weight:900;color:'+(color||'var(--ink)')+';">'+val+'</div>'
            + '<div style="font-size:8.5px;color:var(--inkd);letter-spacing:0.3px;margin-top:2px;">'+(sub||'')+'</div></div>';
     };
+    var rsub = m.ratiosReady ? null : ('needs ≥' + m.minMonths + ' months — use All');
     var grid = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;">'
-             + tile('Sharpe', fmt(m.sharpe), 'annualised, rf=0', ratColor(m.sharpe, 1.5, 0.8))
-             + tile('Sortino', fmt(m.sortino), 'downside-adj.', ratColor(m.sortino, 2.0, 1.0))
-             + tile('Calmar', fmt(m.calmar), 'ann.ret / maxDD', ratColor(m.calmar, 1.0, 0.5))
+             + tile('Sharpe', m.ratiosReady ? fmt(m.sharpe) : '—', rsub || 'monthly, annualised, rf=0', ratColor(m.sharpe, 1.5, 0.8))
+             + tile('Sortino', m.ratiosReady ? fmt(m.sortino) : '—', rsub || 'downside-adj.', ratColor(m.sortino, 2.0, 1.0))
+             + tile('Calmar', m.ratiosReady ? fmt(m.calmar) : '—', rsub || 'ann.ret / maxDD', ratColor(m.calmar, 1.0, 0.5))
              + tile('Max Drawdown', '-' + fmt(m.maxDD,1) + 'R', 'peak-to-trough', 'var(--bear)')
-             + tile('Ann. Return', (m.annRetR>=0?'+':'') + fmt(m.annRetR,0) + 'R', 'mean × 252', m.annRetR>=0?'var(--bull)':'var(--bear)')
+             + tile('Ann. Return', m.ratiosReady ? ((m.annRetR>=0?'+':'') + fmt(m.annRetR,0) + 'R') : '—', rsub || 'monthly mean × 12', (m.annRetR!=null && m.annRetR>=0)?'var(--bull)':'var(--bear)')
              + tile('β-corr ' + m.corrBench, m.corr==null?'—':fmt(m.corr), m.corr==null?'benchmark loading':('n='+m.corrN+' months'), m.corr==null?'var(--inkd)':(Math.abs(m.corr)<0.3?'var(--bull)':'var(--gold)'))
              + '</div>';
     // Monthly distribution mini-bars.
@@ -19913,7 +19964,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
                 + '</div>'
                 + '<div style="display:flex;align-items:flex-end;gap:3px;height:64px;padding:4px 2px;background:rgba(13,90,54,0.03);border:1px solid var(--rule);border-radius:3px;overflow-x:auto;">'+bars+'</div></div>';
     var note = '<div style="margin-top:10px;font-size:9px;color:var(--inkd);line-height:1.5;font-family:Mukta,sans-serif;letter-spacing:0;">'
-             + '<strong style="color:var(--gold);">Methodology:</strong> computed on <strong>simulated backtest</strong> trades over '+m.days+' active trading days. Returns expressed in R (risk units); ratios are scale-invariant to the R→% conversion. Sharpe/Sortino annualised ×√252, risk-free 0. Calmar = annualised return ÷ max drawdown. Benchmark correlation = monthly strategy R vs monthly '+m.corrBench+' return. <strong>These will recompute on the live broker track record as it matures</strong> — the credible figures for an investor pack.</div>';
+             + '<strong style="color:var(--gold);">Methodology:</strong> computed on <strong>simulated backtest</strong> trades over '+m.monthCount+' month'+(m.monthCount===1?'':'s')+' / '+m.days+' active days. Returns in R (risk units); ratios are scale-invariant to the R→% conversion. Sharpe/Sortino from <strong>monthly</strong> returns annualised ×√12 (the institutional convention), risk-free 0, shown only at ≥'+m.minMonths+' months. Calmar = annualised return ÷ max drawdown. Correlation = monthly strategy R vs monthly '+m.corrBench+' return. <strong>Simulated figures are frictionless and run higher than reality — the live broker track record produces the credible numbers for an investor pack.</strong></div>';
     host.innerHTML = grid + monHtml + note;
   }
 
@@ -20375,6 +20426,20 @@ function _renderCCIVariantPanel(host, commodityKeys){
            (dir === 'bull' ? exit >= tgt : exit <= tgt)) derived = 'target-hit';
         else if(typeof stp === 'number' && stp > 0 &&
            (dir === 'bull' ? exit <= stp : exit >= stp)) derived = 'stop-hit';
+      }
+      // 2026-06-30 — realized_r corroboration. The price-level check
+      // above compares exit to the SIGNAL's stop/target, but the cBot
+      // market-fills late so the ACTUAL broker stop sits R-distance from
+      // the drifted FILL, not at the signal level — so a clean stop-out
+      // (realized ≈ -1R, often worse with slippage) can miss the price
+      // check and fall to "manual/other" (the 5 mislabelled losses).
+      // realized_r is computed against the ACTUAL risk, so ≈ ±1R is the
+      // reliable tell: ≥ +0.85R = target, ≤ -0.85R = stop. Only genuine
+      // mid-range closes (small R) remain "manual".
+      var rr = (typeof r.realized_r === 'number') ? r.realized_r : null;
+      if(!derived && rr != null){
+        if(rr >= 0.85) derived = 'target-hit';
+        else if(rr <= -0.85) derived = 'stop-hit';
       }
       var eff = derived || reason;
       if(eff === 'target-hit') return 'target-hit';
