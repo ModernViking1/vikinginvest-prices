@@ -20127,37 +20127,58 @@ function _renderCCIVariantPanel(host, commodityKeys){
   // The progress / cbot-invalidation distinctions rely on optional
   // fields the cBot may not yet emit — they degrade silently to
   // generic stop-hit / manual-or-broker when absent.
+  // 2026-06-30 — Today / Week / All window selector for the LIVE panel.
+  // Default 'today'; persisted to localStorage; switching re-renders.
+  try {
+    if(!window._viLiveWindow){
+      var _vw = null; try { _vw = localStorage.getItem('vit_live_window'); } catch(e){}
+      window._viLiveWindow = (_vw === 'week' || _vw === 'all') ? _vw : 'today';
+    }
+  } catch(e){ window._viLiveWindow = 'today'; }
+  window.__viSetLiveWindow = function(w){
+    window._viLiveWindow = (w === 'week' || w === 'all') ? w : 'today';
+    try { localStorage.setItem('vit_live_window', window._viLiveWindow); } catch(e){}
+    try { _renderLiveFailureMode(); } catch(e){}
+  };
+  function _viLiveWindowToggle(active){
+    var btn = function(w, label){
+      var on = (active === w);
+      return '<button onclick="window.__viSetLiveWindow(\'' + w + '\')" '
+           + 'style="font-family:Orbitron,monospace;font-size:8px;font-weight:700;letter-spacing:0.5px;'
+           + 'padding:3px 9px;border-radius:3px;cursor:pointer;margin-left:4px;'
+           + 'border:1px solid ' + (on ? '#0d5a36' : 'rgba(13,90,54,0.3)') + ';'
+           + 'background:' + (on ? '#0d5a36' : 'transparent') + ';'
+           + 'color:' + (on ? '#fff' : '#0d5a36') + ';">' + label + '</button>';
+    };
+    return '<span style="display:inline-flex;align-items:center;">'
+         + btn('today', 'Today') + btn('week', 'Week') + btn('all', 'All') + '</span>';
+  }
+
   function _renderLiveFailureMode(){
     var host = document.getElementById('failureModeAnalysisLive');
     if(!host) return;
     var all = (window._brokerExecutions || []);
 
-    // ── Live window: TODAY UTC ─────────────────────────────────────
-    // 2026-06-25 — scope the panel to UTC-day rather than chasing a
-    // per-batch cohort anchor. Mid-session new placements would push the
-    // "earliest still-open" anchor forward and silently exclude earlier
-    // closes from the same trading session, which made the panel look
-    // mostly empty even on busy nights. UTC-day matches the cBot's own
-    // daily-R reset (CheckDailyLimit rolls at 00:00 UTC) so the live
-    // panel and the cBot's day accounting agree on what "today" means.
-    // Trades that close shortly after a midnight roll therefore start
-    // a fresh window cleanly.
+    // ── Live window: Today / Week / All ───────────────────────────
+    // 2026-06-30 — user-selectable window. Default 'today' (UTC day,
+    // matching the cBot's daily-R reset at 00:00 UTC). 'week' = rolling
+    // 7 days (reaches the n>=30 the panel needs to stabilise faster);
+    // 'all' = entire executions history (365-day retention). The choice
+    // persists in localStorage; switching re-renders in place.
     var nowMs = Date.now();
     var utcNow = new Date(nowMs);
-    var anchor = Date.UTC(utcNow.getUTCFullYear(), utcNow.getUTCMonth(), utcNow.getUTCDate());
-    var closedPidsToday = {};
-    all.forEach(function(r){
-      if(r && r.event === 'closed' && r.position_id != null && (r.ts || 0) >= anchor){
-        closedPidsToday[r.position_id] = 1;
-      }
-    });
-    // "Still-open" = placed today and not yet closed (closes can be from
-    // any day, but for the empty-state count we just need "how many
-    // entries from today haven't closed yet").
+    var todayAnchor = Date.UTC(utcNow.getUTCFullYear(), utcNow.getUTCMonth(), utcNow.getUTCDate());
+    var mode = window._viLiveWindow || 'today';
+    var anchor;
+    if(mode === 'all'){ anchor = 0; }
+    else if(mode === 'week'){ anchor = nowMs - 7 * 24 * 3600 * 1000; }
+    else { mode = 'today'; anchor = todayAnchor; }
+    var winLabel = (mode === 'all') ? 'all time' : (mode === 'week') ? 'last 7 days' : 'today UTC';
+
+    // "Still-open" = placed within the window and not yet closed.
     var openCount = all.filter(function(r){
       if(!(r && r.event === 'placed' && r.position_id != null)) return false;
       if((r.ts || 0) < anchor) return false;
-      // closed at any point in the executions feed counts as closed
       return !all.some(function(x){
         return x && x.event === 'closed' && x.position_id === r.position_id;
       });
@@ -20169,10 +20190,13 @@ function _renderCCIVariantPanel(host, commodityKeys){
     });
     if(!execs.length){
       var awaitMsg = openCount > 0
-        ? ('Watching ' + openCount + ' open position' + (openCount === 1 ? '' : 's') + ' opened so far today. '
-           + 'This panel fills in with the actual cTrader outcome (target / stop / invalidation) as each of today\'s trades closes. Auto-refreshes on every CDN poll (60s).')
-        : 'Awaiting today\'s first closed broker execution. This panel mirrors the simulated breakdown above using actual cTrader fills, scoped to the current UTC day, and resets at 00:00 UTC alongside the cBot\'s daily-R accounting. Auto-refreshes on every CDN poll (60s).';
-      host.innerHTML = '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;margin-bottom:6px;">▸ Intraday failure mode &middot; LIVE <span style="font-weight:400;opacity:0.7;">· today UTC</span></div>'
+        ? ('Watching ' + openCount + ' open position' + (openCount === 1 ? '' : 's') + ' in this window (' + winLabel + '). '
+           + 'This panel fills in with the actual cTrader outcome (target / stop / invalidation) as each trade closes. Auto-refreshes on every CDN poll (60s).')
+        : 'No closed broker executions in this window (' + winLabel + '). This panel mirrors the simulated breakdown above using actual cTrader fills. Switch the window above, or wait for the next close. Auto-refreshes on every CDN poll (60s).';
+      host.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;">'
+                     +   '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;">▸ Intraday failure mode &middot; LIVE <span style="font-weight:400;opacity:0.7;">· ' + winLabel + '</span></div>'
+                     +   _viLiveWindowToggle(mode)
+                     + '</div>'
                      + '<div style="font-size:10px;color:var(--inkd);font-family:Mukta,sans-serif;letter-spacing:0;">' + awaitMsg + '</div>';
       return;
     }
@@ -20181,7 +20205,11 @@ function _renderCCIVariantPanel(host, commodityKeys){
     function classify(r){
       // Optional richer signal from the cBot — if present, use it.
       var reason = (r.reason || '').toLowerCase();
-      var closeSource = (r.close_source || '').toLowerCase();  // future cBot field
+      // 2026-06-30 — normalise '_' → '-' so the cBot's stamped value
+      // "cbot_invalidation" matches the bucket key "cbot-invalidation"
+      // (the two had drifted apart, mis-bucketing every invalidation
+      // close as "manual / other").
+      var closeSource = (r.close_source || '').toLowerCase().replace(/_/g, '-');
       if(closeSource === 'cbot-invalidation' || reason === 'cbot-invalidation') return 'cbot-invalidation';
       if(reason === 'target-hit') return 'target-hit';
       // For stop-hits, see if max favourable excursion (if cBot starts
@@ -20278,10 +20306,11 @@ function _renderCCIVariantPanel(host, commodityKeys){
       ? ''
       : '<span style="margin-left:8px;padding:2px 7px;border-radius:3px;background:' + deltaColor + ';color:#fff;font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.6px;">Live ' + fmtPct(liveWR) + ' / Sim ' + fmtPct(blendedSimWR) + ' &middot; &Delta; ' + (deltaPp >= 0 ? '+' : '') + deltaPp.toFixed(0) + 'pp</span>';
 
-    var headerHtml = '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">'
-                   + '<span>▸ Intraday failure mode &middot; LIVE <span style="font-weight:400;opacity:0.7;">· today UTC</span>' + deltaPill + '</span>'
-                   + '<span style="font-size:8.5px;color:var(--inkd);letter-spacing:0.6px;font-weight:400;">' + execs.length + ' closed' + (openCount > 0 ? ' &middot; ' + openCount + ' still open' : '') + ' &middot; ' + fmtR(totalR) + ' realised &middot; ' + fmtPct(liveWR) + ' WR</span>'
-                   + '</div>';
+    var headerHtml = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:8px;">'
+                   + '<span style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;">▸ Intraday failure mode &middot; LIVE <span style="font-weight:400;opacity:0.7;">· ' + winLabel + '</span>' + deltaPill + '</span>'
+                   + _viLiveWindowToggle(mode)
+                   + '</div>'
+                   + '<div style="text-align:right;font-size:8.5px;color:var(--inkd);letter-spacing:0.6px;font-weight:400;margin-bottom:8px;">' + execs.length + ' closed' + (openCount > 0 ? ' &middot; ' + openCount + ' still open' : '') + ' &middot; ' + fmtR(totalR) + ' realised &middot; ' + fmtPct(liveWR) + ' WR</div>';
 
     var statsRow = '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px;font-size:9px;">'
                  + _liveStatTile('🎯 Target hit', aggC['target-hit'], winShare, '#0d5a36')

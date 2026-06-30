@@ -1048,18 +1048,31 @@ namespace cAlgo.Robots
         {
             // cTrader doesn't expose a structured close reason, but we
             // can infer it from where the exit price lands vs the SL/TP.
+            // 2026-06-30 — direction-aware "reached the level" instead of
+            // a fixed 2-pip band. The old band mislabelled index/metal TP
+            // fills (SPX500, XAU, XAG) that overshoot the TP by more than
+            // 2 of their large pips as "manual-or-broker", under-counting
+            // genuine target-hits. Now: a long that exits at/above its TP
+            // (or a short at/below) is a target-hit; at/beyond the SL is a
+            // stop-hit. A small tolerance lets an exactly-AT-level fill
+            // still count. Anything BETWEEN the levels (a real manual /
+            // partial exit) falls through to "manual-or-broker".
             try
             {
                 var exit = p.Symbol?.Bid ?? p.EntryPrice;
+                bool isBuy = p.TradeType == TradeType.Buy;
+                var tol = (p.Symbol != null ? p.Symbol.PipSize : 0) * 0.5;
                 if (p.TakeProfit.HasValue)
                 {
-                    var tpDist = Math.Abs(exit - p.TakeProfit.Value);
-                    if (tpDist < p.Symbol.PipSize * 2) return "target-hit";
+                    var tp = p.TakeProfit.Value;
+                    bool tpReached = isBuy ? (exit >= tp - tol) : (exit <= tp + tol);
+                    if (tpReached) return "target-hit";
                 }
                 if (p.StopLoss.HasValue)
                 {
-                    var slDist = Math.Abs(exit - p.StopLoss.Value);
-                    if (slDist < p.Symbol.PipSize * 2) return "stop-hit";
+                    var sl = p.StopLoss.Value;
+                    bool slReached = isBuy ? (exit <= sl + tol) : (exit >= sl - tol);
+                    if (slReached) return "stop-hit";
                 }
             }
             catch { }
