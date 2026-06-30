@@ -20402,7 +20402,83 @@ function _renderCCIVariantPanel(host, commodityKeys){
       }
     }
 
-    host.innerHTML = headerHtml + statsRow + tableHtml + hint + _liveLossesList(execs);
+    host.innerHTML = headerHtml + statsRow + tableHtml + hint + _liveLossesList(execs)
+                   + _renderExecCostReport(all, anchor, winLabel);
+  }
+
+  // 2026-06-30 — Per-pair execution-cost report. Quantifies how much
+  // each pair bleeds to entry slippage — the mechanical driver of the
+  // backtest↔live WR gap (the simulation fills at the signal price; live
+  // pays slippage + spread). Computed UNIT-FREE from the placement rows
+  // the cBot already records: priceSlip = |entry_filled - entry_attempt|,
+  // expressed as a fraction of the trade's own R distance
+  // (|entry_filled - stop|), so no pip-size table is needed and pairs of
+  // any scale (FX, metals, crypto, indices) are directly comparable.
+  // Note: this is ENTRY-side slippage only — round-trip cost (entry+exit)
+  // is roughly double. Windowed to match the panel's Today/Week/All.
+  function _renderExecCostReport(all, anchor, winLabel){
+    var placed = (all || []).filter(function(r){
+      return r && r.event === 'placed' && (r.ts || 0) >= anchor
+          && typeof r.entry_filled === 'number' && typeof r.entry_attempt === 'number'
+          && typeof r.stop === 'number';
+    });
+    if(placed.length < 1) return '';
+    var byPair = {};
+    placed.forEach(function(r){
+      var p = r.pair || '?';
+      var rDist = Math.abs(r.entry_filled - r.stop);
+      if(!(rDist > 0)) return;
+      var slipFracR = Math.abs(r.entry_filled - r.entry_attempt) / rDist;
+      var slipPips = (typeof r.slippage_pips === 'number') ? Math.abs(r.slippage_pips) : null;
+      var o = byPair[p] || (byPair[p] = { n:0, sumFracR:0, sumPips:0, nPips:0 });
+      o.n++; o.sumFracR += slipFracR;
+      if(slipPips != null){ o.sumPips += slipPips; o.nPips++; }
+    });
+    var keys = Object.keys(byPair);
+    if(!keys.length) return '';
+    // Sort by avg slippage-as-%-of-R desc (worst execution first).
+    keys.sort(function(a, b){ return (byPair[b].sumFracR/byPair[b].n) - (byPair[a].sumFracR/byPair[a].n); });
+    var totN = 0, totFracR = 0;
+    keys.forEach(function(k){ totN += byPair[k].n; totFracR += byPair[k].sumFracR; });
+    var aggAvgPct = totN ? (totFracR / totN * 100) : 0;
+    var pctColor = function(p){ return p >= 25 ? '#c0281a' : p >= 12 ? '#c8860a' : '#0d5a36'; };
+    var rows = keys.map(function(k){
+      var o = byPair[k];
+      var avgPct = o.sumFracR / o.n * 100;
+      var avgPips = o.nPips ? (o.sumPips / o.nPips) : null;
+      var drag = (o.sumFracR);   // total R lost to entry slippage on this pair
+      return '<tr style="border-bottom:1px solid rgba(13,90,54,0.08);">'
+           + '<td style="padding:5px 8px;font-weight:700;">' + k.toUpperCase() + '</td>'
+           + '<td style="padding:5px 8px;text-align:right;">' + o.n + '</td>'
+           + '<td style="padding:5px 8px;text-align:right;font-weight:700;color:' + pctColor(avgPct) + ';">' + avgPct.toFixed(0) + '% of R</td>'
+           + '<td style="padding:5px 8px;text-align:right;color:var(--inkm);">' + (avgPips != null ? avgPips.toFixed(1) + ' pips' : '—') + '</td>'
+           + '<td style="padding:5px 8px;text-align:right;color:#c0281a;">-' + drag.toFixed(2) + 'R</td>'
+           + '</tr>';
+    }).join('');
+    var readLine = aggAvgPct >= 20
+      ? 'Execution cost is high — entry slippage alone is eating ' + aggAvgPct.toFixed(0) + '% of R on average (round-trip ~' + (aggAvgPct*2).toFixed(0) + '%). The worst pairs (top of table) are prime candidates for a tighter spread gate or removal; this is the bulk of the live-vs-sim WR gap.'
+      : aggAvgPct >= 10
+        ? 'Execution cost is moderate (~' + aggAvgPct.toFixed(0) + '% of R on entry; round-trip ~' + (aggAvgPct*2).toFixed(0) + '%). Watch the red rows — they explain most of any per-pair live-vs-sim shortfall.'
+        : 'Execution cost is low (~' + aggAvgPct.toFixed(0) + '% of R on entry). Slippage is not the main driver of the live-vs-sim gap here — look to sample size / selection instead.';
+    return '<div style="margin-top:14px;padding-top:10px;border-top:1px dashed rgba(13,90,54,0.25);">'
+         + '<div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:1.2px;color:#0d5a36;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;">'
+         +   '<span>⚙ Execution cost &middot; entry slippage</span>'
+         +   '<span style="font-weight:400;font-size:8.5px;color:var(--inkd);letter-spacing:0.4px;">' + placed.length + ' fills &middot; ' + winLabel + ' &middot; avg ' + aggAvgPct.toFixed(0) + '% of R</span>'
+         + '</div>'
+         + '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;">'
+         +   '<table style="width:100%;border-collapse:collapse;font-family:Orbitron,monospace;font-size:9.5px;">'
+         +     '<thead><tr style="background:rgba(13,90,54,0.05);color:var(--inkd);text-align:left;letter-spacing:0.4px;">'
+         +       '<th style="padding:6px 8px;font-weight:700;">Pair</th>'
+         +       '<th style="padding:6px 8px;text-align:right;font-weight:700;">Fills</th>'
+         +       '<th style="padding:6px 8px;text-align:right;font-weight:700;">Slippage</th>'
+         +       '<th style="padding:6px 8px;text-align:right;font-weight:700;">Avg pips</th>'
+         +       '<th style="padding:6px 8px;text-align:right;font-weight:700;">R drag</th>'
+         +     '</tr></thead><tbody>' + rows + '</tbody></table></div>'
+         + '<div style="margin-top:8px;padding:8px 10px;background:rgba(13,90,54,0.05);border-left:3px solid #0d5a36;font-size:9px;line-height:1.5;color:var(--inkm);font-family:Mukta,sans-serif;letter-spacing:0;">'
+         +   '<strong style="color:#0d5a36;">Read:</strong> ' + readLine
+         +   ' <span style="opacity:0.7;">Slippage shown is entry-side, as a fraction of each trade\'s own stop distance (R) so pairs of any scale compare directly.</span>'
+         + '</div>'
+         + '</div>';
   }
   // Expose so the global switchPage hook in setUpRouting() (which lives
   // outside this IIFE) can render the empty-state placeholder when the
