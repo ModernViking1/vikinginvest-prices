@@ -18908,7 +18908,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     });
     var caveat = ready
       ? 'Sharpe / Sortino computed from monthly returns (annualised ×√12, the institutional convention), risk-free 0; Calmar = annualised return ÷ max drawdown; correlation vs ' + m.corrBench + ', monthly. '
-      : 'Risk-adjusted ratios populate at ≥' + m.minMonths + ' months of history (currently ' + m.monthCount + '). ';
+      : 'Risk-adjusted ratios populate at ≥' + m.minWeeks + ' weeks of history (currently ' + m.weekCount + '). ';
     return '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">' + tiles + '</div>'
          + '<div class="vi-pdf-body" style="font-size:10px;color:#5a5550;margin-top:6px;font-style:italic;">'
          + caveat
@@ -19859,18 +19859,31 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var posMonths = monVals.filter(function(v){ return v > 0; }).length;
     var bestMon = monVals.length ? Math.max.apply(null, monVals) : 0;
     var worstMon = monVals.length ? Math.min.apply(null, monVals) : 0;
-    var MIN_MONTHS = 6;
+    // 2026-06-30 — ratios from WEEKLY returns, gated at ≥6 weeks.
+    // Daily aggregation across ~40 pairs treated intraday trades as
+    // independent and inflated Sharpe absurdly (~30); monthly would be
+    // ideal but the recent-backtest cache is a rolling ~2-month window
+    // (only 2 monthly points → not computable). Weekly is the workable
+    // middle: ~8 weeks from the cache, far less over-annualised than
+    // daily, computable now. Annualised ×√52. Still simulated +
+    // frictionless, so it runs high — caveated in the note.
+    var WEEK_MS = 7 * 24 * 3600 * 1000;
+    var wkMap = {};
+    dayKeys.forEach(function(k){ var w = Math.floor(k / WEEK_MS); wkMap[w] = (wkMap[w] || 0) + dayMap[k]; });
+    var wkVals = Object.keys(wkMap).map(Number).sort(function(a,b){ return a-b; }).map(function(w){ return wkMap[w]; });
+    var MIN_WEEKS = 6;
     var sharpe = null, sortino = null, calmar = null, annRetR = null;
-    if(monKeys.length >= MIN_MONTHS){
-      var nm = monVals.length;
-      var meanM = monVals.reduce(function(s,x){ return s+x; }, 0) / nm;
-      var varM = monVals.reduce(function(s,x){ return s + (x-meanM)*(x-meanM); }, 0) / (nm - 1);
-      var sdM = Math.sqrt(varM);
-      var downM = Math.sqrt(monVals.reduce(function(s,x){ return s + (x < 0 ? x*x : 0); }, 0) / nm);
-      var ANN_M = Math.sqrt(12);
-      sharpe  = sdM > 0 ? (meanM / sdM) * ANN_M : null;          // null if no variance
-      sortino = downM > 0 ? (meanM / downM) * ANN_M : null;       // null (not ∞) if no down months
-      annRetR = meanM * 12;
+    var ratiosReady = wkVals.length >= MIN_WEEKS;
+    if(ratiosReady){
+      var nw = wkVals.length;
+      var meanW = wkVals.reduce(function(s,x){ return s+x; }, 0) / nw;
+      var varW = wkVals.reduce(function(s,x){ return s + (x-meanW)*(x-meanW); }, 0) / (nw - 1);
+      var sdW = Math.sqrt(varW);
+      var downW = Math.sqrt(wkVals.reduce(function(s,x){ return s + (x < 0 ? x*x : 0); }, 0) / nw);
+      var ANN_W = Math.sqrt(52);
+      sharpe  = sdW > 0 ? (meanW / sdW) * ANN_W : null;          // null if no variance
+      sortino = downW > 0 ? (meanW / downW) * ANN_W : null;       // null (not ∞) if no down weeks
+      annRetR = meanW * 52;
       calmar  = maxDD > 0 ? (annRetR / maxDD) : null;            // null (not ∞) if no drawdown
     }
     // Benchmark correlation — monthly strategy R vs monthly SPX % return.
@@ -19909,7 +19922,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       ok:true, days:n, totalR:totalR,
       sharpe:sharpe, sortino:sortino, calmar:calmar,
       maxDD:maxDD, annRetR:annRetR,
-      ratiosReady:(monKeys.length >= MIN_MONTHS), minMonths:MIN_MONTHS,
+      ratiosReady:ratiosReady, minWeeks:MIN_WEEKS, weekCount:wkVals.length,
       months:monKeys, monthVals:monVals, posMonths:posMonths,
       bestMon:bestMon, worstMon:worstMon, monthCount:monKeys.length,
       corr:corr, corrBench:corrBench, corrN:corrN
@@ -19936,13 +19949,13 @@ function _renderCCIVariantPanel(host, commodityKeys){
            + '<div style="font-family:Orbitron,monospace;font-size:17px;font-weight:900;color:'+(color||'var(--ink)')+';">'+val+'</div>'
            + '<div style="font-size:8.5px;color:var(--inkd);letter-spacing:0.3px;margin-top:2px;">'+(sub||'')+'</div></div>';
     };
-    var rsub = m.ratiosReady ? null : ('needs ≥' + m.minMonths + ' months — use All');
+    var rsub = m.ratiosReady ? null : ('needs ≥' + m.minWeeks + ' weeks (have ' + m.weekCount + ')');
     var grid = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;">'
-             + tile('Sharpe', m.ratiosReady ? fmt(m.sharpe) : '—', rsub || 'monthly, annualised, rf=0', ratColor(m.sharpe, 1.5, 0.8))
+             + tile('Sharpe', m.ratiosReady ? fmt(m.sharpe) : '—', rsub || 'weekly, annualised, rf=0', ratColor(m.sharpe, 1.5, 0.8))
              + tile('Sortino', m.ratiosReady ? fmt(m.sortino) : '—', rsub || 'downside-adj.', ratColor(m.sortino, 2.0, 1.0))
              + tile('Calmar', m.ratiosReady ? fmt(m.calmar) : '—', rsub || 'ann.ret / maxDD', ratColor(m.calmar, 1.0, 0.5))
              + tile('Max Drawdown', '-' + fmt(m.maxDD,1) + 'R', 'peak-to-trough', 'var(--bear)')
-             + tile('Ann. Return', m.ratiosReady ? ((m.annRetR>=0?'+':'') + fmt(m.annRetR,0) + 'R') : '—', rsub || 'monthly mean × 12', (m.annRetR!=null && m.annRetR>=0)?'var(--bull)':'var(--bear)')
+             + tile('Ann. Return', m.ratiosReady ? ((m.annRetR>=0?'+':'') + fmt(m.annRetR,0) + 'R') : '—', rsub || 'weekly mean × 52', (m.annRetR!=null && m.annRetR>=0)?'var(--bull)':'var(--bear)')
              + tile('β-corr ' + m.corrBench, m.corr==null?'—':fmt(m.corr), m.corr==null?'benchmark loading':('n='+m.corrN+' months'), m.corr==null?'var(--inkd)':(Math.abs(m.corr)<0.3?'var(--bull)':'var(--gold)'))
              + '</div>';
     // Monthly distribution mini-bars.
@@ -19964,7 +19977,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
                 + '</div>'
                 + '<div style="display:flex;align-items:flex-end;gap:3px;height:64px;padding:4px 2px;background:rgba(13,90,54,0.03);border:1px solid var(--rule);border-radius:3px;overflow-x:auto;">'+bars+'</div></div>';
     var note = '<div style="margin-top:10px;font-size:9px;color:var(--inkd);line-height:1.5;font-family:Mukta,sans-serif;letter-spacing:0;">'
-             + '<strong style="color:var(--gold);">Methodology:</strong> computed on <strong>simulated backtest</strong> trades over '+m.monthCount+' month'+(m.monthCount===1?'':'s')+' / '+m.days+' active days. Returns in R (risk units); ratios are scale-invariant to the R→% conversion. Sharpe/Sortino from <strong>monthly</strong> returns annualised ×√12 (the institutional convention), risk-free 0, shown only at ≥'+m.minMonths+' months. Calmar = annualised return ÷ max drawdown. Correlation = monthly strategy R vs monthly '+m.corrBench+' return. <strong>Simulated figures are frictionless and run higher than reality — the live broker track record produces the credible numbers for an investor pack.</strong></div>';
+             + '<strong style="color:var(--gold);">Methodology:</strong> computed on <strong>simulated backtest</strong> trades over '+m.weekCount+' week'+(m.weekCount===1?'':'s')+' / '+m.days+' active days (the recent-backtest cache holds a rolling ~2-month window). Returns in R (risk units); ratios are scale-invariant to the R→% conversion. Sharpe/Sortino from <strong>weekly</strong> returns annualised ×√52, risk-free 0, shown at ≥'+m.minWeeks+' weeks. Calmar = annualised return ÷ max drawdown. <strong>Simulated figures are frictionless and run high — a true Sharpe needs the audited live track record; these are the theoretical-ceiling framework, not an allocatable number.</strong></div>';
     host.innerHTML = grid + monHtml + note;
   }
 
