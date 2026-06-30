@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-06-30T03:31:12.775731+00:00",
-  "generated_ms": 1782790272664,
-  "detector_last_check": "2026-06-30T03:31:12.569964+00:00",
+  "generated": "2026-06-30T03:35:47.226262+00:00",
+  "generated_ms": 1782790547119,
+  "detector_last_check": "2026-06-30T03:35:47.016432+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 1,
-    "armed": 0,
+    "total": 3,
+    "armed": 2,
     "triggered": 1,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "jp225:1782790200000:wick",
+      "pair": "jp225",
+      "sym": "JP225",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 70304.8,
+      "stop": 69600.425,
+      "target": 71009.175,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1782790200000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782790547119,
+      "source": "server-detector"
+    },
     {
       "id": "spx500:1782787500000:divg",
       "pair": "spx500",
@@ -34,7 +55,28 @@
       "cl": "neutral",
       "armedAt": 1782787500000,
       "triggeredAt": 1782787500000,
-      "lastSeenAt": 1782790272664,
+      "lastSeenAt": 1782790547119,
+      "source": "server-detector"
+    },
+    {
+      "id": "jp225:1782351900000:fib",
+      "pair": "jp225",
+      "sym": "JP225",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 70433.035,
+      "stop": 69600.425,
+      "target": 71265.645,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1782351900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782790547119,
       "source": "server-detector"
     }
   ]
