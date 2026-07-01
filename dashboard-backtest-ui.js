@@ -990,6 +990,66 @@ function renderFailureModeAnalysis(){
 }
 
 
+// EW hit-rate track record — how well the macro EW read has predicted
+// trade outcomes. For each pair we hold target-hit (win) vs stop (loss)
+// counts split by whether the blended EW read AGREED (a) or DISAGREED (d)
+// with the eventual trade direction, from a frictionless macd-primary
+// replay over the recent m15 window. Per-pair when the sample is thick
+// enough, else the all-FX aggregate. Regenerate: python3 gen_ew_hitrate.py
+var EW_HITRATE = {
+  "_asof": "2026-07-01",
+  "_all": {"aW":293,"aL":242,"dW":65,"dL":83},
+  "audnzd": {"aW":13,"aL":10,"dW":1,"dL":6},
+  "audusd": {"aW":14,"aL":11,"dW":6,"dL":5},
+  "cadjpy": {"aW":13,"aL":4,"dW":3,"dL":5},
+  "euraud": {"aW":19,"aL":23,"dW":8,"dL":5},
+  "eurgbp": {"aW":3,"aL":4,"dW":1,"dL":1},
+  "eurnzd": {"aW":24,"aL":26,"dW":9,"dL":6},
+  "eursgd": {"aW":12,"aL":9,"dW":3,"dL":1},
+  "eurusd": {"aW":19,"aL":7,"dW":3,"dL":10},
+  "gbpcad": {"aW":19,"aL":18,"dW":5,"dL":6},
+  "gbpnzd": {"aW":34,"aL":35,"dW":3,"dL":5},
+  "gbpusd": {"aW":25,"aL":18,"dW":5,"dL":3},
+  "nzdchf": {"aW":6,"aL":2,"dW":0,"dL":1},
+  "nzdjpy": {"aW":17,"aL":16,"dW":7,"dL":8},
+  "nzdusd": {"aW":18,"aL":8,"dW":1,"dL":7},
+  "usdcad": {"aW":16,"aL":17,"dW":1,"dL":1},
+  "usdchf": {"aW":11,"aL":8,"dW":3,"dL":5},
+  "usdjpy": {"aW":16,"aL":15,"dW":3,"dL":4},
+  "usdsgd": {"aW":14,"aL":10,"dW":3,"dL":4},
+  "usdzar": {"aW":0,"aL":1,"dW":0,"dL":0}
+};
+
+function _ewTrackRecordHTML(k){
+  // A read-only "does the macro EW call actually predict TP-vs-SL?" stat,
+  // shown under the Auto-EW diagnostic. Falls back to the all-FX aggregate
+  // when the selected pair has too few decided trades to be meaningful.
+  try{
+    var H = (typeof EW_HITRATE !== 'undefined') ? EW_HITRATE : null;
+    if(!H) return '';
+    var MIN_A = 8, MIN_D = 4;
+    var rec = H[k];
+    var scope = (k ? k.toUpperCase() : 'this pair');
+    if(!rec || (rec.aW + rec.aL) < MIN_A || (rec.dW + rec.dL) < MIN_D){
+      rec = H._all; scope = 'all FX';
+    }
+    if(!rec) return '';
+    var an = rec.aW + rec.aL, dn = rec.dW + rec.dL;
+    if(!an || !dn) return '';
+    var awr = 100 * rec.aW / an, dwr = 100 * rec.dW / dn;
+    var edge = awr - dwr;
+    var aCol = awr >= dwr ? 'var(--bull)' : 'var(--bear)';
+    return '<div style="margin-top:6px;padding:6px 8px;background:rgba(0,0,0,0.025);'
+      + 'border:1px dashed rgba(0,0,0,0.15);border-radius:3px;font-size:8.5px;line-height:1.5;">'
+      + '<span style="color:var(--inkd);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">EW track record:</span> '
+      + 'trades WITH the EW read hit target <strong style="color:'+aCol+';">'+awr.toFixed(1)+'%</strong> (n='+an+') · '
+      + 'AGAINST it <strong style="color:var(--bear);">'+dwr.toFixed(1)+'%</strong> (n='+dn+') '
+      + '<span style="color:var(--inkd);">— '+(edge>=0?'+':'')+edge.toFixed(1)+'pp separation · '+scope+' · backtest'
+      + (H._asof ? ' as-of '+H._asof : '')+', FYI</span>'
+      + '</div>';
+  }catch(e){ return ''; }
+}
+
 function renderAutoEWDiagnostic(){
   // Track A: render auto-EW comparison for any pair (selectable).
   // Default to EUR/USD on first render. The user can switch via dropdown.
@@ -1199,7 +1259,8 @@ function renderAutoEWDiagnostic(){
     + '<div style="margin-top:6px;padding:6px 8px;background:rgba(0,0,0,0.025);border-left:3px solid '+advCol+';font-size:8.5px;color:var(--ink);font-style:italic;">'
     +   cmp.advisory
     +   ' &middot; <span style="color:var(--inkd);">deltas: anchor '+(cmp.deltas.anchor==null?'—':cmp.deltas.anchor.toFixed(2)+'%')+', pivot '+(cmp.deltas.pivot==null?'—':cmp.deltas.pivot.toFixed(2)+'%')+', zone '+cmp.deltas.zoneMid.toFixed(2)+'% &middot; '+(cmp.levelsWithPattern||0)+'/'+(cmp.levelsExplored||0)+' levels with pattern</span>'
-    + '</div>';
+    + '</div>'
+    + _ewTrackRecordHTML(k);
 }
 
 
