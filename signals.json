@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-01T23:31:25.540998+00:00",
-  "generated_ms": 1782948685458,
-  "detector_last_check": "2026-07-01T23:31:25.374312+00:00",
+  "generated": "2026-07-01T23:35:47.575880+00:00",
+  "generated_ms": 1782948947460,
+  "detector_last_check": "2026-07-01T23:35:47.354143+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 3,
-    "armed": 0,
+    "total": 5,
+    "armed": 2,
     "triggered": 3,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "nearusd:1782948600000:wick",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 1.826,
+      "stop": 1.876,
+      "target": 1.7760000000000002,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1782948600000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782948947460,
+      "source": "server-detector"
+    },
     {
       "id": "nearusd:1782946800000:macdp",
       "pair": "nearusd",
@@ -29,12 +50,12 @@
       "stop": 1.876,
       "target": 1.8120000000000003,
       "ew": "bear",
-      "tl": "bull",
+      "tl": "bear",
       "nw": "bear",
       "cl": "bear",
       "armedAt": 1782946800000,
       "triggeredAt": 1782946800000,
-      "lastSeenAt": 1782948685458,
+      "lastSeenAt": 1782948947460,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,7 @@
       "cl": "bear",
       "armedAt": 1782945900000,
       "triggeredAt": 1782945900000,
-      "lastSeenAt": 1782948685458,
+      "lastSeenAt": 1782948947460,
       "source": "server-detector"
     },
     {
@@ -76,7 +97,28 @@
       "cl": "bear",
       "armedAt": 1782945900000,
       "triggeredAt": 1782945900000,
-      "lastSeenAt": 1782948685458,
+      "lastSeenAt": 1782948947460,
+      "source": "server-detector"
+    },
+    {
+      "id": "nearusd:1780433100000:fib",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 1.81673,
+      "stop": 1.876,
+      "target": 1.75746,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1780433100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782948947460,
       "source": "server-detector"
     }
   ]
