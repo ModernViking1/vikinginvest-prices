@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-01T07:21:16.326841+00:00",
-  "generated_ms": 1782890476221,
-  "detector_last_check": "2026-07-01T07:21:16.127757+00:00",
+  "generated": "2026-07-01T07:25:53.342531+00:00",
+  "generated_ms": 1782890753235,
+  "detector_last_check": "2026-07-01T07:25:52.786702+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,54 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 3,
-    "armed": 2,
-    "triggered": 1,
+    "total": 6,
+    "armed": 4,
+    "triggered": 2,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "ftse100:1782890100000:macdp",
+      "pair": "ftse100",
+      "sym": "FTSE100",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 10464.8,
+      "stop": 10455.2,
+      "target": 10474.399999999998,
+      "ew": "bull",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bull",
+      "armedAt": 1782890100000,
+      "triggeredAt": 1782890100000,
+      "lastSeenAt": 1782890753235,
+      "source": "server-detector"
+    },
+    {
+      "id": "wtiusd:1782890100000:wick",
+      "pair": "wtiusd",
+      "sym": "WTIUSD",
+      "cls": "comm",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 70.468,
+      "stop": 70.628,
+      "target": 70.308,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1782890100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782890753235,
+      "source": "server-detector"
+    },
     {
       "id": "xauusd:1782889200000:wick",
       "pair": "xauusd",
@@ -34,7 +76,7 @@
       "cl": "bear",
       "armedAt": 1782889200000,
       "triggeredAt": null,
-      "lastSeenAt": 1782890476221,
+      "lastSeenAt": 1782890753235,
       "source": "server-detector"
     },
     {
@@ -51,11 +93,32 @@
       "target": 7487.2,
       "ew": "neutral",
       "tl": "bull",
-      "nw": "bear",
+      "nw": "neutral",
       "cl": "neutral",
       "armedAt": 1782888300000,
       "triggeredAt": 1782888300000,
-      "lastSeenAt": 1782890476221,
+      "lastSeenAt": 1782890753235,
+      "source": "server-detector"
+    },
+    {
+      "id": "wtiusd:1782886500000:fib",
+      "pair": "wtiusd",
+      "sym": "WTIUSD",
+      "cls": "comm",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 70.246138,
+      "stop": 70.628,
+      "target": 69.864276,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1782886500000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782890753235,
       "source": "server-detector"
     },
     {
@@ -76,7 +139,7 @@
       "cl": "bear",
       "armedAt": 1782885600000,
       "triggeredAt": null,
-      "lastSeenAt": 1782890476221,
+      "lastSeenAt": 1782890753235,
       "source": "server-detector"
     }
   ]
