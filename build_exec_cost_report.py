@@ -11,14 +11,17 @@ actually tightened live execution. Read-only. Run each Friday:
 """
 import ast, json, datetime, statistics
 
-# Fixes landed 30 Jun → 01 Jul (pip-floor, entry-deviation gate, EW-veto).
-# Trades on/after this cutoff are "post-fix". Adjust if the cBot rebuild
-# that activates the deviation gate happened later.
-CUTOFF_ISO = "2026-06-30T00:00:00Z"
+# Cutoff = the cBot rebuild that ACTIVATED the entry-deviation gate:
+# ~14:30 UK time (BST, UTC+1) on 2026-07-01 → 13:30 UTC. The gate is
+# cBot-side, so only fills placed after the rebuild are gated; the
+# server-side pip-floor + EW-veto activated earlier via CI. Trades on/after
+# this cutoff are the clean "post-fix" sample. (The post bucket will be thin
+# until more post-rebuild trades close — it fills out over the week.)
+CUTOFF_ISO = "2026-07-01T13:30:00Z"
 DEV_GATE = 0.30   # the cBot's MaxEntryDeviationPctOfR — post-fix fills should sit under this
 
 def cutoff_ms():
-    return int(datetime.datetime(2026,6,30,0,0,0,tzinfo=datetime.timezone.utc).timestamp()*1000)
+    return int(datetime.datetime(2026,7,1,13,30,0,tzinfo=datetime.timezone.utc).timestamp()*1000)
 
 def pair_class_map():
     tree = ast.parse(open('detect_triggers.py').read())
