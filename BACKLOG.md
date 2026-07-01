@@ -3,6 +3,53 @@
 Working tracker for things deliberately deferred + the plan while the live
 intraday win-rate matures. Not investor-facing. Keep it short.
 
+## 🔬 REVISIT THIS WEEK — H7 (macdp minors gate) winner-check
+
+Ran a confluence-bucketed replay of macd-primary over the historical
+window for the 5 minors flagged in the consolidated-diagnosis panels
+(CADJPY, USDSGD, EURAUD, NZDJPY, EURSGD), reusing the production detector
+functions (same MACD/confluence/H5 filter + the new pip-floor).
+
+**What H7 does:** minor-class entry filter — was confluence ≥ 1, H7
+raised it to ≥ 2. Its *only* marginal effect is deleting the
+**confluence-1 bucket**. So "does H7 cost winners?" = "is conf-1
+winners or losers?"
+
+**Finding (frictionless 1:1 replay — bucket H7 removes = conf-1):**
+
+| Pair    | conf-1 (H7 kills) | conf-2 (H7 keeps) | net W removed | verdict |
+|---------|-------------------|-------------------|---------------|---------|
+| CADJPY  | 3W/5L (37%)       | 11W/2L (85%)      | −2            | H7 helps |
+| USDSGD  | 9W/5L (64%)       | 4W/6L (40%)       | +4            | H7 hurts |
+| EURAUD  | 10W/6L (63%)      | 11W/16L (41%)     | +4            | H7 hurts |
+| NZDJPY  | 9W/7L (56%)       | 7W/12L (37%)      | +2            | H7 hurts |
+| EURSGD  | 6W/5L (55%)       | 5W/5L (50%)       | +1            | ~neutral |
+| **Agg** | **37W/28L (57%)** | 38W/41L (48%)     | **+9**        | net-neg |
+
+So H7 removes ~9 more winners than losers across these 5 (only CADJPY
+behaves as H7 assumes). The inspector showed H7 firing on USDSGD's 3
+recent *losses* but was blind to the 9 conf-1 *winners* it also removes.
+
+**Key caveat:** the replay is frictionless and comes out ~48–57% WR — it
+does NOT reproduce the ~32% live minor WR. So confluence level is not the
+thing separating live winners from losers; **execution is** (spread +
+entry-drift on the tight 1:1 stop). H7 papers over an execution leak by
+discarding signal quality. The real leak is now addressed by the
+pip-floor (shipped 30 Jun) + entry-deviation gate.
+
+**Options for the end-of-week decision:**
+1. Scope H7 to CADJPY only (keep it where it's earned).
+2. Revert H7 to conf ≥ 1 across minors; rely on pip-floor +
+   entry-deviation gate for the execution leak, then re-measure.
+   (Leaning #2 — cleaner; isolates whether the execution fixes alone
+   close the live gap before we start filtering signal quality.)
+3. Leave as-is, keep collecting live data.
+
+**Revisit trigger:** end of this week, alongside the live-WR re-check
+(entry-deviation gate + pip-floor now live). Re-run the bucket replay
+with more live closes and confirm the direction holds before changing
+the rule. Re-run harness: `python3 backtest_h7_confluence.py`.
+
 ## ⏸ Parked — revisit when LIVE intraday WR has matured (n ≥ ~30/cohort)
 
 - **Investor-facing "why live ≠ backtest" explainer.** Short, IP-shielded
