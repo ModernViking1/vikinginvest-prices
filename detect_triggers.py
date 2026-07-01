@@ -1977,6 +1977,14 @@ MACDP_HTF_BLOCK_NEUTRAL = False
 # if live data later shows counter-4H divergence underperforming.
 DIVG_HTF_FILTER = False
 
+# 2026-07-01 — EW-DISAGREEMENT VETO (FX only). Block macd-primary trades
+# whose direction fights a clear blended EW read. Backtest across 20 FX
+# pairs: EW-aligned trades hit target ~55% vs ~44% when opposed, and the
+# opposed cohort is net-negative. Replaces the H7 minors gate, which was
+# found to cull a net-winning cohort. Applied to major + minor only (EW
+# predictiveness validated on FX); False to disable.
+EW_DISAGREE_VETO = True
+
 # 2026-06-29 — DEGENERATE-STOP FLOOR, hoisted to a module constant and
 # raised 3 bps → 5 bps. In a tight 15m range the macdp/divg structural
 # stop can collapse to ~1 pip (the AUDNZD 1.22030/1.22020 case), which
@@ -2086,6 +2094,20 @@ def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
     for layer in (ew_dir, tl_dir, nw_dir, cl_dir):
         if layer == macd_dir:
             confluence += 1
+    # EW-disagreement veto (2026-07-01) — FX only. A macd-primary trade
+    # whose direction fights a CLEAR macro EW read is a materially worse
+    # bet: across 20 FX pairs, trades aligned with the blended EW read hit
+    # the 1:1 target ~55% of the time vs ~44% when opposed (the opposed
+    # cohort is net-negative). ew_dir here is the blended read (auto-EW at
+    # >=0.70 confidence, else the structural daily-pivot direction). Hard-
+    # block the opposed trades — this supersedes the H7 minors gate, which
+    # removed too much (it culled a net-winning confluence-1 cohort);
+    # the veto instead removes only the genuinely losing counter-EW cohort.
+    # Non-FX classes keep their existing behaviour (EW accuracy validated
+    # on FX only). Neutral EW (None) does not veto.
+    if EW_DISAGREE_VETO and pair_class in ('major', 'minor'):
+        if ew_dir in ('bull', 'bear') and ew_dir != macd_dir:
+            return None
     # Class-specific deploy gate
     # 2026-06-20n — MINOR promoted to LIVE. The macd-expansion test
     # showed macd-primary on MINORs at 75-81% WR / +0.50 to +0.62R EV
@@ -2118,16 +2140,16 @@ def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
         state = 'triggered'
         shadow = False
     elif pair_class == 'minor':
-        # 2026-06-29 — H7: minor-class gate tightened conf>=1 -> conf>=2.
-        # Live macd-primary on minors came in at 32% WR / -0.61R per
-        # trade over 31 closes (-18.87R), vs the 75-81% the backtest
-        # promoted them on. The gap concentrates in the weak 1/4
-        # confluence entries, where a tight 1:1 structural stop is eaten
-        # by the wider minor-pair spread (3-5 pips). Requiring >=2 layers
-        # keeps the higher-quality minor signals (which DO win, e.g.
-        # eurgbp) and cuts the spread-dominated chop. Re-widen to >=1 if
-        # live conf-2+ minors prove the edge survives the spread.
-        if confluence < 2:
+        # 2026-07-01 — H7 reverted (conf>=2 -> conf>=1). The confluence-2
+        # tightening was found to remove a net-WINNING confluence-1 cohort
+        # (bucket replay: conf-1 minors ~57% WR, better than the conf-2
+        # bucket H7 kept). The real minor loss driver is directional, not
+        # confluence-count — now handled by the EW-disagreement veto above,
+        # which strips the sub-50% counter-EW trades while retaining the
+        # good conf-1 signals. Head-to-head: veto (conf>=1) beat H7 on both
+        # net-R and trade-count. Gate returns to the INDEX baseline (skip
+        # only the fully-contrarian 0/4 bucket).
+        if confluence < 1:
             return None
         state = 'triggered'
         shadow = False

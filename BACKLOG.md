@@ -3,7 +3,21 @@
 Working tracker for things deliberately deferred + the plan while the live
 intraday win-rate matures. Not investor-facing. Keep it short.
 
-## 🔬 REVISIT THIS WEEK — H7 (macdp minors gate) winner-check
+## ✅ RESOLVED 2026-07-01 — H7 replaced by the EW-disagreement veto
+
+Decision taken (both variants backtested head-to-head; see below). **H7
+reverted** (minors conf≥2 → conf≥1) and a **blended-EW-disagreement veto**
+deployed on FX (major+minor): a macd-primary trade whose direction fights
+a clear EW read is now blocked. Head-to-head on minors: H7 was −6R (culled
+a net-winning cohort); veto-blend +19R (removes a 38.5%-WR cohort); across
+all FX the veto lifts +39R→+57R. Shipped in `detect_triggers.py`
+(`EW_DISAGREE_VETO`), mirrored in the HTML backtest replay, RULES_VERSION
+bumped to 2026-07-01a. Harnesses: `backtest_ew_veto_vs_h7.py`,
+`backtest_ew_accuracy.py`. Panel EW-track-record stat shipped.
+**Watch:** live minor WR over the coming week now that the veto is live.
+Original winner-check analysis retained below for the record.
+
+## 🔬 (superseded) H7 (macdp minors gate) winner-check
 
 Ran a confluence-bucketed replay of macd-primary over the historical
 window for the 5 minors flagged in the consolidated-diagnosis panels
