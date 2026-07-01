@@ -1988,10 +1988,26 @@ DIVG_HTF_FILTER = False
 # degenerate signals out of the feed + Telegram in the first place.
 MIN_STOP_REL = 0.0005
 
+# 2026-06-30 — FX needs an ABSOLUTE pip floor, not the relative one.
+# A relative price floor under-protects low-priced pairs: NZDCHF at
+# ~0.4587 × 0.0005 = 2.3 pips, so a 3-pip (untradeable, spread-eaten)
+# stop slipped through and alerted. The same pip count is a smaller %
+# of price on a cheap cross. So for FX (major/minor) require an
+# absolute pip minimum; non-FX (comm/index/crypto, with messy pip
+# sizes) keep the relative floor. JPY-quoted pairs (pip 0.01, price in
+# the 50-200 range) vs the rest (pip 0.0001, price < 10) are told apart
+# by entry magnitude — robust within FX without a pip-size table.
+MIN_STOP_PIPS_FX = 6
 
-def _stop_too_tight(r, entry):
-    """True if the entry→stop distance is below the degenerate floor."""
-    return entry is not None and r is not None and r < entry * MIN_STOP_REL
+
+def _stop_too_tight(r, entry, pair_class=None):
+    """True if the entry→stop distance is below the floor for the class."""
+    if entry is None or r is None:
+        return False
+    if pair_class in ('major', 'minor'):
+        pip = 0.01 if entry > 10 else 0.0001   # JPY-quoted vs the rest
+        return (r / pip) < MIN_STOP_PIPS_FX
+    return r < entry * MIN_STOP_REL
 
 
 def _htf_blocks(macd_dir, cl_dir, enabled=True, block_neutral=None):
@@ -2143,7 +2159,7 @@ def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
     if r <= 0:
         return None
     # Degenerate-stop floor — see MIN_STOP_REL comment block.
-    if _stop_too_tight(r, entry):
+    if _stop_too_tight(r, entry, pair_class):
         return None
     target = entry + r if macd_dir == 'bull' else entry - r
     return {
@@ -2278,7 +2294,7 @@ def detect_macd_divergence(bars, ew_dir, tl_dir, nw_dir, cl_dir,
     # Degenerate-stop floor (2026-06-29) — divergence was previously
     # missing this guard, so a tight 15m range could produce a ~1-pip
     # target here too. See MIN_STOP_REL comment block.
-    if _stop_too_tight(r, entry):
+    if _stop_too_tight(r, entry, pair_class):
         return None
 
     target = entry + r if div_dir == 'bull' else entry - r
