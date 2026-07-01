@@ -219,6 +219,19 @@ SR_TIER_TO_KIND = {
 # and the live-feed payload tagging are gated below.
 SR_LIVE_ALERTS_ENABLED = False
 
+# 2026-07-01 — SIGNAL-LEVEL Telegram alerts SUSPENDED. Telegram now
+# reflects only REAL cBot executions (placed / closed), sourced from the
+# cBot's own execution events + the ingest workflow — not signal
+# generation. The detector fired a Telegram the moment a signal was
+# written to signals.json, i.e. BEFORE the cBot decided whether to trade
+# it; any signal the cBot then skipped at fill time (entry drift, wide
+# spread, stale, daily-limit) still produced a "trigger" the user saw but
+# never traded. Muting these aligns the alert stream to actual trades.
+# Signals still generate + publish to signals.json + drive the dashboard
+# and the cBot exactly as before — only the signal-level Telegram send is
+# gated. Flip to True to restore the signal-preview alert stream.
+SIGNAL_LIVE_ALERTS_ENABLED = False
+
 # 2026-06-25 — per-pair cool-off after consecutive losses.
 # When a pair's last N closed trades (from executions.json) were all
 # losses, that pair gets paused for COOLOFF_HOURS — no new TRIGGER
@@ -2700,6 +2713,19 @@ def scan_pairs(intraday_data, historical_data):
 
 # ── Telegram ──
 
+def emit_signal_alert(token, chat_id, text):
+    """Signal-level Telegram alert (new trigger / alignment / invalidation).
+
+    Gated by SIGNAL_LIVE_ALERTS_ENABLED (2026-07-01). When disabled, returns
+    False without sending — the caller only uses the return value to bump an
+    alerts-sent counter; the alerted-state bookkeeping that follows each call
+    is unconditional, so muting here has no effect on dedup, cool-off, or the
+    signals.json feed. Only the Telegram message is suppressed."""
+    if not SIGNAL_LIVE_ALERTS_ENABLED:
+        return False
+    return send_telegram(token, chat_id, text)
+
+
 def send_telegram(token, chat_id, text):
     if not token or not chat_id:
         print(f'[skip] no Telegram credentials configured. Would have sent:\n{text}')
@@ -3147,7 +3173,7 @@ def main():
         if should_alert_alignment:
             print(f'  ALERT(align,catchup): {pair} {prev_dir} -> {cur_dir} ({align_kind})')
             text = format_alert(pair, info, align_kind)
-            if send_telegram(token, chat_id, text):
+            if emit_signal_alert(token, chat_id, text):
                 alerts_sent += 1
 
         # Phase 2: intraday-trigger alerts. Fires once when a pair's 15m
@@ -3204,7 +3230,7 @@ def main():
             if send_all_aligned:
                 print(f'  ALERT(trigger,catchup): {pair} triggered (creator={cur_creator_ts}, entry={info.get("sig_entry")})')
                 text = format_alert(pair, info, 'triggered')
-                if send_telegram(token, chat_id, text):
+                if emit_signal_alert(token, chat_id, text):
                     alerts_sent += 1
                 alerted_creator = cur_creator_ts
             elif is_new_trigger and is_first_run:
@@ -3228,7 +3254,7 @@ def main():
                 age_tag = f' (fresh, age={trigger_age:.1f}min)' if trigger_age is not None else ''
                 print(f'  ALERT(trigger): {pair} -> triggered (creator={cur_creator_ts}, entry={info.get("sig_entry")}){age_tag}')
                 text = format_alert(pair, info, 'triggered')
-                if send_telegram(token, chat_id, text):
+                if emit_signal_alert(token, chat_id, text):
                     alerts_sent += 1
                 alerted_creator = cur_creator_ts
 
@@ -3258,7 +3284,7 @@ def main():
             if send_all_aligned and is_new_fib and not wick_also_fired:
                 print(f'  ALERT(fib,catchup): {pair} fib-triggered (creator={cur_creator_ts}, entry={info.get("sig_fib_entry")})')
                 text = format_alert(pair, info, 'triggered-fib')
-                if send_telegram(token, chat_id, text):
+                if emit_signal_alert(token, chat_id, text):
                     alerts_sent += 1
                 alerted_fib = cur_creator_ts
             elif is_new_fib and is_first_run:
@@ -3278,7 +3304,7 @@ def main():
                 fib_age_tag = f' (fresh, age={fib_age:.1f}min)' if fib_age is not None else ''
                 print(f'  ALERT(fib): {pair} -> fib-triggered (creator={cur_creator_ts}, entry={info.get("sig_fib_entry")}){fib_age_tag}')
                 text = format_alert(pair, info, 'triggered-fib')
-                if send_telegram(token, chat_id, text):
+                if emit_signal_alert(token, chat_id, text):
                     alerts_sent += 1
                 alerted_fib = cur_creator_ts
 
@@ -3316,7 +3342,7 @@ def main():
                           f'entry={info.get("sig_macdp_entry")}, '
                           f'conf={info.get("sig_macdp_confluence")})')
                     text = format_alert(pair, info, 'triggered-macdp')
-                    if send_telegram(token, chat_id, text):
+                    if emit_signal_alert(token, chat_id, text):
                         alerts_sent += 1
                     alerted_macdp = cur_macdp_trigger_ts
 
@@ -3339,7 +3365,7 @@ def main():
                       f'entry={info.get("sig_divg_entry")}, '
                       f'conf={info.get("sig_divg_confluence")})')
                 text = format_alert(pair, info, 'triggered-divg')
-                if send_telegram(token, chat_id, text):
+                if emit_signal_alert(token, chat_id, text):
                     alerts_sent += 1
                 alerted_divg = cur_divg_trigger_ts
 
@@ -3369,7 +3395,7 @@ def main():
                 age_tag = f' (fresh, age={exit_age:.1f}min)' if exit_age is not None else ''
                 print(f'  ALERT(exit): {pair} -> invalidated (creator={cur_creator_ts}, reason={info.get("sig_outcome_reason")}){age_tag}')
                 text = format_alert(pair, info, 'invalidated')
-                if send_telegram(token, chat_id, text):
+                if emit_signal_alert(token, chat_id, text):
                     alerts_sent += 1
                 alerted_exit = cur_creator_ts
 
@@ -3389,7 +3415,7 @@ def main():
                 age_tag = f' (fresh, age={fib_exit_age:.1f}min)' if fib_exit_age is not None else ''
                 print(f'  ALERT(fib-exit): {pair} -> fib invalidated (creator={cur_creator_ts}, reason={info.get("sig_fib_outcome_reason")}){age_tag}')
                 text = format_alert(pair, info, 'invalidated-fib')
-                if send_telegram(token, chat_id, text):
+                if emit_signal_alert(token, chat_id, text):
                     alerts_sent += 1
                 alerted_fib_exit = cur_creator_ts
 
@@ -3436,7 +3462,7 @@ def main():
                       f'confluence={sr_info.get("confluence")}/4 '
                       f'(today_counts={today_counts}/{limit})')
                 text = format_alert(pair, info, kind)
-                if send_telegram(token, chat_id, text):
+                if emit_signal_alert(token, chat_id, text):
                     alerts_sent += 1
                 sr_state.setdefault(today, {}).setdefault(pair, {})[tier] = today_counts + 1
 

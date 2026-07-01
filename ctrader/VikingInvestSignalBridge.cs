@@ -848,8 +848,9 @@ namespace cAlgo.Robots
             var tpPips = Math.Abs(sig.Target - sig.Entry) / symbol.PipSize;
             if (slPips < MinStopPips)
             {
+                // 2026-07-01 — log-only (Telegram removed). A gated non-trade;
+                // Telegram now carries real executions only. Still in the log.
                 Print($"🛑 [VikingInvest] Stop too tight on {symbol.Name}: {slPips:F2} < {MinStopPips} pips — DEGENERATE signal, skipping id={sig.Id}");
-                TelegramSend($"🛑 Rejected {symbol.Name} {sig.Dir}: stop only {slPips:F2} pips (< {MinStopPips}). Degenerate signal — not placed.", important: Account.IsLive);
                 MarkSeen(sig.Id); _ordersSkipped++;
                 return;
             }
@@ -870,8 +871,10 @@ namespace cAlgo.Robots
                     var devR = Math.Abs(fillRef - sig.Entry) / rDist;
                     if (devR > MaxEntryDeviationPctOfR)
                     {
+                        // 2026-07-01 — log-only (Telegram removed). Drifters are
+                        // gated non-trades; Telegram now carries real executions
+                        // only. The skip is still recorded in the cBot log.
                         Print($"⏭ [VikingInvest] Entry drifted on {symbol.Name}: market {fillRef:F5} is {devR:P0} of R from signal entry {sig.Entry:F5} (cap {MaxEntryDeviationPctOfR:P0}) — skipping id={sig.Id}");
-                        TelegramSend($"⏭ Skipped {symbol.Name} {sig.Dir}: entry drifted {devR:P0} of R from signal price before fill (cap {MaxEntryDeviationPctOfR:P0}). Setup has run — not chased.", important: Account.IsLive);
                         MarkSeen(sig.Id); _ordersSkipped++;
                         return;
                     }
