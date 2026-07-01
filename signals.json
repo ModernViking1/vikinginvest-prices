@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-01T00:11:10.329539+00:00",
-  "generated_ms": 1782864670215,
-  "detector_last_check": "2026-07-01T00:11:10.111146+00:00",
+  "generated": "2026-07-01T00:15:59.198723+00:00",
+  "generated_ms": 1782864959090,
+  "detector_last_check": "2026-07-01T00:15:58.594092+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -11,9 +11,9 @@
   },
   "counts": {
     "total": 6,
-    "armed": 4,
-    "triggered": 0,
-    "invalidated": 2
+    "armed": 5,
+    "triggered": 1,
+    "invalidated": 0
   },
   "signals": [
     {
@@ -24,7 +24,7 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bull",
-      "state": "invalidated",
+      "state": "armed",
       "entry": 71257.3,
       "stop": 70972.925,
       "target": 71541.675,
@@ -34,7 +34,7 @@
       "cl": "bull",
       "armedAt": 1782864000000,
       "triggeredAt": null,
-      "lastSeenAt": 1782864670215,
+      "lastSeenAt": 1782864959090,
       "source": "server-detector"
     },
     {
@@ -55,7 +55,28 @@
       "cl": "bear",
       "armedAt": 1782863100000,
       "triggeredAt": null,
-      "lastSeenAt": 1782864670215,
+      "lastSeenAt": 1782864959090,
+      "source": "server-detector"
+    },
+    {
+      "id": "xagusd:1782863100000:fib",
+      "pair": "xagusd",
+      "sym": "XAGUSD",
+      "cls": "comm",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 58.460255,
+      "stop": 58.994175,
+      "target": 57.926334999999995,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1782863100000,
+      "triggeredAt": 1782864900000,
+      "lastSeenAt": 1782864959090,
       "source": "server-detector"
     },
     {
@@ -76,28 +97,7 @@
       "cl": "bear",
       "armedAt": 1782863100000,
       "triggeredAt": null,
-      "lastSeenAt": 1782864670215,
-      "source": "server-detector"
-    },
-    {
-      "id": "xagusd:1782759600000:fib",
-      "pair": "xagusd",
-      "sym": "XAGUSD",
-      "cls": "comm",
-      "method": "fib",
-      "r_size": 0.5,
-      "dir": "bear",
-      "state": "armed",
-      "entry": 58.460255,
-      "stop": 58.994175,
-      "target": 57.926334999999995,
-      "ew": "bear",
-      "tl": "bear",
-      "nw": "bear",
-      "cl": "bear",
-      "armedAt": 1782759600000,
-      "triggeredAt": null,
-      "lastSeenAt": 1782864670215,
+      "lastSeenAt": 1782864959090,
       "source": "server-detector"
     },
     {
@@ -118,7 +118,7 @@
       "cl": "bear",
       "armedAt": 1782741600000,
       "triggeredAt": null,
-      "lastSeenAt": 1782864670215,
+      "lastSeenAt": 1782864959090,
       "source": "server-detector"
     },
     {
@@ -129,7 +129,7 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bull",
-      "state": "invalidated",
+      "state": "armed",
       "entry": 71683.72,
       "stop": 70972.925,
       "target": 72394.515,
@@ -139,7 +139,7 @@
       "cl": "bull",
       "armedAt": 1782351900000,
       "triggeredAt": null,
-      "lastSeenAt": 1782864670215,
+      "lastSeenAt": 1782864959090,
       "source": "server-detector"
     }
   ]
