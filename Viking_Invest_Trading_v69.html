@@ -18896,13 +18896,23 @@ function _renderCCIVariantPanel(host, commodityKeys){
   function _pdfInstitutionalBlock(){
     var trades = (typeof _gatherTrades === 'function') ? _gatherTrades(0) : [];
     var m = (typeof _computeInstitutionalMetrics === 'function') ? _computeInstitutionalMetrics(trades) : null;
+    // 2026-07-01 — cold-cache fallback. The PDF reads the same auto-ew
+    // backtest cache the Performance tab does, but it can self-invalidate
+    // between viewing the tab and exporting (intraday feed advanced, TTL,
+    // or a RULES_VERSION bump). When our fresh read comes back cold, reuse
+    // the last all-time metrics stashed by the Performance card while the
+    // cache was warm — so a report the user just saw populated doesn't
+    // regress to "still loading". See _renderInstitutionalMetrics.
+    if((!m || !m.ok) && window._instMetricsAllTime && window._instMetricsAllTime.ok){
+      m = window._instMetricsAllTime;
+    }
     if(!m || !m.ok){
-      return '<div class="vi-pdf-body" style="font-style:italic;color:#5a5550;">Risk-adjusted metrics unavailable — backtest cache still loading.</div>';
+      return '<div class="vi-pdf-body" style="font-style:italic;color:#5a5550;">Risk-adjusted metrics unavailable — open the Performance tab once to build the backtest cache, then regenerate.</div>';
     }
     var ready = m.ratiosReady;
     var fmt = function(v, dp){ if(v == null) return '—'; return (v>=0?'':'') + v.toFixed(dp == null ? 2 : dp); };
     var stats = [
-      { lbl:'Sharpe',  val: ready ? fmt(m.sharpe) : '—', sub:'monthly · annualised' },
+      { lbl:'Sharpe',  val: ready ? fmt(m.sharpe) : '—', sub:'weekly · annualised' },
       { lbl:'Sortino', val: ready ? fmt(m.sortino) : '—', sub:'downside-adjusted' },
       { lbl:'Calmar',  val: ready ? fmt(m.calmar) : '—', sub:'ann. return ÷ max DD' },
       { lbl:'Max drawdown', val:'−' + fmt(m.maxDD,1) + 'R', sub:'peak-to-trough' },
@@ -18918,7 +18928,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
             + '</div>';
     });
     var caveat = ready
-      ? 'Sharpe / Sortino computed from monthly returns (annualised ×√12, the institutional convention), risk-free 0; Calmar = annualised return ÷ max drawdown; correlation vs ' + m.corrBench + ', monthly. '
+      ? 'Sharpe / Sortino computed from weekly returns (annualised ×√52), risk-free 0; Calmar = annualised return ÷ max drawdown; correlation vs ' + m.corrBench + ', monthly. '
       : 'Risk-adjusted ratios populate at ≥' + m.minWeeks + ' weeks of history (currently ' + m.weekCount + '). ';
     return '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">' + tiles + '</div>'
          + '<div class="vi-pdf-body" style="font-size:10px;color:#5a5550;margin-top:6px;font-style:italic;">'
@@ -19952,6 +19962,13 @@ function _renderCCIVariantPanel(host, commodityKeys){
       host.innerHTML = '<div class="pf-empty">Not enough dated trades in this window to compute risk-adjusted metrics (need ≥2 active trading days). Widen the timeframe.</div>';
       return;
     }
+    // 2026-07-01 — while the cache is warm here, stash the ALL-TIME metrics
+    // so the Investor PDF can fall back to them if its own read goes cold
+    // (cache self-invalidates on feed advance / TTL / RULES_VERSION bump).
+    try {
+      var _amt = _computeInstitutionalMetrics(_gatherTrades(0));
+      if(_amt && _amt.ok) window._instMetricsAllTime = _amt;
+    } catch(e){}
     var fmt = function(v, dp){ if(v == null) return '—'; if(v === Infinity) return '∞'; return (v>=0?'':'') + v.toFixed(dp == null ? 2 : dp); };
     var ratColor = function(v, good, ok){ if(v == null) return 'var(--inkd)'; if(v >= good) return 'var(--bull)'; if(v >= ok) return 'var(--gold)'; return 'var(--bear)'; };
     var tile = function(label, val, sub, color){
