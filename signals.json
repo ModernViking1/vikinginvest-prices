@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-02T03:05:47.198069+00:00",
-  "generated_ms": 1782961547092,
-  "detector_last_check": "2026-07-02T03:05:46.998641+00:00",
+  "generated": "2026-07-02T03:11:08.043228+00:00",
+  "generated_ms": 1782961867933,
+  "detector_last_check": "2026-07-02T03:11:07.836418+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,10 +10,10 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 8,
-    "armed": 2,
-    "triggered": 4,
-    "invalidated": 2
+    "total": 10,
+    "armed": 4,
+    "triggered": 2,
+    "invalidated": 4
   },
   "signals": [
     {
@@ -30,11 +30,32 @@
       "target": 2.0060999999999996,
       "ew": "bull",
       "tl": "bear",
-      "nw": "bear",
+      "nw": "bull",
       "cl": "neutral",
       "armedAt": 1782961200000,
       "triggeredAt": 1782961200000,
-      "lastSeenAt": 1782961547092,
+      "lastSeenAt": 1782961867933,
+      "source": "server-detector"
+    },
+    {
+      "id": "gbpnzd:1782961200000:wick",
+      "pair": "gbpnzd",
+      "sym": "GBPNZD",
+      "cls": "minor",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 2.3398,
+      "stop": 2.3382,
+      "target": 2.3413999999999997,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1782961200000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782961867933,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,7 @@
       "cl": "neutral",
       "armedAt": 1782958500000,
       "triggeredAt": 1782958500000,
-      "lastSeenAt": 1782961547092,
+      "lastSeenAt": 1782961867933,
       "source": "server-detector"
     },
     {
@@ -76,7 +97,7 @@
       "cl": "bull",
       "armedAt": 1782955800000,
       "triggeredAt": null,
-      "lastSeenAt": 1782961547092,
+      "lastSeenAt": 1782961867933,
       "source": "server-detector"
     },
     {
@@ -97,7 +118,7 @@
       "cl": "bear",
       "armedAt": 1782954900000,
       "triggeredAt": null,
-      "lastSeenAt": 1782961547092,
+      "lastSeenAt": 1782961867933,
       "source": "server-detector"
     },
     {
@@ -108,7 +129,7 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bear",
-      "state": "triggered",
+      "state": "invalidated",
       "entry": 68.551,
       "stop": 68.846,
       "target": 68.256,
@@ -117,8 +138,8 @@
       "nw": "bear",
       "cl": "bear",
       "armedAt": 1782954900000,
-      "triggeredAt": 1782956700000,
-      "lastSeenAt": 1782961547092,
+      "triggeredAt": null,
+      "lastSeenAt": 1782961867933,
       "source": "server-detector"
     },
     {
@@ -129,7 +150,7 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bear",
-      "state": "triggered",
+      "state": "invalidated",
       "entry": 68.403916,
       "stop": 68.846,
       "target": 67.96183199999999,
@@ -138,8 +159,8 @@
       "nw": "bear",
       "cl": "bear",
       "armedAt": 1782954900000,
-      "triggeredAt": 1782956700000,
-      "lastSeenAt": 1782961547092,
+      "triggeredAt": null,
+      "lastSeenAt": 1782961867933,
       "source": "server-detector"
     },
     {
@@ -160,7 +181,28 @@
       "cl": "bear",
       "armedAt": 1782917100000,
       "triggeredAt": null,
-      "lastSeenAt": 1782961547092,
+      "lastSeenAt": 1782961867933,
+      "source": "server-detector"
+    },
+    {
+      "id": "gbpnzd:1780560900000:fib",
+      "pair": "gbpnzd",
+      "sym": "GBPNZD",
+      "cls": "minor",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 2.34073936,
+      "stop": 2.3382,
+      "target": 2.3432787200000003,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780560900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782961867933,
       "source": "server-detector"
     },
     {
@@ -181,7 +223,7 @@
       "cl": "bull",
       "armedAt": 1780326900000,
       "triggeredAt": null,
-      "lastSeenAt": 1782961547092,
+      "lastSeenAt": 1782961867933,
       "source": "server-detector"
     }
   ]
