@@ -3,6 +3,31 @@
 Working tracker for things deliberately deferred + the plan while the live
 intraday win-rate matures. Not investor-facing. Keep it short.
 
+## 🐛 BUG + ⏸ PARKED 2026-07-02 — event (NFP) trade-free zone
+
+Investigated a trade-free zone around high-impact events. Two outcomes:
+
+- **CALENDAR BUG (fix first).** `events.json`/`fetch_events.py` timestamps
+  NFP at 16:30 UTC; the real release (and the m15 volatility spike) is
+  12:30 UTC — a **+4h offset**. Cause: the FF `ff_calendar_thisweek.xml`
+  feed appears to already be in UTC/GMT, but `parse_ff_datetime` treats it
+  as ET and applies an ET→UTC conversion, double-counting +4h. Fix = treat
+  the feed time as UTC (verify the feed's account TZ first). Any event
+  filter is worthless until this is corrected. Also: events.json only holds
+  the CURRENT week — no history to backtest against.
+- **Trade-free zone NOT justified by stats (parked).** Replay over 3 NFP
+  events (`analyze_nfp_windows.py`): the ±2-3h NFP window is nearly EMPTY —
+  only 2 signals in the whole window (both won) — so a symmetric zone would
+  remove ~nothing. Whole NFP DAYS are weaker (47.6% vs 55.3% WR, netR −1 vs
+  +87) but that's n=21 over 3 days and diffuse (spread across the day, not
+  at the release). The live losses that prompted this (Jul-2 CADJPY/USDJPY,
+  placed 10:21 UTC, held into the 12:30 spike) were mostly PRE-veto/H4
+  trades the current filters already reduce. Failure mode is "held INTO the
+  event", not "entered at it" — so the right future mechanism is block
+  entries that would still be open at a red-folder event, NOT a symmetric
+  ±2h ban. Revisit once the calendar is fixed AND enough event history has
+  accumulated to test properly.
+
 ## ❌ REJECTED 2026-07-01 — index add-on strategies (research)
 
 Investigated add-ons to diversify the all-momentum index engine (US indices
