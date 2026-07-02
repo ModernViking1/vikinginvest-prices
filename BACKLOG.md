@@ -24,12 +24,21 @@ softened to ~67-69% WR). THREE candidates tested, all rejected:
   only removes good trades. `backtest_tsmom_index.py`.
 - VWAP: infeasible (no volume in the feed).
 
-**Conclusion:** 3/3 researched add-ons rejected under thorough testing → the
-index engine is already well-constructed; the softening is not a fixable
-strategy/direction gap (more likely regime + normalisation of an early-high
-WR — still net +150-200R/index). Only **Opening Range Breakout** remains
-untested (mixed evidence — QQQ positive, MNQ falsification); parked pending
-direction, with tempered expectations given the pattern.
+- **Opening Range Breakout** — rejected. Net-negative across all exit
+  variants (1:1 EV −0.061R/PF 0.88; 2R PF 0.89; hold-to-close PF 0.96). No
+  robustness: the odd index that flickers positive (Nikkei/Dow) is
+  small-sample and doesn't hold across variants; NAS100 a consistent loser
+  (PF 0.55). Wouldn't survive live spread. Matches the mixed literature (big
+  ORB results rely on leverage + 10R/close exits; MNQ falsification found
+  nothing). `research_orb_index.py`.
+
+**CONCLUSION — index add-on research CLOSED (4/4 rejected).** The index
+engine is already well-constructed; the sub-70% cards are metric
+normalisation, NOT decay — a recent-window WR diagnosis showed the engine
+stable-to-improving (2nd half 58.4% > 1st 53.5%), no regime decline. One
+index to keep a passive eye on: **NAS100** (only index softening in the
+recent split, 65%→42%; also lowest card at 66.8%). No action; each index
+still net +150-200R. Revisit add-ons only if a real, sustained decay appears.
 
 ## ✅ SHIPPED 2026-07-01 — H4 time-of-day filter (FX)
 
