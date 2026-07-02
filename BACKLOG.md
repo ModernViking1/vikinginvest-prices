@@ -3,18 +3,23 @@
 Working tracker for things deliberately deferred + the plan while the live
 intraday win-rate matures. Not investor-facing. Keep it short.
 
-## 🐛 BUG + ⏸ PARKED 2026-07-02 — event (NFP) trade-free zone
+## 🐛 FIXED + ⏸ PARKED 2026-07-02 — event (NFP) trade-free zone
 
 Investigated a trade-free zone around high-impact events. Two outcomes:
 
-- **CALENDAR BUG (fix first).** `events.json`/`fetch_events.py` timestamps
-  NFP at 16:30 UTC; the real release (and the m15 volatility spike) is
-  12:30 UTC — a **+4h offset**. Cause: the FF `ff_calendar_thisweek.xml`
-  feed appears to already be in UTC/GMT, but `parse_ff_datetime` treats it
-  as ET and applies an ET→UTC conversion, double-counting +4h. Fix = treat
-  the feed time as UTC (verify the feed's account TZ first). Any event
-  filter is worthless until this is corrected. Also: events.json only holds
-  the CURRENT week — no history to backtest against.
+- **CALENDAR BUG — FIXED.** `events.json` timestamped NFP at 16:30 UTC vs
+  the real 12:30 UTC (+4h). Cause: the FF feed is already UTC but
+  `parse_ff_datetime` treated it as ET and applied an ET→UTC conversion,
+  double-counting the offset. Fixed: `FEED_TZ = timezone.utc`
+  (fetch_events.py), verified NFP→12:30 UTC. Client-side only (dashboard
+  event dots + 3/3 deferral display; the server detector doesn't read
+  events.json), so the fix makes the dashboard's imminent-event deferral
+  actually align to the release. **Watch:** current events.json stays +4h
+  wrong until the next hourly cron (:27) regenerates it with the fix.
+- **SNAPSHOT STORAGE — ADDED.** `fetch_events.py` now accumulates each
+  run's events into `events-history.json` (deduped by time+currency+title,
+  pruned to 400d); the publish-events workflow commits it. Builds the
+  backtestable event calendar we lacked (events.json is current-week only).
 - **Trade-free zone NOT justified by stats (parked).** Replay over 3 NFP
   events (`analyze_nfp_windows.py`): the ±2-3h NFP window is nearly EMPTY —
   only 2 signals in the whole window (both won) — so a symmetric zone would

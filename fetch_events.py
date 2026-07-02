@@ -48,17 +48,16 @@ RELEVANT_CURRENCIES = {
 # flip to include Medium if you want a more conservative deferral set.
 KEEP_IMPACTS = {"High"}  # Add "Medium" to widen filter
 
-# Eastern Time offset. DST handling: FF XML times are reported in ET
-# which switches between EST (UTC-5) and EDT (UTC-4). We use the zoneinfo
-# database for accurate conversion — Python 3.9+ has it built in.
-try:
-    from zoneinfo import ZoneInfo
-    ET_TZ = ZoneInfo("America/New_York")
-except ImportError:
-    # Fallback for older Python — uses fixed UTC-5 (will be off by 1h
-    # during DST). Recommend upgrading to 3.9+.
-    print("WARNING: zoneinfo unavailable, using fixed UTC-5 offset", file=sys.stderr)
-    ET_TZ = timezone(timedelta(hours=-5))
+# 2026-07-02 — TIMEZONE FIX. This feed's times are already UTC, not ET.
+# The prior code assumed Eastern Time and applied an ET->UTC conversion,
+# which double-counted the offset and pushed every event +4h (EDT) / +5h
+# (EST) too LATE — e.g. NFP landed at 16:30 UTC in events.json when the
+# real 8:30-ET release (and the observed m15 volatility spike) is 12:30
+# UTC. Verified against the price data: on NFP days the spike is at
+# 12:00-13:00 UTC and 16:30 UTC is quiet. So we now stamp the feed's naive
+# time as UTC directly. If Forex Factory ever changes the feed's account
+# timezone, re-verify against a known 8:30-ET release and adjust FEED_TZ.
+FEED_TZ = timezone.utc
 
 
 def parse_ff_datetime(date_str: str, time_str: str) -> str | None:
@@ -79,8 +78,8 @@ def parse_ff_datetime(date_str: str, time_str: str) -> str | None:
         for fmt in ("%m-%d-%Y %I:%M%p", "%m-%d-%Y %I:%M %p"):
             try:
                 naive = datetime.strptime(dt_str, fmt)
-                aware_et = naive.replace(tzinfo=ET_TZ)
-                return aware_et.astimezone(timezone.utc).isoformat()
+                aware = naive.replace(tzinfo=FEED_TZ)
+                return aware.astimezone(timezone.utc).isoformat()
             except ValueError:
                 continue
         return None
@@ -134,10 +133,48 @@ def fetch_events() -> list[dict]:
     return events
 
 
+def update_history(events: list[dict], history_path: Path,
+                   retention_days: int = 400) -> int:
+    """Accumulate weekly events into a growing, deduped history file.
+
+    events.json only holds the CURRENT week, so it can't be backtested
+    against. This appends each run's events into events-history.json
+    (deduped by time+currency+title, latest fields win so post-release
+    revisions are captured) and prunes beyond the retention window. Over
+    weeks this builds a backtestable economic-event calendar — needed to
+    validate any event trade-free-zone before deploying one. Returns the
+    number of NEW rows added this run.
+    """
+    existing = {}
+    if history_path.exists():
+        try:
+            for e in json.loads(history_path.read_text()).get("events", []):
+                existing[(e.get("time"), e.get("currency"), e.get("title"))] = e
+        except Exception as exc:  # corrupt/partial file — rebuild from scratch
+            print(f"WARN: history unreadable ({exc}) — rebuilding", file=sys.stderr)
+    before = len(existing)
+    for e in events:
+        existing[(e.get("time"), e.get("currency"), e.get("title"))] = e
+    rows = list(existing.values())
+    # Prune beyond retention (times are UTC ISO; lexicographic compare is safe).
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=retention_days)).isoformat()
+    rows = [e for e in rows if (e.get("time") or "") >= cutoff]
+    rows.sort(key=lambda e: e.get("time") or "")
+    history_path.write_text(json.dumps({
+        "updated": datetime.now(timezone.utc).isoformat(),
+        "retention_days": retention_days,
+        "events": rows,
+        "source": "forexfactory.com via nfs.faireconomy.media (accumulated)",
+    }, indent=2))
+    return len(existing) - before
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", "-o", default="events.json",
                          help="Output path for events.json")
+    parser.add_argument("--history", default="events-history.json",
+                         help="Accumulated event-history path (deduped, pruned)")
     parser.add_argument("--dry-run", action="store_true",
                          help="Print events to stdout, don't write file")
     args = parser.parse_args()
@@ -165,6 +202,13 @@ def main():
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(payload, indent=2))
     print(f"Wrote {len(events)} events to {out_path}")
+
+    # Accumulate into the deduped history file (builds a backtestable calendar).
+    try:
+        added = update_history(events, Path(args.history))
+        print(f"History: +{added} new events -> {args.history}")
+    except Exception as exc:  # never let history-keeping break the main publish
+        print(f"WARN: history update failed (non-fatal): {exc}", file=sys.stderr)
 
 
 if __name__ == "__main__":
