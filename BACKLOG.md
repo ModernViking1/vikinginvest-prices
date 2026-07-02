@@ -3,6 +3,25 @@
 Working tracker for things deliberately deferred + the plan while the live
 intraday win-rate matures. Not investor-facing. Keep it short.
 
+## ❌ REJECTED 2026-07-01 — index add-on strategies (research)
+
+Investigated add-ons to diversify the all-momentum index engine (US indices
+softened to ~67-69% WR). Both rejected after testing:
+- **Overnight drift** — strongest academic anomaly, but does NOT transfer:
+  our indices are 24h CFDs, so gains accrue INTRADAY (open→close +9-52% ann)
+  not overnight (close→open flat/neg). No closed cash session to exploit.
+- **RSI(2) mean-reversion** — looked promising raw (5/6 positive) but that was
+  an artifact of unbounded downside. With any risk model it's net-negative:
+  H1 aggregate EV −0.098R, PF 0.72; consistently negative across both
+  time-halves and every parameter combo; stop-width sweep shows the edge
+  only appears with NO stop (PF 1.09, and the −650bps tails from pass 1).
+  Won't survive live execution costs. `research_rsi2_battery.py`.
+- VWAP: infeasible (no volume in the feed).
+Still untested from the shortlist: **Opening Range Breakout** (mixed evidence
+— QQQ positive, MNQ falsification) and a **time-series-momentum long-bias
+FILTER** on the existing engine (the strong intraday long-drift supports it —
+may beat bolting on a new strategy). Both parked pending direction.
+
 ## ✅ SHIPPED 2026-07-01 — H4 time-of-day filter (FX)
 
 Deployed: FX macd-primary entries now skip 07:00–09:59 UTC (London open)
