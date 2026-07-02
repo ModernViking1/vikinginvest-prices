@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-02T04:25:59.939598+00:00",
-  "generated_ms": 1782966359830,
-  "detector_last_check": "2026-07-02T04:25:59.734728+00:00",
+  "generated": "2026-07-02T04:31:30.505040+00:00",
+  "generated_ms": 1782966690395,
+  "detector_last_check": "2026-07-02T04:31:30.300847+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
-    "armed": 1,
-    "triggered": 1,
+    "total": 4,
+    "armed": 2,
+    "triggered": 2,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "suiusd:1782963900000:wick",
+      "pair": "suiusd",
+      "sym": "SUIUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 0.7258,
+      "stop": 0.7199,
+      "target": 0.7317,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1782963900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782966690395,
+      "source": "server-detector"
+    },
     {
       "id": "gbpnzd:1782961200000:wick",
       "pair": "gbpnzd",
@@ -34,7 +55,7 @@
       "cl": "bull",
       "armedAt": 1782961200000,
       "triggeredAt": null,
-      "lastSeenAt": 1782966359830,
+      "lastSeenAt": 1782966690395,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,28 @@
       "cl": "bull",
       "armedAt": 1780560900000,
       "triggeredAt": 1782964800000,
-      "lastSeenAt": 1782966359830,
+      "lastSeenAt": 1782966690395,
+      "source": "server-detector"
+    },
+    {
+      "id": "suiusd:1780424100000:fib",
+      "pair": "suiusd",
+      "sym": "SUIUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 0.729508,
+      "stop": 0.7199,
+      "target": 0.7391160000000001,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780424100000,
+      "triggeredAt": 1782965700000,
+      "lastSeenAt": 1782966690395,
       "source": "server-detector"
     }
   ]
