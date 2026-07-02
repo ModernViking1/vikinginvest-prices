@@ -3,6 +3,20 @@
 Working tracker for things deliberately deferred + the plan while the live
 intraday win-rate matures. Not investor-facing. Keep it short.
 
+## ⏸ PARKED 2026-07-01 — USD-directional weekend-thesis test
+
+Follow-up from the loss-timing analysis (`analyze_loss_timing.py`). The
+strategy's WR is strongest on Fridays historically (68.8%, +36R), which is
+*loosely* consistent with the "USD strengthens into the weekend" idea — but
+our WR is a both-directions, multi-pair number, not a USD-directional
+measure, so it can't confirm the thesis. To actually settle it: isolate
+USD-pair trades, split by long-USD vs short-USD, and test whether long-USD
+outperforms short-USD as the week progresses toward Friday. Industry view
+is contested (Levi 1978 said USD *falls* Friday; liquidity hypothesis says
+it strengthens) and the day-of-week effect largely decayed post-1990s — so
+low expected payoff; parked. Revisit only if a weekday overlay looks worth
+pursuing after the H4 time-of-day work.
+
 ## ✅ RESOLVED 2026-07-01 — H7 replaced by the EW-disagreement veto
 
 Decision taken (both variants backtested head-to-head; see below). **H7
