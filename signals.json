@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-02T13:31:30.030240+00:00",
-  "generated_ms": 1782999089926,
-  "detector_last_check": "2026-07-02T13:31:29.834015+00:00",
+  "generated": "2026-07-02T13:35:53.644667+00:00",
+  "generated_ms": 1782999353537,
+  "detector_last_check": "2026-07-02T13:35:53.433685+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 6,
-    "armed": 0,
+    "total": 8,
+    "armed": 2,
     "triggered": 2,
     "invalidated": 4
   },
   "signals": [
+    {
+      "id": "suiusd:1782999000000:wick",
+      "pair": "suiusd",
+      "sym": "SUIUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 0.7409,
+      "stop": 0.7357,
+      "target": 0.7461,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1782999000000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782999353537,
+      "source": "server-detector"
+    },
     {
       "id": "usdjpy:1782999000000:macdp",
       "pair": "usdjpy",
@@ -34,7 +55,28 @@
       "cl": "neutral",
       "armedAt": 1782999000000,
       "triggeredAt": 1782999000000,
-      "lastSeenAt": 1782999089926,
+      "lastSeenAt": 1782999353537,
+      "source": "server-detector"
+    },
+    {
+      "id": "usdzar:1782999000000:wick",
+      "pair": "usdzar",
+      "sym": "USDZAR",
+      "cls": "minor",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "invalidated",
+      "entry": 16.27586,
+      "stop": 16.39609,
+      "target": 16.155630000000002,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1782999000000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782999353537,
       "source": "server-detector"
     },
     {
@@ -55,28 +97,7 @@
       "cl": "neutral",
       "armedAt": 1782998100000,
       "triggeredAt": 1782998100000,
-      "lastSeenAt": 1782999089926,
-      "source": "server-detector"
-    },
-    {
-      "id": "usdzar:1782995400000:wick",
-      "pair": "usdzar",
-      "sym": "USDZAR",
-      "cls": "minor",
-      "method": "wick",
-      "r_size": 1.0,
-      "dir": "bear",
-      "state": "invalidated",
-      "entry": 16.37914,
-      "stop": 16.39609,
-      "target": 16.36219,
-      "ew": "bear",
-      "tl": "bear",
-      "nw": "bear",
-      "cl": "bear",
-      "armedAt": 1782995400000,
-      "triggeredAt": null,
-      "lastSeenAt": 1782999089926,
+      "lastSeenAt": 1782999353537,
       "source": "server-detector"
     },
     {
@@ -97,7 +118,7 @@
       "cl": "bear",
       "armedAt": 1782991800000,
       "triggeredAt": null,
-      "lastSeenAt": 1782999089926,
+      "lastSeenAt": 1782999353537,
       "source": "server-detector"
     },
     {
@@ -118,7 +139,7 @@
       "cl": "bear",
       "armedAt": 1782981900000,
       "triggeredAt": null,
-      "lastSeenAt": 1782999089926,
+      "lastSeenAt": 1782999353537,
       "source": "server-detector"
     },
     {
@@ -130,16 +151,37 @@
       "r_size": 0.5,
       "dir": "bear",
       "state": "invalidated",
-      "entry": 16.29248404,
+      "entry": 16.25186306,
       "stop": 16.39609,
-      "target": 16.188878080000002,
+      "target": 16.107636120000002,
       "ew": "bear",
       "tl": "bear",
       "nw": "bear",
       "cl": "bear",
       "armedAt": 1782912600000,
       "triggeredAt": null,
-      "lastSeenAt": 1782999089926,
+      "lastSeenAt": 1782999353537,
+      "source": "server-detector"
+    },
+    {
+      "id": "suiusd:1780424100000:fib",
+      "pair": "suiusd",
+      "sym": "SUIUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 0.7468946000000001,
+      "stop": 0.7357,
+      "target": 0.7580892000000001,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780424100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1782999353537,
       "source": "server-detector"
     }
   ]
