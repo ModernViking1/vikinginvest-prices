@@ -6,7 +6,7 @@ intraday win-rate matures. Not investor-facing. Keep it short.
 ## ❌ REJECTED 2026-07-01 — index add-on strategies (research)
 
 Investigated add-ons to diversify the all-momentum index engine (US indices
-softened to ~67-69% WR). Both rejected after testing:
+softened to ~67-69% WR). THREE candidates tested, all rejected:
 - **Overnight drift** — strongest academic anomaly, but does NOT transfer:
   our indices are 24h CFDs, so gains accrue INTRADAY (open→close +9-52% ann)
   not overnight (close→open flat/neg). No closed cash session to exploit.
@@ -16,11 +16,20 @@ softened to ~67-69% WR). Both rejected after testing:
   time-halves and every parameter combo; stop-width sweep shows the edge
   only appears with NO stop (PF 1.09, and the −650bps tails from pass 1).
   Won't survive live execution costs. `research_rsi2_battery.py`.
+- **TSMOM long-bias filter** — FAILS the adversarial check. Every variant
+  (21/63/126d align, pure long-only) drops a ≥51%-WR cohort, cutting net-R
+  Δ−3 to −10. Hypothesis was wrong: index SHORTS are profitable (55.4% WR,
+  +8R) and counter-trend signals are the BEST cohort (59.6%). The engine's
+  EW/H5/confluence already handles trend-alignment; TSMOM is redundant and
+  only removes good trades. `backtest_tsmom_index.py`.
 - VWAP: infeasible (no volume in the feed).
-Still untested from the shortlist: **Opening Range Breakout** (mixed evidence
-— QQQ positive, MNQ falsification) and a **time-series-momentum long-bias
-FILTER** on the existing engine (the strong intraday long-drift supports it —
-may beat bolting on a new strategy). Both parked pending direction.
+
+**Conclusion:** 3/3 researched add-ons rejected under thorough testing → the
+index engine is already well-constructed; the softening is not a fixable
+strategy/direction gap (more likely regime + normalisation of an early-high
+WR — still net +150-200R/index). Only **Opening Range Breakout** remains
+untested (mixed evidence — QQQ positive, MNQ falsification); parked pending
+direction, with tempered expectations given the pattern.
 
 ## ✅ SHIPPED 2026-07-01 — H4 time-of-day filter (FX)
 
