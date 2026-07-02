@@ -1998,6 +1998,17 @@ DIVG_HTF_FILTER = False
 # predictiveness validated on FX); False to disable.
 EW_DISAGREE_VETO = True
 
+# 2026-07-01 — H4 TIME-OF-DAY FILTER (FX only). Skip macd-primary entries
+# during the London open (07:00-09:59 UTC) and the 21:00 UTC daily rollover.
+# Those windows whipsaw the 15m cross (volatile open) / clip the tight 1:1
+# structural stop with rollover spread. Backtest head-to-head (FX, on top of
+# the deployed rule-set): skipping these hours dropped a 42.6%-WR cohort and
+# lifted net-R +34% without culling winners (Asian and other hours tested
+# net-neutral/positive, so they're left in). False to disable; edit the set
+# to tune. Hours are UTC, read from the trigger bar's timestamp.
+H4_TOD_FILTER = True
+H4_SKIP_HOURS_UTC = {7, 8, 9, 21}
+
 # 2026-06-29 — DEGENERATE-STOP FLOOR, hoisted to a module constant and
 # raised 3 bps → 5 bps. In a tight 15m range the macdp/divg structural
 # stop can collapse to ~1 pip (the AUDNZD 1.22030/1.22020 case), which
@@ -2121,6 +2132,15 @@ def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
     if EW_DISAGREE_VETO and pair_class in ('major', 'minor'):
         if ew_dir in ('bull', 'bear') and ew_dir != macd_dir:
             return None
+    # H4 — time-of-day filter (2026-07-01) — FX only. See H4_TOD_FILTER
+    # comment block. Hour read from the trigger bar (bars[i]), UTC.
+    if H4_TOD_FILTER and pair_class in ('major', 'minor'):
+        _tod_ts = bars[i].get('t') or ''
+        try:
+            if int(_tod_ts[11:13]) in H4_SKIP_HOURS_UTC:
+                return None
+        except (ValueError, IndexError):
+            pass
     # Class-specific deploy gate
     # 2026-06-20n — MINOR promoted to LIVE. The macd-expansion test
     # showed macd-primary on MINORs at 75-81% WR / +0.50 to +0.62R EV

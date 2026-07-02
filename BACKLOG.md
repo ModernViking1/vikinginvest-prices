@@ -3,6 +3,19 @@
 Working tracker for things deliberately deferred + the plan while the live
 intraday win-rate matures. Not investor-facing. Keep it short.
 
+## ✅ SHIPPED 2026-07-01 — H4 time-of-day filter (FX)
+
+Deployed: FX macd-primary entries now skip 07:00–09:59 UTC (London open)
+and 21:00–21:59 UTC (daily rollover). Head-to-head backtest
+(`backtest_h4_timeofday.py`): those hours were a 42.6%-WR cohort; skipping
+them lifted net-R +47→+63 (+34%) and WR 53.9%→56.5% without culling
+winners. Asian-hours and concentrate-to-overlap variants FAILED the
+adversarial check (dropped >50% cohorts) and were rejected. Mechanism =
+open-whipsaw + rollover spread clipping the tight 1:1 stop; matches
+session-liquidity research and the live log. Server flag `H4_TOD_FILTER` /
+`H4_SKIP_HOURS_UTC`, mirrored in the JS replay, RULES_VERSION 2026-07-01b.
+Watch: confirm live loss-rate drops in those windows over the coming week.
+
 ## ⏸ PARKED 2026-07-01 — USD-directional weekend-thesis test
 
 Follow-up from the loss-timing analysis (`analyze_loss_timing.py`). The
