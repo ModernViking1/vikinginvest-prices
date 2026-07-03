@@ -190,8 +190,16 @@ Line-delimited JSON, one event per line, append-only, never rewritten.
 | `event` | When | Key fields |
 |---|---|---|
 | `placed` | Order accepted by broker | `signal_id`, `position_id`, `entry_attempt`, `entry_filled`, `slippage_pips`, `volume_units` |
-| `rejected` | Order rejected | `signal_id`, `reason` |
+| `rejected` | Broker rejected the order, **or** a pre-order gate skipped it (spread, entry-drift, max-positions, one-per-pair, no-symbol, stop-too-tight, factor-saturated, stale, …) | `signal_id`, `reason` (`category: detail`) |
 | `closed` | Position closed (TP / SL / manual) | `signal_id`, `position_id`, `exit_price`, `net_profit`, `realized_r`, `reason` |
+
+`rejected` rows are **throttled per (pair, reason)** to one every
+`RejectLogCooldownMin` (30 min, code const) — a chronically-gated
+instrument mints a fresh signal id every bar, so an unthrottled dispatch
+would flood the ingest workflow. The full, un-throttled detail is always
+in the local cBot `Log` tab; `executions.json` carries a representative
+sample so the gating pattern (e.g. "JP225 keeps failing on spread") is
+visible remotely without pulling the VPS log.
 
 Plus shared fields on every row: `ts`, `pair`, `symbol`, `dir`,
 `stop`, `target`, `r_size`, `account_mode` (`demo` / `live`),

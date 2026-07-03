@@ -812,6 +812,7 @@ namespace cAlgo.Robots
                 if (ageMin > MaxSignalAgeMin)
                 {
                     Print($"⏭ [VikingInvest] Skipping stale signal id={sig.Id} ({(sig.TriggeredAtMs > 0 ? "triggered" : "armed")} {ageMin:F0} min ago, cap {MaxSignalAgeMin})");
+                    EmitRejection(sig, null, "stale", $"{ageMin:F0} min old (cap {MaxSignalAgeMin})");
                     MarkSeen(sig.Id); _ordersSkipped++;
                     return;
                 }
@@ -821,6 +822,7 @@ namespace cAlgo.Robots
             if (symbol == null)
             {
                 Print($"⚠️ [VikingInvest] No matching cTrader symbol for pair={sig.Pair} — skipping.");
+                EmitRejection(sig, null, "no-symbol", $"no cTrader symbol for {sig.Pair}");
                 MarkSeen(sig.Id); _ordersSkipped++;
                 return;
             }
@@ -838,6 +840,7 @@ namespace cAlgo.Robots
             if (Positions.Any(p => p.Label == OrderLabel && p.SymbolName == symbol.Name))
             {
                 Print($"⏭ [VikingInvest] Already holding {symbol.Name} — skipping id={sig.Id} (one-per-pair).");
+                EmitRejection(sig, symbol.Name, "already-holding", $"already holding {symbol.Name}");
                 MarkSeen(sig.Id); _ordersSkipped++;
                 return;
             }
@@ -847,6 +850,7 @@ namespace cAlgo.Robots
             if (ourOpen >= EffectiveMaxPositions)
             {
                 Print($"🛑 [VikingInvest] Max positions reached ({ourOpen}/{EffectiveMaxPositions}) — skipping id={sig.Id}");
+                EmitRejection(sig, symbol.Name, "max-positions", $"{ourOpen}/{EffectiveMaxPositions} open");
                 MarkSeen(sig.Id); _ordersSkipped++;
                 return;
             }
@@ -867,6 +871,7 @@ namespace cAlgo.Robots
                 spreadPips > MaxSpreadPctOfStop * gateStopPips)
             {
                 Print($"🛑 [VikingInvest] Spread too wide on {symbol.Name}: {spreadPips:F1} pips is {(spreadPips / gateStopPips):P0} of the {gateStopPips:F1}-pip stop (cap {MaxSpreadPctOfStop:P0}). Skipping id={sig.Id}");
+                EmitRejection(sig, symbol.Name, "spread", $"{spreadPips:F1} pips = {(spreadPips / gateStopPips):P0} of stop (cap {MaxSpreadPctOfStop:P0})");
                 MarkSeen(sig.Id); _ordersSkipped++;
                 return;
             }
@@ -884,6 +889,7 @@ namespace cAlgo.Robots
                 // 2026-07-01 — log-only (Telegram removed). A gated non-trade;
                 // Telegram now carries real executions only. Still in the log.
                 Print($"🛑 [VikingInvest] Stop too tight on {symbol.Name}: {slPips:F2} < {MinStopPips} pips — DEGENERATE signal, skipping id={sig.Id}");
+                EmitRejection(sig, symbol.Name, "stop-too-tight", $"{slPips:F2} < {MinStopPips} pips");
                 MarkSeen(sig.Id); _ordersSkipped++;
                 return;
             }
@@ -908,6 +914,7 @@ namespace cAlgo.Robots
                         // gated non-trades; Telegram now carries real executions
                         // only. The skip is still recorded in the cBot log.
                         Print($"⏭ [VikingInvest] Entry drifted on {symbol.Name}: market {fillRef:F5} is {devR:P0} of R from signal entry {sig.Entry:F5} (cap {MaxEntryDeviationPctOfR:P0}) — skipping id={sig.Id}");
+                        EmitRejection(sig, symbol.Name, "entry-drift", $"{devR:P0} of R (cap {MaxEntryDeviationPctOfR:P0})");
                         MarkSeen(sig.Id); _ordersSkipped++;
                         return;
                     }
@@ -923,6 +930,7 @@ namespace cAlgo.Robots
             if (volume <= 0)
             {
                 Print($"⚠️ [VikingInvest] Volume compute returned {volume} for {symbol.Name} — skipping");
+                EmitRejection(sig, symbol.Name, "zero-volume", $"sized to {volume}");
                 MarkSeen(sig.Id); _ordersSkipped++;
                 return;
             }
@@ -983,6 +991,7 @@ namespace cAlgo.Robots
                         if (scaledVol <= 0 || scaledVol < symbol.VolumeInUnitsMin)
                         {
                             Print($"🛑 [VikingInvest] Factor-risk budget saturated on {binding} — {symbol.Name} {sig.Dir} would size to ~0, skipping id={sig.Id}");
+                            EmitRejection(sig, symbol.Name, "factor-saturated", $"budget hit on {binding}");
                             MarkSeen(sig.Id); _ordersSkipped++;
                             return;
                         }
@@ -1033,6 +1042,7 @@ namespace cAlgo.Robots
                         Print($"🛑 [VikingInvest] SL still not set on {symbol.Name} PID={pos.Id} — CLOSING to avoid a naked position. id={sig.Id}");
                         TelegramSend($"🛑 {symbol.Name} {sig.Dir} opened WITHOUT a stop and the stop couldn't be attached (likely below broker min distance). Position CLOSED immediately to avoid unbounded risk. id={sig.Id}", important: true);
                         try { ClosePosition(pos); } catch (Exception ex) { Print($"   Emergency ClosePosition threw: {ex.Message}"); }
+                        EmitRejection(sig, symbol.Name, "no-stop-closed", "opened without a stop, closed immediately");
                         MarkSeen(sig.Id); _ordersSkipped++;
                         return;
                     }
@@ -1450,6 +1460,45 @@ namespace cAlgo.Robots
             public string CloseSource;      // cbot_invalidation | manual | broker
             public string AccountMode;      // "demo" | "live"
             public long   Account;
+        }
+
+        // 2026-07-03 — emit a 'rejected' execution row for a pre-order skip
+        // so the gating REASON reaches executions.json (dashboard + remote
+        // audit), not just the local VPS log. Broker-level rejections already
+        // write their own row in the ExecuteMarketOrder failure branch.
+        //
+        // Throttled per (pair, category): a chronically-gated instrument (an
+        // index whose spread is wide all session, a fast index that keeps
+        // drifting past its entry) triggers a FRESH signal id every bar, so an
+        // unthrottled dispatch would fire hundreds of repository_dispatch calls
+        // a day and spam the ingest workflow. One row per pair+reason per
+        // cooldown window is enough to see the pattern; the full detail always
+        // stays in the local cBot log via the Print at each gate.
+        private const int RejectLogCooldownMin = 30;
+        private readonly Dictionary<string, long> _lastRejectDispatchMs = new Dictionary<string, long>();
+        private void EmitRejection(Signal sig, string symbolName, string category, string detail)
+        {
+            var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var key = (sig.Pair ?? "?") + "|" + category;
+            if (_lastRejectDispatchMs.TryGetValue(key, out var last) &&
+                nowMs - last < (long)RejectLogCooldownMin * 60000L)
+                return; // within cooldown — already in the local log; skip the dispatch
+            _lastRejectDispatchMs[key] = nowMs;
+            WriteExecution(new ExecutionRow
+            {
+                Event        = "rejected",
+                SignalId     = sig.Id,
+                Pair         = sig.Pair,
+                Symbol       = symbolName,
+                Dir          = sig.Dir,
+                EntryAttempt = sig.Entry,
+                Stop         = sig.Stop,
+                Target       = sig.Target,
+                RSize        = sig.RSize,
+                Reason       = category + ": " + detail,
+                AccountMode  = Account.IsLive ? "live" : "demo",
+                Account      = Account.Number,
+            });
         }
 
         private void WriteExecution(ExecutionRow r)
