@@ -18923,11 +18923,23 @@ function _renderCCIVariantPanel(host, commodityKeys){
     }
     var ready = m.ratiosReady;
     var fmt = function(v, dp){ if(v == null) return '—'; return (v>=0?'':'') + v.toFixed(dp == null ? 2 : dp); };
+    // 2026-07-03 — credibility cap. A frictionless backtest of a high-
+    // hit-rate 1:1 strategy produces mathematically inflated risk-adjusted
+    // ratios (Sharpe was rendering ~11, Calmar ~2900 — numbers that read as
+    // a broken calc to any allocator). We cannot honestly recompute them
+    // lower without a friction model, so we CAP the display and label them
+    // as simulated upper bounds rather than print an absurd precise value.
+    var CAP_SHARPE = 4, CAP_CALMAR = 10;
+    var capFmt = function(v, ceiling, dp){
+      if(v == null) return '—';
+      if(v > ceiling) return '>' + ceiling;
+      return v.toFixed(dp == null ? 2 : dp);
+    };
     var stats = [
-      { lbl:'Sharpe',  val: ready ? fmt(m.sharpe) : '—', sub:'weekly · annualised' },
-      { lbl:'Sortino', val: ready ? fmt(m.sortino) : '—', sub:'downside-adjusted' },
-      { lbl:'Calmar',  val: ready ? fmt(m.calmar) : '—', sub:'ann. return ÷ max DD' },
-      { lbl:'Max drawdown', val:'−' + fmt(m.maxDD,1) + 'R', sub:'peak-to-trough' },
+      { lbl:'Sharpe',  val: ready ? capFmt(m.sharpe, CAP_SHARPE) : '—', sub:'weekly · annualised · sim. ceiling' },
+      { lbl:'Sortino', val: ready ? capFmt(m.sortino, CAP_SHARPE) : '—', sub:'downside-adj · sim. ceiling' },
+      { lbl:'Calmar',  val: ready ? capFmt(m.calmar, CAP_CALMAR) : '—', sub:'ann. return ÷ max DD · sim.' },
+      { lbl:'Max drawdown', val:'−' + fmt(m.maxDD,1) + 'R', sub:'worst peak-to-trough on log' },
       { lbl:'Monthly consistency', val:m.posMonths + '/' + m.monthCount, sub:'positive months' },
       { lbl:'Corr · ' + m.corrBench, val:m.corr==null ? '—' : fmt(m.corr), sub:'monthly, vs benchmark' }
     ];
@@ -18940,12 +18952,12 @@ function _renderCCIVariantPanel(host, commodityKeys){
             + '</div>';
     });
     var caveat = ready
-      ? 'Sharpe / Sortino computed from weekly returns (annualised ×√52), risk-free 0; Calmar = annualised return ÷ max drawdown; correlation vs ' + m.corrBench + ', monthly. '
+      ? 'Sharpe / Sortino / Calmar are shown <strong>capped</strong> (Sharpe·Sortino ≤ ' + CAP_SHARPE + ', Calmar ≤ ' + CAP_CALMAR + '): a frictionless backtest inflates risk-adjusted ratios mathematically, so the cap marks them as simulated upper bounds — not allocatable figures. Computed from weekly returns (annualised ×√52), risk-free 0; Calmar = annualised return ÷ worst peak-to-trough. Correlation vs ' + m.corrBench + ', monthly. '
       : 'Risk-adjusted ratios populate at ≥' + m.minWeeks + ' weeks of history (currently ' + m.weekCount + '). ';
     return '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">' + tiles + '</div>'
          + '<div class="vi-pdf-body" style="font-size:10px;color:#5a5550;margin-top:6px;font-style:italic;">'
          + caveat
-         + '<strong>These are simulated (frictionless) figures and run higher than live trading will; the audited live track record produces the figures for allocation.</strong>'
+         + '<strong>These are simulated (frictionless) figures and run materially higher than live trading will; the audited live track record produces the figures for allocation.</strong>'
          + '</div>';
   }
 
@@ -19869,9 +19881,16 @@ function _renderCCIVariantPanel(host, commodityKeys){
     if(dayKeys.length < 2) return out;
     var dailyR = dayKeys.map(function(k){ return dayMap[k]; });
     var n = dailyR.length;
-    // Max drawdown from the daily equity curve (finest peak-to-trough).
+    // Max drawdown from the per-TRADE chronological equity curve — the
+    // true finest peak-to-trough. 2026-07-03 — was daily-bucketed, which
+    // nets out intraday drawdowns and understated DD (showed −2.0R while
+    // the Risk & Edge block showed −8R off the same log). Per-trade
+    // matches _pdfComputeRiskMetrics so the two report blocks agree, and
+    // Calmar now divides by the honest (larger) drawdown.
+    var _ddTrades = trades.slice().filter(function(t){ return typeof t.ts === 'number'; })
+                          .sort(function(a, b){ return a.ts - b.ts; });
     var cum = 0, peak = 0, maxDD = 0;
-    dailyR.forEach(function(r){ cum += r; if(cum > peak) peak = cum; var dd = peak - cum; if(dd > maxDD) maxDD = dd; });
+    _ddTrades.forEach(function(t){ cum += (t.rDelta || 0); if(cum > peak) peak = cum; var dd = peak - cum; if(dd > maxDD) maxDD = dd; });
     var totalR = cum;
     // 2026-06-30 — Sharpe/Sortino/Calmar from MONTHLY returns, not daily.
     // Daily aggregation across ~40 pairs/day treats intraday trades as
