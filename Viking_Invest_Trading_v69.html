@@ -21245,10 +21245,48 @@ function _renderCCIVariantPanel(host, commodityKeys){
       }
     } catch(e){ /* h10 stays unavailable */ }
 
+    // ── H11 — faytterro Wyckoff spring / UTAD event (candidate) ────────
+    // RSI(14) crossings on h1, faytterro's ±20 band: spring = cross UP
+    // through 30, UTAD = cross DOWN through 70. Backtest 2026-07-03 over
+    // ~3,085 macdp entries: spring→BUY 81.6% WR (+7.4pp), UTAD→SELL 83.7%
+    // (+9.4pp) vs 74.2% baseline; entries FIGHTING a fresh event were the
+    // worst cohort. Deploy form is a confirmation filter. Candidate —
+    // promising but a 90d single-regime sample; needs forward-validation.
+    var h11 = { available: false, aligned: false, fought: false, recentSpring: false, recentUtad: false, blocked: false };
+    try {
+      var h1e = (typeof DEEP_HIST !== 'undefined' && DEEP_HIST[pair] && DEEP_HIST[pair].h1) || [];
+      var ub = [];
+      for(var qi = 0; qi < h1e.length; qi++){ var qt = _replayBarTs(h1e[qi]); if(!isNaN(qt) && qt <= creatorTs) ub.push(h1e[qi]); }
+      if(ub.length >= 20){
+        var cls = ub.map(function(b){ return (b.c != null ? b.c : b.p); });
+        var per = 14, gg = 0, ll = 0;
+        for(var ri = 1; ri <= per; ri++){ var ch = cls[ri] - cls[ri - 1]; if(ch > 0) gg += ch; else ll += -ch; }
+        gg /= per; ll /= per;
+        var rsiArr = new Array(cls.length).fill(null);
+        rsiArr[per] = 100 - 100 / (1 + (ll > 0 ? gg / ll : 999));
+        for(var ri2 = per + 1; ri2 < cls.length; ri2++){
+          var ch2 = cls[ri2] - cls[ri2 - 1];
+          gg = (gg * (per - 1) + Math.max(ch2, 0)) / per; ll = (ll * (per - 1) + Math.max(-ch2, 0)) / per;
+          rsiArr[ri2] = 100 - 100 / (1 + (ll > 0 ? gg / ll : 999));
+        }
+        var recentSpring = false, recentUtad = false, last = rsiArr.length - 1;
+        for(var si = Math.max(per + 1, last - 4); si <= last; si++){
+          var rc = rsiArr[si], rpv = rsiArr[si - 1];
+          if(rc == null || rpv == null) continue;
+          if(rc > 30 && rpv < 30) recentSpring = true;   // spring
+          if(rc < 70 && rpv > 70) recentUtad = true;     // UTAD
+        }
+        var h11Aligned = (recentSpring && dir === 'bull') || (recentUtad && dir === 'bear');
+        var h11Fought  = (recentUtad && dir === 'bull') || (recentSpring && dir === 'bear');
+        h11 = { available: true, aligned: h11Aligned, fought: h11Fought,
+                recentSpring: recentSpring, recentUtad: recentUtad, blocked: h11Fought };
+      }
+    } catch(e){ /* h11 stays unavailable */ }
+
     return {
       entryIdx: entryIdx, barsSrc: got.src, Rdist: Rdist,
       actual: { rAtClose: exec.realized_r, reason: exec.reason, mfeR: exec.mfe_r || mfeInfo.mfeR },
-      H1: h1, H2: h2, H3: h3, H4: h4, H5: h5, H6: h6, H7: h7, H8: h8, H9: h9, H10: h10
+      H1: h1, H2: h2, H3: h3, H4: h4, H5: h5, H6: h6, H7: h7, H8: h8, H9: h9, H10: h10, H11: h11
     };
   }
 
@@ -21400,6 +21438,18 @@ function _renderCCIVariantPanel(host, commodityKeys){
       h10Card = verdict('H10 · correlated cluster', 'Only ' + A.H10.clusterSize + ' aligned position' + (A.H10.clusterSize === 1 ? '' : 's') + ' open within ±3h (factors: ' + (A.H10.factors.join(', ') || 'none') + '). Not a concentrated cluster — this loss stands on its own.', false);
     }
 
+    var h11BT = ' <span style="color:#8a6a0a;">Backtested candidate:</span> spring→BUY ~82% WR, UTAD→SELL ~84% vs ~74% base — promising, but a 90d sample; needs forward-validation.';
+    var h11Card;
+    if(!A.H11 || !A.H11.available){
+      h11Card = verdict('H11 · Wyckoff spring/UTAD', 'Not enough h1 history to evaluate faytterro spring/UTAD crossings. Inconclusive.', null);
+    } else if(A.H11.aligned){
+      h11Card = verdict('H11 · Wyckoff spring/UTAD', '<strong>Entry had fresh ' + (A.H11.recentSpring ? 'spring' : 'UTAD') + ' confirmation</strong> (' + (exec.dir === 'bull' ? 'BUY after a spring' : 'SELL after a UTAD') + ') — the high-conviction cohort in test. It lost anyway: confirmation raises the odds, it does not guarantee, so a confirmation filter would NOT have blocked this.' + h11BT, false);
+    } else if(A.H11.fought){
+      h11Card = verdict('H11 · Wyckoff spring/UTAD', '<strong>Entry fought a fresh ' + (A.H11.recentUtad ? 'UTAD' : 'spring') + '</strong> (' + (exec.dir === 'bull' ? 'BUY right after a bearish UTAD' : 'SELL right after a bullish spring') + ') — the worst-performing cohort in test. A "require aligned spring/UTAD confirmation" filter would have blocked this entry.' + h11BT, true);
+    } else {
+      h11Card = verdict('H11 · Wyckoff spring/UTAD', 'No spring or UTAD crossing in the last 5 h1 bars — no faytterro event context either way.' + h11BT, null);
+    }
+
     var wins = 0;
     [A.H1, A.H2, A.H3].forEach(function(h){
       if(h.hit === 'tp' || h.hit === 'be'){ wins++; }
@@ -21411,13 +21461,14 @@ function _renderCCIVariantPanel(host, commodityKeys){
     if(A.H8.blocked) wins++;
     if(A.H9 && A.H9.blocked) wins++;
     if(A.H10 && A.H10.blocked) wins++;
+    if(A.H11 && A.H11.blocked) wins++;
     var summaryLine = '<div style="padding:10px 14px;background:linear-gradient(135deg,#0d5a36 0%,#082d1a 100%);color:#fff;border-radius:3px;margin-top:10px;font-size:11px;line-height:1.55;letter-spacing:0.2px;">'
                     + '<strong style="color:#c8860a;font-family:Orbitron,monospace;letter-spacing:1.5px;font-size:9.5px;text-transform:uppercase;">Read:</strong> '
-                    + wins + ' of 10 hypotheses would have improved this outcome. ' + (wins === 0 ? 'This trade looks like a clean directional loss — no easy lever to pull retrospectively.' : wins === 1 ? 'Single lever — note which one, then check if it replicates across the next handful of losses before changing the rule set.' : 'Multiple levers fire — promote whichever consistently flips losses across ≥10 trades without killing winners. Adversarial check: if a hypothesis blocks here but its live deployment would have blocked several recent WINS, the gate is too aggressive.')
+                    + wins + ' of 11 hypotheses would have improved this outcome. ' + (wins === 0 ? 'This trade looks like a clean directional loss — no easy lever to pull retrospectively.' : wins === 1 ? 'Single lever — note which one, then check if it replicates across the next handful of losses before changing the rule set.' : 'Multiple levers fire — promote whichever consistently flips losses across ≥10 trades without killing winners. Adversarial check: if a hypothesis blocks here but its live deployment would have blocked several recent WINS, the gate is too aggressive.')
                     + '</div>';
 
     var hypoGrid = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
-                 + h1Card + h2Card + h3Card + h4Card + h5Card + h6Card + h7Card + h8Card + h9Card + h10Card
+                 + h1Card + h2Card + h3Card + h4Card + h5Card + h6Card + h7Card + h8Card + h9Card + h10Card + h11Card
                  + '</div>' + summaryLine;
     var srcLine = '<div style="font-size:8.5px;color:var(--inkd);margin-top:8px;letter-spacing:0.3px;">'
                 + 'Bars source: <code>' + A.barsSrc + '</code> · 1R distance: ' + (A.Rdist || 0).toFixed(5) + ' price units · window: 24 m15 bars (6h)'
@@ -21538,12 +21589,12 @@ function _renderCCIVariantPanel(host, commodityKeys){
     H1: 'Wider stop (1.5R)',  H2: 'Breakeven after +0.5R', H3: 'Partial +0.5R',
     H4: 'Time-of-day filter', H5: '4H trend filter',       H6: '2-loss cool-off',
     H7: 'macdp minors gate',  H8: 'News blackout',         H9: 'Wyckoff phase',
-    H10: 'Correlated-cluster cap'
+    H10: 'Correlated-cluster cap', H11: 'Wyckoff spring/UTAD'
   };
-  // H1-H3 tune the EXIT (damage reduction); H4-H10 are ENTRY filters
+  // H1-H3 tune the EXIT (damage reduction); H4-H11 are ENTRY filters
   // (would have blocked/sized-down the trade). Entry filters are the more
   // actionable "should we add this gate" levers.
-  var _VI_HYPO_KIND = { H1:'exit', H2:'exit', H3:'exit', H4:'entry', H5:'entry', H6:'entry', H7:'entry', H8:'entry', H9:'entry', H10:'entry' };
+  var _VI_HYPO_KIND = { H1:'exit', H2:'exit', H3:'exit', H4:'entry', H5:'entry', H6:'entry', H7:'entry', H8:'entry', H9:'entry', H10:'entry', H11:'entry' };
   // Deployment standing, so the consolidated recommendation never tells
   // you to "deploy" a lever that is already in production, was tested and
   // set aside, or is an unvalidated experiment. 'live' = shipped (H5
@@ -21555,7 +21606,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
   var _VI_HYPO_STANDING = {
     H1:'candidate', H2:'candidate', H3:'candidate',    H4:'candidate',
     H5:'live',      H6:'live',      H7:'rejected',      H8:'candidate',
-    H9:'rejected',  H10:'candidate'
+    H9:'rejected',  H10:'candidate', H11:'candidate'
   };
   function _VI_STANDING_BADGE(k){
     var s = _VI_HYPO_STANDING[k];
@@ -21576,7 +21627,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
       H7: !!(A.H7 && A.H7.blocked),
       H8: !!(A.H8 && A.H8.blocked),
       H9: !!(A.H9 && A.H9.blocked),
-      H10: !!(A.H10 && A.H10.blocked)
+      H10: !!(A.H10 && A.H10.blocked),
+      H11: !!(A.H11 && A.H11.blocked)
     };
   }
 
@@ -21610,7 +21662,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var totR = analysed.reduce(function(s, o){ return s + (o.exec.realized_r || 0); }, 0);
 
     // Tally fire counts per hypothesis across usable losses.
-    var keys = ['H5','H6','H7','H8','H9','H10','H4','H1','H2','H3']; // entry filters first
+    var keys = ['H5','H6','H7','H8','H9','H10','H11','H4','H1','H2','H3']; // entry filters first
     var counts = {}; keys.forEach(function(k){ counts[k] = 0; });
     usable.forEach(function(o){
       keys.forEach(function(k){ if(o.flags[k]) counts[k]++; });
