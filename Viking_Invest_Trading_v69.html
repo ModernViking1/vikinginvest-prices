@@ -21124,10 +21124,56 @@ function _renderCCIVariantPanel(host, commodityKeys){
       }
     } catch(e){ /* h8 stays unavailable */ }
 
+    // ── H9 — Wyckoff phase proxy (EXPERIMENTAL, single-instrument) ─────
+    // Mechanical reduction of Wyckoff accumulation/distribution: was the
+    // pair in a trading RANGE after a directional move at entry, and did
+    // this trade FIGHT the phase bias at a range extreme? A bull into a
+    // distribution range top = upthrust trap; a bear into an accumulation
+    // range bottom = spring trap. Uses DEEP_HIST h1 up to the trigger.
+    // This is a HEURISTIC PROXY — not auto-detected Wyckoff events — and
+    // is not backtested (the related session-regime test showed no edge),
+    // so it renders as exploratory, never a deploy signal.
+    var h9 = { available: false, phase: null, blocked: false, fought: false, loc: null };
+    try {
+      var h1all = (typeof DEEP_HIST !== 'undefined' && DEEP_HIST[pair] && DEEP_HIST[pair].h1) || [];
+      var upto = [];
+      for(var wi = 0; wi < h1all.length; wi++){
+        var wt = _replayBarTs(h1all[wi]);
+        if(!isNaN(wt) && wt <= creatorTs) upto.push(h1all[wi]);
+      }
+      if(upto.length >= 96){
+        var recent = upto.slice(-48);        // ~2 trading days = candidate range
+        var priorLeg = upto.slice(-96, -48); // preceding ~2 days = trend leg
+        var hi = -Infinity, lo = Infinity, atrSum = 0;
+        recent.forEach(function(b){ if(b.h > hi) hi = b.h; if(b.l < lo) lo = b.l; atrSum += (b.h - b.l); });
+        var rangeW = hi - lo;
+        var atr = atrSum / recent.length;
+        var recNet = recent[recent.length - 1].c - recent[0].c;
+        var priNet = priorLeg[priorLeg.length - 1].c - priorLeg[0].c;
+        // Range = recent bars consolidating: net drift small vs the box,
+        // and the box not blown out to a trend-width by ATR.
+        var isRange = rangeW > 0 && Math.abs(recNet) < 0.6 * rangeW && rangeW < 8 * atr;
+        if(!isRange){
+          h9 = { available: true, phase: 'trend', blocked: false, fought: false,
+                 loc: null, trendDir: (recNet >= 0 ? 'up' : 'down') };
+        } else {
+          var phase = priNet < 0 ? 'accumulation' : 'distribution';
+          var loc = (entry - lo) / rangeW;   // 0 = range low, 1 = range high
+          var nearHigh = loc >= 0.75, nearLow = loc <= 0.25;
+          var trap = (phase === 'distribution' && dir === 'bull' && nearHigh)
+                  || (phase === 'accumulation' && dir === 'bear' && nearLow);
+          var fought = (phase === 'distribution' && dir === 'bull')
+                    || (phase === 'accumulation' && dir === 'bear');
+          h9 = { available: true, phase: phase, blocked: trap, fought: fought,
+                 loc: loc, hi: hi, lo: lo };
+        }
+      }
+    } catch(e){ /* h9 stays unavailable */ }
+
     return {
       entryIdx: entryIdx, barsSrc: got.src, Rdist: Rdist,
       actual: { rAtClose: exec.realized_r, reason: exec.reason, mfeR: exec.mfe_r || mfeInfo.mfeR },
-      H1: h1, H2: h2, H3: h3, H4: h4, H5: h5, H6: h6, H7: h7, H8: h8
+      H1: h1, H2: h2, H3: h3, H4: h4, H5: h5, H6: h6, H7: h7, H8: h8, H9: h9
     };
   }
 
@@ -21248,6 +21294,21 @@ function _renderCCIVariantPanel(host, commodityKeys){
       h8Card = verdict('H8 · news-window blackout', 'Entry was outside the ±30min blackout window for any high-impact event matching the pair\'s currencies.' + nearTxt + ' The news filter would not have blocked this entry.', false);
     }
 
+    var h9Card;
+    if(!A.H9 || !A.H9.available){
+      h9Card = verdict('H9 · Wyckoff phase (exp.)', 'Not enough pre-trade h1 history to classify a Wyckoff range for ' + pair.toUpperCase() + '. Inconclusive.', null);
+    } else if(A.H9.phase === 'trend'){
+      h9Card = verdict('H9 · Wyckoff phase (exp.)', 'Pair was <strong>trending ' + A.H9.trendDir + '</strong> at entry, not consolidating — there is no accumulation/distribution range to read. Wyckoff has no verdict here.', null);
+    } else if(A.H9.blocked){
+      var trapName = (A.H9.phase === 'distribution') ? 'upthrust' : 'spring';
+      var edgeTxt  = (A.H9.phase === 'distribution') ? 'top' : 'bottom';
+      h9Card = verdict('H9 · Wyckoff phase (exp.)', '<strong>' + (exec.dir === 'bull' ? 'BUY' : 'SELL') + ' into a ' + A.H9.phase + ' range ' + edgeTxt + '</strong> (' + Math.round(A.H9.loc * 100) + '% of the range). Classic Wyckoff <em>' + trapName + '</em> — the entry fought the phase bias exactly where the range punishes it. <strong>Experimental proxy, not backtested</strong> — a flag to eyeball, not a rule.', null);
+    } else if(A.H9.fought){
+      h9Card = verdict('H9 · Wyckoff phase (exp.)', 'Entry leaned <strong>against</strong> the ' + A.H9.phase + ' bias (' + (exec.dir === 'bull' ? 'buying' : 'selling') + ' inside a ' + A.H9.phase + ' range) but not at the extreme (' + Math.round(A.H9.loc * 100) + '% of range). Mild Wyckoff caution — experimental proxy only.', null);
+    } else {
+      h9Card = verdict('H9 · Wyckoff phase (exp.)', 'Entry was aligned with (or neutral to) the ' + A.H9.phase + ' bias — Wyckoff wouldn\'t have flagged it. Experimental proxy.', null);
+    }
+
     var wins = 0;
     [A.H1, A.H2, A.H3].forEach(function(h){
       if(h.hit === 'tp' || h.hit === 'be'){ wins++; }
@@ -21257,13 +21318,14 @@ function _renderCCIVariantPanel(host, commodityKeys){
     if(A.H6.blocked) wins++;
     if(A.H7.blocked) wins++;
     if(A.H8.blocked) wins++;
+    if(A.H9 && A.H9.blocked) wins++;
     var summaryLine = '<div style="padding:10px 14px;background:linear-gradient(135deg,#0d5a36 0%,#082d1a 100%);color:#fff;border-radius:3px;margin-top:10px;font-size:11px;line-height:1.55;letter-spacing:0.2px;">'
                     + '<strong style="color:#c8860a;font-family:Orbitron,monospace;letter-spacing:1.5px;font-size:9.5px;text-transform:uppercase;">Read:</strong> '
-                    + wins + ' of 8 hypotheses would have improved this outcome. ' + (wins === 0 ? 'This trade looks like a clean directional loss — no easy lever to pull retrospectively.' : wins === 1 ? 'Single lever — note which one, then check if it replicates across the next handful of losses before changing the rule set.' : 'Multiple levers fire — promote whichever consistently flips losses across ≥10 trades without killing winners. Adversarial check: if a hypothesis blocks here but its live deployment would have blocked several recent WINS, the gate is too aggressive.')
+                    + wins + ' of 9 hypotheses would have improved this outcome. ' + (wins === 0 ? 'This trade looks like a clean directional loss — no easy lever to pull retrospectively.' : wins === 1 ? 'Single lever — note which one, then check if it replicates across the next handful of losses before changing the rule set.' : 'Multiple levers fire — promote whichever consistently flips losses across ≥10 trades without killing winners. Adversarial check: if a hypothesis blocks here but its live deployment would have blocked several recent WINS, the gate is too aggressive.')
                     + '</div>';
 
     var hypoGrid = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
-                 + h1Card + h2Card + h3Card + h4Card + h5Card + h6Card + h7Card + h8Card
+                 + h1Card + h2Card + h3Card + h4Card + h5Card + h6Card + h7Card + h8Card + h9Card
                  + '</div>' + summaryLine;
     var srcLine = '<div style="font-size:8.5px;color:var(--inkd);margin-top:8px;letter-spacing:0.3px;">'
                 + 'Bars source: <code>' + A.barsSrc + '</code> · 1R distance: ' + (A.Rdist || 0).toFixed(5) + ' price units · window: 24 m15 bars (6h)'
@@ -21383,26 +21445,29 @@ function _renderCCIVariantPanel(host, commodityKeys){
   var _VI_HYPO_LABELS = {
     H1: 'Wider stop (1.5R)',  H2: 'Breakeven after +0.5R', H3: 'Partial +0.5R',
     H4: 'Time-of-day filter', H5: '4H trend filter',       H6: '2-loss cool-off',
-    H7: 'macdp minors gate',  H8: 'News blackout'
+    H7: 'macdp minors gate',  H8: 'News blackout',         H9: 'Wyckoff phase (exp.)'
   };
-  // H1-H3 tune the EXIT (damage reduction); H4-H8 are ENTRY filters
+  // H1-H3 tune the EXIT (damage reduction); H4-H9 are ENTRY filters
   // (would have blocked the trade outright). Entry filters are the more
   // actionable "should we add this gate" levers.
-  var _VI_HYPO_KIND = { H1:'exit', H2:'exit', H3:'exit', H4:'entry', H5:'entry', H6:'entry', H7:'entry', H8:'entry' };
+  var _VI_HYPO_KIND = { H1:'exit', H2:'exit', H3:'exit', H4:'entry', H5:'entry', H6:'entry', H7:'entry', H8:'entry', H9:'entry' };
   // Deployment standing, so the consolidated recommendation never tells
-  // you to "deploy" a lever that is already in production or was already
-  // tested and rolled back. 'live'     = shipped (H5 4H-cloud filter
-  // 2026-06-29, H6 2-loss cool-off 2026-06-25); 'rejected' = backtested
-  // and reverted (do not re-litigate on a fresh cluster without a new
-  // A/B); 'candidate' = still an open deploy question.
+  // you to "deploy" a lever that is already in production, was already
+  // tested and rolled back, or is an unvalidated experiment. 'live' =
+  // shipped (H5 4H-cloud filter 2026-06-29, H6 2-loss cool-off
+  // 2026-06-25); 'rejected' = backtested and reverted (don't re-litigate
+  // without a new A/B); 'experimental' = heuristic proxy, no backtest yet
+  // (H9 Wyckoff); 'candidate' = still an open deploy question.
   var _VI_HYPO_STANDING = {
-    H1:'candidate', H2:'candidate', H3:'candidate', H4:'candidate',
-    H5:'live',      H6:'live',      H7:'rejected',  H8:'candidate'
+    H1:'candidate', H2:'candidate', H3:'candidate',    H4:'candidate',
+    H5:'live',      H6:'live',      H7:'rejected',      H8:'candidate',
+    H9:'experimental'
   };
   function _VI_STANDING_BADGE(k){
     var s = _VI_HYPO_STANDING[k];
-    if(s === 'live')     return '<span style="font-size:7.5px;color:#0d5a36;border:1px solid rgba(13,90,54,0.45);border-radius:2px;padding:0 3px;margin-left:5px;">LIVE</span>';
-    if(s === 'rejected') return '<span style="font-size:7.5px;color:#8a1c12;border:1px solid rgba(192,40,26,0.4);border-radius:2px;padding:0 3px;margin-left:5px;">TESTED&rarr;REVERTED</span>';
+    if(s === 'live')         return '<span style="font-size:7.5px;color:#0d5a36;border:1px solid rgba(13,90,54,0.45);border-radius:2px;padding:0 3px;margin-left:5px;">LIVE</span>';
+    if(s === 'rejected')     return '<span style="font-size:7.5px;color:#8a1c12;border:1px solid rgba(192,40,26,0.4);border-radius:2px;padding:0 3px;margin-left:5px;">TESTED&rarr;REVERTED</span>';
+    if(s === 'experimental') return '<span style="font-size:7.5px;color:#8a6a0a;border:1px solid rgba(200,134,10,0.4);border-radius:2px;padding:0 3px;margin-left:5px;">EXPERIMENTAL</span>';
     return '';  // candidate = no badge (the default, still-open state)
   }
   function _replayHypoFlags(A){
@@ -21415,7 +21480,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
       H5: !!(A.H5 && A.H5.blocked),
       H6: !!(A.H6 && A.H6.blocked),
       H7: !!(A.H7 && A.H7.blocked),
-      H8: !!(A.H8 && A.H8.blocked)
+      H8: !!(A.H8 && A.H8.blocked),
+      H9: !!(A.H9 && A.H9.blocked)
     };
   }
 
@@ -21449,7 +21515,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var totR = analysed.reduce(function(s, o){ return s + (o.exec.realized_r || 0); }, 0);
 
     // Tally fire counts per hypothesis across usable losses.
-    var keys = ['H5','H6','H7','H8','H4','H1','H2','H3']; // entry filters first
+    var keys = ['H5','H6','H7','H8','H9','H4','H1','H2','H3']; // entry filters first
     var counts = {}; keys.forEach(function(k){ counts[k] = 0; });
     usable.forEach(function(o){
       keys.forEach(function(k){ if(o.flags[k]) counts[k]++; });
@@ -21480,6 +21546,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var deployRecs   = firing.filter(function(k){ return _VI_HYPO_STANDING[k] === 'candidate'; });
     var liveFiring   = firing.filter(function(k){ return _VI_HYPO_STANDING[k] === 'live'; });
     var rejectFiring = firing.filter(function(k){ return _VI_HYPO_STANDING[k] === 'rejected'; });
+    var expFiring    = firing.filter(function(k){ return _VI_HYPO_STANDING[k] === 'experimental'; });
     var lbl = function(k){ return k + ' (' + _VI_HYPO_LABELS[k] + ')'; };
     var recHtml;
     if(!usable.length){
@@ -21502,13 +21569,16 @@ function _renderCCIVariantPanel(host, commodityKeys){
         s += '<span style="color:#c8860a;">Adversarial check before deploying:</span> confirm the same filter would NOT have blocked this pair\'s recent WINNERS — a gate that kills losses and winners equally is net-negative.';
         segs.push(s);
       } else {
-        segs.push('No <em>new</em> lever flips a majority of ' + pairU + '\'s losses. The levers that fire below are already decided — nothing fresh to deploy for this pair.');
+        segs.push('No <em>new</em> lever flips a majority of ' + pairU + '\'s losses. The levers that fire below are already live, reverted, or unvalidated — nothing fresh-and-ready to deploy for this pair.');
       }
       if(liveFiring.length){
         segs.push('<span style="color:#0d5a36;font-weight:700;">Already live:</span> ' + liveFiring.map(lbl).join(', ') + ' fired on a majority — but ' + (liveFiring.length > 1 ? 'these gates are' : 'this gate is') + ' already in production. Firing on trades that still closed as losses means the live gate isn\'t catching them (the loss predates the gate, or there\'s a data/timing gap) — investigate the gate, don\'t re-deploy it.');
       }
       if(rejectFiring.length){
         segs.push('<span style="color:#8a1c12;font-weight:700;">Tested &amp; reverted:</span> ' + rejectFiring.map(lbl).join(', ') + ' fired on a majority, but ' + (rejectFiring.length > 1 ? 'these were' : 'this was') + ' already backtested and rolled back. A fresh cluster is not new evidence — don\'t re-litigate without a new A/B that clears the winner-kill check.');
+      }
+      if(expFiring.length){
+        segs.push('<span style="color:#8a6a0a;font-weight:700;">Experimental (unvalidated):</span> ' + expFiring.map(lbl).join(', ') + ' fired on a majority, but ' + (expFiring.length > 1 ? 'these are heuristic proxies' : 'this is a heuristic proxy') + ' with no backtest yet. Run an A/B that clears the winner-kill check before trusting the signal — a fire count alone is not evidence.');
       }
       recHtml = segs.join('<br><br>');
     }
