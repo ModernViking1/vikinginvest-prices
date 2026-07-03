@@ -21229,7 +21229,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
 
     var h7Card;
     if(A.H7.blocked){
-      h7Card = verdict('H7 · macdp tightening on minors', '<strong>Trade was a macdp signal on an FX minor</strong> (' + pair.toUpperCase() + ' = minor class). A "block macdp on minors" gate (or equivalently: require confluence ≥ 2 for macdp on minors) would have prevented this entry. If multiple macdp-on-minor losses cluster, the class-specific gate is justified.', true);
+      h7Card = verdict('H7 · macdp tightening on minors', '<strong>Trade was a macdp signal on an FX minor</strong> (' + pair.toUpperCase() + ' = minor class). A "block macdp on minors" gate (or equivalently: require confluence ≥ 2 for macdp on minors) would have prevented this entry. Standing: this gate was already backtested and <strong>reverted</strong> (net-negative once winner-kill was counted) — a cluster here is not grounds to redeploy without a fresh A/B.', null);
     } else if(A.H7.sigKind !== 'macdp'){
       h7Card = verdict('H7 · macdp tightening on minors', 'Signal type was <code>' + (A.H7.sigKind || '?') + '</code> (not macdp). H7 only applies to macdp entries — inconclusive on this trade.', null);
     } else {
@@ -21389,6 +21389,22 @@ function _renderCCIVariantPanel(host, commodityKeys){
   // (would have blocked the trade outright). Entry filters are the more
   // actionable "should we add this gate" levers.
   var _VI_HYPO_KIND = { H1:'exit', H2:'exit', H3:'exit', H4:'entry', H5:'entry', H6:'entry', H7:'entry', H8:'entry' };
+  // Deployment standing, so the consolidated recommendation never tells
+  // you to "deploy" a lever that is already in production or was already
+  // tested and rolled back. 'live'     = shipped (H5 4H-cloud filter
+  // 2026-06-29, H6 2-loss cool-off 2026-06-25); 'rejected' = backtested
+  // and reverted (do not re-litigate on a fresh cluster without a new
+  // A/B); 'candidate' = still an open deploy question.
+  var _VI_HYPO_STANDING = {
+    H1:'candidate', H2:'candidate', H3:'candidate', H4:'candidate',
+    H5:'live',      H6:'live',      H7:'rejected',  H8:'candidate'
+  };
+  function _VI_STANDING_BADGE(k){
+    var s = _VI_HYPO_STANDING[k];
+    if(s === 'live')     return '<span style="font-size:7.5px;color:#0d5a36;border:1px solid rgba(13,90,54,0.45);border-radius:2px;padding:0 3px;margin-left:5px;">LIVE</span>';
+    if(s === 'rejected') return '<span style="font-size:7.5px;color:#8a1c12;border:1px solid rgba(192,40,26,0.4);border-radius:2px;padding:0 3px;margin-left:5px;">TESTED&rarr;REVERTED</span>';
+    return '';  // candidate = no badge (the default, still-open state)
+  }
   function _replayHypoFlags(A){
     if(!A || A.error) return null;
     return {
@@ -21448,7 +21464,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
         ? '<span style="font-size:7.5px;color:#0d5a36;border:1px solid rgba(13,90,54,0.3);border-radius:2px;padding:0 3px;margin-left:5px;">ENTRY</span>'
         : '<span style="font-size:7.5px;color:#8a6a0a;border:1px solid rgba(200,134,10,0.3);border-radius:2px;padding:0 3px;margin-left:5px;">EXIT</span>';
       return '<tr>'
-           + '<td style="padding:4px 8px;font-size:9px;white-space:nowrap;">' + k + ' · ' + _VI_HYPO_LABELS[k] + kindTag + '</td>'
+           + '<td style="padding:4px 8px;font-size:9px;white-space:nowrap;">' + k + ' · ' + _VI_HYPO_LABELS[k] + kindTag + _VI_STANDING_BADGE(k) + '</td>'
            + '<td style="padding:4px 8px;width:42%;">'
            +   '<div style="background:rgba(0,0,0,0.06);border-radius:2px;height:9px;overflow:hidden;"><div style="width:' + p + '%;height:100%;background:' + col + ';"></div></div>'
            + '</td>'
@@ -21457,26 +21473,44 @@ function _renderCCIVariantPanel(host, commodityKeys){
     };
     var tallyTable = '<table style="width:100%;border-collapse:collapse;">' + keys.map(barRow).join('') + '</table>';
 
-    // Recommendation: levers firing on ≥60% of usable losses (n≥2).
-    var recs = keys.filter(function(k){ return usable.length >= 2 && pct(counts[k]) >= 60; });
+    // Recommendation: levers firing on ≥60% of usable losses (n≥2),
+    // PARTITIONED by deployment standing so we never recommend
+    // "deploying" a lever that is already live or was already reverted.
+    var firing       = keys.filter(function(k){ return usable.length >= 2 && pct(counts[k]) >= 60; });
+    var deployRecs   = firing.filter(function(k){ return _VI_HYPO_STANDING[k] === 'candidate'; });
+    var liveFiring   = firing.filter(function(k){ return _VI_HYPO_STANDING[k] === 'live'; });
+    var rejectFiring = firing.filter(function(k){ return _VI_HYPO_STANDING[k] === 'rejected'; });
+    var lbl = function(k){ return k + ' (' + _VI_HYPO_LABELS[k] + ')'; };
     var recHtml;
     if(!usable.length){
       recHtml = 'None of this pair\'s losses could be replayed yet (too recent, or no historical bars). Check back once the m15 history catches up.';
-    } else if(!recs.length){
+    } else if(!firing.length){
       recHtml = 'No single lever flips a clear majority of ' + pairU + '\'s losses — they look like independent directional losses rather than one systematic flaw. Hold; keep gathering data before changing rules for this pair.';
     } else {
-      var entryRecs = recs.filter(function(k){ return _VI_HYPO_KIND[k] === 'entry'; });
-      var exitRecs  = recs.filter(function(k){ return _VI_HYPO_KIND[k] === 'exit'; });
-      recHtml = 'On ' + pairU + ', ';
-      var parts = recs.map(function(k){ return '<strong>' + k + ' (' + _VI_HYPO_LABELS[k] + ')</strong> ' + counts[k] + '/' + usable.length; });
-      recHtml += parts.join(', ') + ' would have changed a majority of losses. ';
-      if(entryRecs.length){
-        recHtml += 'The entry filter' + (entryRecs.length > 1 ? 's' : '') + ' (' + entryRecs.join(', ') + ') ' + (entryRecs.length > 1 ? 'are' : 'is') + ' the strongest candidate' + (entryRecs.length > 1 ? 's' : '') + ' to deploy for this pair. ';
+      var segs = [];
+      if(deployRecs.length){
+        var entryRecs = deployRecs.filter(function(k){ return _VI_HYPO_KIND[k] === 'entry'; });
+        var exitRecs  = deployRecs.filter(function(k){ return _VI_HYPO_KIND[k] === 'exit'; });
+        var parts = deployRecs.map(function(k){ return '<strong>' + lbl(k) + '</strong> ' + counts[k] + '/' + usable.length; });
+        var s = 'On ' + pairU + ', ' + parts.join(', ') + ' would have changed a majority of losses. ';
+        if(entryRecs.length){
+          s += 'The entry filter' + (entryRecs.length > 1 ? 's' : '') + ' (' + entryRecs.join(', ') + ') ' + (entryRecs.length > 1 ? 'are' : 'is') + ' the strongest candidate' + (entryRecs.length > 1 ? 's' : '') + ' to deploy for this pair. ';
+        }
+        if(exitRecs.length){
+          s += 'Exit-management lever' + (exitRecs.length > 1 ? 's' : '') + ' (' + exitRecs.join(', ') + ') would reduce damage but not avoid the trade. ';
+        }
+        s += '<span style="color:#c8860a;">Adversarial check before deploying:</span> confirm the same filter would NOT have blocked this pair\'s recent WINNERS — a gate that kills losses and winners equally is net-negative.';
+        segs.push(s);
+      } else {
+        segs.push('No <em>new</em> lever flips a majority of ' + pairU + '\'s losses. The levers that fire below are already decided — nothing fresh to deploy for this pair.');
       }
-      if(exitRecs.length){
-        recHtml += 'Exit-management lever' + (exitRecs.length > 1 ? 's' : '') + ' (' + exitRecs.join(', ') + ') would reduce damage but not avoid the trade. ';
+      if(liveFiring.length){
+        segs.push('<span style="color:#0d5a36;font-weight:700;">Already live:</span> ' + liveFiring.map(lbl).join(', ') + ' fired on a majority — but ' + (liveFiring.length > 1 ? 'these gates are' : 'this gate is') + ' already in production. Firing on trades that still closed as losses means the live gate isn\'t catching them (the loss predates the gate, or there\'s a data/timing gap) — investigate the gate, don\'t re-deploy it.');
       }
-      recHtml += '<br><span style="color:#c8860a;">Adversarial check before deploying:</span> confirm the same filter would NOT have blocked this pair\'s recent WINNERS — a gate that kills losses and winners equally is net-negative.';
+      if(rejectFiring.length){
+        segs.push('<span style="color:#8a1c12;font-weight:700;">Tested &amp; reverted:</span> ' + rejectFiring.map(lbl).join(', ') + ' fired on a majority, but ' + (rejectFiring.length > 1 ? 'these were' : 'this was') + ' already backtested and rolled back. A fresh cluster is not new evidence — don\'t re-litigate without a new A/B that clears the winner-kill check.');
+      }
+      recHtml = segs.join('<br><br>');
     }
 
     // Per-trade breakdown.
