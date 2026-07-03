@@ -20945,7 +20945,46 @@ function _renderCCIVariantPanel(host, commodityKeys){
     return -1;
   }
 
-  // Run the four hypotheses for a single loss execution row.
+  // Map a (pair, dir) to signed risk-factor tags, so two trades can be
+  // called "correlated same-direction" when their tag sets intersect on
+  // the same sign. Base leg carries +sign (bull=long base), quote leg
+  // carries -sign. Blocs that net to zero across the two legs (e.g. AUDNZD
+  // = ANTIP long + ANTIP short) are dropped — a pure intra-bloc cross is
+  // not a directional factor bet. Used by H10.
+  function _viFactorTags(pair, dir){
+    var p = (pair || '').toLowerCase();
+    var sign = (dir === 'bull') ? 1 : -1;
+    var bloc = function(ccy){
+      ccy = (ccy || '').toLowerCase();
+      if(ccy === 'usd') return 'USD';
+      if(ccy === 'jpy') return 'JPY';
+      if(ccy === 'chf') return 'CHF';
+      if(ccy === 'aud' || ccy === 'nzd') return 'ANTIP';
+      if(ccy === 'cad') return 'CAD';
+      if(ccy === 'eur') return 'EUR';
+      if(ccy === 'gbp') return 'GBP';
+      if(ccy === 'xau' || ccy === 'xag' || ccy === 'xpt') return 'METAL';
+      if(ccy === 'oil') return 'OIL';
+      return ccy ? ccy.toUpperCase() : null;   // crypto/index -> own bloc
+    };
+    var special = { usoil:['oil','usd'], wtiusd:['oil','usd'], natgas:['oil',null],
+                    xauusd:['xau','usd'], xagusd:['xag','usd'], xptusd:['xpt','usd'] };
+    var base, quote;
+    if(special[p]){ base = special[p][0]; quote = special[p][1]; }
+    else if(p.length >= 6){ base = p.slice(0, 3); quote = p.slice(3, 6); }
+    else { return {}; }
+    var acc = {};
+    var addLeg = function(ccy, s){
+      var b = bloc(ccy); if(!b) return;
+      acc[b] = (acc[b] || 0) + s;
+    };
+    addLeg(base, sign); addLeg(quote, -sign);
+    var out = {};
+    Object.keys(acc).forEach(function(b){ if(acc[b] > 0) out[b] = 1; else if(acc[b] < 0) out[b] = -1; });
+    return out;   // e.g. usdjpy bull -> {USD:+1, JPY:-1}
+  }
+
+  // Run the hypotheses for a single loss execution row.
   function _replayAnalyse(exec){
     var pair  = exec.pair;
     var entry = exec.entry_filled || exec.entry_attempt || 0;
@@ -21170,10 +21209,46 @@ function _renderCCIVariantPanel(host, commodityKeys){
       }
     } catch(e){ /* h9 stays unavailable */ }
 
+    // ── H10 — Correlated-cluster (portfolio concentration) ────────────
+    // This loss's risk-factor tags vs every OTHER position opened within
+    // ±CLUSTER_WIN_H hours. Counts concurrent trades sharing a same-sign
+    // factor (long-USD, short-JPY, …). This is the cross-pair concentration
+    // that H6's per-pair cool-off is structurally blind to — the signature
+    // of the Jul-2 drawdown (7 pairs, one USD/risk bet, one short window).
+    var h10 = { available: false, clusterSize: 0, factors: [], peers: [], blocked: false };
+    try {
+      var CLUSTER_WIN_H = 3, winMs = CLUSTER_WIN_H * 3600 * 1000;
+      var myTags = _viFactorTags(pair, dir);
+      var myKeys = Object.keys(myTags);
+      if(myKeys.length){
+        var execsAll = (typeof window !== 'undefined' && window._brokerExecutions) || [];
+        var seenSid = {}, peers = [], factorHits = {};
+        execsAll.forEach(function(r){
+          if(!r || !r.pair || !r.dir || typeof r.ts !== 'number') return;
+          var rsid = r.signal_id || (r.pair + ':' + r.ts);
+          if(rsid === exec.signal_id) return;              // skip self
+          if(seenSid[rsid]) return; seenSid[rsid] = 1;     // dedup placed/closed of same trade
+          if(Math.abs(r.ts - thisTs) > winMs) return;      // outside the ±window
+          var rt = _viFactorTags(r.pair, r.dir);
+          var shared = myKeys.filter(function(b){ return rt[b] === myTags[b]; });
+          if(shared.length){
+            peers.push({ pair: r.pair, dir: r.dir, shared: shared });
+            shared.forEach(function(b){ factorHits[b] = (factorHits[b] || 0) + 1; });
+          }
+        });
+        var factors = Object.keys(factorHits).sort(function(a, b){ return factorHits[b] - factorHits[a]; });
+        h10 = {
+          available: true, clusterSize: peers.length + 1, factors: factors,
+          factorHits: factorHits, peers: peers.slice(0, 8), myTags: myTags,
+          blocked: (peers.length + 1) >= 3           // ≥3 aligned positions = concentration flag
+        };
+      }
+    } catch(e){ /* h10 stays unavailable */ }
+
     return {
       entryIdx: entryIdx, barsSrc: got.src, Rdist: Rdist,
       actual: { rAtClose: exec.realized_r, reason: exec.reason, mfeR: exec.mfe_r || mfeInfo.mfeR },
-      H1: h1, H2: h2, H3: h3, H4: h4, H5: h5, H6: h6, H7: h7, H8: h8, H9: h9
+      H1: h1, H2: h2, H3: h3, H4: h4, H5: h5, H6: h6, H7: h7, H8: h8, H9: h9, H10: h10
     };
   }
 
@@ -21314,6 +21389,17 @@ function _renderCCIVariantPanel(host, commodityKeys){
       h9Card = verdict('H9 · Wyckoff phase', 'Entry was aligned with (or neutral to) the ' + A.H9.phase + ' bias.' + h9BT, null);
     }
 
+    var h10Card;
+    if(!A.H10 || !A.H10.available){
+      h10Card = verdict('H10 · correlated cluster', 'No risk-factor tags for ' + pair.toUpperCase() + ' (isolated cross), or no execution feed loaded — cannot assess concentration.', null);
+    } else if(A.H10.blocked){
+      var facTxt = A.H10.factors.map(function(b){ return (A.H10.myTags[b] === 1 ? 'long ' : 'short ') + b + ' ×' + (A.H10.factorHits[b] + 1); }).join(', ');
+      var peerTxt = A.H10.peers.map(function(x){ return x.pair.toUpperCase(); }).join(', ');
+      h10Card = verdict('H10 · correlated cluster', '<strong>One leg of a ' + A.H10.clusterSize + '-position correlated bet.</strong> Within ±3h of entry, ' + (A.H10.clusterSize - 1) + ' other position' + (A.H10.clusterSize - 1 === 1 ? '' : 's') + ' shared a risk factor (' + facTxt + '). Peers: ' + peerTxt + '. Not an independent loss — this is cross-pair concentration H6\'s per-pair cool-off can\'t see. A per-window exposure cap (max N aligned entries per few hours) would have sized it down.', true);
+    } else {
+      h10Card = verdict('H10 · correlated cluster', 'Only ' + A.H10.clusterSize + ' aligned position' + (A.H10.clusterSize === 1 ? '' : 's') + ' open within ±3h (factors: ' + (A.H10.factors.join(', ') || 'none') + '). Not a concentrated cluster — this loss stands on its own.', false);
+    }
+
     var wins = 0;
     [A.H1, A.H2, A.H3].forEach(function(h){
       if(h.hit === 'tp' || h.hit === 'be'){ wins++; }
@@ -21324,13 +21410,14 @@ function _renderCCIVariantPanel(host, commodityKeys){
     if(A.H7.blocked) wins++;
     if(A.H8.blocked) wins++;
     if(A.H9 && A.H9.blocked) wins++;
+    if(A.H10 && A.H10.blocked) wins++;
     var summaryLine = '<div style="padding:10px 14px;background:linear-gradient(135deg,#0d5a36 0%,#082d1a 100%);color:#fff;border-radius:3px;margin-top:10px;font-size:11px;line-height:1.55;letter-spacing:0.2px;">'
                     + '<strong style="color:#c8860a;font-family:Orbitron,monospace;letter-spacing:1.5px;font-size:9.5px;text-transform:uppercase;">Read:</strong> '
-                    + wins + ' of 9 hypotheses would have improved this outcome. ' + (wins === 0 ? 'This trade looks like a clean directional loss — no easy lever to pull retrospectively.' : wins === 1 ? 'Single lever — note which one, then check if it replicates across the next handful of losses before changing the rule set.' : 'Multiple levers fire — promote whichever consistently flips losses across ≥10 trades without killing winners. Adversarial check: if a hypothesis blocks here but its live deployment would have blocked several recent WINS, the gate is too aggressive.')
+                    + wins + ' of 10 hypotheses would have improved this outcome. ' + (wins === 0 ? 'This trade looks like a clean directional loss — no easy lever to pull retrospectively.' : wins === 1 ? 'Single lever — note which one, then check if it replicates across the next handful of losses before changing the rule set.' : 'Multiple levers fire — promote whichever consistently flips losses across ≥10 trades without killing winners. Adversarial check: if a hypothesis blocks here but its live deployment would have blocked several recent WINS, the gate is too aggressive.')
                     + '</div>';
 
     var hypoGrid = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
-                 + h1Card + h2Card + h3Card + h4Card + h5Card + h6Card + h7Card + h8Card + h9Card
+                 + h1Card + h2Card + h3Card + h4Card + h5Card + h6Card + h7Card + h8Card + h9Card + h10Card
                  + '</div>' + summaryLine;
     var srcLine = '<div style="font-size:8.5px;color:var(--inkd);margin-top:8px;letter-spacing:0.3px;">'
                 + 'Bars source: <code>' + A.barsSrc + '</code> · 1R distance: ' + (A.Rdist || 0).toFixed(5) + ' price units · window: 24 m15 bars (6h)'
@@ -21450,12 +21537,13 @@ function _renderCCIVariantPanel(host, commodityKeys){
   var _VI_HYPO_LABELS = {
     H1: 'Wider stop (1.5R)',  H2: 'Breakeven after +0.5R', H3: 'Partial +0.5R',
     H4: 'Time-of-day filter', H5: '4H trend filter',       H6: '2-loss cool-off',
-    H7: 'macdp minors gate',  H8: 'News blackout',         H9: 'Wyckoff phase'
+    H7: 'macdp minors gate',  H8: 'News blackout',         H9: 'Wyckoff phase',
+    H10: 'Correlated-cluster cap'
   };
-  // H1-H3 tune the EXIT (damage reduction); H4-H9 are ENTRY filters
-  // (would have blocked the trade outright). Entry filters are the more
+  // H1-H3 tune the EXIT (damage reduction); H4-H10 are ENTRY filters
+  // (would have blocked/sized-down the trade). Entry filters are the more
   // actionable "should we add this gate" levers.
-  var _VI_HYPO_KIND = { H1:'exit', H2:'exit', H3:'exit', H4:'entry', H5:'entry', H6:'entry', H7:'entry', H8:'entry', H9:'entry' };
+  var _VI_HYPO_KIND = { H1:'exit', H2:'exit', H3:'exit', H4:'entry', H5:'entry', H6:'entry', H7:'entry', H8:'entry', H9:'entry', H10:'entry' };
   // Deployment standing, so the consolidated recommendation never tells
   // you to "deploy" a lever that is already in production, was tested and
   // set aside, or is an unvalidated experiment. 'live' = shipped (H5
@@ -21467,7 +21555,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
   var _VI_HYPO_STANDING = {
     H1:'candidate', H2:'candidate', H3:'candidate',    H4:'candidate',
     H5:'live',      H6:'live',      H7:'rejected',      H8:'candidate',
-    H9:'rejected'
+    H9:'rejected',  H10:'candidate'
   };
   function _VI_STANDING_BADGE(k){
     var s = _VI_HYPO_STANDING[k];
@@ -21487,7 +21575,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
       H6: !!(A.H6 && A.H6.blocked),
       H7: !!(A.H7 && A.H7.blocked),
       H8: !!(A.H8 && A.H8.blocked),
-      H9: !!(A.H9 && A.H9.blocked)
+      H9: !!(A.H9 && A.H9.blocked),
+      H10: !!(A.H10 && A.H10.blocked)
     };
   }
 
@@ -21521,7 +21610,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var totR = analysed.reduce(function(s, o){ return s + (o.exec.realized_r || 0); }, 0);
 
     // Tally fire counts per hypothesis across usable losses.
-    var keys = ['H5','H6','H7','H8','H9','H4','H1','H2','H3']; // entry filters first
+    var keys = ['H5','H6','H7','H8','H9','H10','H4','H1','H2','H3']; // entry filters first
     var counts = {}; keys.forEach(function(k){ counts[k] = 0; });
     usable.forEach(function(o){
       keys.forEach(function(k){ if(o.flags[k]) counts[k]++; });
