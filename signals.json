@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-03T05:35:52.148195+00:00",
-  "generated_ms": 1783056952038,
-  "detector_last_check": "2026-07-03T05:35:51.945111+00:00",
+  "generated": "2026-07-03T05:41:06.607459+00:00",
+  "generated_ms": 1783057266498,
+  "detector_last_check": "2026-07-03T05:41:06.404797+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,54 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 6,
-    "armed": 2,
-    "triggered": 4,
+    "total": 10,
+    "armed": 5,
+    "triggered": 5,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "ethusd:1783056600000:wick",
+      "pair": "ethusd",
+      "sym": "ETHUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 1707.4,
+      "stop": 1694.01,
+      "target": 1720.7900000000002,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1783056600000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783057266498,
+      "source": "server-detector"
+    },
+    {
+      "id": "solusd:1783056600000:wick",
+      "pair": "solusd",
+      "sym": "SOLUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 80.73,
+      "stop": 80.25,
+      "target": 81.21000000000001,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1783056600000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783057266498,
+      "source": "server-detector"
+    },
     {
       "id": "euraud:1783054800000:macdp",
       "pair": "euraud",
@@ -34,7 +76,7 @@
       "cl": "bull",
       "armedAt": 1783054800000,
       "triggeredAt": 1783054800000,
-      "lastSeenAt": 1783056952038,
+      "lastSeenAt": 1783057266498,
       "source": "server-detector"
     },
     {
@@ -55,7 +97,7 @@
       "cl": "bull",
       "armedAt": 1783054800000,
       "triggeredAt": null,
-      "lastSeenAt": 1783056952038,
+      "lastSeenAt": 1783057266498,
       "source": "server-detector"
     },
     {
@@ -76,7 +118,7 @@
       "cl": "neutral",
       "armedAt": 1783053900000,
       "triggeredAt": 1783053900000,
-      "lastSeenAt": 1783056952038,
+      "lastSeenAt": 1783057266498,
       "source": "server-detector"
     },
     {
@@ -97,7 +139,7 @@
       "cl": "bear",
       "armedAt": 1783053900000,
       "triggeredAt": 1783053900000,
-      "lastSeenAt": 1783056952038,
+      "lastSeenAt": 1783057266498,
       "source": "server-detector"
     },
     {
@@ -118,7 +160,49 @@
       "cl": "bear",
       "armedAt": 1783053900000,
       "triggeredAt": 1783053900000,
-      "lastSeenAt": 1783056952038,
+      "lastSeenAt": 1783057266498,
+      "source": "server-detector"
+    },
+    {
+      "id": "solusd:1780326900000:fib",
+      "pair": "solusd",
+      "sym": "SOLUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 80.9772,
+      "stop": 80.25,
+      "target": 81.70439999999999,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780326900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783057266498,
+      "source": "server-detector"
+    },
+    {
+      "id": "ethusd:1780287300000:fib",
+      "pair": "ethusd",
+      "sym": "ETHUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 1715.0323,
+      "stop": 1694.01,
+      "target": 1736.0546000000002,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780287300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783057266498,
       "source": "server-detector"
     },
     {
@@ -129,7 +213,7 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bull",
-      "state": "armed",
+      "state": "triggered",
       "entry": 1.33716834,
       "stop": 1.33345,
       "target": 1.34088668,
@@ -138,8 +222,8 @@
       "nw": "bull",
       "cl": "bull",
       "armedAt": 1780038900000,
-      "triggeredAt": null,
-      "lastSeenAt": 1783056952038,
+      "triggeredAt": 1783056600000,
+      "lastSeenAt": 1783057266498,
       "source": "server-detector"
     }
   ]
