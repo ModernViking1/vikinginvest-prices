@@ -18727,17 +18727,22 @@ function _renderCCIVariantPanel(host, commodityKeys){
       + '</div>';
   }
 
-  function _pdfClassRow(label, ico, w, l){
+  function _pdfClassRow(label, ico, w, l, netR, totNet){
     var t = w + l;
     var p = t > 0 ? (w / t * 100) : null;
     var pctTxt = p == null ? '—' : p.toFixed(1) + '%';
     var pctColor = p == null ? '#5a5550' : (p >= 70 ? '#1a7a4a' : p >= 60 ? '#c8860a' : p >= 50 ? '#d97706' : '#c0281a');
+    var nr = (typeof netR === 'number') ? netR : 0;
+    var nrColor = nr >= 0 ? '#1a7a4a' : '#c0281a';
+    var contribTxt = (totNet && totNet !== 0) ? Math.round(nr / totNet * 100) + '%' : '—';
     return '<tr>'
       + '<td>' + ico + ' ' + _esc(label) + '</td>'
       + '<td class="r">' + w + '</td>'
       + '<td class="r">' + l + '</td>'
       + '<td class="r">' + t + '</td>'
       + '<td class="r" style="color:' + pctColor + ';font-weight:700;">' + pctTxt + '</td>'
+      + '<td class="r" style="color:' + nrColor + ';font-weight:700;">' + (nr >= 0 ? '+' : '') + nr.toFixed(0) + 'R</td>'
+      + '<td class="r">' + contribTxt + '</td>'
       + '</tr>';
   }
 
@@ -19083,11 +19088,16 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var pctTxt = p == null ? '—' : p.toFixed(1) + '%';
     var pctColor = _pdfPctColorHex(p);
     var totalTrades = overall.totalW + overall.totalL;
+    // Per-class r-size-weighted net-R + total, for the contribution columns.
+    var _clsR = {}, _totNetR = 0;
+    ((typeof _gatherTrades === 'function') ? _gatherTrades(0) : []).forEach(function(tr){
+      _clsR[tr.cls] = (_clsR[tr.cls] || 0) + (tr.rDelta || 0); _totNetR += (tr.rDelta || 0);
+    });
     var rows = '';
     CLS_ORDER.forEach(function(c){
       var cell = overall.byCls[c];
       if(!cell || (cell.w + cell.l) === 0) return;
-      rows += _pdfClassRow(CLS_LABEL[c], CLS_ICON[c], cell.w, cell.l);
+      rows += _pdfClassRow(CLS_LABEL[c], CLS_ICON[c], cell.w, cell.l, _clsR[c] || 0, _totNetR);
     });
     rows += '<tr class="total">'
          + '<td>TOTAL · ALL PAIRS</td>'
@@ -19095,6 +19105,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
          + '<td class="r">' + overall.totalL + '</td>'
          + '<td class="r">' + totalTrades + '</td>'
          + '<td class="r" style="color:' + pctColor + ';">' + pctTxt + '</td>'
+         + '<td class="r" style="font-weight:700;">' + (_totNetR >= 0 ? '+' : '') + _totNetR.toFixed(0) + 'R</td>'
+         + '<td class="r">100%</td>'
          + '</tr>';
     return '<div class="vi-pdf-page">'
       +   '<div class="vi-pdf-eyebrow">Section 01</div>'
@@ -19129,11 +19141,50 @@ function _renderCCIVariantPanel(host, commodityKeys){
       +     _pdfInstitutionalBlock()
       +   '<div class="vi-pdf-section-h" style="margin-top:18px;">▸ Performance by Asset Class</div>'
       +   '<table class="vi-pdf-table">'
-      +     '<thead><tr><th>Segment</th><th class="r">Wins</th><th class="r">Losses</th><th class="r">Trades</th><th class="r">Win&nbsp;Rate</th></tr></thead>'
+      +     '<thead><tr><th>Segment</th><th class="r">Wins</th><th class="r">Losses</th><th class="r">Trades</th><th class="r">Win&nbsp;Rate</th><th class="r">Net&nbsp;R</th><th class="r">%&nbsp;P&amp;L</th></tr></thead>'
       +     '<tbody>' + rows + '</tbody>'
       +   '</table>'
+      +   '<div class="vi-pdf-body" style="font-size:9.5px;color:#5a5550;margin-top:5px;font-style:italic;">Net R is r-size-weighted (commodities &amp; indices trade half-size); % P&amp;L is each class’s share of total simulated R. Win rate is shown for reference — allocation is driven by contribution, not hit-rate. No per-class Sharpe/Calmar: the classes are one combined engine, and per-class samples (Indices n=54) are too thin for a stable ratio.</div>'
       +   _pdfFooter(2, 4, meta.reportId)
       + '</div>';
+  }
+
+  // 2026-07-03 — equity curve for the PDF (the exhibit an allocator looks
+  // for first). Cumulative r-size-weighted R across the chronological
+  // resolved-trade log + an underwater (drawdown) strip. Inline SVG so it
+  // stays crisp through html2pdf.
+  function _pdfEquityCurveBlock(){
+    var trades = (typeof _gatherTrades === 'function') ? _gatherTrades(0) : [];
+    trades = trades.filter(function(t){ return typeof t.ts === 'number'; }).sort(function(a, b){ return a.ts - b.ts; });
+    if(trades.length < 5){
+      return '<div class="vi-pdf-body" style="font-style:italic;color:#5a5550;">Equity curve unavailable — open the Performance tab to build the backtest cache, then regenerate.</div>';
+    }
+    var cum = 0, peak = 0, maxDD = 0, eq = [], dd = [];
+    trades.forEach(function(t){ cum += (t.rDelta || 0); if(cum > peak) peak = cum; var d = peak - cum; if(d > maxDD) maxDD = d; eq.push(cum); dd.push(d); });
+    var N = eq.length, maxCum = Math.max(1, peak), maxDDv = Math.max(1, maxDD);
+    var W = 524, padL = 40, padR = 12, plotW = W - padL - padR;
+    var eqTop = 14, eqBot = 118, eqH = eqBot - eqTop;
+    var uwTop = 140, uwH = 18, H = 178;
+    var X = function(i){ return (padL + (N > 1 ? (i / (N - 1)) * plotW : 0)); };
+    var YE = function(v){ return (eqBot - (v / maxCum) * eqH); };
+    var YU = function(d){ return (uwTop + (d / maxDDv) * uwH); };
+    var line = eq.map(function(v, i){ return X(i).toFixed(1) + ',' + YE(v).toFixed(1); }).join(' ');
+    var area = 'M' + X(0).toFixed(1) + ',' + YE(0).toFixed(1) + ' L' + eq.map(function(v, i){ return X(i).toFixed(1) + ',' + YE(v).toFixed(1); }).join(' L') + ' L' + X(N - 1).toFixed(1) + ',' + YE(0).toFixed(1) + ' Z';
+    var uw = dd.map(function(d, i){ return X(i).toFixed(1) + ',' + YU(d).toFixed(1); }).join(' ');
+    var fmtD = function(ms){ var d = new Date(ms); return d.toLocaleString('en-US', { month: 'short', day: 'numeric' }); };
+    var svg = '<svg width="100%" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" style="display:block;">'
+      + '<line x1="' + padL + '" y1="' + YE(0).toFixed(1) + '" x2="' + (W - padR) + '" y2="' + YE(0).toFixed(1) + '" stroke="#d8d2c8" stroke-width="1"/>'
+      + '<text x="' + (padL - 5) + '" y="' + (YE(0) + 3).toFixed(1) + '" text-anchor="end" font-size="8" fill="#8a857e" font-family="Orbitron,monospace">0</text>'
+      + '<text x="' + (padL - 5) + '" y="' + (YE(maxCum) + 3).toFixed(1) + '" text-anchor="end" font-size="8" fill="#8a857e" font-family="Orbitron,monospace">+' + Math.round(maxCum) + 'R</text>'
+      + '<path d="' + area + '" fill="rgba(26,122,74,0.10)"/>'
+      + '<polyline points="' + line + '" fill="none" stroke="#1a7a4a" stroke-width="1.6"/>'
+      + '<text x="' + padL + '" y="' + (uwTop - 5).toFixed(1) + '" font-size="7.5" fill="#b5342a" font-family="Orbitron,monospace" letter-spacing="0.5">UNDERWATER · MAX −' + Math.round(maxDD) + 'R</text>'
+      + '<polyline points="' + uw + '" fill="none" stroke="#c0281a" stroke-width="1"/>'
+      + '<text x="' + padL + '" y="' + (H - 3) + '" font-size="8" fill="#8a857e" font-family="Orbitron,monospace">' + fmtD(trades[0].ts) + '</text>'
+      + '<text x="' + (W - padR) + '" y="' + (H - 3) + '" text-anchor="end" font-size="8" fill="#8a857e" font-family="Orbitron,monospace">' + fmtD(trades[N - 1].ts) + '</text>'
+      + '</svg>';
+    return '<div style="margin-top:6px;background:#f7f4ef;border:1px solid #e6e1d8;border-radius:4px;padding:10px 12px;">' + svg + '</div>'
+      + '<div class="vi-pdf-body" style="font-size:10px;color:#5a5550;margin-top:6px;font-style:italic;">Cumulative r-size-weighted simulated R across the 12-month resolved-trade log (' + N + ' trades); peak +' + Math.round(peak) + 'R, worst peak-to-trough −' + Math.round(maxDD) + 'R (underwater strip). Frictionless — same caveats as the risk metrics.</div>';
   }
 
   function _pdfDetailPage(meta, overall){
@@ -19164,7 +19215,9 @@ function _renderCCIVariantPanel(host, commodityKeys){
     return '<div class="vi-pdf-page">'
       +   '<div class="vi-pdf-eyebrow">Section 02</div>'
       +   '<h1 class="vi-pdf-h1">Performance Detail</h1>'
-      +   '<div class="vi-pdf-section-h">▸ Trade Allocation by Asset Class</div>'
+      +   '<div class="vi-pdf-section-h">▸ Equity Curve · Cumulative Simulated R</div>'
+      +     _pdfEquityCurveBlock()
+      +   '<div class="vi-pdf-section-h" style="margin-top:16px;">▸ Trade Allocation by Asset Class</div>'
       +     pieHtml
       +   '<div class="vi-pdf-body" style="margin-top:8px;">'
       +     'Pie slices weighted by number of resolved trades — shows where the strategy is most active across the backtest cache. '
