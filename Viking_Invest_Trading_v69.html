@@ -20408,6 +20408,86 @@ function _renderCCIVariantPanel(host, commodityKeys){
          + btn('today', 'Today') + btn('week', 'Week') + btn('all', 'All') + '</span>';
   }
 
+  // Shared H11 helper — faytterro spring/UTAD event at a point in time.
+  // RSI(14) crossings on DEEP_HIST h1 up to creatorTs: spring = cross UP
+  // through 30, UTAD = cross DOWN through 70; scan the last 5 bars. Single
+  // source of truth for both the inspector H11 card and the forward-test
+  // tracker below.
+  function _h11Event(pair, dir, creatorTs){
+    var res = { available: false, aligned: false, fought: false, recentSpring: false, recentUtad: false, blocked: false };
+    try {
+      var h1e = (typeof DEEP_HIST !== 'undefined' && DEEP_HIST[pair] && DEEP_HIST[pair].h1) || [];
+      var ub = [];
+      for(var qi = 0; qi < h1e.length; qi++){ var qt = _replayBarTs(h1e[qi]); if(!isNaN(qt) && qt <= creatorTs) ub.push(h1e[qi]); }
+      if(ub.length < 20) return res;
+      var cls = ub.map(function(b){ return (b.c != null ? b.c : b.p); });
+      var per = 14, gg = 0, ll = 0;
+      for(var ri = 1; ri <= per; ri++){ var ch = cls[ri] - cls[ri - 1]; if(ch > 0) gg += ch; else ll += -ch; }
+      gg /= per; ll /= per;
+      var rsiArr = new Array(cls.length).fill(null);
+      rsiArr[per] = 100 - 100 / (1 + (ll > 0 ? gg / ll : 999));
+      for(var ri2 = per + 1; ri2 < cls.length; ri2++){
+        var ch2 = cls[ri2] - cls[ri2 - 1];
+        gg = (gg * (per - 1) + Math.max(ch2, 0)) / per; ll = (ll * (per - 1) + Math.max(-ch2, 0)) / per;
+        rsiArr[ri2] = 100 - 100 / (1 + (ll > 0 ? gg / ll : 999));
+      }
+      var recentSpring = false, recentUtad = false, last = rsiArr.length - 1;
+      for(var si = Math.max(per + 1, last - 4); si <= last; si++){
+        var rc = rsiArr[si], rpv = rsiArr[si - 1];
+        if(rc == null || rpv == null) continue;
+        if(rc > 30 && rpv < 30) recentSpring = true;
+        if(rc < 70 && rpv > 70) recentUtad = true;
+      }
+      res.available = true; res.recentSpring = recentSpring; res.recentUtad = recentUtad;
+      res.aligned = (recentSpring && dir === 'bull') || (recentUtad && dir === 'bear');
+      res.fought  = (recentUtad && dir === 'bull') || (recentSpring && dir === 'bear');
+      res.blocked = res.fought;
+    } catch(e){ /* unavailable */ }
+    return res;
+  }
+
+  // H11 FORWARD TEST — splits realized WR of live macdp closes by the
+  // faytterro event at entry, accumulating out-of-sample since the
+  // 2026-07-03 backtest. This is the forward-validation surface: the
+  // backtest (spring→BUY ~82%, UTAD→SELL ~84% vs ~74% base) was in-sample;
+  // this watches whether the edge holds on real fills. Zero effect on live
+  // trading — pure measurement.
+  function _h11ForwardTracker(){
+    var all = (window._brokerExecutions || []);
+    var START = Date.UTC(2026, 6, 3);
+    var use = all.filter(function(r){
+      return r && r.event === 'closed' && r.pair && typeof r.realized_r === 'number'
+          && (r.signal_id || '').split(':')[2] === 'macdp';
+    });
+    if(!use.length) return '';
+    var b = { aligned: [0, 0], fought: [0, 0], none: [0, 0] }, oos = 0;
+    use.forEach(function(r){
+      if((r.ts || 0) >= START) oos++;
+      var sid = (r.signal_id || '').split(':');
+      var creatorTs = parseInt(sid[1], 10) || r.ts || 0;
+      var ev = _h11Event(r.pair, r.dir, creatorTs);
+      var k = (ev.available && ev.aligned) ? 'aligned' : (ev.available && ev.fought) ? 'fought' : 'none';
+      b[k][r.realized_r > 0 ? 0 : 1]++;
+    });
+    var wr = function(x){ var n = x[0] + x[1]; return n ? Math.round(100 * x[0] / n) : null; };
+    var row = function(label, x, ref){
+      var n = x[0] + x[1], w = wr(x);
+      var col = (n >= 20) ? (w >= 78 ? '#0d5a36' : w < 70 ? '#c0281a' : '#c8860a') : 'var(--inkd)';
+      return '<tr><td style="padding:2px 6px;">' + label + '</td>'
+           + '<td style="padding:2px 6px;text-align:right;">' + n + '</td>'
+           + '<td style="padding:2px 6px;text-align:right;font-weight:700;color:' + col + ';">' + (w != null ? w + '%' : '—') + '</td>'
+           + '<td style="padding:2px 6px;text-align:right;color:var(--inkd);">' + ref + '</td></tr>';
+    };
+    return '<div style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(13,90,54,0.25);">'
+         + '<div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:1.2px;color:#0d5a36;text-transform:uppercase;margin-bottom:5px;">🔬 H11 forward test · faytterro spring/UTAD</div>'
+         + '<div style="font-size:9.5px;color:var(--inkd);margin-bottom:6px;font-family:Mukta,sans-serif;">Live macdp closes split by the faytterro event at entry — <strong>' + oos + ' of ' + use.length + '</strong> out-of-sample (since 2026-07-03). The backtest was in-sample; watch the OOS count grow — need ~50+ per cohort before the gap is trustworthy.</div>'
+         + '<table style="width:100%;border-collapse:collapse;font-family:Orbitron,monospace;font-size:9px;"><thead><tr style="color:var(--inkd);text-align:left;"><th style="padding:2px 6px;">cohort</th><th style="padding:2px 6px;text-align:right;">n</th><th style="padding:2px 6px;text-align:right;">live WR</th><th style="padding:2px 6px;text-align:right;">backtest</th></tr></thead><tbody>'
+         + row('aligned (spring→BUY / UTAD→SELL)', b.aligned, '82–84%')
+         + row('fought a fresh event', b.fought, 'worst')
+         + row('no event', b.none, '~74%')
+         + '</tbody></table></div>';
+  }
+
   function _renderLiveFailureMode(){
     var host = document.getElementById('failureModeAnalysisLive');
     if(!host) return;
@@ -20451,7 +20531,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
                      +   '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;">▸ Intraday failure mode &middot; LIVE <span style="font-weight:400;opacity:0.7;">· ' + winLabel + '</span></div>'
                      +   _viLiveWindowToggle(mode)
                      + '</div>'
-                     + '<div style="font-size:10px;color:var(--inkd);font-family:Mukta,sans-serif;letter-spacing:0;">' + awaitMsg + '</div>';
+                     + '<div style="font-size:10px;color:var(--inkd);font-family:Mukta,sans-serif;letter-spacing:0;">' + awaitMsg + '</div>'
+                     + _h11ForwardTracker();
       return;
     }
 
@@ -20671,6 +20752,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     }
 
     host.innerHTML = headerHtml + statsRow + tableHtml + hint + _liveLossesList(execs)
+                   + _h11ForwardTracker()
                    + _renderExecCostReport(all, anchor, winLabel);
   }
 
@@ -21252,36 +21334,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     // (+9.4pp) vs 74.2% baseline; entries FIGHTING a fresh event were the
     // worst cohort. Deploy form is a confirmation filter. Candidate —
     // promising but a 90d single-regime sample; needs forward-validation.
-    var h11 = { available: false, aligned: false, fought: false, recentSpring: false, recentUtad: false, blocked: false };
-    try {
-      var h1e = (typeof DEEP_HIST !== 'undefined' && DEEP_HIST[pair] && DEEP_HIST[pair].h1) || [];
-      var ub = [];
-      for(var qi = 0; qi < h1e.length; qi++){ var qt = _replayBarTs(h1e[qi]); if(!isNaN(qt) && qt <= creatorTs) ub.push(h1e[qi]); }
-      if(ub.length >= 20){
-        var cls = ub.map(function(b){ return (b.c != null ? b.c : b.p); });
-        var per = 14, gg = 0, ll = 0;
-        for(var ri = 1; ri <= per; ri++){ var ch = cls[ri] - cls[ri - 1]; if(ch > 0) gg += ch; else ll += -ch; }
-        gg /= per; ll /= per;
-        var rsiArr = new Array(cls.length).fill(null);
-        rsiArr[per] = 100 - 100 / (1 + (ll > 0 ? gg / ll : 999));
-        for(var ri2 = per + 1; ri2 < cls.length; ri2++){
-          var ch2 = cls[ri2] - cls[ri2 - 1];
-          gg = (gg * (per - 1) + Math.max(ch2, 0)) / per; ll = (ll * (per - 1) + Math.max(-ch2, 0)) / per;
-          rsiArr[ri2] = 100 - 100 / (1 + (ll > 0 ? gg / ll : 999));
-        }
-        var recentSpring = false, recentUtad = false, last = rsiArr.length - 1;
-        for(var si = Math.max(per + 1, last - 4); si <= last; si++){
-          var rc = rsiArr[si], rpv = rsiArr[si - 1];
-          if(rc == null || rpv == null) continue;
-          if(rc > 30 && rpv < 30) recentSpring = true;   // spring
-          if(rc < 70 && rpv > 70) recentUtad = true;     // UTAD
-        }
-        var h11Aligned = (recentSpring && dir === 'bull') || (recentUtad && dir === 'bear');
-        var h11Fought  = (recentUtad && dir === 'bull') || (recentSpring && dir === 'bear');
-        h11 = { available: true, aligned: h11Aligned, fought: h11Fought,
-                recentSpring: recentSpring, recentUtad: recentUtad, blocked: h11Fought };
-      }
-    } catch(e){ /* h11 stays unavailable */ }
+    var h11 = _h11Event(pair, dir, creatorTs);   // shared helper (also drives the forward-test tracker)
 
     return {
       entryIdx: entryIdx, barsSrc: got.src, Rdist: Rdist,
