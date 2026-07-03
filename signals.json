@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-03T07:11:19.391246+00:00",
-  "generated_ms": 1783062679304,
-  "detector_last_check": "2026-07-03T07:11:19.216044+00:00",
+  "generated": "2026-07-03T07:16:05.177921+00:00",
+  "generated_ms": 1783062965067,
+  "detector_last_check": "2026-07-03T07:16:04.972865+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,54 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 6,
+    "total": 10,
     "armed": 2,
-    "triggered": 4,
-    "invalidated": 0
+    "triggered": 6,
+    "invalidated": 2
   },
   "signals": [
+    {
+      "id": "ftse100:1783062900000:divg",
+      "pair": "ftse100",
+      "sym": "FTSE100",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 10701.6,
+      "stop": 10714.8,
+      "target": 10688.400000000001,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bear",
+      "cl": "bull",
+      "armedAt": 1783062900000,
+      "triggeredAt": 1783062900000,
+      "lastSeenAt": 1783062965067,
+      "source": "server-detector"
+    },
+    {
+      "id": "jp225:1783062900000:divg",
+      "pair": "jp225",
+      "sym": "JP225",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 69849.8,
+      "stop": 70019.8,
+      "target": 69679.8,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bear",
+      "cl": "neutral",
+      "armedAt": 1783062900000,
+      "triggeredAt": 1783062900000,
+      "lastSeenAt": 1783062965067,
+      "source": "server-detector"
+    },
     {
       "id": "nas100:1783062000000:macdp",
       "pair": "nas100",
@@ -34,7 +76,7 @@
       "cl": "neutral",
       "armedAt": 1783062000000,
       "triggeredAt": 1783062000000,
-      "lastSeenAt": 1783062679304,
+      "lastSeenAt": 1783062965067,
       "source": "server-detector"
     },
     {
@@ -55,7 +97,28 @@
       "cl": "neutral",
       "armedAt": 1783062000000,
       "triggeredAt": 1783062000000,
-      "lastSeenAt": 1783062679304,
+      "lastSeenAt": 1783062965067,
+      "source": "server-detector"
+    },
+    {
+      "id": "cadjpy:1783060200000:wick",
+      "pair": "cadjpy",
+      "sym": "CADJPY",
+      "cls": "minor",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "invalidated",
+      "entry": 113.656,
+      "stop": 113.81,
+      "target": 113.50200000000001,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1783060200000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783062965067,
       "source": "server-detector"
     },
     {
@@ -76,7 +139,7 @@
       "cl": "bull",
       "armedAt": 1783056600000,
       "triggeredAt": null,
-      "lastSeenAt": 1783062679304,
+      "lastSeenAt": 1783062965067,
       "source": "server-detector"
     },
     {
@@ -97,7 +160,28 @@
       "cl": "bull",
       "armedAt": 1783056600000,
       "triggeredAt": 1783060200000,
-      "lastSeenAt": 1783062679304,
+      "lastSeenAt": 1783062965067,
+      "source": "server-detector"
+    },
+    {
+      "id": "cadjpy:1780558200000:fib",
+      "pair": "cadjpy",
+      "sym": "CADJPY",
+      "cls": "minor",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "invalidated",
+      "entry": 113.444644,
+      "stop": 113.81,
+      "target": 113.07928799999999,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1780558200000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783062965067,
       "source": "server-detector"
     },
     {
@@ -118,7 +202,7 @@
       "cl": "bull",
       "armedAt": 1780326900000,
       "triggeredAt": 1783059300000,
-      "lastSeenAt": 1783062679304,
+      "lastSeenAt": 1783062965067,
       "source": "server-detector"
     },
     {
@@ -139,7 +223,7 @@
       "cl": "bull",
       "armedAt": 1780287300000,
       "triggeredAt": null,
-      "lastSeenAt": 1783062679304,
+      "lastSeenAt": 1783062965067,
       "source": "server-detector"
     }
   ]
