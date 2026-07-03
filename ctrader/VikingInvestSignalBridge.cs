@@ -82,6 +82,15 @@ namespace cAlgo.Robots
         [Parameter("Max spread (pips)", DefaultValue = 5.0, MinValue = 0.1, MaxValue = 50.0, Group = "Risk")]
         public double MaxSpreadPips { get; set; }
 
+        // 2026-07-03 — relative spread gate. Replaces the absolute pip cap
+        // (which was meaningless across classes — PipSize differs by orders
+        // of magnitude). Reject only when the live spread eats more than this
+        // fraction of the signal's stop distance; anything below just sizes
+        // the lot down (see spread-aware sizing in ComputeVolume). 0.5 = the
+        // spread may not exceed half the stop. Set high (e.g. 2.0) to disable.
+        [Parameter("Max spread (% of stop)", DefaultValue = 0.5, MinValue = 0.05, MaxValue = 2.0, Group = "Risk")]
+        public double MaxSpreadPctOfStop { get; set; }
+
         [Parameter("Max signal age (minutes)", DefaultValue = 60, MinValue = 5, MaxValue = 720, Group = "Risk")]
         public int MaxSignalAgeMin { get; set; }
 
@@ -313,11 +322,11 @@ namespace cAlgo.Robots
             // Effective parameters AFTER live-mode override.
             var effRisk = EffectiveRiskPct;
             var effMax  = EffectiveMaxPositions;
-            var effSpr  = EffectiveMaxSpreadPips;
+            var effSpr  = MaxSpreadPctOfStop;
 
             Print("✅ [VikingInvest] Bridge initialised.");
             Print($"   URL: {SignalsUrl}");
-            Print($"   Poll: every {PollSeconds}s · Risk: {effRisk}% · Max positions: {effMax} · Max spread: {effSpr} pips");
+            Print($"   Poll: every {PollSeconds}s · Risk: {effRisk}% · Max positions: {effMax} · Max spread: {effSpr:P0} of stop (spread-aware sizing on)");
             Print($"   Mode: {(DryRun ? "DRY-RUN (log only)" : (Account.IsLive ? "🔴 LIVE" : "🟢 DEMO"))}");
             Print($"   Seen ids loaded: {_seenIds.Count}");
             Print($"   Daily R today ({_todayKey}): {_todayRealizedR:+0.00;-0.00;0.00}R · limit {LiveDailyLossPctLimit}% of {_todayStartEquity:F2}");
@@ -842,11 +851,22 @@ namespace cAlgo.Robots
                 return;
             }
 
-            // Spread filter.
-            var spreadPips = symbol.Spread / symbol.PipSize;
-            if (spreadPips > EffectiveMaxSpreadPips)
+            // Spread filter — RELATIVE to the stop distance, not an absolute
+            // pip cap. 2026-07-03 — the old absolute pip cap was nonsensical
+            // across asset classes: PipSize differs by orders of magnitude, so
+            // BTC reads ~1200 "pips", an index ~40, FX ~2, and a single cap
+            // wrongly rejected normal BTC / index spreads. What matters is how
+            // much of the trade's R the spread eats. Paired with spread-aware
+            // sizing in ComputeVolume (which folds the spread into the stop so
+            // the lot sizes DOWN and risk stays within budget), a wide-but-
+            // tolerable spread just trades smaller; only a spread that eats
+            // more than MaxSpreadPctOfStop of the stop is rejected as toxic.
+            var spreadPips   = symbol.PipSize > 0 ? symbol.Spread / symbol.PipSize : 0;
+            var gateStopPips = Math.Abs(sig.Entry - sig.Stop) / symbol.PipSize;
+            if (MaxSpreadPctOfStop > 0 && gateStopPips > 0 &&
+                spreadPips > MaxSpreadPctOfStop * gateStopPips)
             {
-                Print($"🛑 [VikingInvest] Spread too wide on {symbol.Name}: {spreadPips:F1} > {EffectiveMaxSpreadPips} pips. Skipping id={sig.Id}");
+                Print($"🛑 [VikingInvest] Spread too wide on {symbol.Name}: {spreadPips:F1} pips is {(spreadPips / gateStopPips):P0} of the {gateStopPips:F1}-pip stop (cap {MaxSpreadPctOfStop:P0}). Skipping id={sig.Id}");
                 MarkSeen(sig.Id); _ordersSkipped++;
                 return;
             }
@@ -1266,11 +1286,20 @@ namespace cAlgo.Robots
             var equity = Account.Equity;
             var riskAmt = equity * riskPct / 100.0;
             var stopPips = Math.Abs(entry - stop) / symbol.PipSize;
+            // 2026-07-03 — SPREAD-AWARE SIZING. The bid/ask spread is a real
+            // cost paid on entry, so fold it into the effective stop distance:
+            // a losing trade pays (spread + stop), so sizing off (stop + spread)
+            // keeps total risk within the budget. This is what lets wide-spread
+            // instruments (indices, BTC) trade INSIDE the per-trade risk limit
+            // by taking a smaller lot instead of being rejected outright. FX,
+            // where spread is a tiny fraction of the stop, is barely affected.
+            var sizeSpreadPips = symbol.PipSize > 0 ? symbol.Spread / symbol.PipSize : 0;
+            var effStopPips = stopPips + Math.Max(0, sizeSpreadPips);
             // PipValue is per 1 unit of the symbol. ExecuteMarketOrder
             // takes volume in UNITS (not lots), so we multiply through.
             var pipValuePerUnit = symbol.PipValue;
-            if (pipValuePerUnit <= 0 || stopPips <= 0) return 0;
-            var volume = riskAmt / (stopPips * pipValuePerUnit);
+            if (pipValuePerUnit <= 0 || effStopPips <= 0) return 0;
+            var volume = riskAmt / (effStopPips * pipValuePerUnit);
             // Normalize to broker's volume step.
             volume = symbol.NormalizeVolumeInUnits(volume, RoundingMode.Down);
             if (volume < symbol.VolumeInUnitsMin) return 0;
