@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-03T17:41:19.251616+00:00",
-  "generated_ms": 1783100479142,
-  "detector_last_check": "2026-07-03T17:41:19.044880+00:00",
+  "generated": "2026-07-03T17:46:09.157979+00:00",
+  "generated_ms": 1783100769050,
+  "detector_last_check": "2026-07-03T17:46:08.955867+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
-    "armed": 2,
+    "total": 4,
+    "armed": 4,
     "triggered": 0,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "ethusd:1783099800000:wick",
+      "pair": "ethusd",
+      "sym": "ETHUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 1733.62,
+      "stop": 1726.18,
+      "target": 1741.0599999999997,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1783099800000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783100769050,
+      "source": "server-detector"
+    },
     {
       "id": "solusd:1783098900000:wick",
       "pair": "solusd",
@@ -34,7 +55,7 @@
       "cl": "bull",
       "armedAt": 1783098900000,
       "triggeredAt": null,
-      "lastSeenAt": 1783100479142,
+      "lastSeenAt": 1783100769050,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,28 @@
       "cl": "bull",
       "armedAt": 1780326900000,
       "triggeredAt": null,
-      "lastSeenAt": 1783100479142,
+      "lastSeenAt": 1783100769050,
+      "source": "server-detector"
+    },
+    {
+      "id": "ethusd:1780287300000:fib",
+      "pair": "ethusd",
+      "sym": "ETHUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 1737.27856,
+      "stop": 1726.18,
+      "target": 1748.3771199999999,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780287300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783100769050,
       "source": "server-detector"
     }
   ]
