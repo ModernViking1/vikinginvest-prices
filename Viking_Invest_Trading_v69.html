@@ -21294,19 +21294,24 @@ function _renderCCIVariantPanel(host, commodityKeys){
       h8Card = verdict('H8 · news-window blackout', 'Entry was outside the ±30min blackout window for any high-impact event matching the pair\'s currencies.' + nearTxt + ' The news filter would not have blocked this entry.', false);
     }
 
+    // H9 backtest verdict (2026-07-03): replayed ~3,085 macdp entries on
+    // 90d m15 — no edge. Fought-phase (~75% WR) ≈ aligned (~70%) ≈ baseline
+    // (~74%), if anything backwards; the trap signal fires on <0.1% of
+    // entries. Kept as a read-only diagnostic, NOT a deploy candidate.
+    var h9BT = ' <span style="color:#8a1c12;">Backtested — no edge:</span> across ~3,085 macdp entries fought-phase ≈ aligned ≈ baseline WR, and the trap fires on &lt;0.1% of entries. Read-only diagnostic, not a rule.';
     var h9Card;
     if(!A.H9 || !A.H9.available){
-      h9Card = verdict('H9 · Wyckoff phase (exp.)', 'Not enough pre-trade h1 history to classify a Wyckoff range for ' + pair.toUpperCase() + '. Inconclusive.', null);
+      h9Card = verdict('H9 · Wyckoff phase', 'Not enough pre-trade h1 history to classify a Wyckoff range for ' + pair.toUpperCase() + '. Inconclusive.', null);
     } else if(A.H9.phase === 'trend'){
-      h9Card = verdict('H9 · Wyckoff phase (exp.)', 'Pair was <strong>trending ' + A.H9.trendDir + '</strong> at entry, not consolidating — there is no accumulation/distribution range to read. Wyckoff has no verdict here.', null);
+      h9Card = verdict('H9 · Wyckoff phase', 'Pair was <strong>trending ' + A.H9.trendDir + '</strong> at entry, not consolidating — there is no accumulation/distribution range to read. Wyckoff has no verdict here.', null);
     } else if(A.H9.blocked){
       var trapName = (A.H9.phase === 'distribution') ? 'upthrust' : 'spring';
       var edgeTxt  = (A.H9.phase === 'distribution') ? 'top' : 'bottom';
-      h9Card = verdict('H9 · Wyckoff phase (exp.)', '<strong>' + (exec.dir === 'bull' ? 'BUY' : 'SELL') + ' into a ' + A.H9.phase + ' range ' + edgeTxt + '</strong> (' + Math.round(A.H9.loc * 100) + '% of the range). Classic Wyckoff <em>' + trapName + '</em> — the entry fought the phase bias exactly where the range punishes it. <strong>Experimental proxy, not backtested</strong> — a flag to eyeball, not a rule.', null);
+      h9Card = verdict('H9 · Wyckoff phase', '<strong>' + (exec.dir === 'bull' ? 'BUY' : 'SELL') + ' into a ' + A.H9.phase + ' range ' + edgeTxt + '</strong> (' + Math.round(A.H9.loc * 100) + '% of the range) — a Wyckoff <em>' + trapName + '</em>.' + h9BT, null);
     } else if(A.H9.fought){
-      h9Card = verdict('H9 · Wyckoff phase (exp.)', 'Entry leaned <strong>against</strong> the ' + A.H9.phase + ' bias (' + (exec.dir === 'bull' ? 'buying' : 'selling') + ' inside a ' + A.H9.phase + ' range) but not at the extreme (' + Math.round(A.H9.loc * 100) + '% of range). Mild Wyckoff caution — experimental proxy only.', null);
+      h9Card = verdict('H9 · Wyckoff phase', 'Entry leaned <strong>against</strong> the ' + A.H9.phase + ' bias (' + (exec.dir === 'bull' ? 'buying' : 'selling') + ' inside a ' + A.H9.phase + ' range, ' + Math.round(A.H9.loc * 100) + '% of range).' + h9BT, null);
     } else {
-      h9Card = verdict('H9 · Wyckoff phase (exp.)', 'Entry was aligned with (or neutral to) the ' + A.H9.phase + ' bias — Wyckoff wouldn\'t have flagged it. Experimental proxy.', null);
+      h9Card = verdict('H9 · Wyckoff phase', 'Entry was aligned with (or neutral to) the ' + A.H9.phase + ' bias.' + h9BT, null);
     }
 
     var wins = 0;
@@ -21445,28 +21450,29 @@ function _renderCCIVariantPanel(host, commodityKeys){
   var _VI_HYPO_LABELS = {
     H1: 'Wider stop (1.5R)',  H2: 'Breakeven after +0.5R', H3: 'Partial +0.5R',
     H4: 'Time-of-day filter', H5: '4H trend filter',       H6: '2-loss cool-off',
-    H7: 'macdp minors gate',  H8: 'News blackout',         H9: 'Wyckoff phase (exp.)'
+    H7: 'macdp minors gate',  H8: 'News blackout',         H9: 'Wyckoff phase'
   };
   // H1-H3 tune the EXIT (damage reduction); H4-H9 are ENTRY filters
   // (would have blocked the trade outright). Entry filters are the more
   // actionable "should we add this gate" levers.
   var _VI_HYPO_KIND = { H1:'exit', H2:'exit', H3:'exit', H4:'entry', H5:'entry', H6:'entry', H7:'entry', H8:'entry', H9:'entry' };
   // Deployment standing, so the consolidated recommendation never tells
-  // you to "deploy" a lever that is already in production, was already
-  // tested and rolled back, or is an unvalidated experiment. 'live' =
-  // shipped (H5 4H-cloud filter 2026-06-29, H6 2-loss cool-off
-  // 2026-06-25); 'rejected' = backtested and reverted (don't re-litigate
-  // without a new A/B); 'experimental' = heuristic proxy, no backtest yet
-  // (H9 Wyckoff); 'candidate' = still an open deploy question.
+  // you to "deploy" a lever that is already in production, was tested and
+  // set aside, or is an unvalidated experiment. 'live' = shipped (H5
+  // 4H-cloud filter 2026-06-29, H6 2-loss cool-off 2026-06-25); 'rejected'
+  // = tested and set aside — reverted from live (H7 minors gate) OR
+  // backtested with no edge (H9 Wyckoff, 2026-07-03); don't re-litigate
+  // without a new A/B. 'experimental' = heuristic proxy, no backtest yet
+  // (none currently). 'candidate' = still an open deploy question.
   var _VI_HYPO_STANDING = {
     H1:'candidate', H2:'candidate', H3:'candidate',    H4:'candidate',
     H5:'live',      H6:'live',      H7:'rejected',      H8:'candidate',
-    H9:'experimental'
+    H9:'rejected'
   };
   function _VI_STANDING_BADGE(k){
     var s = _VI_HYPO_STANDING[k];
     if(s === 'live')         return '<span style="font-size:7.5px;color:#0d5a36;border:1px solid rgba(13,90,54,0.45);border-radius:2px;padding:0 3px;margin-left:5px;">LIVE</span>';
-    if(s === 'rejected')     return '<span style="font-size:7.5px;color:#8a1c12;border:1px solid rgba(192,40,26,0.4);border-radius:2px;padding:0 3px;margin-left:5px;">TESTED&rarr;REVERTED</span>';
+    if(s === 'rejected')     return '<span style="font-size:7.5px;color:#8a1c12;border:1px solid rgba(192,40,26,0.4);border-radius:2px;padding:0 3px;margin-left:5px;">TESTED&rarr;REJECTED</span>';
     if(s === 'experimental') return '<span style="font-size:7.5px;color:#8a6a0a;border:1px solid rgba(200,134,10,0.4);border-radius:2px;padding:0 3px;margin-left:5px;">EXPERIMENTAL</span>';
     return '';  // candidate = no badge (the default, still-open state)
   }
@@ -21575,7 +21581,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
         segs.push('<span style="color:#0d5a36;font-weight:700;">Already live:</span> ' + liveFiring.map(lbl).join(', ') + ' fired on a majority — but ' + (liveFiring.length > 1 ? 'these gates are' : 'this gate is') + ' already in production. Firing on trades that still closed as losses means the live gate isn\'t catching them (the loss predates the gate, or there\'s a data/timing gap) — investigate the gate, don\'t re-deploy it.');
       }
       if(rejectFiring.length){
-        segs.push('<span style="color:#8a1c12;font-weight:700;">Tested &amp; reverted:</span> ' + rejectFiring.map(lbl).join(', ') + ' fired on a majority, but ' + (rejectFiring.length > 1 ? 'these were' : 'this was') + ' already backtested and rolled back. A fresh cluster is not new evidence — don\'t re-litigate without a new A/B that clears the winner-kill check.');
+        segs.push('<span style="color:#8a1c12;font-weight:700;">Tested &amp; set aside:</span> ' + rejectFiring.map(lbl).join(', ') + ' fired on a majority, but ' + (rejectFiring.length > 1 ? 'these were' : 'this was') + ' already tested and rejected (reverted from live, or backtested with no edge). A fresh cluster is not new evidence — don\'t re-litigate without a new A/B that clears the winner-kill check.');
       }
       if(expFiring.length){
         segs.push('<span style="color:#8a6a0a;font-weight:700;">Experimental (unvalidated):</span> ' + expFiring.map(lbl).join(', ') + ' fired on a majority, but ' + (expFiring.length > 1 ? 'these are heuristic proxies' : 'this is a heuristic proxy') + ' with no backtest yet. Run an A/B that clears the winner-kill check before trusting the signal — a fire count alone is not evidence.');
