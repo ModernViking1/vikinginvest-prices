@@ -58,6 +58,19 @@ namespace cAlgo.Robots
         [Parameter("Max open positions", DefaultValue = 5, MinValue = 1, MaxValue = 50, Group = "Risk")]
         public int MaxOpenPositions { get; set; }
 
+        // 2026-07-03 — FACTOR-RISK BUDGET. Caps aggregate risk per
+        // correlated factor-theme (long-USD, short-JPY, ANTIP, METAL, …)
+        // so the book can't quietly become one leveraged bet spread across
+        // many pairs. Backtest tail (90d macdp replay): the book reached
+        // 13× single-trade risk all on one USD direction — the shape of
+        // the Jul-2 drawdown. New legs on a saturated factor are SCALED
+        // DOWN (not dropped — clustered trades are +EV). Budget is this
+        // multiple × one full-risk trade, per factor. Sizing analysis:
+        // C=4 keeps ~85% of edge while capping the tail 13→4 units. Set
+        // to 0 to disable.
+        [Parameter("Factor-risk budget (× 1 trade)", DefaultValue = 4.0, MinValue = 0.0, MaxValue = 50.0, Group = "Risk")]
+        public double FactorRiskBudgetR { get; set; }
+
         // 2026-06-25 — widened demo from 3.0 → 5.0 so cross/exotic pairs
         // (EURNOK, XPTUSD, NZD crosses) aren't auto-skipped during normal
         // sessions. Their bid-ask spreads sit 3-5 pips on IC Markets even
@@ -894,6 +907,71 @@ namespace cAlgo.Robots
                 return;
             }
 
+            // 2026-07-03 — FACTOR-RISK SIZING. Before placing, cap the
+            // aggregate open risk sharing this trade's factor-theme
+            // (long-USD, short-JPY, …). New legs on a saturated factor are
+            // SCALED DOWN so the book keeps participating in +EV clusters
+            // while the correlated tail stays bounded (see FactorRiskBudgetR
+            // block). Existing open risk is recovered per position from its
+            // signal_id (→ feed pair) and its live stop distance, the same
+            // risk math OnPositionClosed uses.
+            if (FactorRiskBudgetR > 0)
+            {
+                var myTags = FactorTags(sig.Pair, sig.Dir);
+                if (myTags.Count > 0)
+                {
+                    var eq              = Account.Equity;
+                    var singleFullRisk  = eq * EffectiveRiskPct / 100.0;      // one rSize=1 trade
+                    var budgetPerFactor = FactorRiskBudgetR * singleFullRisk;
+                    var newTradeRisk    = eq * riskPct / 100.0;               // this trade (incl. rSize)
+                    var exposure = new Dictionary<string, double>();
+                    foreach (var pos in Positions)
+                    {
+                        if (pos.Label != OrderLabel) continue;
+                        string sid;
+                        if (!_positionIdToSignalId.TryGetValue(pos.Id, out sid) || string.IsNullOrEmpty(sid))
+                        {
+                            var cmt = pos.Comment ?? "";                       // survive a cBot restart
+                            if (cmt.StartsWith("viking-")) sid = cmt.Substring(7);
+                        }
+                        if (string.IsNullOrEmpty(sid)) continue;
+                        var ppair = sid.Split(':')[0];
+                        var pdir  = pos.TradeType == TradeType.Buy ? "bull" : "bear";
+                        var ptags = FactorTags(ppair, pdir);
+                        if (ptags.Count == 0) continue;
+                        var prisk = PositionRiskAmount(pos);
+                        if (prisk <= 0) continue;
+                        foreach (var kv in ptags)
+                        {
+                            var key = kv.Key + ":" + kv.Value;
+                            exposure[key] = (exposure.ContainsKey(key) ? exposure[key] : 0.0) + prisk;
+                        }
+                    }
+                    double scale = 1.0; string binding = null;
+                    foreach (var kv in myTags)
+                    {
+                        var key = kv.Key + ":" + kv.Value;
+                        var existing = exposure.ContainsKey(key) ? exposure[key] : 0.0;
+                        var allowed  = Math.Max(0.0, budgetPerFactor - existing);
+                        var s = newTradeRisk > 0 ? allowed / newTradeRisk : 1.0;
+                        if (s < scale) { scale = s; binding = key; }
+                    }
+                    if (scale < 0.999)
+                    {
+                        scale = Math.Max(0.0, scale);
+                        var scaledVol = symbol.NormalizeVolumeInUnits(volume * scale, RoundingMode.Down);
+                        if (scaledVol <= 0 || scaledVol < symbol.VolumeInUnitsMin)
+                        {
+                            Print($"🛑 [VikingInvest] Factor-risk budget saturated on {binding} — {symbol.Name} {sig.Dir} would size to ~0, skipping id={sig.Id}");
+                            MarkSeen(sig.Id); _ordersSkipped++;
+                            return;
+                        }
+                        Print($"⚖️ [VikingInvest] Factor-risk sizing: {symbol.Name} {sig.Dir} scaled to {scale:P0} (budget hit on {binding}) — {volume}→{(long)scaledVol} units. id={sig.Id}");
+                        volume = (long)scaledVol;
+                    }
+                }
+            }
+
             // CATASTROPHE GUARD 2: absolute lot ceiling. Independent of
             // the risk calc and the broker's (effectively unlimited) max.
             // Even if sizing math misfires, we never place more than this.
@@ -1198,6 +1276,70 @@ namespace cAlgo.Robots
             if (volume < symbol.VolumeInUnitsMin) return 0;
             if (volume > symbol.VolumeInUnitsMax) volume = symbol.VolumeInUnitsMax;
             return (long)volume;
+        }
+
+        // Signed risk-factor tags for a (feed-pair, dir). Mirrors the
+        // dashboard inspector's _viFactorTags. Base leg carries +sign
+        // (bull = long base), quote leg -sign; blocs that net to zero
+        // across the two legs (a pure intra-bloc cross, e.g. AUDNZD) are
+        // dropped. Used by the factor-risk sizing budget.
+        private Dictionary<string, int> FactorTags(string pair, string dir)
+        {
+            var tags = new Dictionary<string, int>();
+            if (string.IsNullOrEmpty(pair)) return tags;
+            var p = pair.ToLowerInvariant();
+            int sign = dir == "bull" ? 1 : -1;
+            Func<string, string> bloc = c =>
+            {
+                c = (c ?? "").ToLowerInvariant();
+                switch (c)
+                {
+                    case "usd": return "USD";
+                    case "jpy": return "JPY";
+                    case "chf": return "CHF";
+                    case "aud": case "nzd": return "ANTIP";
+                    case "cad": return "CAD";
+                    case "eur": return "EUR";
+                    case "gbp": return "GBP";
+                    case "xau": case "xag": case "xpt": return "METAL";
+                    case "oil": return "OIL";
+                    default: return string.IsNullOrEmpty(c) ? null : c.ToUpperInvariant();
+                }
+            };
+            var special = new Dictionary<string, string[]>
+            {
+                { "usoil",  new[]{ "oil", "usd" } }, { "wtiusd", new[]{ "oil", "usd" } },
+                { "natgas", new[]{ "oil", (string)null } },
+                { "xauusd", new[]{ "xau", "usd" } }, { "xagusd", new[]{ "xag", "usd" } },
+                { "xptusd", new[]{ "xpt", "usd" } }
+            };
+            string baseC, quoteC;
+            if (special.ContainsKey(p)) { baseC = special[p][0]; quoteC = special[p][1]; }
+            else if (p.Length >= 6) { baseC = p.Substring(0, 3); quoteC = p.Substring(3, 3); }
+            else return tags;
+            var acc = new Dictionary<string, int>();
+            Action<string, int> add = (c, s) =>
+            {
+                var b = bloc(c); if (b == null) return;
+                acc[b] = (acc.ContainsKey(b) ? acc[b] : 0) + s;
+            };
+            add(baseC, sign); add(quoteC, -sign);
+            foreach (var kv in acc) { if (kv.Value > 0) tags[kv.Key] = 1; else if (kv.Value < 0) tags[kv.Key] = -1; }
+            return tags;
+        }
+
+        // Current downside risk of an open position, in account currency —
+        // stop distance × pip value × units. Mirrors OnPositionClosed's
+        // realized-R denominator. Returns 0 if the position has no stop or
+        // symbol data (excluded from the factor budget rather than guessed).
+        private double PositionRiskAmount(Position p)
+        {
+            if (p == null || !p.StopLoss.HasValue || p.Symbol == null) return 0;
+            if (p.Symbol.PipSize <= 0 || p.Symbol.PipValue <= 0) return 0;
+            var stopDistPx = Math.Abs(p.EntryPrice - p.StopLoss.Value);
+            if (stopDistPx <= 0) return 0;
+            var stopPips = stopDistPx / p.Symbol.PipSize;
+            return stopPips * p.Symbol.PipValue * p.VolumeInUnits;
         }
 
         // ───────────── Dedup persistence ──────────────────────────────

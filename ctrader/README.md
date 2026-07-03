@@ -73,6 +73,7 @@ Tools → Options → Expert Advisors.)
 | Feed | `PollSeconds` | `30` | Lower than ~15s is wasted bandwidth |
 | Risk | `RiskPctPerTrade` | `0.5` | Multiplied by the signal's `r_size` (1.0 wick, 0.5 fib) |
 | Risk | `MaxOpenPositions` | `5` | Counts only cBot-placed positions (by label) |
+| Risk | `FactorRiskBudgetR` | `4.0` | Max aggregate risk per correlated factor (× one full-risk trade). `0` disables |
 | Risk | `MaxSpreadPips` | `3.0` | Skip entry if spread is blown out |
 | Risk | `MaxSignalAgeMin` | `60` | Skip triggered signals older than N minutes |
 | Identity | `OrderLabel` | `VikingInvest` | Separates cBot orders from manual ones |
@@ -97,6 +98,29 @@ commodities + indices) places **half** the volume that the same stop
 distance would on a `r_size = 1.0` (wick) pair. This matches the
 weighting the dashboard's net-R numbers use, so the bot's P&L
 distribution should track the backtest within slippage tolerance.
+
+### Factor-risk sizing
+
+`MaxOpenPositions` caps the *count* of open trades but is blind to how
+*correlated* they are — five long-USD legs across five pairs is one
+leveraged bet, not five independent ones. `FactorRiskBudgetR` caps the
+aggregate risk sharing a factor-theme. Each open position is tagged by
+its signed risk factors (`long-USD`, `short-JPY`, `ANTIP`, `METAL`, …;
+pure intra-bloc crosses like AUDNZD net to zero and carry no tag), and a
+new entry is **scaled down** so that, per factor, `Σ open risk ≤
+FactorRiskBudgetR × (one full-risk trade)`. It scales rather than blocks
+because correlated clusters are still positive-expectancy on average — the
+goal is bounding the tail, not sitting out the trade. If the budget is
+already saturated the leg is skipped.
+
+Sizing basis: a 90-day macd-primary replay showed the book reaching **13×
+single-trade risk on one USD direction** (the shape of the correlated
+drawdown this addresses). `C = 4` caps that tail at 4× while retaining
+~85% of the unconstrained edge; `C = 3` is tighter (~79% edge, tail 3×),
+`C = 5` looser (~92% edge, tail 5×). Existing open risk is recovered per
+position from its `signal_id → feed pair` and its live stop distance (the
+same risk math `OnPositionClosed` uses), so it survives a cBot restart via
+the order comment fallback.
 
 ## What runs on the server, what runs on the broker
 
