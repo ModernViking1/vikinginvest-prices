@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-04T12:11:21.496189+00:00",
-  "generated_ms": 1783167081412,
-  "detector_last_check": "2026-07-04T12:11:21.329794+00:00",
+  "generated": "2026-07-04T12:16:02.191474+00:00",
+  "generated_ms": 1783167362107,
+  "detector_last_check": "2026-07-04T12:16:02.025286+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 4,
-    "armed": 2,
-    "triggered": 2,
+    "total": 5,
+    "armed": 4,
+    "triggered": 1,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "suiusd:1783167300000:wick",
+      "pair": "suiusd",
+      "sym": "SUIUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 0.7587,
+      "stop": 0.7515,
+      "target": 0.7659000000000001,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1783167300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783167362107,
+      "source": "server-detector"
+    },
     {
       "id": "ethusd:1783166400000:wick",
       "pair": "ethusd",
@@ -34,7 +55,7 @@
       "cl": "bull",
       "armedAt": 1783166400000,
       "triggeredAt": null,
-      "lastSeenAt": 1783167081412,
+      "lastSeenAt": 1783167362107,
       "source": "server-detector"
     },
     {
@@ -55,28 +76,28 @@
       "cl": "bull",
       "armedAt": 1783166400000,
       "triggeredAt": 1783166400000,
-      "lastSeenAt": 1783167081412,
+      "lastSeenAt": 1783167362107,
       "source": "server-detector"
     },
     {
-      "id": "suiusd:1783163700000:macdp",
+      "id": "suiusd:1780424100000:fib",
       "pair": "suiusd",
       "sym": "SUIUSD",
       "cls": "crypto",
-      "method": "wick",
-      "r_size": 1.0,
+      "method": "fib",
+      "r_size": 0.5,
       "dir": "bull",
-      "state": "triggered",
-      "entry": 0.7535,
-      "stop": 0.7505,
-      "target": 0.7565,
+      "state": "armed",
+      "entry": 0.7587618,
+      "stop": 0.7515,
+      "target": 0.7660236000000001,
       "ew": "bull",
-      "tl": "neutral",
+      "tl": "bull",
       "nw": "bull",
       "cl": "bull",
-      "armedAt": 1783163700000,
-      "triggeredAt": 1783163700000,
-      "lastSeenAt": 1783167081412,
+      "armedAt": 1780424100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783167362107,
       "source": "server-detector"
     },
     {
@@ -97,7 +118,7 @@
       "cl": "bull",
       "armedAt": 1780287300000,
       "triggeredAt": null,
-      "lastSeenAt": 1783167081412,
+      "lastSeenAt": 1783167362107,
       "source": "server-detector"
     }
   ]
