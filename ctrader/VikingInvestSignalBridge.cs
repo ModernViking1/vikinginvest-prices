@@ -94,6 +94,14 @@ namespace cAlgo.Robots
         [Parameter("Max signal age (minutes)", DefaultValue = 60, MinValue = 5, MaxValue = 720, Group = "Risk")]
         public int MaxSignalAgeMin { get; set; }
 
+        // 2026-07-04 — feed-only trade blocklist. Illiquid micro-cap alts
+        // (spread runs 68-180% of the structural stop → -EV on a 1:1 target no
+        // matter how the lot is sized) stay in the signal feed for the
+        // dashboard / backtest but are never traded live. Comma-separated feed
+        // pairs; editable in the cBot UI without a rebuild.
+        [Parameter("Trade blocklist (comma-sep pairs)", DefaultValue = "taousd,suiusd,nearusd", Group = "Risk")]
+        public string TradeBlocklist { get; set; }
+
         // 2026-06-25 — CATASTROPHE GUARDS (added after a USDCHF macdp
         // signal with a 0.7-pip stop produced a 680-lot naked position).
         //
@@ -769,6 +777,18 @@ namespace cAlgo.Robots
 
             // Dedup — already-placed signals never fire twice.
             if (_seenIds.Contains(sig.Id)) return;
+
+            // 2026-07-04 — feed-only trade blocklist. Skip SILENTLY (Print
+            // only, NO 'rejected' dispatch): the blocklist is deliberate config,
+            // not a dynamic gate, so it must not spam the execution log /
+            // Telegram every bar. These pairs stay in the feed for the
+            // dashboard / backtest but are never traded live.
+            if (IsBlocklisted(sig.Pair))
+            {
+                if (VerboseLog) Print($"⏭ [VikingInvest] {sig.Pair} on trade blocklist — feed-only, not traded live. id={sig.Id}");
+                MarkSeen(sig.Id); _ordersSkipped++;
+                return;
+            }
 
             // Phase 2 — kill-switch gate. We DON'T mark the id as seen
             // when the kill is the reason: that way the moment the
@@ -1476,6 +1496,29 @@ namespace cAlgo.Robots
         // stays in the local cBot log via the Print at each gate.
         private const int RejectLogCooldownMin = 30;
         private readonly Dictionary<string, long> _lastRejectDispatchMs = new Dictionary<string, long>();
+
+        // Feed-only trade blocklist (TradeBlocklist param). Parsed + cached;
+        // re-parsed only when the param string changes (cTrader lets the user
+        // edit it live without a rebuild).
+        private HashSet<string> _blocklistCache;
+        private string _blocklistRaw;
+        private bool IsBlocklisted(string pair)
+        {
+            if (string.IsNullOrWhiteSpace(pair)) return false;
+            if (_blocklistCache == null || !string.Equals(_blocklistRaw, TradeBlocklist, StringComparison.Ordinal))
+            {
+                _blocklistRaw = TradeBlocklist;
+                _blocklistCache = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (!string.IsNullOrWhiteSpace(TradeBlocklist))
+                    foreach (var p in TradeBlocklist.Split(','))
+                    {
+                        var t = p.Trim();
+                        if (t.Length > 0) _blocklistCache.Add(t);
+                    }
+            }
+            return _blocklistCache.Contains(pair.Trim());
+        }
+
         private void EmitRejection(Signal sig, string symbolName, string category, string detail)
         {
             var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();

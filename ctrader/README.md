@@ -77,6 +77,7 @@ Tools → Options → Expert Advisors.)
 | Risk | `MaxSpreadPips` | `3.0` | **Legacy — no longer the spread gate.** Kept for reference; the gate is now relative (below) |
 | Risk | `MaxSpreadPctOfStop` | `0.5` | **Spread gate.** Reject only if the live spread exceeds this fraction of the stop distance. Below it, the lot sizes down (spread folded into the effective stop) so risk stays within budget — this is what admits BTC / indices that an absolute pip cap wrongly rejected. Set `2.0` to disable |
 | Risk | `MaxSignalAgeMin` | `60` | Skip triggered signals older than N minutes |
+| Risk | `TradeBlocklist` | `taousd,suiusd,nearusd` | Feed-only skip-list. Pairs stay in the signal feed (dashboard / backtest) but are **never traded live** — skipped **silently** (no `rejected` event, so no Telegram noise). For illiquid alts where spread runs 68–180% of the stop, making a 1:1 trade -EV at any lot size. Editable in the cBot UI |
 | Identity | `OrderLabel` | `VikingInvest` | Separates cBot orders from manual ones |
 | Safety | `AllowLive` | `false` | **Safety gate.** Must be `true` to run on a non-demo account |
 | Safety | `DryRun` | `false` | If true, logs what it would have placed without sending orders |
