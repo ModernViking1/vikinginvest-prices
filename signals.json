@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-05T18:51:17.430662+00:00",
-  "generated_ms": 1783277477322,
-  "detector_last_check": "2026-07-05T18:51:17.218918+00:00",
+  "generated": "2026-07-05T18:55:51.357716+00:00",
+  "generated_ms": 1783277751248,
+  "detector_last_check": "2026-07-05T18:55:51.145275+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 4,
-    "armed": 2,
+    "total": 6,
+    "armed": 4,
     "triggered": 2,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "btcusd:1783277100000:wick",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 62680.0,
+      "stop": 62540.0,
+      "target": 62820.0,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1783277100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783277751248,
+      "source": "server-detector"
+    },
     {
       "id": "btcusd:1783276200000:macdp",
       "pair": "btcusd",
@@ -29,12 +50,12 @@
       "stop": 62540.0,
       "target": 62709.100000000006,
       "ew": "bull",
-      "tl": "neutral",
+      "tl": "bull",
       "nw": "bull",
       "cl": "bull",
       "armedAt": 1783276200000,
       "triggeredAt": 1783276200000,
-      "lastSeenAt": 1783277477322,
+      "lastSeenAt": 1783277751248,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,7 @@
       "cl": "bull",
       "armedAt": 1783276200000,
       "triggeredAt": null,
-      "lastSeenAt": 1783277477322,
+      "lastSeenAt": 1783277751248,
       "source": "server-detector"
     },
     {
@@ -72,11 +93,32 @@
       "target": 1.136,
       "ew": "bear",
       "tl": "bear",
-      "nw": "bear",
+      "nw": "bull",
       "cl": "bull",
       "armedAt": 1783274400000,
       "triggeredAt": 1783274400000,
-      "lastSeenAt": 1783277477322,
+      "lastSeenAt": 1783277751248,
+      "source": "server-detector"
+    },
+    {
+      "id": "btcusd:1780440300000:fib",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 62747.28166,
+      "stop": 62540.0,
+      "target": 62954.56332,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780440300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783277751248,
       "source": "server-detector"
     },
     {
@@ -97,7 +139,7 @@
       "cl": "bull",
       "armedAt": 1780433100000,
       "triggeredAt": null,
-      "lastSeenAt": 1783277477322,
+      "lastSeenAt": 1783277751248,
       "source": "server-detector"
     }
   ]
