@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-05T04:01:39.621206+00:00",
-  "generated_ms": 1783224099505,
-  "detector_last_check": "2026-07-05T04:01:39.403692+00:00",
+  "generated": "2026-07-05T04:05:55.337072+00:00",
+  "generated_ms": 1783224355222,
+  "detector_last_check": "2026-07-05T04:05:55.121928+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,33 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
+    "total": 3,
     "armed": 2,
-    "triggered": 0,
+    "triggered": 1,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "suiusd:1783224000000:macdp",
+      "pair": "suiusd",
+      "sym": "SUIUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 0.7408,
+      "stop": 0.7368,
+      "target": 0.7448,
+      "ew": "bull",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "neutral",
+      "armedAt": 1783224000000,
+      "triggeredAt": 1783224000000,
+      "lastSeenAt": 1783224355222,
+      "source": "server-detector"
+    },
     {
       "id": "taousd:1783222200000:wick",
       "pair": "taousd",
@@ -34,7 +55,7 @@
       "cl": "bear",
       "armedAt": 1783222200000,
       "triggeredAt": null,
-      "lastSeenAt": 1783224099505,
+      "lastSeenAt": 1783224355222,
       "source": "server-detector"
     },
     {
@@ -55,7 +76,7 @@
       "cl": "bear",
       "armedAt": 1780254900000,
       "triggeredAt": null,
-      "lastSeenAt": 1783224099505,
+      "lastSeenAt": 1783224355222,
       "source": "server-detector"
     }
   ]
