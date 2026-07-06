@@ -125,6 +125,14 @@ namespace cAlgo.Robots
         [Parameter("Min stop distance FX (pips)", DefaultValue = 8.0, MinValue = 0.0, MaxValue = 50.0, Group = "Risk")]
         public double MinStopPipsFX { get; set; }
 
+        // 2026-07-04 — H11 faytterro size-weighting. macdp trades whose entry
+        // does NOT align with a fresh spring/UTAD event (signal event_aligned
+        // == false) size to this fraction. Forward test: aligned 86% live vs
+        // no-event 40% — so we keep collecting on the no-event cohort at
+        // reduced risk rather than cutting it. 1.0 disables (equal size).
+        [Parameter("No-event size factor", DefaultValue = 0.5, MinValue = 0.1, MaxValue = 1.0, Group = "Risk")]
+        public double NoEventSizeFactor { get; set; }
+
         // MaxPositionLots: absolute hard ceiling on position size, in
         // LOTS, independent of the risk-based calc and the broker's own
         // (effectively unlimited) max. Last line of defence — even if the
@@ -968,6 +976,15 @@ namespace cAlgo.Robots
             // size automatically — matching the dashboard's net-R math.
             // EffectiveRiskPct applies the live-mode override transparently.
             var riskPct = EffectiveRiskPct * (sig.RSize > 0 ? sig.RSize : 1.0);
+            // 2026-07-04 — H11 faytterro size-weighting: half-size macdp trades
+            // that don't align with a fresh spring/UTAD event. Only when the
+            // flag is explicitly false (macdp no-event/fought); true and null
+            // (aligned, or non-macdp signals) keep full size.
+            if (sig.EventAligned == false)
+            {
+                riskPct *= NoEventSizeFactor;
+                if (VerboseLog) Print($"⚖️ [VikingInvest] No faytterro event on {sig.Pair} {sig.Dir} — sizing to {NoEventSizeFactor:P0}. id={sig.Id}");
+            }
             var volume = ComputeVolume(symbol, sig.Entry, sig.Stop, riskPct);
             if (volume <= 0)
             {
@@ -1708,6 +1725,7 @@ namespace cAlgo.Robots
         {
             public string Id, Pair, State, Dir;
             public double Entry, Stop, Target, RSize;
+            public bool? EventAligned;   // H11 faytterro: true=aligned, false=no-event/fought, null=n/a
             public long ArmedAtMs;
             public long TriggeredAtMs;
         }
@@ -1742,6 +1760,7 @@ namespace cAlgo.Robots
                     Stop      = JsonNum(obj, "stop"),
                     Target    = JsonNum(obj, "target"),
                     RSize     = JsonNum(obj, "r_size"),
+                    EventAligned  = JsonBoolN(obj, "event_aligned"),
                     ArmedAtMs     = (long)JsonNum(obj, "armedAt"),
                     TriggeredAtMs = (long)JsonNum(obj, "triggeredAt"),
                 });
@@ -1762,6 +1781,21 @@ namespace cAlgo.Robots
             var q2 = obj.IndexOf('"', q1 + 1);
             if (q2 < 0) return "";
             return obj.Substring(q1 + 1, q2 - q1 - 1);
+        }
+
+        // Nullable bool: true / false, or null when the key is absent or JSON null.
+        private static bool? JsonBoolN(string obj, string key)
+        {
+            var needle = "\"" + key + "\"";
+            var p = obj.IndexOf(needle, StringComparison.Ordinal);
+            if (p < 0) return null;
+            var colon = obj.IndexOf(':', p);
+            if (colon < 0) return null;
+            int i = colon + 1;
+            while (i < obj.Length && char.IsWhiteSpace(obj[i])) i++;
+            if (i + 4 <= obj.Length && obj.Substring(i, 4) == "true") return true;
+            if (i + 5 <= obj.Length && obj.Substring(i, 5) == "false") return false;
+            return null;
         }
 
         private static double JsonNum(string obj, string key)

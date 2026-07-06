@@ -80,6 +80,7 @@ Tools → Options → Expert Advisors.)
 | Risk | `TradeBlocklist` | `taousd,suiusd,nearusd,wtiusd,natgas` | Feed-only skip-list. Pairs stay in the signal feed (dashboard / backtest) but are **never traded live** — skipped **silently** (no `rejected` event, so no Telegram noise). Covers illiquid alts (spread 68–180% of stop, -EV) and the energy class (WTI/NatGas: 8% live WR, −12R). Editable in the cBot UI |
 | Risk | `MinStopPips` | `3.0` | Degenerate guard — reject near-zero structural stops (would explode sizing / open naked) |
 | Risk | `MinStopPipsFX` | `8.0` | **FX-only cost floor.** Skip FX (fiat/fiat) signals whose structural stop is below N pips. Live data: below ~8 pips, slippage alone eats 45–85% of the stop and expectancy is −0.5 to −0.7R (vs ~−0.3R wider). Non-FX (gold/crypto/indices) unaffected. `0` disables |
+| Risk | `NoEventSizeFactor` | `0.5` | **H11 faytterro size-weighting.** macdp signals carry `event_aligned` (spring→buy / UTAD→sell in the last 5 h1 bars). Trades that don't align (`event_aligned == false`) size to this fraction; aligned + non-macdp keep full size. Forward test: aligned 86% live vs no-event 40%. `1.0` disables |
 | Identity | `OrderLabel` | `VikingInvest` | Separates cBot orders from manual ones |
 | Safety | `AllowLive` | `false` | **Safety gate.** Must be `true` to run on a non-demo account |
 | Safety | `DryRun` | `false` | If true, logs what it would have placed without sending orders |
