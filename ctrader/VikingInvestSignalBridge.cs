@@ -99,7 +99,7 @@ namespace cAlgo.Robots
         // matter how the lot is sized) stay in the signal feed for the
         // dashboard / backtest but are never traded live. Comma-separated feed
         // pairs; editable in the cBot UI without a rebuild.
-        [Parameter("Trade blocklist (comma-sep pairs)", DefaultValue = "taousd,suiusd,nearusd", Group = "Risk")]
+        [Parameter("Trade blocklist (comma-sep pairs)", DefaultValue = "taousd,suiusd,nearusd,wtiusd,natgas", Group = "Risk")]
         public string TradeBlocklist { get; set; }
 
         // 2026-06-25 — CATASTROPHE GUARDS (added after a USDCHF macdp
