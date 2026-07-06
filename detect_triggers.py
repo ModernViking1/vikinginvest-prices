@@ -3638,6 +3638,11 @@ def main():
             'sig_macdp_trigger_ts': _macdp_field('sig_macdp_trigger_ts'),
             'sig_macdp_confluence': _macdp_field('sig_macdp_confluence'),
             'sig_macdp_shadow':     bool(_macdp_field('sig_macdp_shadow')),
+            # H11 faytterro alignment — persisted alongside the macdp signal
+            # (TTL-preserved) so build_signals_json.py can stamp it onto the
+            # macdp signal row. Set in out[pair] above; copied here because
+            # alerts-state.json is written from new_state, not out.
+            'sig_macdp_event_aligned': _macdp_field('sig_macdp_event_aligned'),
             'alerted_macdp_trigger_ts': alerted_macdp,
             # MACD-divergence parallel trigger persistence (2026-06-17).
             # Same TTL preservation as macdp above.
