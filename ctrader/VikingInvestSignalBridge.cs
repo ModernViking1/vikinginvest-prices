@@ -115,6 +115,16 @@ namespace cAlgo.Robots
         [Parameter("Min stop distance (pips)", DefaultValue = 3.0, MinValue = 0.0, MaxValue = 100.0, Group = "Risk")]
         public double MinStopPips { get; set; }
 
+        // 2026-07-04 — FX-only COST floor (distinct from MinStopPips, which is
+        // a near-zero degenerate guard). Live data: FX trades with a structural
+        // stop under ~8 pips are cost-dominated — on the 0-8 pip buckets entry
+        // slippage alone ran 45-85% of the stop, wins realised only ~+0.85R
+        // while losses ran ~-1.4R, and expectancy was -0.5 to -0.7R vs ~-0.3R
+        // wider. Skip FX signals below this. FX only (fiat/fiat) — indices /
+        // metals / crypto have different pip scales and their own floors TBD.
+        [Parameter("Min stop distance FX (pips)", DefaultValue = 8.0, MinValue = 0.0, MaxValue = 50.0, Group = "Risk")]
+        public double MinStopPipsFX { get; set; }
+
         // MaxPositionLots: absolute hard ceiling on position size, in
         // LOTS, independent of the risk-based calc and the broker's own
         // (effectively unlimited) max. Last line of defence — even if the
@@ -914,6 +924,18 @@ namespace cAlgo.Robots
                 return;
             }
 
+            // 2026-07-04 — FX COST FLOOR (see MinStopPipsFX). slPips is already
+            // computed above. Below this, FX trades don't survive spread +
+            // slippage (the drag is a large fraction of a tiny R). Emits a
+            // throttled 'rejected' so we can watch how many trades it filters.
+            if (MinStopPipsFX > 0 && IsFxPair(sig.Pair) && slPips < MinStopPipsFX)
+            {
+                Print($"🛑 [VikingInvest] FX stop too tight on {symbol.Name}: {slPips:F1} < {MinStopPipsFX} pips (cost floor) — skipping id={sig.Id}");
+                EmitRejection(sig, symbol.Name, "min-stop-fx", $"{slPips:F1} < {MinStopPipsFX} pips (FX cost floor)");
+                MarkSeen(sig.Id); _ordersSkipped++;
+                return;
+            }
+
             // 2026-06-30 — MAX ENTRY DEVIATION gate. If the market has
             // drifted too far from the signal's entry price by the time
             // we'd fill (market-fill latency), the live trade no longer
@@ -1517,6 +1539,18 @@ namespace cAlgo.Robots
                     }
             }
             return _blocklistCache.Contains(pair.Trim());
+        }
+
+        // A feed pair is FX iff it is 6 chars and BOTH halves are fiat ISO
+        // codes. This cleanly separates FX (euraud, cadjpy, usdcad) from gold /
+        // platinum (xauusd, xptusd), crypto (btcusd, xrpusd) and indices
+        // (jp225) — so the FX-only cost floor never touches a non-FX pair.
+        private static readonly HashSet<string> _fiatCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        { "usd","eur","gbp","jpy","aud","nzd","cad","chf","sgd","nok","sek","dkk","zar","mxn","try","hkd","cnh","pln","huf","czk" };
+        private static bool IsFxPair(string pair)
+        {
+            if (string.IsNullOrEmpty(pair) || pair.Length != 6) return false;
+            return _fiatCodes.Contains(pair.Substring(0, 3)) && _fiatCodes.Contains(pair.Substring(3, 3));
         }
 
         private void EmitRejection(Signal sig, string symbolName, string category, string detail)
