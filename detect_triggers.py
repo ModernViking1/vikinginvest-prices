@@ -171,6 +171,56 @@ def rsi_gate_for(pair):
     return RSI_GATE_BY_CLASS.get(cls, {'hi': 80, 'lo': 20})
 
 
+def h11_event_aligned(h1_closes, direction):
+    """Port of the dashboard's _h11Event faytterro filter. True if a Wyckoff
+    spring/UTAD RSI(14) crossing in the last 5 h1 bars ALIGNS with `direction`
+    (spring→bull = RSI cross UP through 30; UTAD→bear = cross DOWN through 70),
+    False if no aligning crossing (no-event OR fought), None if not computable.
+    Kept byte-for-byte with the JS so live alignment tracks the H11 forward-
+    test cohorts. The cBot half-sizes trades where this is False."""
+    try:
+        cls = [c for c in (h1_closes or []) if c is not None]
+        per = 14
+        if len(cls) < 20:
+            return None
+        gg = 0.0
+        ll = 0.0
+        for ri in range(1, per + 1):
+            ch = cls[ri] - cls[ri - 1]
+            if ch > 0:
+                gg += ch
+            else:
+                ll += -ch
+        gg /= per
+        ll /= per
+        rsi = [None] * len(cls)
+        rsi[per] = 100 - 100 / (1 + (gg / ll if ll > 0 else 999))
+        for ri in range(per + 1, len(cls)):
+            ch = cls[ri] - cls[ri - 1]
+            gg = (gg * (per - 1) + max(ch, 0.0)) / per
+            ll = (ll * (per - 1) + max(-ch, 0.0)) / per
+            rsi[ri] = 100 - 100 / (1 + (gg / ll if ll > 0 else 999))
+        recent_spring = False
+        recent_utad = False
+        last = len(rsi) - 1
+        for si in range(max(per + 1, last - 4), last + 1):
+            rc = rsi[si]
+            rpv = rsi[si - 1]
+            if rc is None or rpv is None:
+                continue
+            if rc > 30 and rpv < 30:
+                recent_spring = True
+            if rc < 70 and rpv > 70:
+                recent_utad = True
+        if direction == 'bull':
+            return recent_spring
+        if direction == 'bear':
+            return recent_utad
+        return None
+    except Exception:
+        return None
+
+
 # ── School Run (SR) — Tom Hougaard's opening-range pattern adapted as
 # a 5th confluence layer. DE40 + DJ30 — the two indices with reliable
 # cash-session opens that match the SR mechanic. (RULES_VERSION
@@ -2619,6 +2669,10 @@ def scan_pairs(intraday_data, historical_data):
                 _h1_rsi_mp = calc_rsi(_h1_closes, 14) if len(_h1_closes) >= 15 else None
                 macdp_sig = detect_macd_primary(
                     m15, ew, tl, nw, cl, _h1_rsi_mp, macdp_pair_class)
+                # H11 faytterro spring/UTAD alignment at entry (for cBot
+                # size-weighting: full when aligned, half when not).
+                if macdp_sig and macdp_sig.get('dir'):
+                    macdp_sig['event_aligned'] = h11_event_aligned(_h1_closes, macdp_sig.get('dir'))
             except Exception as e:
                 print(f'  ⚠ MACD-primary detector failed for {pair}: {e}')
 
@@ -2683,6 +2737,7 @@ def scan_pairs(intraday_data, historical_data):
             'sig_macdp_trigger_ts':  macdp_sig.get('trigger_ts') if macdp_sig else None,
             'sig_macdp_confluence':  macdp_sig.get('confluence') if macdp_sig else None,
             'sig_macdp_shadow':      bool(macdp_sig.get('shadow')) if macdp_sig else False,
+            'sig_macdp_event_aligned': (macdp_sig.get('event_aligned') if macdp_sig else None),
             # MACD-divergence parallel trigger (2026-06-17). INDEX only.
             'sig_divg_state':        divg_sig.get('state') if divg_sig else None,
             'sig_divg_dir':          divg_sig.get('dir') if divg_sig else None,

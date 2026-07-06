@@ -239,6 +239,9 @@ def _signal_row(pair: str, info: dict, kind: str, now_ms: int) -> dict | None:
         "triggeredAt": trig_at_ms,
         "lastSeenAt":  now_ms,
         "source":      "server-detector",
+        # H11 faytterro alignment (macdp only; None for other kinds). The cBot
+        # full-sizes when True/None, half-sizes when explicitly False.
+        "event_aligned": (info.get("sig_macdp_event_aligned") if kind == "macdp" else None),
     }
 
 
