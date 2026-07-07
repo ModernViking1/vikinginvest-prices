@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-07T11:45:56.389349+00:00",
-  "generated_ms": 1783424756292,
-  "detector_last_check": "2026-07-07T11:45:56.198649+00:00",
+  "generated": "2026-07-07T11:51:23.476716+00:00",
+  "generated_ms": 1783425083381,
+  "detector_last_check": "2026-07-07T11:51:23.288099+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,34 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 1,
+    "total": 2,
     "armed": 0,
-    "triggered": 1,
+    "triggered": 2,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "suiusd:1783424700000:macdp",
+      "pair": "suiusd",
+      "sym": "SUIUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 0.7388,
+      "stop": 0.736,
+      "target": 0.7416,
+      "ew": "bull",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bull",
+      "armedAt": 1783424700000,
+      "triggeredAt": 1783424700000,
+      "lastSeenAt": 1783425083381,
+      "source": "server-detector",
+      "event_aligned": false
+    },
     {
       "id": "nearusd:1783422900000:macdp",
       "pair": "nearusd",
@@ -30,11 +52,11 @@
       "target": 2.016,
       "ew": "bull",
       "tl": "bear",
-      "nw": "bear",
+      "nw": "bull",
       "cl": "bull",
       "armedAt": 1783422900000,
       "triggeredAt": 1783422900000,
-      "lastSeenAt": 1783424756292,
+      "lastSeenAt": 1783425083381,
       "source": "server-detector",
       "event_aligned": false
     }
