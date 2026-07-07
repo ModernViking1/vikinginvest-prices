@@ -928,7 +928,10 @@ namespace cAlgo.Robots
             }
 
             // Concurrency check — count our open positions by label.
-            var ourOpen = Positions.Count(p => p.Label == OrderLabel);
+            // Count open positions PLUS still-pending limit orders — otherwise
+            // several limits filling at once could overshoot the position cap.
+            var ourOpen = Positions.Count(p => p.Label == OrderLabel)
+                        + PendingOrders.Count(o => o.Label == OrderLabel);
             if (ourOpen >= EffectiveMaxPositions)
             {
                 Print($"🛑 [VikingInvest] Max positions reached ({ourOpen}/{EffectiveMaxPositions}) — skipping id={sig.Id}");
