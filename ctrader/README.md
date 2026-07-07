@@ -81,6 +81,8 @@ Tools → Options → Expert Advisors.)
 | Risk | `MinStopPips` | `3.0` | Degenerate guard — reject near-zero structural stops (would explode sizing / open naked) |
 | Risk | `MinStopPipsFX` | `8.0` | **FX-only cost floor.** Skip FX (fiat/fiat) signals whose structural stop is below N pips. Live data: below ~8 pips, slippage alone eats 45–85% of the stop and expectancy is −0.5 to −0.7R (vs ~−0.3R wider). Non-FX (gold/crypto/indices) unaffected. `0` disables |
 | Risk | `NoEventSizeFactor` | `0.5` | **H11 faytterro size-weighting.** macdp signals carry `event_aligned` (spring→buy / UTAD→sell in the last 5 h1 bars). Trades that don't align (`event_aligned == false`) size to this fraction; aligned + non-macdp keep full size. Forward test: aligned 86% live vs no-event 40%. `1.0` disables |
+| Execution | `UseLimitEntry` | `true` | **Places a limit order AT `sig.Entry`** instead of a market order. Fills only at the modelled price or better, else waits/expires — eliminating **entry-drift** (60% of all live rejections; market moved 30–397% of R past entry before a market fill). Skips the entry-deviation gate when on. `false` reverts to market orders. Fills recorded async via `OnPositionOpened` |
+| Execution | `LimitExpiryMin` | `45` | How long a pending limit waits at `sig.Entry` before the broker expires it unfilled |
 | Identity | `OrderLabel` | `VikingInvest` | Separates cBot orders from manual ones |
 | Safety | `AllowLive` | `false` | **Safety gate.** Must be `true` to run on a non-demo account |
 | Safety | `DryRun` | `false` | If true, logs what it would have placed without sending orders |

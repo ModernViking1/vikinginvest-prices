@@ -155,6 +155,19 @@ namespace cAlgo.Robots
         [Parameter("Max entry deviation (% of R, 0=off)", DefaultValue = 0.30, MinValue = 0.0, MaxValue = 5.0, Group = "Risk")]
         public double MaxEntryDeviationPctOfR { get; set; }
 
+        // 2026-07-07 — LIMIT-ENTRY execution. Entry-drift was 60% of all live
+        // rejections (market moved 30-397% of R past the signal entry before a
+        // market order could fill). A limit order AT sig.Entry fills only at
+        // the modelled price or better — or waits/expires — so it eliminates
+        // drift by construction and aligns live fills with the backtest's
+        // modelled entries. When on, the entry-deviation gate above is skipped
+        // (the limit handles drift). Set false to revert to market orders.
+        [Parameter("Use limit-order entry", DefaultValue = true, Group = "Execution")]
+        public bool UseLimitEntry { get; set; }
+
+        [Parameter("Limit order expiry (minutes)", DefaultValue = 45, MinValue = 5, MaxValue = 720, Group = "Execution")]
+        public int LimitExpiryMin { get; set; }
+
         [Parameter("Order label", DefaultValue = "VikingInvest", Group = "Identity")]
         public string OrderLabel { get; set; }
 
@@ -254,6 +267,20 @@ namespace cAlgo.Robots
         // event can write a clean execution row tying broker P&L back
         // to the detector signal that created it. positionId → signal id.
         private Dictionary<long, string> _positionIdToSignalId = new Dictionary<long, string>();
+
+        // 2026-07-07 — LIMIT-ENTRY. Signals for which we placed a pending limit
+        // (keyed by signal id) with the detail needed to write the 'placed'
+        // execution row when/if the limit FILLS (async, via OnPositionOpened).
+        // Only limit placements populate this — market orders write their row
+        // synchronously, so OnPositionOpened ignores anything not in here.
+        private class PendingLimit { public string Pair, Dir; public double Entry, Stop, Target, RSize, Volume; }
+        private Dictionary<string, PendingLimit> _pendingLimitSignals = new Dictionary<string, PendingLimit>();
+        private static string SignalIdFromComment(string comment)
+        {
+            const string pfx = "viking-";
+            if (string.IsNullOrEmpty(comment) || !comment.StartsWith(pfx, StringComparison.Ordinal)) return null;
+            return comment.Substring(pfx.Length);
+        }
         // 2026-06-24 — Phase 1 failed-trade inspector hooks.
         // _positionMaxFavR     : running MFE in R per open position, sampled
         //                        once per poll tick (≥5s). Coarse but ample
@@ -320,6 +347,7 @@ namespace cAlgo.Robots
             // own) and filter inside the handler so the cBot still sees
             // closures that happened across a restart.
             Positions.Closed += OnPositionClosed;
+            Positions.Opened += OnPositionOpened;   // records LIMIT fills (async)
 
             _http.DefaultRequestHeaders.UserAgent.ParseAdd("VikingInvest-cTrader-Bot/1.0");
             // 2026-06-23 — force CDN revalidation on every poll. The
@@ -450,6 +478,7 @@ namespace cAlgo.Robots
         {
             Timer.Stop();
             Positions.Closed -= OnPositionClosed;
+            Positions.Opened -= OnPositionOpened;
             SaveSeenIds();
             SaveDailyLossState();
             Print($"👋 [VikingInvest] Bridge stopped. Signals seen: {_signalsSeen} · Orders placed: {_ordersPlaced} · Skipped: {_ordersSkipped} · Kill-blocked: {_killBlockedCount} · Daily-limit-blocked: {_dailyLimitBlockedCount} · Today R: {_todayRealizedR:+0.00;-0.00;0.00}");
@@ -741,6 +770,20 @@ namespace cAlgo.Robots
             // stop fills." — this branch honours that.
             if (sig.State == "invalidated")
             {
+                // Cancel any still-pending limit for this signal — the setup
+                // flipped, so we must not let the limit fill on a dead level.
+                if (UseLimitEntry)
+                {
+                    foreach (var po in PendingOrders)
+                    {
+                        if (po.Label == OrderLabel && SignalIdFromComment(po.Comment) == sig.Id)
+                        {
+                            try { CancelPendingOrder(po); Print($"⚠️ [VikingInvest] INVALIDATED — cancelled pending limit {po.SymbolName} id={sig.Id}"); }
+                            catch (Exception ex) { Print($"   CancelPendingOrder threw: {ex.Message}"); }
+                        }
+                    }
+                    _pendingLimitSignals.Remove(sig.Id);
+                }
                 // Find the open position opened by THIS signal id, if any.
                 // _positionIdToSignalId is the placement-time mapping; we
                 // walk it because there's no reverse index (open positions
@@ -875,7 +918,8 @@ namespace cAlgo.Robots
             // with the simulated edge. Check the resolved symbol.Name (not the
             // feed pair) so aliased instruments collapse correctly. Mark seen
             // so the duplicate trigger doesn't re-evaluate every poll.
-            if (Positions.Any(p => p.Label == OrderLabel && p.SymbolName == symbol.Name))
+            if (Positions.Any(p => p.Label == OrderLabel && p.SymbolName == symbol.Name)
+                || PendingOrders.Any(o => o.Label == OrderLabel && o.SymbolName == symbol.Name))
             {
                 Print($"⏭ [VikingInvest] Already holding {symbol.Name} — skipping id={sig.Id} (one-per-pair).");
                 EmitRejection(sig, symbol.Name, "already-holding", $"already holding {symbol.Name}");
@@ -950,8 +994,10 @@ namespace cAlgo.Robots
             // matches the modelled setup. Skip rather than chase. R is the
             // signal's stop distance; compare the price we'd actually fill
             // at (Ask for a buy, Bid for a sell) to sig.Entry. See the
-            // MaxEntryDeviationPctOfR comment block.
-            if (MaxEntryDeviationPctOfR > 0)
+            // MaxEntryDeviationPctOfR comment block. Skipped under limit-entry:
+            // a limit at sig.Entry can't fill at a drifted price, so drift is
+            // handled structurally, not by rejecting.
+            if (!UseLimitEntry && MaxEntryDeviationPctOfR > 0)
             {
                 var rDist = Math.Abs(sig.Entry - sig.Stop);
                 var fillRef = sig.Dir == "bull" ? symbol.Ask : symbol.Bid;
@@ -1081,6 +1127,34 @@ namespace cAlgo.Robots
                 return;
             }
 
+            // 2026-07-07 — LIMIT-ENTRY path. Place a pending limit AT sig.Entry
+            // instead of a market order: fills only at the modelled price (or
+            // better), otherwise waits and expires — eliminating entry-drift.
+            // The 'placed' execution row is written asynchronously when the
+            // limit fills (OnPositionOpened), not here.
+            if (UseLimitEntry)
+            {
+                var expiry = Server.Time.AddMinutes(LimitExpiryMin);
+                var lr = PlaceLimitOrder(direction, symbol.Name, volume, sig.Entry, OrderLabel,
+                                         slPips, tpPips, expiry, "viking-" + sig.Id);
+                if (lr.IsSuccessful)
+                {
+                    _pendingLimitSignals[sig.Id] = new PendingLimit {
+                        Pair = sig.Pair, Dir = sig.Dir, Entry = sig.Entry,
+                        Stop = sig.Stop, Target = sig.Target, RSize = sig.RSize, Volume = volume };
+                    Print($"⏳ [VikingInvest] LIMIT placed {direction} {symbol.Name} {volume:F0} @ {sig.Entry:F5} " +
+                          $"(expiry {LimitExpiryMin}m) SL={sig.Stop:F5} TP={sig.Target:F5} id={sig.Id}");
+                }
+                else
+                {
+                    Print($"❌ [VikingInvest] LIMIT REJECTED {direction} {symbol.Name}: {lr.Error} id={sig.Id}");
+                    EmitRejection(sig, symbol.Name, "limit-rejected", lr.Error.ToString());
+                    _ordersSkipped++;
+                }
+                MarkSeen(sig.Id);
+                return;
+            }
+
             var result = ExecuteMarketOrder(direction, symbol.Name, volume, OrderLabel,
                                             slPips, tpPips, "viking-" + sig.Id);
             if (result.IsSuccessful)
@@ -1169,6 +1243,59 @@ namespace cAlgo.Robots
         // computes realized R by dividing realised P&L by the risk-amount
         // implied by stop distance, which matches the dashboard's
         // backtest math (1R risk per wick trade, 0.5R per fib trade).
+        // 2026-07-07 — LIMIT-ENTRY fill handler. When a pending limit we placed
+        // FILLS, the broker opens a position asynchronously and fires this. We
+        // write the 'placed' execution row here. Market orders write their row
+        // synchronously, so any fill whose signal isn't in _pendingLimitSignals
+        // is ignored. Also runs the naked-stop catastrophe guard.
+        private void OnPositionOpened(PositionOpenedEventArgs args)
+        {
+            var p = args.Position;
+            if (p == null || p.Label != OrderLabel) return;
+            var sigId = SignalIdFromComment(p.Comment);
+            if (sigId == null || !_pendingLimitSignals.TryGetValue(sigId, out var pl)) return;
+            _pendingLimitSignals.Remove(sigId);
+
+            if (!p.StopLoss.HasValue)
+            {
+                Print($"⚠️ [VikingInvest] {p.SymbolName} limit filled with NO stop — attaching SL={pl.Stop:F5}");
+                try { p.ModifyStopLossPrice(pl.Stop); } catch (Exception ex) { Print($"   ModifyStopLossPrice threw: {ex.Message}"); }
+                if (!p.StopLoss.HasValue)
+                {
+                    Print($"🛑 [VikingInvest] SL still not set on {p.SymbolName} PID={p.Id} — CLOSING to avoid a naked position. id={sigId}");
+                    TelegramSend($"🛑 {p.SymbolName} limit filled WITHOUT a stop and it couldn't be attached — position CLOSED immediately. id={sigId}", important: true);
+                    try { ClosePosition(p); } catch (Exception ex) { Print($"   Emergency ClosePosition threw: {ex.Message}"); }
+                    return;
+                }
+            }
+
+            _positionIdToSignalId[p.Id] = sigId;
+            _ordersPlaced++;
+            Print($"✅ [VikingInvest] LIMIT FILLED {p.TradeType} {p.SymbolName} {p.VolumeInUnits:F0} @ {p.EntryPrice:F5} · id={sigId} PID={p.Id}");
+            TelegramSend($"📤 {p.TradeType} {p.SymbolName} {p.VolumeInUnits:F0} units (limit) · " +
+                         $"entry {p.EntryPrice:F5} SL={pl.Stop:F5} TP={pl.Target:F5}", important: Account.IsLive);
+            WriteExecution(new ExecutionRow
+            {
+                Event       = "placed",
+                SignalId    = sigId,
+                PositionId  = p.Id,
+                Pair        = pl.Pair,
+                Symbol      = p.SymbolName,
+                Dir         = pl.Dir,
+                VolumeUnits = p.VolumeInUnits,
+                EntryAttempt= pl.Entry,
+                EntryFilled = p.EntryPrice,
+                Stop        = pl.Stop,
+                Target      = pl.Target,
+                RSize       = pl.RSize,
+                SlippagePips= (pl.Entry > 0 && p.Symbol.PipSize > 0)
+                              ? (p.EntryPrice - pl.Entry) / p.Symbol.PipSize * (pl.Dir == "bull" ? 1 : -1)
+                              : 0,
+                AccountMode = Account.IsLive ? "live" : "demo",
+                Account     = Account.Number,
+            });
+        }
+
         private void OnPositionClosed(PositionClosedEventArgs args)
         {
             var p = args.Position;
