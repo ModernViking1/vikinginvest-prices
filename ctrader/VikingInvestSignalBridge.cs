@@ -71,6 +71,16 @@ namespace cAlgo.Robots
         [Parameter("Factor-risk budget (× 1 trade)", DefaultValue = 4.0, MinValue = 0.0, MaxValue = 50.0, Group = "Risk")]
         public double FactorRiskBudgetR { get; set; }
 
+        // 2026-07-07 — tighter cluster budget for the METAL factor
+        // (gold/silver/platinum). They're ~one bet (XAU-XAG ≈ 0.8 correlation),
+        // so the global 4× budget lets a 2nd metal in at full size and the
+        // correlated drawdown compounds — the H10 theme on XAU/XAG losses. At
+        // 1.5 the 2nd correlated metal sizes to ~50% (aggregate metal risk
+        // capped at 1.5×), bounding the tail WITHOUT blocking (metals are
+        // ~50% WR — a hard block would kill winners too). 0 = use global.
+        [Parameter("METAL cluster budget (× 1 trade)", DefaultValue = 1.5, MinValue = 0.0, MaxValue = 10.0, Group = "Risk")]
+        public double MetalClusterBudgetR { get; set; }
+
         // 2026-06-25 — widened demo from 3.0 → 5.0 so cross/exotic pairs
         // (EURNOK, XPTUSD, NZD crosses) aren't auto-skipped during normal
         // sessions. Their bid-ask spreads sit 3-5 pips on IC Markets even
@@ -1087,8 +1097,14 @@ namespace cAlgo.Robots
                     foreach (var kv in myTags)
                     {
                         var key = kv.Key + ":" + kv.Value;
+                        // METAL (gold/silver/platinum) uses a tighter cluster
+                        // budget — they're ~one bet, so the global budget lets
+                        // a 2nd correlated metal in at full size.
+                        var factorBudget = (kv.Key == "METAL" && MetalClusterBudgetR > 0)
+                                         ? MetalClusterBudgetR * singleFullRisk
+                                         : budgetPerFactor;
                         var existing = exposure.ContainsKey(key) ? exposure[key] : 0.0;
-                        var allowed  = Math.Max(0.0, budgetPerFactor - existing);
+                        var allowed  = Math.Max(0.0, factorBudget - existing);
                         var s = newTradeRisk > 0 ? allowed / newTradeRisk : 1.0;
                         if (s < scale) { scale = s; binding = key; }
                     }
