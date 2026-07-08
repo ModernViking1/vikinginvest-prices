@@ -81,6 +81,15 @@ namespace cAlgo.Robots
         [Parameter("METAL cluster budget (× 1 trade)", DefaultValue = 1.5, MinValue = 0.0, MaxValue = 10.0, Group = "Risk")]
         public double MetalClusterBudgetR { get; set; }
 
+        // 2026-07-08 — same tight cluster budget for the CRYPTO factor
+        // (BTC/ETH/XRP/SOL/… move as one). The correlated-cluster diagnosis
+        // fires H10 on 3/3–4/4 of crypto losses, and live clustered crypto ran
+        // 25% WR vs 46% solo — the strongest cluster gap found. At 1.5 the 2nd
+        // correlated crypto sizes to ~50%, bounding the tail. SIZING not
+        // blocking (crypto backtest WR 76–80% — clusters win together too).
+        [Parameter("CRYPTO cluster budget (× 1 trade)", DefaultValue = 1.5, MinValue = 0.0, MaxValue = 10.0, Group = "Risk")]
+        public double CryptoClusterBudgetR { get; set; }
+
         // 2026-06-25 — widened demo from 3.0 → 5.0 so cross/exotic pairs
         // (EURNOK, XPTUSD, NZD crosses) aren't auto-skipped during normal
         // sessions. Their bid-ask spreads sit 3-5 pips on IC Markets even
@@ -1097,12 +1106,14 @@ namespace cAlgo.Robots
                     foreach (var kv in myTags)
                     {
                         var key = kv.Key + ":" + kv.Value;
-                        // METAL (gold/silver/platinum) uses a tighter cluster
-                        // budget — they're ~one bet, so the global budget lets
-                        // a 2nd correlated metal in at full size.
-                        var factorBudget = (kv.Key == "METAL" && MetalClusterBudgetR > 0)
-                                         ? MetalClusterBudgetR * singleFullRisk
-                                         : budgetPerFactor;
+                        // METAL and CRYPTO are tight correlated clusters (~one
+                        // bet each) — they get their own tighter budget so a 2nd
+                        // correlated leg sizes down rather than entering full.
+                        double factorBudget = budgetPerFactor;
+                        if (kv.Key == "METAL" && MetalClusterBudgetR > 0)
+                            factorBudget = MetalClusterBudgetR * singleFullRisk;
+                        else if (kv.Key == "CRYPTO" && CryptoClusterBudgetR > 0)
+                            factorBudget = CryptoClusterBudgetR * singleFullRisk;
                         var existing = exposure.ContainsKey(key) ? exposure[key] : 0.0;
                         var allowed  = Math.Max(0.0, factorBudget - existing);
                         var s = newTradeRisk > 0 ? allowed / newTradeRisk : 1.0;
@@ -1547,6 +1558,7 @@ namespace cAlgo.Robots
                     case "gbp": return "GBP";
                     case "xau": case "xag": case "xpt": return "METAL";
                     case "oil": return "OIL";
+                    case "crypto": return "CRYPTO";
                     default: return string.IsNullOrEmpty(c) ? null : c.ToUpperInvariant();
                 }
             };
@@ -1555,7 +1567,15 @@ namespace cAlgo.Robots
                 { "usoil",  new[]{ "oil", "usd" } }, { "wtiusd", new[]{ "oil", "usd" } },
                 { "natgas", new[]{ "oil", (string)null } },
                 { "xauusd", new[]{ "xau", "usd" } }, { "xagusd", new[]{ "xag", "usd" } },
-                { "xptusd", new[]{ "xpt", "usd" } }
+                { "xptusd", new[]{ "xpt", "usd" } },
+                // 2026-07-08 — crypto share one CRYPTO factor (BTC/ETH/XRP/SOL/…
+                // are ~one bet; H10 fires 3/3–4/4 on their losses). Without this
+                // each was its own factor, so a basket of crypto longs was
+                // completely uncapped for correlation.
+                { "btcusd", new[]{ "crypto", "usd" } }, { "ethusd", new[]{ "crypto", "usd" } },
+                { "xrpusd", new[]{ "crypto", "usd" } }, { "solusd", new[]{ "crypto", "usd" } },
+                { "nearusd", new[]{ "crypto", "usd" } }, { "suiusd", new[]{ "crypto", "usd" } },
+                { "taousd", new[]{ "crypto", "usd" } }, { "ondousd", new[]{ "crypto", "usd" } }
             };
             string baseC, quoteC;
             if (special.ContainsKey(p)) { baseC = special[p][0]; quoteC = special[p][1]; }

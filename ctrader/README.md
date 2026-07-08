@@ -75,6 +75,7 @@ Tools → Options → Expert Advisors.)
 | Risk | `MaxOpenPositions` | `5` | Counts only cBot-placed positions (by label) |
 | Risk | `FactorRiskBudgetR` | `4.0` | Max aggregate risk per correlated factor (× one full-risk trade). `0` disables |
 | Risk | `MetalClusterBudgetR` | `1.5` | Tighter cluster budget for the **METAL** factor (gold/silver/platinum ≈ one bet). At 1.5 a 2nd correlated metal sizes to ~50% (aggregate metal risk capped 1.5×) — bounds the XAU/XAG correlated drawdown WITHOUT blocking (metals ~50% WR; a block would kill winners too). `0` = use the global budget |
+| Risk | `CryptoClusterBudgetR` | `1.5` | Same tight cluster budget for the **CRYPTO** factor (BTC/ETH/XRP/SOL/… ≈ one bet). Groups all crypto under one factor (previously each was independent, so a basket of crypto longs was uncapped). H10 fired 3/3–4/4 on crypto losses; live clustered crypto 25% WR vs 46% solo. 2nd correlated crypto sizes to ~50%. `0` = use global budget |
 | Risk | `MaxSpreadPips` | `3.0` | **Legacy — no longer the spread gate.** Kept for reference; the gate is now relative (below) |
 | Risk | `MaxSpreadPctOfStop` | `0.5` | **Spread gate.** Reject only if the live spread exceeds this fraction of the stop distance. Below it, the lot sizes down (spread folded into the effective stop) so risk stays within budget — this is what admits BTC / indices that an absolute pip cap wrongly rejected. Set `2.0` to disable |
 | Risk | `MaxSignalAgeMin` | `60` | Skip triggered signals older than N minutes |
