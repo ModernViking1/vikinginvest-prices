@@ -1,0 +1,70 @@
+name: Swing Signals Feed
+
+# Generates swing-signals.json — the LIVE feed for the ISOLATED demo swing cBot
+# (separate from the intraday signals.json). Runs the validated S5+RSI and
+# H&S+macro detectors on the latest historical-ohlc.json and publishes the fresh,
+# actionable signals for the swing cBot to MARKET-execute on a demo account.
+#
+# Hourly (offset minute). Swing setups are 4H/daily so hourly is prompt enough.
+# This feed is traded ONLY by the separate swing cBot; the intraday cBot and the
+# dashboard never read it.
+
+on:
+  schedule:
+    - cron: '37 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: swing-signals-feed
+  cancel-in-progress: false
+
+jobs:
+  feed:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Guard — required files present
+        run: |
+          for f in swing_signals.py unified_shadow_harness.py historical-ohlc.json \
+                   detect_triggers.py backtest_rsi_per_class.py \
+                   hs_swing_research.py five_strategies_research.py; do
+            if [ ! -f "$f" ]; then echo "::error::$f missing from repo root"; exit 1; fi
+          done
+
+      - name: Generate swing feed
+        run: python swing_signals.py
+
+      - name: Commit + push swing-signals.json (retry on race)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- swing-signals.json; then
+            echo "no change to swing-signals.json"; exit 0
+          fi
+          git add swing-signals.json
+          git commit -m "chore: update swing signals feed [skip ci]"
+          for i in 1 2 3 4 5; do
+            if git push origin main 2>&1; then echo "pushed"; exit 0; fi
+            echo "push race, rebasing (attempt $i)"; git fetch origin main && git rebase origin/main || git rebase --abort
+            sleep $((2 ** i))
+          done
+          echo "::error::failed to push swing-signals.json after retries"; exit 1
