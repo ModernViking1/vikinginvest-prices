@@ -62,9 +62,15 @@ jobs:
           fi
           git add swing-signals.json
           git commit -m "chore: update swing signals feed [skip ci]"
+          pushed=0
           for i in 1 2 3 4 5; do
-            if git push origin main 2>&1; then echo "pushed"; exit 0; fi
+            if git push origin main 2>&1; then echo "pushed"; pushed=1; break; fi
             echo "push race, rebasing (attempt $i)"; git fetch origin main && git rebase origin/main || git rebase --abort
             sleep $((2 ** i))
           done
-          echo "::error::failed to push swing-signals.json after retries"; exit 1
+          if [ "$pushed" != "1" ]; then echo "::error::failed to push swing-signals.json after retries"; exit 1; fi
+
+      - name: Purge CDN (so the swing cBot polls fresh signals, not the edge cache)
+        run: |
+          curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/swing-signals.json" || echo "purge gh failed"
+          curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/swing-signals.json" || echo "purge npm failed"

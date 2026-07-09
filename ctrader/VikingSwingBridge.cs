@@ -171,8 +171,11 @@ namespace cAlgo.Robots
             }
 
             var direction = isBuy ? TradeType.Buy : TradeType.Sell;
+            // Comment marks the position clearly as a SwingTrade + which edge fired,
+            // shown in cTrader's Comment column (Label is already "VikingSwing").
+            var comment = $"SwingTrade | {s.Strategy} | {s.Id}";
             var result = ExecuteMarketOrder(direction, symbol.Name, volume, OrderLabel,
-                                            slPips, tpPips, "swing-" + s.Id);
+                                            slPips, tpPips, comment);
             if (result.IsSuccessful)
             {
                 var pos = result.Position;
