@@ -16,7 +16,9 @@ Pattern geometry (bearish top; inverse mirrors):
 Walk forward up to MAX_HOLD h1 bars; stop checked before target within a bar.
 """
 import json, bisect, sys
-from detect_triggers import PAIR_CLASS
+from detect_triggers import (
+    PAIR_CLASS, auto_detect_ew, AUTO_EW_MIN_CONFIDENCE, AUTO_EW_VALID_PATTERNS,
+)
 from backtest_rsi_per_class import _bars_norm, _min_prom, precompute_break_dirs
 
 HIST = '/home/user/vikinginvest-prices/historical-ohlc.json'
@@ -156,10 +158,24 @@ def main():
     for pk in [x for x in PAIR_CLASS if x in pairs]:
         h1 = _bars_norm(pairs[pk].get('h1', []))
         daily = _bars_norm(pairs[pk].get('daily', []))
+        draw = pairs[pk].get('daily', [])   # raw daily dicts for auto_detect_ew
         if len(h1) < 300 or len(daily) < 35:
             continue
         d_ts = [b['_ts'] for b in daily]
         dtrend = precompute_break_dirs(daily, 8)
+        aew_cache = {}
+        def auto_ew_at(dd):
+            if dd not in aew_cache:
+                try:
+                    r = auto_detect_ew(draw[:dd + 1])
+                    ewp = r.get('ew') if r.get('ok') else None
+                    if ewp and ewp.get('dir') in ('bull', 'bear') and ewp.get('confidence', 0) >= AUTO_EW_MIN_CONFIDENCE and ewp.get('pattern') in AUTO_EW_VALID_PATTERNS:
+                        aew_cache[dd] = ewp['dir']
+                    else:
+                        aew_cache[dd] = None
+                except Exception:
+                    aew_cache[dd] = None
+            return aew_cache[dd]
         for kind in ('bear', 'bull'):
             for tr in scan(h1, kind):
                 dd = bisect.bisect_right(d_ts, tr['ts']) - 2
@@ -168,6 +184,11 @@ def main():
                 # with-trend = daily trend agrees with trade direction
                 tdir = 'bear' if kind == 'bear' else 'bull'
                 tr['with_trend'] = (tr['dtrend'] == tdir)
+                # auto-EW / fibwave macro assertion of the swing direction
+                aew = auto_ew_at(dd)
+                tr['aew'] = aew
+                tr['aew_agree'] = (aew == tdir)      # macro wave confirms the trade
+                tr['aew_oppose'] = (aew is not None and aew != tdir)
                 # resolve for each target
                 tr['out'] = {}
                 for rr in RRS:
@@ -210,6 +231,26 @@ def main():
         k2, w2, e2 = agg([t['out'][2.0] for t in rows])
         km, wm, em = agg([t['out']['mm'] for t in rows])
         print(f"  {c:<8} {k2:>5} {w2:>6.1f}% {e2:>+8.3f} {em:>+8.3f}")
+
+    # ---- Auto-EW / fibwave macro directional filter ----
+    frac = sum(1 for t in all_trades if t['aew'] is not None) / max(1, n)
+    print(f"\nAUTO-EW / FIBWAVE MACRO FILTER  (high-conf macro read present on {100*frac:.0f}% of trades)")
+    ag = [t for t in all_trades if t['aew_agree']]
+    op = [t for t in all_trades if t['aew_oppose']]
+    block("macro CONFIRMS swing dir", ag)
+    block("macro OPPOSES swing dir", op)
+    ag.sort(key=lambda t: t['ts']); ma = len(ag) // 2
+    block("  macro-confirms · FIRST half", ag[:ma])
+    block("  macro-confirms · SECOND half", ag[ma:])
+    op.sort(key=lambda t: t['ts']); mo = len(op) // 2
+    block("  macro-OPPOSES · FIRST half", op[:mo])
+    block("  macro-OPPOSES · SECOND half", op[mo:])
+    # stack macro-confirm with the reversal (counter-daily-trend) cohort
+    both = [t for t in all_trades if t['aew_agree'] and not t['with_trend']]
+    both.sort(key=lambda t: t['ts']); mb = len(both) // 2
+    block("macro-confirms AND counter-trend", both)
+    block("  that stack · FIRST half", both[:mb])
+    block("  that stack · SECOND half", both[mb:])
 
 
 if __name__ == '__main__':
