@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-09T17:46:04.787474+00:00",
-  "generated_ms": 1783619164688,
-  "detector_last_check": "2026-07-09T17:46:04.583354+00:00",
+  "generated": "2026-07-09T17:51:23.380964+00:00",
+  "generated_ms": 1783619483273,
+  "detector_last_check": "2026-07-09T17:51:23.174809+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,10 +10,55 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 0,
-    "armed": 0,
+    "total": 2,
+    "armed": 2,
     "triggered": 0,
     "invalidated": 0
   },
-  "signals": []
+  "signals": [
+    {
+      "id": "btcusd:1783619100000:wick",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 62954.22,
+      "stop": 62500.0,
+      "target": 63408.44,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1783619100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783619483273,
+      "source": "server-detector",
+      "event_aligned": null
+    },
+    {
+      "id": "btcusd:1780440300000:fib",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 62999.81604,
+      "stop": 62500.0,
+      "target": 63499.632079999996,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780440300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783619483273,
+      "source": "server-detector",
+      "event_aligned": null
+    }
+  ]
 }
