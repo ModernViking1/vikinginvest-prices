@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-09T00:06:00.995155+00:00",
-  "generated_ms": 1783555560909,
-  "detector_last_check": "2026-07-09T00:06:00.825594+00:00",
+  "generated": "2026-07-09T00:11:35.023023+00:00",
+  "generated_ms": 1783555894926,
+  "detector_last_check": "2026-07-09T00:11:34.835122+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,34 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 1,
+    "total": 3,
     "armed": 0,
     "triggered": 1,
-    "invalidated": 0
+    "invalidated": 2
   },
   "signals": [
+    {
+      "id": "gbpusd:1783555200000:wick",
+      "pair": "gbpusd",
+      "sym": "GBPUSD",
+      "cls": "major",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": null,
+      "stop": 1.33854,
+      "target": null,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1783555200000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783555894926,
+      "source": "server-detector",
+      "event_aligned": null
+    },
     {
       "id": "dj30:1783553400000:macdp",
       "pair": "dj30",
@@ -34,9 +56,31 @@
       "cl": "neutral",
       "armedAt": 1783553400000,
       "triggeredAt": 1783553400000,
-      "lastSeenAt": 1783555560909,
+      "lastSeenAt": 1783555894926,
       "source": "server-detector",
       "event_aligned": false
+    },
+    {
+      "id": "gbpusd:1780038900000:fib",
+      "pair": "gbpusd",
+      "sym": "GBPUSD",
+      "cls": "major",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": null,
+      "stop": 1.33854,
+      "target": null,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780038900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783555894926,
+      "source": "server-detector",
+      "event_aligned": null
     }
   ]
 }
