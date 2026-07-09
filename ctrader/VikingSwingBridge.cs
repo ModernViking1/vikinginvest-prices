@@ -24,6 +24,10 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using cAlgo.API;
 using cAlgo.API.Internals;
+// cAlgo.API ships its own File / HttpMethod types that collide with the BCL ones.
+// Alias the BCL versions (same pattern as VikingInvestSignalBridge) to disambiguate.
+using IOFile = System.IO.File;
+using HttpMethod = System.Net.Http.HttpMethod;
 
 namespace cAlgo.Robots
 {
@@ -290,7 +294,7 @@ namespace cAlgo.Robots
                 F(sb, "account", (long)Account.Number);
                 sb.Append('}');
                 var line = sb.ToString();
-                File.AppendAllText(_executionsPath, line + Environment.NewLine);
+                IOFile.AppendAllText(_executionsPath, line + Environment.NewLine);
                 if (AutoPublishToRepo && !string.IsNullOrEmpty(GhPersonalAccessToken))
                     _ = DispatchAsync(line);
             }
@@ -339,20 +343,20 @@ namespace cAlgo.Robots
         // ---- dedup persistence (mirrors intraday bot) ----
         private void LoadSeenIds()
         {
-            try { if (File.Exists(_seenIdsPath)) foreach (var l in File.ReadAllLines(_seenIdsPath)) if (!string.IsNullOrWhiteSpace(l)) _seenIds.Add(l.Trim()); }
+            try { if (IOFile.Exists(_seenIdsPath)) foreach (var l in IOFile.ReadAllLines(_seenIdsPath)) if (!string.IsNullOrWhiteSpace(l)) _seenIds.Add(l.Trim()); }
             catch (Exception ex) { Print($"[VikingSwing] load seen-ids: {ex.Message}"); }
         }
         private void MarkSeen(string id)
         {
             if (_seenIds.Add(id))
-                try { File.AppendAllText(_seenIdsPath, id + Environment.NewLine); } catch { }
+                try { IOFile.AppendAllText(_seenIdsPath, id + Environment.NewLine); } catch { }
         }
         private void SaveSeenIds()
         {
             try
             {
                 var toWrite = _seenIds.Count > 5000 ? _seenIds.Skip(_seenIds.Count - 5000) : _seenIds;
-                File.WriteAllLines(_seenIdsPath, toWrite);
+                IOFile.WriteAllLines(_seenIdsPath, toWrite);
             }
             catch { }
         }
