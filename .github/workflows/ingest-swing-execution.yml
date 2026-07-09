@@ -1,0 +1,54 @@
+name: Ingest Swing cBot Execution
+
+# Receives one execution row from the ISOLATED swing cBot via repository_dispatch
+# (event type: swing-cbot-execution) and appends it to swing-executions.json.
+# Separate from the intraday ingest so the two logs never collide. The swing cBot
+# POSTs {"event_type":"swing-cbot-execution","client_payload":{"row": <row>}}.
+
+on:
+  repository_dispatch:
+    types:
+      - swing-cbot-execution
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ingest-swing-execution
+  cancel-in-progress: false
+
+jobs:
+  append:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Append + push (reset-reapply retry)
+        env:
+          PAYLOAD: ${{ toJSON(github.event.client_payload.row) }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in $(seq 1 6); do
+            git fetch origin main
+            git reset --hard origin/main
+            python3 swing_ingest.py
+            git add swing-executions.json
+            if git diff --staged --quiet; then
+              echo "No change (duplicate) — done."; exit 0
+            fi
+            EVENT=$(python3 -c "import json,os; print(json.loads(os.environ['PAYLOAD']).get('event','?'))")
+            SIGID=$(python3 -c "import json,os; print(json.loads(os.environ['PAYLOAD']).get('signal_id','?'))")
+            git commit -m "swing-cbot: $EVENT — $SIGID [skip ci]"
+            if git push origin main 2>&1; then echo "✅ appended on attempt $attempt"; exit 0; fi
+            echo "push race on attempt $attempt — re-syncing"; sleep $((attempt * 2))
+          done
+          echo "::warning::push failed after retries — VPS JSONL retains the row"
+          exit 1
+
+      - name: Purge CDN
+        run: |
+          curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/swing-executions.json" || echo "purge failed"

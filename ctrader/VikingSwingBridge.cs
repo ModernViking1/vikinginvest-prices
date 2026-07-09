@@ -48,9 +48,24 @@ namespace cAlgo.Robots
         [Parameter("Order label", DefaultValue = "VikingSwing", Group = "Execution")]
         public string OrderLabel { get; set; }
 
+        // ---- execution auto-publish (optional; local JSONL always written) ----
+        [Parameter("Auto-publish executions to repo", DefaultValue = false, Group = "Publish")]
+        public bool AutoPublishToRepo { get; set; }
+
+        [Parameter("GitHub PAT (contents:write)", DefaultValue = "", Group = "Publish")]
+        public string GhPersonalAccessToken { get; set; }
+
+        [Parameter("GitHub repo owner", DefaultValue = "ModernViking1", Group = "Publish")]
+        public string GhRepoOwner { get; set; }
+
+        [Parameter("GitHub repo name", DefaultValue = "vikinginvest-prices", Group = "Publish")]
+        public string GhRepoName { get; set; }
+
         private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         private readonly HashSet<string> _seenIds = new HashSet<string>();
+        private readonly Dictionary<long, string> _positionIdToSignalId = new Dictionary<long, string>();
         private string _seenIdsPath;
+        private string _executionsPath;
         private bool _busy;
 
         protected override void OnStart()
@@ -59,14 +74,16 @@ namespace cAlgo.Robots
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "VikingSwing");
             try { System.IO.Directory.CreateDirectory(dir); } catch { }
             _seenIdsPath = System.IO.Path.Combine(dir, "swing_seen_ids.txt");
+            _executionsPath = System.IO.Path.Combine(dir, "swing-executions.jsonl");
             LoadSeenIds();
-            Print($"[VikingSwing] started. acct={Account.Number} live={Account.IsLive} seen={_seenIds.Count} risk={RiskPct}%");
+            Positions.Closed += OnPositionClosed;
+            Print($"[VikingSwing] started. acct={Account.Number} live={Account.IsLive} seen={_seenIds.Count} risk={RiskPct}% publish={AutoPublishToRepo}");
             if (Account.IsLive)
                 Print("⚠️ [VikingSwing] LIVE account detected — this bot is intended for DEMO forward-testing.");
             Timer.Start(PollSeconds);
         }
 
-        protected override void OnStop() { SaveSeenIds(); }
+        protected override void OnStop() { Positions.Closed -= OnPositionClosed; SaveSeenIds(); }
 
         protected override void OnTimer()
         {
@@ -168,6 +185,9 @@ namespace cAlgo.Robots
                 }
                 Print($"✅ [VikingSwing] {direction} {symbol.Name} {volume:F0}u @~{pos.EntryPrice:F5} " +
                       $"SL={pos.StopLoss:F5} TPpips={tpPips:F1} strat={s.Strategy} id={s.Id} pid={pos.Id}");
+                _positionIdToSignalId[pos.Id] = s.Id;
+                WriteExec("placed", s.Id, pos.Id, symbol.Name, s.Dir, pos.VolumeInUnits,
+                          pos.EntryPrice, 0, pos.StopLoss ?? s.Stop, pos.TakeProfit ?? 0, 0, 0, 0, 0, "placed");
             }
             else
             {
@@ -199,6 +219,115 @@ namespace cAlgo.Robots
             if (volume < symbol.VolumeInUnitsMin) return 0;
             if (volume > symbol.VolumeInUnitsMax) volume = symbol.VolumeInUnitsMax;
             return (long)volume;
+        }
+
+        // ---- execution logging (mirrors intraday bot: realizedR = NetProfit/riskAmt) ----
+        private void OnPositionClosed(PositionClosedEventArgs args)
+        {
+            var p = args.Position;
+            if (p == null || p.Label != OrderLabel) return;   // not one of ours
+            string sigId = null;
+            _positionIdToSignalId.TryGetValue(p.Id, out sigId);
+
+            double realizedR = 0;
+            try
+            {
+                double stopDistPx = (p.StopLoss.HasValue && p.EntryPrice > 0) ? Math.Abs(p.EntryPrice - p.StopLoss.Value) : 0;
+                if (stopDistPx > 0 && p.Symbol.PipSize > 0 && p.Symbol.PipValue > 0)
+                {
+                    var stopPips = stopDistPx / p.Symbol.PipSize;
+                    var riskAmt = stopPips * p.Symbol.PipValue * p.VolumeInUnits;
+                    if (riskAmt > 0) realizedR = p.NetProfit / riskAmt;
+                }
+            }
+            catch { }
+
+            string reason;
+            try
+            {
+                var exit = p.Symbol?.Bid ?? p.EntryPrice; var tol = (p.Symbol?.PipSize ?? 0) * 2;
+                bool buy = p.TradeType == TradeType.Buy;
+                if (p.TakeProfit.HasValue && ((buy && exit >= p.TakeProfit.Value - tol) || (!buy && exit <= p.TakeProfit.Value + tol))) reason = "target-hit";
+                else if (p.StopLoss.HasValue && ((buy && exit <= p.StopLoss.Value + tol) || (!buy && exit >= p.StopLoss.Value - tol))) reason = "stop-hit";
+                else reason = "manual-or-broker";
+            }
+            catch { reason = "manual-or-broker"; }
+
+            WriteExec("closed", sigId, p.Id, p.SymbolName, p.TradeType == TradeType.Buy ? "bull" : "bear",
+                      p.VolumeInUnits, p.EntryPrice, p.Symbol?.Bid ?? 0, p.StopLoss ?? 0, p.TakeProfit ?? 0,
+                      p.NetProfit, p.Commissions, p.Swap, realizedR, reason);
+            if (sigId != null) _positionIdToSignalId.Remove(p.Id);
+            Print($"📒 [VikingSwing] closed {p.SymbolName} {p.TradeType} net={p.NetProfit:F2} R={realizedR:F2} reason={reason} id={sigId ?? "(unlinked)"}");
+        }
+
+        private void WriteExec(string ev, string sigId, long posId, string symbol, string dir, double vol,
+                               double entry, double exit, double stop, double target,
+                               double net, double comm, double swap, double realizedR, string reason)
+        {
+            long tsMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            try
+            {
+                var sb = new System.Text.StringBuilder(320);
+                sb.Append('{');
+                F(sb, "ts", tsMs); sb.Append(',');
+                F(sb, "event", ev); sb.Append(',');
+                F(sb, "signal_id", sigId); sb.Append(',');
+                F(sb, "position_id", posId); sb.Append(',');
+                F(sb, "pair", sigId != null && sigId.Contains(":") ? sigId.Split(':')[1] : symbol.ToLowerInvariant()); sb.Append(',');
+                F(sb, "symbol", symbol); sb.Append(',');
+                F(sb, "dir", dir); sb.Append(',');
+                F(sb, "volume_units", vol); sb.Append(',');
+                F(sb, "entry_filled", entry); sb.Append(',');
+                F(sb, "exit_price", exit); sb.Append(',');
+                F(sb, "stop", stop); sb.Append(',');
+                F(sb, "target", target); sb.Append(',');
+                F(sb, "net_profit", net); sb.Append(',');
+                F(sb, "commissions", comm); sb.Append(',');
+                F(sb, "swap", swap); sb.Append(',');
+                F(sb, "realized_r", realizedR); sb.Append(',');
+                F(sb, "reason", reason); sb.Append(',');
+                F(sb, "account_mode", Account.IsLive ? "live" : "demo"); sb.Append(',');
+                F(sb, "account", (long)Account.Number);
+                sb.Append('}');
+                var line = sb.ToString();
+                File.AppendAllText(_executionsPath, line + Environment.NewLine);
+                if (AutoPublishToRepo && !string.IsNullOrEmpty(GhPersonalAccessToken))
+                    _ = DispatchAsync(line);
+            }
+            catch (Exception ex) { Print($"[VikingSwing] write execution failed: {ex.Message}"); }
+        }
+
+        private async Task DispatchAsync(string jsonLine)
+        {
+            try
+            {
+                var url = $"https://api.github.com/repos/{GhRepoOwner}/{GhRepoName}/dispatches";
+                var body = "{\"event_type\":\"swing-cbot-execution\",\"client_payload\":{\"row\":" + jsonLine + "}}";
+                using var req = new HttpRequestMessage(HttpMethod.Post, url);
+                req.Headers.Add("Accept", "application/vnd.github+json");
+                req.Headers.Add("User-Agent", "VikingSwing-cTrader-Bot/1.0");
+                req.Headers.Add("Authorization", $"Bearer {GhPersonalAccessToken}");
+                req.Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
+                var resp = await _http.SendAsync(req);
+                if ((int)resp.StatusCode != 204)
+                    Print($"[VikingSwing] dispatch returned {(int)resp.StatusCode} (local JSONL still recorded)");
+            }
+            catch (Exception ex) { Print($"[VikingSwing] dispatch failed (non-fatal): {ex.Message}"); }
+        }
+
+        private static void F(System.Text.StringBuilder sb, string k, string v)
+        {
+            sb.Append('"').Append(k).Append("\":");
+            if (v == null) sb.Append("null");
+            else sb.Append('"').Append(v.Replace("\\", "\\\\").Replace("\"", "\\\"")).Append('"');
+        }
+        private static void F(System.Text.StringBuilder sb, string k, double v)
+        {
+            sb.Append('"').Append(k).Append("\":").Append(v.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+        }
+        private static void F(System.Text.StringBuilder sb, string k, long v)
+        {
+            sb.Append('"').Append(k).Append("\":").Append(v.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
 
         private static string CacheBust(string url)
