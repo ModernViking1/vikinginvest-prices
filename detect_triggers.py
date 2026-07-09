@@ -2059,16 +2059,25 @@ EW_DISAGREE_VETO = True
 H4_TOD_FILTER = True
 H4_SKIP_HOURS_UTC = {7, 8, 9, 21}
 
-# 2026-06-29 — DEGENERATE-STOP FLOOR, hoisted to a module constant and
-# raised 3 bps → 5 bps. In a tight 15m range the macdp/divg structural
-# stop can collapse to ~1 pip (the AUDNZD 1.22030/1.22020 case), which
-# is untradeable after a 2-4 pip spread and dangerous downstream
-# (sizing explosion + dropped broker stop). 5 bps ≈ 6 pips on a 1.2000
-# cross / 5.4 pips on a 1.0800 major — comfortably above typical spread.
-# Applied to BOTH macdp and divg detectors. The cBot's MinStopPips
-# (absolute pips, broker-side) is the independent hard floor; this keeps
-# degenerate signals out of the feed + Telegram in the first place.
-MIN_STOP_REL = 0.0005
+# 2026-06-29 — DEGENERATE-STOP FLOOR, hoisted to a module constant.
+# In a tight 15m range the structural stop can collapse to ~1 pip (the
+# AUDNZD 1.22030/1.22020 case), which is untradeable after a 2-4 pip spread
+# and dangerous downstream (sizing explosion + dropped broker stop). Applied
+# to the macd-primary structural stop. The cBot's MinStopPips (absolute pips,
+# broker-side) is the independent hard floor; this keeps degenerate signals
+# out of the feed + Telegram in the first place.
+#
+# 2026-07-09 — RAISED 5 bps → 15 bps as a COST-PER-R floor. This is no longer
+# just a degenerate-stop guard. Live executions show trade cost is roughly
+# FIXED IN PRICE (spread + commission + stop slippage ≈ 0.0045%/0.0105% of
+# price on winners/losers), so cost-as-a-fraction-of-R falls as the stop
+# widens — small-R trades bled 0.15-0.26R to cost vs 0.06-0.10R on wide-R
+# trades. On the 4/4 comm/crypto cohort a ~0.15% min stop lifts net
+# expectancy from ~+0.064R (no floor) toward ~+0.074R while keeping ~97% of
+# volume; the sweet spot flattens past ~0.20%. 15 bps sits just inside that
+# knee. Non-FX (comm/crypto/index) use this relative floor; FX keeps the
+# absolute pip floor below (and FX is shadow-only now anyway).
+MIN_STOP_REL = 0.0015
 
 # 2026-06-30 — FX needs an ABSOLUTE pip floor, not the relative one.
 # A relative price floor under-protects low-priced pairs: NZDCHF at
@@ -2192,55 +2201,28 @@ def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
         except (ValueError, IndexError):
             pass
     # Class-specific deploy gate
-    # 2026-06-20n — MINOR promoted to LIVE. The macd-expansion test
-    # showed macd-primary on MINORs at 75-81% WR / +0.50 to +0.62R EV
-    # across all confluence buckets — actually better per-trade than
-    # INDEX. Conservative gate matches INDEX (skip the 0/4 contrarian
-    # bucket for safety, even though MINOR 0/4 also showed +0.53R in
-    # the test, we want production behaviour to mirror INDEX until
-    # we have live-trading confirmation).
-    # 2026-06-20o — MAJOR promoted to LIVE (primary only). Test showed
-    # all 7 MAJOR pairs 72.8-80% WR / +0.46-0.60R EV at conf 0-3, but
-    # the 4/4 cell collapsed to 47.6% / -0.05R on n=21 (small but
-    # sharp cliff). MAJOR-specific gate: conf 1-3 (skip 0/4 contrarian
-    # AND the 4/4 cliff). MACD-divergence on MAJOR deferred — primary
-    # alone keeps alert volume manageable while still capturing the
-    # cleanest edge.
-    # 2026-06-21h — COMM + CRYPTO promoted to LIVE. The macd-expansion
-    # test (now extended to all 5 classes) confirmed positive EV across
-    # conservative buckets:
-    #   COMM   macd-primary conf 1-3: ~628 trades, +0.51R EV/trade
-    #   CRYPTO macd-primary conf 1-4: ~1,312 trades, +0.52R EV/trade
-    # COMM gets the MAJOR-style gate (skip 0/4 contrarian AND the
-    # 4/4 cliff — the 4/4 bucket is small-sample and decayed in the
-    # test). CRYPTO gets the INDEX-style gate (full 1-4 range, no
-    # 4/4 cliff observed; 4/4 bucket actually held up at ~78% WR).
-    # Divergence on COMM + CRYPTO deferred to keep alert volume
-    # manageable while validating primary live.
-    if pair_class in ('major', 'comm'):
-        if confluence < 1 or confluence > 3:
-            return None  # 0/4 contrarian + 4/4 cliff both skipped
+    # 2026-07-09 — 4/4 GATE + class routing (see RULES_VERSION_NOTES).
+    # SUPERSEDES the 2026-06 conf 1-3 expansion below. The live-vs-backtest
+    # reconciliation showed that expansion was the live loss driver: replaying
+    # the actual live entries reproduced ~41% under the backtest's own outcome
+    # model, and once a REALISTIC limit fill is modelled the macd-primary edge
+    # collapses to ~50% at conf 1-3. The old 77-80% headline was an entry-fill
+    # artifact — the backtest filled at the signal bar's best tick (its low on
+    # a bull / high on a bear) without the limit ever having to fill. Only the
+    # FULL-4/4 cohort clears cost under a realistic fill (+0.05R gross), and
+    # only on comm + crypto; index/major 4/4 stay net-negative even in the
+    # honest backtest and the minor 4/4 sample is too thin to trust. So:
+    # require full 4/4 confluence, route comm + crypto LIVE, and send
+    # index/major/minor to the shadow log for forward-confirmation before
+    # risking size. (Prior per-class notes preserved in git history.)
+    if confluence != 4:
+        return None
+    if pair_class in ('comm', 'crypto'):
         state = 'triggered'
         shadow = False
-    elif pair_class == 'minor':
-        # 2026-07-01 — H7 reverted (conf>=2 -> conf>=1). The confluence-2
-        # tightening was found to remove a net-WINNING confluence-1 cohort
-        # (bucket replay: conf-1 minors ~57% WR, better than the conf-2
-        # bucket H7 kept). The real minor loss driver is directional, not
-        # confluence-count — now handled by the EW-disagreement veto above,
-        # which strips the sub-50% counter-EW trades while retaining the
-        # good conf-1 signals. Head-to-head: veto (conf>=1) beat H7 on both
-        # net-R and trade-count. Gate returns to the INDEX baseline (skip
-        # only the fully-contrarian 0/4 bucket).
-        if confluence < 1:
-            return None
-        state = 'triggered'
-        shadow = False
-    elif pair_class in ('index', 'crypto'):
-        if confluence < 1:
-            return None  # skip fully contrarian (matches INDEX gate)
-        state = 'triggered'
-        shadow = False
+    elif pair_class in ('index', 'major', 'minor'):
+        state = 'shadow-triggered'
+        shadow = True
     else:
         return None
     # Structural entry / stop / target
@@ -2306,6 +2288,18 @@ def detect_macd_divergence(bars, ew_dir, tl_dir, nw_dir, cl_dir,
     across confluence 1-3 (mirror of INDEX deploy gate). Same
     confluence window (skip 0/4 and 4/4) for safety.
     """
+    # 2026-07-09 — RETIRED. Divergence was INDEX-only and deployed at
+    # confluence 1-3 (it structurally skips 4/4 — full alignment fights a
+    # divergence). That non-4/4, index-only cohort is exactly the expansion the
+    # live-vs-backtest reconciliation flagged as unprofitable once a realistic
+    # fill is modelled, and index is now shadow-only for macd-primary anyway.
+    # Gating divergence "to 4/4" would leave it with nothing to fire on, so we
+    # retire the live path outright rather than keep a dead branch. Kept as a
+    # no-op (not deleted) so the scan_pairs wiring and the divg_* fields in the
+    # signal envelope stay intact and it can be re-enabled if a 4/4-compatible
+    # divergence variant is designed later.
+    return None
+    # --- unreachable (retired) ---
     # 2026-06-21c — MINOR rolled back; INDEX-only at production.
     # See call-site comment for rationale.
     if pair_class != 'index':

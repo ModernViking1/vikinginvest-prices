@@ -40,6 +40,17 @@ SCHEMA_VERSION = 2  # bumped 2026-06-14 — adds kill_switch field to envelope
 WICK_CLASSES = {"major", "minor", "crypto"}
 FIB_CLASSES = {"comm", "index"}
 
+# 2026-07-09 — LIVE-CLASS gate. Only comm + crypto route to signals.json (the
+# cBot's trade feed). The live-vs-backtest reconciliation showed the headline
+# edge was an entry-fill artifact; under a realistic limit fill only the full
+# 4/4 cohort clears cost, and only on comm + crypto (index/major 4/4 stay
+# net-negative in the honest backtest, minor sample too thin). The macd-primary
+# detector already sends index/major/minor to the shadow log; this gate applies
+# the same policy to the structural wick/fib signals so nothing outside
+# comm/crypto reaches the broker while we forward-confirm the cohort live. The
+# other classes still appear in directions.json / the dashboard for tracking.
+LIVE_CLASSES = {"comm", "crypto"}
+
 # Per-pair classification mirrors MKTS[k].t in the dashboard. Extracted
 # from Viking_Invest_Trading_v69.html so the EA's risk sizing matches
 # what the backtest engine computes. Kept inline (not imported) so this
@@ -178,6 +189,13 @@ def _signal_row(pair: str, info: dict, kind: str, now_ms: int) -> dict | None:
     cls = _classify(pair)
     if cls is None:
         # Pair not in our broker universe — skip silently.
+        return None
+    # 2026-07-09 — LIVE-CLASS gate: only comm + crypto trade live. Everything
+    # else (FX majors/minors, indices) is observation-only until the 4/4
+    # cohort is live-confirmed. macdp index/major/minor are already dropped
+    # above via the shadow flag; this also stops their structural wick/fib
+    # signals from reaching the cBot.
+    if cls not in LIVE_CLASSES:
         return None
     # MACD-primary + MACD-divergence sizing:
     # 2026-06-22 — macdp now fires on MAJOR/MINOR/CRYPTO too, not just
