@@ -1393,6 +1393,88 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
        (see dashboard-backtest-ui.js); auto-refreshes on every CDN poll. ── -->
   <div id="failureModeAnalysisLive" style="background:rgba(13,90,54,0.04);border:1px solid rgba(13,90,54,0.20);border-radius:4px;padding:10px 12px;margin-bottom:10px;font-family:'Orbitron',monospace;font-size:9px;"></div>
 
+  <!-- ── SWING FORWARD-TEST — LIVE (demo) vs MODEL (2026-07-10). Fully
+       self-contained + defensive: its own fetch of swing-executions.json
+       (demo cBot fills) + swing-shadow-log.json (modelled outcomes), its
+       own render wrapped in try/catch, its own poll interval. Cannot touch
+       any existing panel. Tracks the H&S+macro / S5-RSI swing edges kept
+       running SEPARATELY from the intraday cBot. The headline number is the
+       EXECUTION GAP: demo realised-R vs the shadow model on the same
+       signals — the thing that told us intraday didn't survive execution. ── -->
+  <div id="swingTestPanel" style="background:rgba(30,64,140,0.04);border:1px solid rgba(30,64,140,0.22);border-radius:4px;padding:10px 12px;margin-bottom:10px;font-family:'Orbitron',monospace;font-size:9px;">
+    <span style="color:#1e408c;letter-spacing:0.5px;">🏹 SWING FORWARD-TEST · loading…</span>
+  </div>
+  <script>
+  (function(){
+    var BASE = 'https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/';
+    var _shadow = null, _shadowAt = 0;
+    function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+    function agg(rs){ var n=rs.length,w=0,s=0; for(var i=0;i<n;i++){ if(rs[i]>0)w++; s+=rs[i]; } return {n:n, wr:n?100*w/n:0, exp:n?s/n:0, tot:s}; }
+    function render(exec, shadow){
+      var host = document.getElementById('swingTestPanel'); if(!host) return;
+      try {
+        var execs = (exec && exec.executions) || [];
+        var sigs = (shadow && shadow.signals) || {};
+        // demo
+        var closed = execs.filter(function(e){return e.event==='closed' && typeof e.realized_r==='number';});
+        var placed = execs.filter(function(e){return e.event==='placed';});
+        var openN = Math.max(0, placed.length - closed.length);
+        var demoAll = agg(closed.map(function(e){return e.realized_r;}));
+        // model (shadow resolved)
+        var res = [], byStratM = {};
+        Object.keys(sigs).forEach(function(k){ var s=sigs[k]; if(s.status==='resolved' && typeof s.r==='number'){ res.push(s.r); var st=k.split(':')[0]; (byStratM[st]=byStratM[st]||[]).push(s.r); } });
+        var modelAll = agg(res);
+        // execution gap: demo closed matched to a resolved shadow signal
+        var gapM=[], gapD=[], byStratD={};
+        closed.forEach(function(e){
+          var id=e.signal_id||''; var st=id.split(':')[0]; (byStratD[st]=byStratD[st]||[]).push(e.realized_r);
+          var sh=sigs[id]; if(sh && sh.status==='resolved' && typeof sh.r==='number'){ gapM.push(sh.r); gapD.push(e.realized_r); }
+        });
+        // per pair (demo closed)
+        var byPair={}; closed.forEach(function(e){ var p=(e.pair||'?').toUpperCase(); (byPair[p]=byPair[p]||[]).push(e.realized_r); });
+        var C={blue:'#1e408c',g:'#0d5a36',r:'#c0281a',ink:'#556',mut:'#889'};
+        var h='';
+        h+='<div style="color:'+C.blue+';font-weight:700;letter-spacing:0.5px;margin-bottom:6px;">🏹 SWING FORWARD-TEST · demo vs model <span style="color:'+C.mut+';font-weight:400;">(separate from intraday)</span></div>';
+        h+='<div style="color:'+C.ink+';margin-bottom:4px;">DEMO: <b>'+placed.length+'</b> placed · <b>'+closed.length+'</b> closed · '+openN+' open · realised <b style="color:'+(demoAll.tot>=0?C.g:C.r)+'">'+(demoAll.tot>=0?'+':'')+demoAll.tot.toFixed(2)+'R</b>'+(closed.length?' · WR '+demoAll.wr.toFixed(0)+'%':'')+'</div>';
+        h+='<div style="color:'+C.ink+';margin-bottom:6px;">MODEL (shadow): <b>'+modelAll.n+'</b> resolved · WR '+modelAll.wr.toFixed(0)+'% · exp '+(modelAll.exp>=0?'+':'')+modelAll.exp.toFixed(3)+'R</div>';
+        if(gapD.length){
+          var mm=agg(gapM), dd=agg(gapD), gap=mm.exp-dd.exp;
+          h+='<div style="background:rgba(30,64,140,0.06);border-radius:3px;padding:6px 8px;margin-bottom:6px;">EXECUTION GAP (matched n='+gapD.length+'): model <b>'+(mm.exp>=0?'+':'')+mm.exp.toFixed(3)+'R</b> vs demo <b style="color:'+(dd.exp>=0?C.g:C.r)+'">'+(dd.exp>=0?'+':'')+dd.exp.toFixed(3)+'R</b> → gap <b style="color:'+(gap<=0.1?C.g:C.r)+'">'+(gap>=0?'+':'')+gap.toFixed(3)+'R</b>/trade</div>';
+        } else {
+          h+='<div style="color:'+C.mut+';margin-bottom:6px;">Execution gap pending — needs demo trades to CLOSE (they resolve on target/stop over hours–days).</div>';
+        }
+        // per strategy
+        var strats=['hs','s5_rsi','s5_engulf'];
+        h+='<table style="width:100%;border-collapse:collapse;font-size:8.5px;"><tr style="color:'+C.mut+';text-align:left;"><th>strategy</th><th>demo n</th><th>demo WR</th><th>demo R</th><th>model WR</th><th>model exp</th></tr>';
+        strats.forEach(function(st){
+          var d=byStratD[st]?agg(byStratD[st]):null, m=byStratM[st]?agg(byStratM[st]):null;
+          if(!d && !m) return;
+          h+='<tr><td>'+esc(st)+'</td><td>'+(d?d.n:0)+'</td><td>'+(d&&d.n?d.wr.toFixed(0)+'%':'–')+'</td><td style="color:'+(d&&d.tot>=0?C.g:C.r)+'">'+(d&&d.n?(d.tot>=0?'+':'')+d.tot.toFixed(2)+'R':'–')+'</td><td>'+(m&&m.n?m.wr.toFixed(0)+'%':'–')+'</td><td>'+(m&&m.n?(m.exp>=0?'+':'')+m.exp.toFixed(3):'–')+'</td></tr>';
+        });
+        h+='</table>';
+        // per pair (demo)
+        var pk=Object.keys(byPair);
+        if(pk.length){
+          h+='<div style="color:'+C.mut+';margin:6px 0 2px;">demo closed · per pair:</div><table style="width:100%;border-collapse:collapse;font-size:8.5px;">';
+          pk.sort(function(a,b){return byPair[b].length-byPair[a].length;}).forEach(function(p){ var a=agg(byPair[p]); h+='<tr><td>'+esc(p)+'</td><td>'+a.n+'</td><td>'+a.wr.toFixed(0)+'%</td><td style="color:'+(a.tot>=0?C.g:C.r)+'">'+(a.tot>=0?'+':'')+a.tot.toFixed(2)+'R</td></tr>'; });
+          h+='</table>';
+        }
+        h+='<div style="color:'+C.mut+';margin-top:6px;font-size:8px;">DEMO = real cBot fills (spread/slippage/swap). MODEL = idealised shadow (next-bar fill). Small samples until closes accrue.</div>';
+        host.innerHTML=h;
+      } catch(e){ host.innerHTML='<span style="color:#889;">🏹 SWING FORWARD-TEST · (render error, non-fatal)</span>'; }
+    }
+    function load(){
+      fetch(BASE+'swing-executions.json?t='+Date.now()).then(function(r){return r.json();}).then(function(exec){
+        var now=Date.now();
+        if(_shadow && (now-_shadowAt)<600000){ render(exec,_shadow); return; }
+        fetch(BASE+'swing-shadow-log.json?t='+Date.now()).then(function(r){return r.json();}).then(function(sh){ _shadow=sh; _shadowAt=now; render(exec,sh); }).catch(function(){ render(exec,_shadow||{signals:{}}); });
+      }).catch(function(){});
+    }
+    function boot(){ try{ load(); setInterval(load,60000);}catch(e){} }
+    if(document.readyState!=='loading') boot(); else document.addEventListener('DOMContentLoaded', boot);
+  })();
+  </script>
+
   <!-- ── Test harnesses (MACD / NOWICK / RSI test buttons + force re-run)
        moved to a collapsed accordion below the failure-mode panel
        (2026-06-21k) — see the <details> block near the bottom of
