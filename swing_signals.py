@@ -23,10 +23,11 @@ from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
 from unified_shadow_harness import detect_hs, detect_s5
 
-HIST = '/home/user/vikinginvest-prices/historical-ohlc.json'
-OUT = '/home/user/vikinginvest-prices/swing-signals.json'
-FRESH_HOURS = 12          # emit signals whose entry bar is within this of the data edge
-EXPIRY_HOURS = 8          # a fresh signal is valid to fill for this long
+_HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
+HIST = os.path.join(_HERE, 'historical-ohlc.json')
+OUT = os.path.join(_HERE, 'swing-signals.json')
+FRESH_HOURS = 24          # look-back window for emitting signals (>= data latency + feed interval)
+EXPIRY_HOURS = 12         # a signal is valid to fill for this long after its bar (tolerates data-publish lag)
 RR = 2.0
 R_PCT = 1.0               # % of demo balance risked per swing trade
 # Validated class scope: S5-rsi positive on all classes; H&S weak on minor.

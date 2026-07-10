@@ -17,8 +17,9 @@ from backtest_rsi_per_class import _bars_norm, precompute_rsi
 from hs_swing_research import scan as hs_scan, MAX_HOLD as HS_HOLD
 from five_strategies_research import ema, atr, adx, agg4h, weekly, is_engulf, HOLD
 
-HIST = '/home/user/vikinginvest-prices/historical-ohlc.json'
-LOG = '/home/user/vikinginvest-prices/swing-shadow-log.json'
+_HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
+HIST = os.path.join(_HERE, 'historical-ohlc.json')
+LOG = os.path.join(_HERE, 'swing-shadow-log.json')
 WIN_COST_PCT, LOSS_COST_PCT = 0.0045 / 100, 0.0105 / 100
 RR = 2.0
 
