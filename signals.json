@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-11T13:31:44.554399+00:00",
-  "generated_ms": 1783776704478,
-  "detector_last_check": "2026-07-11T13:31:44.395765+00:00",
+  "generated": "2026-07-11T13:35:49.943505+00:00",
+  "generated_ms": 1783776949845,
+  "detector_last_check": "2026-07-11T13:35:49.750256+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,10 +10,55 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 0,
-    "armed": 0,
+    "total": 2,
+    "armed": 2,
     "triggered": 0,
     "invalidated": 0
   },
-  "signals": []
+  "signals": [
+    {
+      "id": "ethusd:1783776600000:wick",
+      "pair": "ethusd",
+      "sym": "ETHUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 1800.23,
+      "stop": 1793.4,
+      "target": 1807.06,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1783776600000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783776949845,
+      "source": "server-detector",
+      "event_aligned": null
+    },
+    {
+      "id": "ethusd:1780287300000:fib",
+      "pair": "ethusd",
+      "sym": "ETHUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 1804.75376,
+      "stop": 1793.4,
+      "target": 1816.10752,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780287300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783776949845,
+      "source": "server-detector",
+      "event_aligned": null
+    }
+  ]
 }
