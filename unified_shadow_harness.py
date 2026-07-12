@@ -77,6 +77,47 @@ def detect_s5(pk, h1, daily, trigger):
     return out
 
 
+def detect_ob(pk, h1, daily):
+    """Bonus #7 — Order Blocks (SMC), DAILY only (4H fails validation). Last
+    opposite-colour candle before a break-of-structure impulse; entry on
+    retrace-into-zone confirmation, stop beyond the zone (RR2 via the harness)."""
+    bars = daily; BOS_LB, OB_SCAN, MITIG_WIN = 10, 6, 40
+    n = len(bars); out = []; last = -1
+    for i in range(BOS_LB + OB_SCAN, n - 1):
+        if i <= last: continue
+        prior = bars[i-BOS_LB:i]
+        phi = max(b['h'] for b in prior); plo = min(b['l'] for b in prior)
+        if bars[i]['c'] > phi:
+            ob = None
+            for k in range(i-1, max(-1, i-1-OB_SCAN), -1):
+                if bars[k]['c'] < bars[k]['o']: ob = k; break
+            if ob is None: continue
+            zlo, zhi = bars[ob]['l'], bars[ob]['h']
+            if zhi <= zlo: continue
+            buf = 0.05*(zhi-zlo)
+            for j in range(i+1, min(i+1+MITIG_WIN, n-1)):
+                if bars[j]['l'] <= zhi and bars[j]['c'] > zlo and bars[j]['c'] > bars[j]['o']:
+                    entry, stop = bars[j+1]['o'], zlo-buf
+                    if stop < entry:
+                        out.append({'strategy':'ob','tf':'daily','pair':pk,'dir':'bull','entry_ts':bars[j+1]['_ts'],'entry':entry,'stop':stop})
+                    last = j+1; break
+        elif bars[i]['c'] < plo:
+            ob = None
+            for k in range(i-1, max(-1, i-1-OB_SCAN), -1):
+                if bars[k]['c'] > bars[k]['o']: ob = k; break
+            if ob is None: continue
+            zlo, zhi = bars[ob]['l'], bars[ob]['h']
+            if zhi <= zlo: continue
+            buf = 0.05*(zhi-zlo)
+            for j in range(i+1, min(i+1+MITIG_WIN, n-1)):
+                if bars[j]['h'] >= zlo and bars[j]['c'] < zhi and bars[j]['c'] < bars[j]['o']:
+                    entry, stop = bars[j+1]['o'], zhi+buf
+                    if stop > entry:
+                        out.append({'strategy':'ob','tf':'daily','pair':pk,'dir':'bear','entry_ts':bars[j+1]['_ts'],'entry':entry,'stop':stop})
+                    last = j+1; break
+    return out
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -112,15 +153,17 @@ def main():
         draw = pairs[pk].get('daily', [])
         if len(h1) < 400 or len(daily) < 80: continue
         b4 = agg4h(h1); data_end = max(data_end, h1[-1]['_ts'])
-        found = detect_hs(pk, h1, daily, draw) + detect_s5(pk, h1, daily, 'engulf') + detect_s5(pk, h1, daily, 'rsi')
+        found = (detect_hs(pk, h1, daily, draw) + detect_s5(pk, h1, daily, 'engulf')
+                 + detect_s5(pk, h1, daily, 'rsi') + detect_ob(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
             if k not in sigs:
                 s['first_seen'] = data_end; s['status'] = 'pending'; sigs[k] = s
             rec = sigs[k]
-            bars = h1 if rec['tf'] == 'h1' else b4
-            hold = HS_HOLD if rec['tf'] == 'h1' else HOLD['4h']
+            tf = rec['tf']
+            bars = h1 if tf == 'h1' else (b4 if tf == '4h' else daily)
+            hold = HS_HOLD if tf == 'h1' else (HOLD['4h'] if tf == '4h' else 20)
             st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
             if st == 'resolved':
@@ -136,7 +179,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             if sub:

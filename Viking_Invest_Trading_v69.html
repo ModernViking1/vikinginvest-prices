@@ -1444,7 +1444,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
           h+='<div style="color:'+C.mut+';margin-bottom:6px;">Execution gap pending — needs demo trades to CLOSE (they resolve on target/stop over hours–days).</div>';
         }
         // per strategy
-        var strats=['hs','s5_rsi','s5_engulf'];
+        var strats=['hs','s5_rsi','s5_engulf','ob'];
         h+='<table style="width:100%;border-collapse:collapse;font-size:8.5px;"><tr style="color:'+C.mut+';text-align:left;"><th>strategy</th><th>demo n</th><th>demo WR</th><th>demo R</th><th>model WR</th><th>model exp</th></tr>';
         strats.forEach(function(st){
           var d=byStratD[st]?agg(byStratD[st]):null, m=byStratM[st]?agg(byStratM[st]):null;
