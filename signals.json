@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-13T15:43:00.870984+00:00",
-  "generated_ms": 1783957380773,
-  "detector_last_check": "2026-07-13T15:43:00.670331+00:00",
+  "generated": "2026-07-13T15:46:02.671404+00:00",
+  "generated_ms": 1783957562569,
+  "detector_last_check": "2026-07-13T15:46:02.462731+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,9 +10,9 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
-    "armed": 0,
-    "triggered": 0,
+    "total": 4,
+    "armed": 1,
+    "triggered": 1,
     "invalidated": 2
   },
   "signals": [
@@ -34,7 +34,51 @@
       "cl": "bear",
       "armedAt": 1783952100000,
       "triggeredAt": null,
-      "lastSeenAt": 1783957380773,
+      "lastSeenAt": 1783957562569,
+      "source": "server-detector",
+      "event_aligned": null
+    },
+    {
+      "id": "xagusd:1783950300000:wick",
+      "pair": "xagusd",
+      "sym": "XAGUSD",
+      "cls": "comm",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 58.3915,
+      "stop": 58.995,
+      "target": 57.788000000000004,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1783950300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1783957562569,
+      "source": "server-detector",
+      "event_aligned": null
+    },
+    {
+      "id": "xagusd:1783950300000:fib",
+      "pair": "xagusd",
+      "sym": "XAGUSD",
+      "cls": "comm",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 58.176436,
+      "stop": 58.995,
+      "target": 57.35787200000001,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1783950300000,
+      "triggeredAt": 1783952100000,
+      "lastSeenAt": 1783957562569,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -56,7 +100,7 @@
       "cl": "bear",
       "armedAt": 1783911600000,
       "triggeredAt": null,
-      "lastSeenAt": 1783957380773,
+      "lastSeenAt": 1783957562569,
       "source": "server-detector",
       "event_aligned": null
     }
