@@ -118,6 +118,97 @@ def detect_ob(pk, h1, daily):
     return out
 
 
+TL_PIVOT_L = 3
+TL_RETEST_WIN = 12
+TL_COOLDOWN = 8
+TL_BODY_MIN = 0.65
+TL_REJ_MAX = 0.20
+TL_ATR_BUF = 0.25
+
+
+def _tl_pivots(bars, L):
+    highs, lows = [], []
+    n = len(bars)
+    for i in range(L, n - L):
+        if all(bars[i]['h'] > bars[i-k]['h'] and bars[i]['h'] > bars[i+k]['h'] for k in range(1, L+1)):
+            highs.append(i)
+        if all(bars[i]['l'] < bars[i-k]['l'] and bars[i]['l'] < bars[i+k]['l'] for k in range(1, L+1)):
+            lows.append(i)
+    return highs, lows
+
+
+def _tl_nowick(bar, d):
+    rng = bar['h'] - bar['l']
+    if rng <= 0:
+        return False
+    body = abs(bar['c'] - bar['o'])
+    if d == 'bull':
+        rej = min(bar['o'], bar['c']) - bar['l']; directional = bar['c'] > bar['o']
+    else:
+        rej = bar['h'] - max(bar['o'], bar['c']); directional = bar['c'] < bar['o']
+    return directional and (body / rng >= TL_BODY_MIN) and (rej / rng <= TL_REJ_MAX)
+
+
+def detect_tl(pk, h1, daily):
+    """Bonus #8 — Trendline break-and-retest, 4H, with a no-wick confirmation
+    candle at the retest. Break of a descending pivot-high line (bull) / ascending
+    pivot-low line (bear) with a directional close beyond it, then a pullback whose
+    entry candle is a decisive no-wick (marubozu-ish) candle. Stop beyond the
+    retest extreme (+ATR buffer); RR2 via the harness. The plain version (no
+    no-wick filter) fails on every timeframe; only this 4H no-wick variant survives
+    OOS + 5/6 walk-forward + every parameter perturbation."""
+    bars = agg4h(h1)
+    if len(bars) < 120:
+        return []
+    ph, pl = _tl_pivots(bars, TL_PIVOT_L); n = len(bars); out = []; last_fired = -1
+    for b in range(2, n - 1):
+        if b <= last_fired:
+            continue
+        for d in ('bull', 'bear'):
+            piv = ph if d == 'bull' else pl
+            hi = bisect.bisect_right(piv, b - TL_PIVOT_L - 1) - 1
+            if hi < 1:
+                continue
+            p2 = piv[hi]; p1 = piv[hi - 1]
+            v1 = bars[p1]['h'] if d == 'bull' else bars[p1]['l']
+            v2 = bars[p2]['h'] if d == 'bull' else bars[p2]['l']
+            if d == 'bull' and not (v2 < v1):
+                continue
+            if d == 'bear' and not (v2 > v1):
+                continue
+            slope = (v2 - v1) / (p2 - p1)
+            def line(x, _v1=v1, _p1=p1, _s=slope):
+                return _v1 + _s * (x - _p1)
+            if d == 'bull':
+                broke = bars[b-1]['c'] <= line(b-1) and bars[b]['c'] > line(b) and bars[b]['c'] > bars[b]['o']
+            else:
+                broke = bars[b-1]['c'] >= line(b-1) and bars[b]['c'] < line(b) and bars[b]['c'] < bars[b]['o']
+            if not broke:
+                continue
+            for r in range(b + 1, min(b + 1 + TL_RETEST_WIN, n - 1)):
+                lr = line(r)
+                touched = (bars[r]['l'] <= lr and bars[r]['c'] > lr) if d == 'bull' else (bars[r]['h'] >= lr and bars[r]['c'] < lr)
+                if not touched:
+                    continue
+                ei = r + 1; entry = bars[ei]['o']; a = atr(bars, 14, r) or 0.0
+                if d == 'bull':
+                    stop = min(bars[r]['l'], lr) - TL_ATR_BUF * a
+                    if stop >= entry:
+                        break
+                else:
+                    stop = max(bars[r]['h'], lr) + TL_ATR_BUF * a
+                    if stop <= entry:
+                        break
+                if _tl_nowick(bars[r], d):
+                    out.append({'strategy': 'tl_nowick', 'tf': '4h', 'pair': pk, 'dir': d,
+                                'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop})
+                last_fired = ei + TL_COOLDOWN
+                break
+            if b <= last_fired:
+                break
+    return out
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -154,7 +245,8 @@ def main():
         if len(h1) < 400 or len(daily) < 80: continue
         b4 = agg4h(h1); data_end = max(data_end, h1[-1]['_ts'])
         found = (detect_hs(pk, h1, daily, draw) + detect_s5(pk, h1, daily, 'engulf')
-                 + detect_s5(pk, h1, daily, 'rsi') + detect_ob(pk, h1, daily))
+                 + detect_s5(pk, h1, daily, 'rsi') + detect_ob(pk, h1, daily)
+                 + detect_tl(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -179,7 +271,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             if sub:

@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -36,6 +36,10 @@ S5_CLASSES = {'comm', 'crypto', 'index', 'major', 'minor'}
 # Order Blocks (2026-07-11) — added as a 4th OBSERVED candidate on the demo cBot.
 # Marginal edge (daily 1:2 +0.09R, 4/6 walk-forward folds); universe-wide, daily.
 OB_CLASSES = {'comm', 'crypto', 'index', 'major', 'minor'}
+# Trendline break-and-retest w/ no-wick confirmation (2026-07-14) — 5th OBSERVED
+# candidate. 4H only; +0.26R, 5/6 walk-forward folds, robust to parameter sweeps.
+# Positive on comm/crypto/index/minor; majors negative (thin) — excluded.
+TL_CLASSES = {'comm', 'crypto', 'index', 'minor'}
 
 
 def main():
@@ -63,6 +67,8 @@ def main():
             found += detect_hs(pk, h1, daily, draw)
         if cls in OB_CLASSES:
             found += detect_ob(pk, h1, daily)
+        if cls in TL_CLASSES:
+            found += detect_tl(pk, h1, daily)
         for s in found:
             if s['entry_ts'] < fresh_after:
                 continue
