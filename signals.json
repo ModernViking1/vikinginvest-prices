@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-14T22:21:23.101258+00:00",
-  "generated_ms": 1784067683005,
-  "detector_last_check": "2026-07-14T22:21:22.903994+00:00",
+  "generated": "2026-07-14T22:25:46.643545+00:00",
+  "generated_ms": 1784067946543,
+  "detector_last_check": "2026-07-14T22:25:46.446295+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,34 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
+    "total": 4,
     "armed": 0,
     "triggered": 0,
-    "invalidated": 2
+    "invalidated": 4
   },
   "signals": [
+    {
+      "id": "btcusd:1784067300000:wick",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 64506.26,
+      "stop": 64249.47,
+      "target": 64763.05,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1784067300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1784067946543,
+      "source": "server-detector",
+      "event_aligned": null
+    },
     {
       "id": "ethusd:1784067300000:wick",
       "pair": "ethusd",
@@ -34,7 +56,29 @@
       "cl": "bull",
       "armedAt": 1784067300000,
       "triggeredAt": null,
-      "lastSeenAt": 1784067683005,
+      "lastSeenAt": 1784067946543,
+      "source": "server-detector",
+      "event_aligned": null
+    },
+    {
+      "id": "btcusd:1780440300000:fib",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 64845.40604,
+      "stop": 64249.47,
+      "target": 65441.34208,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780440300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1784067946543,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -56,7 +100,7 @@
       "cl": "bull",
       "armedAt": 1780287300000,
       "triggeredAt": null,
-      "lastSeenAt": 1784067683005,
+      "lastSeenAt": 1784067946543,
       "source": "server-detector",
       "event_aligned": null
     }
