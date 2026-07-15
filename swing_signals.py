@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -40,6 +40,11 @@ OB_CLASSES = {'comm', 'crypto', 'index', 'major', 'minor'}
 # candidate. 4H only; +0.26R, 5/6 walk-forward folds, robust to parameter sweeps.
 # Positive on comm/crypto/index/minor; majors negative (thin) — excluded.
 TL_CLASSES = {'comm', 'crypto', 'index', 'minor'}
+# Elliott wave-5 pullback (Bratby Trade-the-Fifth) (2026-07-15) — 6th OBSERVED
+# candidate, WEAKEST. Aggregate 4H is only breakeven and it failed walk-forward
+# universe-wide; kept ONLY because comm/crypto at 4H were positive on both OOS
+# halves. Scoped to those two classes; observe on demo, don't trust the backtest.
+W5PB_CLASSES = {'comm', 'crypto'}
 
 
 def main():
@@ -69,6 +74,8 @@ def main():
             found += detect_ob(pk, h1, daily)
         if cls in TL_CLASSES:
             found += detect_tl(pk, h1, daily)
+        if cls in W5PB_CLASSES:
+            found += detect_w5pb(pk, h1, daily)
         for s in found:
             if s['entry_ts'] < fresh_after:
                 continue

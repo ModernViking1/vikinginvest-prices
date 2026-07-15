@@ -209,6 +209,83 @@ def detect_tl(pk, h1, daily):
     return out
 
 
+W5_PRD = 5
+W5_BREAK_WIN = 40
+W5_ATR_BUF = 0.25
+W5_ZONE_LO, W5_ZONE_HI = 0.382, 0.618
+W5_DEEP = 0.786
+
+
+def _w5_zigzag(bars, prd):
+    n = len(bars); piv = []
+    for i in range(prd, n - prd):
+        if all(bars[i]['h'] > bars[i-k]['h'] and bars[i]['h'] > bars[i+k]['h'] for k in range(1, prd+1)):
+            piv.append((i, bars[i]['h'], 'H'))
+        if all(bars[i]['l'] < bars[i-k]['l'] and bars[i]['l'] < bars[i+k]['l'] for k in range(1, prd+1)):
+            piv.append((i, bars[i]['l'], 'L'))
+    piv.sort()
+    out = []
+    for p in piv:
+        if out and p[2] == out[-1][2]:
+            if (p[2] == 'H' and p[1] > out[-1][1]) or (p[2] == 'L' and p[1] < out[-1][1]):
+                out[-1] = p
+        else:
+            out.append(p)
+    return out
+
+
+def detect_w5pb(pk, h1, daily):
+    """Bonus #9 — Elliott wave-5 entry, Bratby 'Trade the Fifth' PULLBACK version,
+    4H. After a partial impulse 0-1-2-3, buy the wave-4 dip into the 38.2-61.8%
+    fib retrace of wave 3 on a bounce; stop below the dip low; RR2 via the harness.
+    WEAKEST of the observed candidates — aggregate 4H is only breakeven, and both
+    the breakout variant and daily tf failed walk-forward. Kept because comm/crypto
+    at 4H were positive on both OOS halves; the live feed scopes it to those two."""
+    bars = agg4h(h1)
+    if len(bars) < 120:
+        return []
+    piv = _w5_zigzag(bars, W5_PRD); n = len(bars); out = []; last = -1
+    for k in range(len(piv) - 3):
+        p0v, p1v, p2v, p3v = piv[k:k+4]
+        for d, kinds in (('bull', ('L', 'H', 'L', 'H')), ('bear', ('H', 'L', 'H', 'L'))):
+            if (p0v[2], p1v[2], p2v[2], p3v[2]) != kinds:
+                continue
+            p0, p1, p2, p3 = p0v[1], p1v[1], p2v[1], p3v[1]
+            w1 = abs(p1 - p0); w3 = abs(p3 - p2)
+            ok = (p2 > p0 and p3 > p1 and w3 >= w1) if d == 'bull' else (p2 < p0 and p3 < p1 and w3 >= w1)
+            if not ok or w3 <= 0:
+                continue
+            if d == 'bull':
+                z_hi = p3 - W5_ZONE_LO * w3; z_lo = p3 - W5_ZONE_HI * w3; void = p3 - W5_DEEP * w3
+            else:
+                z_lo = p3 + W5_ZONE_LO * w3; z_hi = p3 + W5_ZONE_HI * w3; void = p3 + W5_DEEP * w3
+            start = p3v[0] + W5_PRD + 1; ei = None; dip = None
+            for j in range(start, min(start + W5_BREAK_WIN, n - 1)):
+                b = bars[j]
+                if d == 'bull':
+                    dip = b['l'] if dip is None else min(dip, b['l'])
+                    if b['l'] < void or b['l'] < p1:
+                        break
+                    if b['l'] <= z_hi and b['c'] > b['o'] and b['c'] > z_lo:
+                        ei = j + 1; break
+                else:
+                    dip = b['h'] if dip is None else max(dip, b['h'])
+                    if b['h'] > void or b['h'] > p1:
+                        break
+                    if b['h'] >= z_lo and b['c'] < b['o'] and b['c'] < z_hi:
+                        ei = j + 1; break
+            if ei is None or ei <= last or ei >= n:
+                continue
+            entry = bars[ei]['o']; a = atr(bars, 14, ei - 1) or 0.0
+            stop = (dip - W5_ATR_BUF * a) if d == 'bull' else (dip + W5_ATR_BUF * a)
+            if (d == 'bull' and stop >= entry) or (d == 'bear' and stop <= entry):
+                continue
+            out.append({'strategy': 'w5_pullback', 'tf': '4h', 'pair': pk, 'dir': d,
+                        'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop})
+            last = ei + 6
+    return out
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -246,7 +323,7 @@ def main():
         b4 = agg4h(h1); data_end = max(data_end, h1[-1]['_ts'])
         found = (detect_hs(pk, h1, daily, draw) + detect_s5(pk, h1, daily, 'engulf')
                  + detect_s5(pk, h1, daily, 'rsi') + detect_ob(pk, h1, daily)
-                 + detect_tl(pk, h1, daily))
+                 + detect_tl(pk, h1, daily) + detect_w5pb(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -271,7 +348,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             if sub:
