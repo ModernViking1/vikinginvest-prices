@@ -286,6 +286,47 @@ def detect_w5pb(pk, h1, daily):
     return out
 
 
+BB_N = 20
+BB_K = 2.0
+BB_WIDE_THRESH = 0.85
+
+
+def _bb_bandwidth(bars, n=BB_N, k=BB_K):
+    c = [b['c'] for b in bars]; N = len(c); bw = [None] * N
+    for i in range(n - 1, N):
+        win = c[i-n+1:i+1]; m = sum(win) / n
+        sd = (sum((x - m) ** 2 for x in win) / n) ** 0.5
+        bw[i] = (2 * k * sd) / m if m else None
+    return bw
+
+
+def _bb_is_wide(bw, i, thresh=BB_WIDE_THRESH):
+    if i < 0 or i >= len(bw) or bw[i] is None:
+        return False
+    prev = [x for x in bw[max(0, i - 100):i] if x is not None]
+    if not prev:
+        return False
+    return bw[i] >= thresh * (sum(prev) / len(prev))
+
+
+def detect_s5_rsi_wide(pk, h1, daily):
+    """Supplement candidate #7 — s5_rsi gated by a WIDE Bollinger-bandwidth regime
+    at the 4H signal bar (bandwidth >= 0.85x its trailing-100 mean). Backtest
+    roughly doubles s5_rsi expectancy (+0.48R -> +0.94R), 6/6 walk-forward folds,
+    robust across BB period/K/threshold. A SUBSET of s5_rsi (same entry/stop) — runs
+    in parallel so the demo can compare wide vs plain on real fills."""
+    sigs = detect_s5(pk, h1, daily, 'rsi')
+    if not sigs:
+        return []
+    b4 = agg4h(h1); bw = _bb_bandwidth(b4); bts = [b['_ts'] for b in b4]
+    out = []
+    for s in sigs:
+        ei = bisect.bisect_left(bts, s['entry_ts'])
+        if _bb_is_wide(bw, ei - 1):
+            out.append({**s, 'strategy': 's5_rsi_wide'})
+    return out
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -323,7 +364,8 @@ def main():
         b4 = agg4h(h1); data_end = max(data_end, h1[-1]['_ts'])
         found = (detect_hs(pk, h1, daily, draw) + detect_s5(pk, h1, daily, 'engulf')
                  + detect_s5(pk, h1, daily, 'rsi') + detect_ob(pk, h1, daily)
-                 + detect_tl(pk, h1, daily) + detect_w5pb(pk, h1, daily))
+                 + detect_tl(pk, h1, daily) + detect_w5pb(pk, h1, daily)
+                 + detect_s5_rsi_wide(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -348,7 +390,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             if sub:

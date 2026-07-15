@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -45,6 +45,12 @@ TL_CLASSES = {'comm', 'crypto', 'index', 'minor'}
 # universe-wide; kept ONLY because comm/crypto at 4H were positive on both OOS
 # halves. Scoped to those two classes; observe on demo, don't trust the backtest.
 W5PB_CLASSES = {'comm', 'crypto'}
+# s5_rsi + WIDE Bollinger-bandwidth gate (2026-07-15) — 7th OBSERVED candidate.
+# A SUBSET of s5_rsi (same class scope): backtest ~doubles s5_rsi expectancy
+# (+0.48R -> +0.94R), 6/6 walk-forward folds, robust to BB params. Runs in
+# parallel to plain s5_rsi; wide setups therefore emit under BOTH tags (demo
+# double-places those overlaps — acceptable observation artifact).
+S5W_CLASSES = {'comm', 'crypto', 'index', 'major', 'minor'}
 
 
 def main():
@@ -76,6 +82,8 @@ def main():
             found += detect_tl(pk, h1, daily)
         if cls in W5PB_CLASSES:
             found += detect_w5pb(pk, h1, daily)
+        if cls in S5W_CLASSES:
+            found += detect_s5_rsi_wide(pk, h1, daily)
         for s in found:
             if s['entry_ts'] < fresh_after:
                 continue
