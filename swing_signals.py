@@ -51,6 +51,14 @@ W5PB_CLASSES = {'comm', 'crypto'}
 # parallel to plain s5_rsi; wide setups therefore emit under BOTH tags (demo
 # double-places those overlaps — acceptable observation artifact).
 S5W_CLASSES = {'comm', 'crypto', 'index', 'major', 'minor'}
+# Exposure control: collapse all fresh signals on a pair into ONE live position so
+# correlated strategies don't stack (e.g. s5_rsi + s5_rsi_wide + tl_nowick all
+# short the same pair on the same bar = 3x one directional bet). Highest-conviction
+# strategy wins the tag; the rest are recorded as cofire for stats/visibility. The
+# shadow harness still logs EVERY signal independently, so per-strategy VOLUME stats
+# are unaffected — this caps only live demo exposure, mirroring the intraday cBot's
+# one-position-per-symbol rule. Order = validated backtest expectancy, best first.
+PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'tl_nowick': 4, 'w5_pullback': 5}
 
 
 def main():
@@ -106,12 +114,27 @@ def main():
                 'state': 'triggered',
             })
 
+    # ---- exposure dedup: one live position per pair (highest-conviction wins) ----
+    by_pair = {}
+    for r in rows:
+        by_pair.setdefault(r['pair'], []).append(r)
+    total_raw = len(rows); deduped = []
+    for pk, group in by_pair.items():
+        group.sort(key=lambda r: (PRIORITY.get(r['strategy'], 9), -r['trigger_ts']))
+        primary = dict(group[0])
+        primary['cofire'] = sorted({g['strategy'] for g in group})
+        primary['cofire_dirs'] = sorted({f"{g['strategy']}:{g['dir']}" for g in group})
+        primary['suppressed'] = len(group) - 1
+        deduped.append(primary)
+    rows = deduped
+
     # newest first, stable
     rows.sort(key=lambda r: (-r['trigger_ts'], r['id']))
     out = {
         'schema_version': 1,
         'generated': datetime.now(timezone.utc).isoformat() if False else None,  # stamped by CI env below
         'data_end_ts': int(data_end),
+        'raw_signal_count': total_raw,   # pre-dedup (shadow harness logs all of these)
         'count': len(rows),
         'signals': rows,
     }
@@ -119,9 +142,11 @@ def main():
     out['generated'] = datetime.fromtimestamp(data_end, timezone.utc).isoformat()
     with open(OUT, 'w') as f:
         json.dump(out, f, indent=1)
-    print(f"swing-signals.json: {len(rows)} fresh signal(s) (data_end {int(data_end)}, fresh window {FRESH_HOURS}h)")
+    print(f"swing-signals.json: {len(rows)} live position(s) after dedup from {total_raw} raw signal(s) "
+          f"(data_end {int(data_end)}, fresh window {FRESH_HOURS}h)")
     for r in rows[:20]:
-        print(f"  {r['id']:<40} {r['dir']:<4} stop={r['stop']} rr={r['rr']} exp={r['expiry_ts']}")
+        extra = f"  cofire={r['cofire']}" if r['suppressed'] else ""
+        print(f"  {r['id']:<40} {r['dir']:<4} stop={r['stop']} rr={r['rr']}{extra}")
 
 
 if __name__ == '__main__':
