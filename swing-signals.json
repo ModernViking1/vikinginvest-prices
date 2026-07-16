@@ -1,42 +1,57 @@
 {
  "schema_version": 1,
- "generated": "2026-07-15T19:00:00+00:00",
- "data_end_ts": 1784142000,
+ "generated": "2026-07-16T03:00:00+00:00",
+ "data_end_ts": 1784170800,
+ "raw_signal_count": 3,
  "count": 3,
  "signals": [
   {
-   "id": "s5_rsi:usdzar:1784127600",
-   "strategy": "s5_rsi",
-   "pair": "usdzar",
-   "symbol": "USDZAR",
-   "class": "minor",
+   "id": "ob:solusd:1784160000",
+   "strategy": "ob",
+   "pair": "solusd",
+   "symbol": "SOLUSD",
+   "class": "crypto",
    "dir": "bear",
-   "stop": 16.41805,
-   "ref_entry": 16.3254,
+   "stop": 77.8365,
+   "ref_entry": 77.23,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
-   "trigger_ts": 1784127600,
-   "created_ts": 1784142000,
-   "expiry_ts": 1784170800,
-   "state": "triggered"
+   "trigger_ts": 1784160000,
+   "created_ts": 1784170800,
+   "expiry_ts": 1784203200,
+   "state": "triggered",
+   "cofire": [
+    "ob"
+   ],
+   "cofire_dirs": [
+    "ob:bear"
+   ],
+   "suppressed": 0
   },
   {
-   "id": "s5_rsi_wide:usdzar:1784127600",
-   "strategy": "s5_rsi_wide",
-   "pair": "usdzar",
-   "symbol": "USDZAR",
-   "class": "minor",
-   "dir": "bear",
-   "stop": 16.41805,
-   "ref_entry": 16.3254,
+   "id": "hs:xptusd:1784142000",
+   "strategy": "hs",
+   "pair": "xptusd",
+   "symbol": "XPTUSD",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 1610.838,
+   "ref_entry": 1668.439,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
-   "trigger_ts": 1784127600,
-   "created_ts": 1784142000,
-   "expiry_ts": 1784170800,
-   "state": "triggered"
+   "trigger_ts": 1784142000,
+   "created_ts": 1784170800,
+   "expiry_ts": 1784185200,
+   "state": "triggered",
+   "cofire": [
+    "hs"
+   ],
+   "cofire_dirs": [
+    "hs:bull"
+   ],
+   "suppressed": 0
   },
   {
    "id": "tl_nowick:usdzar:1784127600",
@@ -51,9 +66,16 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784127600,
-   "created_ts": 1784142000,
+   "created_ts": 1784170800,
    "expiry_ts": 1784170800,
-   "state": "triggered"
+   "state": "triggered",
+   "cofire": [
+    "tl_nowick"
+   ],
+   "cofire_dirs": [
+    "tl_nowick:bear"
+   ],
+   "suppressed": 0
   }
  ]
 }
