@@ -1,33 +1,37 @@
 {
  "schema_version": 1,
- "generated": "2026-07-16T03:00:00+00:00",
- "data_end_ts": 1784170800,
- "raw_signal_count": 3,
- "count": 3,
+ "generated": "2026-07-16T08:00:00+00:00",
+ "data_end_ts": 1784188800,
+ "raw_signal_count": 4,
+ "count": 2,
  "signals": [
   {
-   "id": "ob:solusd:1784160000",
-   "strategy": "ob",
+   "id": "s5_rsi:solusd:1784170800",
+   "strategy": "s5_rsi",
    "pair": "solusd",
    "symbol": "SOLUSD",
    "class": "crypto",
    "dir": "bear",
-   "stop": 77.8365,
-   "ref_entry": 77.23,
+   "stop": 77.69,
+   "ref_entry": 77.06,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
-   "trigger_ts": 1784160000,
-   "created_ts": 1784170800,
-   "expiry_ts": 1784203200,
+   "trigger_ts": 1784170800,
+   "created_ts": 1784188800,
+   "expiry_ts": 1784214000,
    "state": "triggered",
    "cofire": [
-    "ob"
+    "hs",
+    "ob",
+    "s5_rsi"
    ],
    "cofire_dirs": [
-    "ob:bear"
+    "hs:bear",
+    "ob:bear",
+    "s5_rsi:bear"
    ],
-   "suppressed": 0
+   "suppressed": 2
   },
   {
    "id": "hs:xptusd:1784142000",
@@ -42,7 +46,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784142000,
-   "created_ts": 1784170800,
+   "created_ts": 1784188800,
    "expiry_ts": 1784185200,
    "state": "triggered",
    "cofire": [
@@ -50,30 +54,6 @@
    ],
    "cofire_dirs": [
     "hs:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "tl_nowick:usdzar:1784127600",
-   "strategy": "tl_nowick",
-   "pair": "usdzar",
-   "symbol": "USDZAR",
-   "class": "minor",
-   "dir": "bear",
-   "stop": 16.40252036,
-   "ref_entry": 16.3254,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1784127600,
-   "created_ts": 1784170800,
-   "expiry_ts": 1784170800,
-   "state": "triggered",
-   "cofire": [
-    "tl_nowick"
-   ],
-   "cofire_dirs": [
-    "tl_nowick:bear"
    ],
    "suppressed": 0
   }
