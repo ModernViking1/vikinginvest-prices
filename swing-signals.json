@@ -1,25 +1,123 @@
 {
  "schema_version": 1,
- "generated": "2026-07-16T08:00:00+00:00",
- "data_end_ts": 1784188800,
- "raw_signal_count": 4,
- "count": 2,
+ "generated": "2026-07-16T14:00:00+00:00",
+ "data_end_ts": 1784210400,
+ "raw_signal_count": 9,
+ "count": 6,
  "signals": [
   {
-   "id": "s5_rsi:solusd:1784170800",
+   "id": "hs:wtiusd:1784192400",
+   "strategy": "hs",
+   "pair": "wtiusd",
+   "symbol": "WTIUSD",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 80.014,
+   "ref_entry": 79.545,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784192400,
+   "created_ts": 1784210400,
+   "expiry_ts": 1784235600,
+   "state": "triggered",
+   "cofire": [
+    "hs"
+   ],
+   "cofire_dirs": [
+    "hs:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "w5_pullback:taousd:1784192400",
+   "strategy": "w5_pullback",
+   "pair": "taousd",
+   "symbol": "TAOUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 204.48410714,
+   "ref_entry": 197.32,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784192400,
+   "created_ts": 1784210400,
+   "expiry_ts": 1784235600,
+   "state": "triggered",
+   "cofire": [
+    "w5_pullback"
+   ],
+   "cofire_dirs": [
+    "w5_pullback:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "hs:ftse100:1784188800",
+   "strategy": "hs",
+   "pair": "ftse100",
+   "symbol": "FTSE100",
+   "class": "index",
+   "dir": "bear",
+   "stop": 10552.0,
+   "ref_entry": 10467.0,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784188800,
+   "created_ts": 1784210400,
+   "expiry_ts": 1784232000,
+   "state": "triggered",
+   "cofire": [
+    "hs"
+   ],
+   "cofire_dirs": [
+    "hs:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "s5_rsi_wide:gbpnzd:1784167200",
+   "strategy": "s5_rsi_wide",
+   "pair": "gbpnzd",
+   "symbol": "GBPNZD",
+   "class": "minor",
+   "dir": "bull",
+   "stop": 2.31162,
+   "ref_entry": 2.31714,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784167200,
+   "created_ts": 1784210400,
+   "expiry_ts": 1784210400,
+   "state": "triggered",
+   "cofire": [
+    "s5_rsi",
+    "s5_rsi_wide"
+   ],
+   "cofire_dirs": [
+    "s5_rsi:bull",
+    "s5_rsi_wide:bull"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "s5_rsi:solusd:1784163600",
    "strategy": "s5_rsi",
    "pair": "solusd",
    "symbol": "SOLUSD",
    "class": "crypto",
    "dir": "bear",
-   "stop": 77.69,
-   "ref_entry": 77.06,
+   "stop": 78.02,
+   "ref_entry": 76.89,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
-   "trigger_ts": 1784170800,
-   "created_ts": 1784188800,
-   "expiry_ts": 1784214000,
+   "trigger_ts": 1784163600,
+   "created_ts": 1784210400,
+   "expiry_ts": 1784206800,
    "state": "triggered",
    "cofire": [
     "hs",
@@ -46,7 +144,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784142000,
-   "created_ts": 1784188800,
+   "created_ts": 1784210400,
    "expiry_ts": 1784185200,
    "state": "triggered",
    "cofire": [
