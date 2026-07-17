@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-07-17T08:00:00+00:00",
  "data_end_ts": 1784275200,
- "raw_signal_count": 10,
- "count": 8,
+ "raw_signal_count": 17,
+ "count": 10,
  "signals": [
   {
    "id": "tl_nowick:natgas:1784260800",
@@ -22,12 +22,39 @@
    "expiry_ts": 1784304000,
    "state": "triggered",
    "cofire": [
+    "fib_gz",
     "tl_nowick"
    ],
    "cofire_dirs": [
+    "fib_gz:bear",
     "tl_nowick:bear"
    ],
-   "suppressed": 0
+   "suppressed": 1
+  },
+  {
+   "id": "fib_gz:usoil:1784257200",
+   "strategy": "fib_gz",
+   "pair": "usoil",
+   "symbol": "USOIL",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 86.42028614,
+   "ref_entry": 85.343,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784257200,
+   "created_ts": 1784275200,
+   "expiry_ts": 1784300400,
+   "state": "triggered",
+   "cofire": [
+    "fib_gz"
+   ],
+   "cofire_dirs": [
+    "fib_gz:bear",
+    "fib_gz:bull"
+   ],
+   "suppressed": 2
   },
   {
    "id": "hs:audusd:1784253600",
@@ -152,6 +179,30 @@
    "suppressed": 1
   },
   {
+   "id": "fib_gz:xptusd:1784192400",
+   "strategy": "fib_gz",
+   "pair": "xptusd",
+   "symbol": "XPTUSD",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 1619.06871643,
+   "ref_entry": 1650.502,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784192400,
+   "created_ts": 1784275200,
+   "expiry_ts": 1784235600,
+   "state": "triggered",
+   "cofire": [
+    "fib_gz"
+   ],
+   "cofire_dirs": [
+    "fib_gz:bull"
+   ],
+   "suppressed": 0
+  },
+  {
    "id": "hs:wtiusd:1784192400",
    "strategy": "hs",
    "pair": "wtiusd",
@@ -168,12 +219,14 @@
    "expiry_ts": 1784235600,
    "state": "triggered",
    "cofire": [
+    "fib_gz",
     "hs"
    ],
    "cofire_dirs": [
+    "fib_gz:bear",
     "hs:bear"
    ],
-   "suppressed": 0
+   "suppressed": 2
   },
   {
    "id": "hs:ftse100:1784188800",
