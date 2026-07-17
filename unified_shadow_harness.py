@@ -327,6 +327,85 @@ def detect_s5_rsi_wide(pk, h1, daily):
     return out
 
 
+RSIMR_HOLD = 30
+RSIMR_SWING = 5
+RSIMR_ATR_BUF = 0.25
+RSIMR_RSI_WIN = 3
+
+
+def detect_rsimr(pk, h1, daily):
+    """Observed candidate #8 — RSI/MACD mean-reversion, MAJORS + 4H only. Short when
+    RSI was >70 within the last 3 bars AND MACD crosses down; long on the <30 +
+    MACD-cross-up mirror. Stop beyond the recent swing extreme. EXIT IS NOT RR2 —
+    the position closes on the bar-close when RSI returns to 50 (scored by
+    score_meanrev, not score()). WEAKEST candidate: aggregate 4H is breakeven, only
+    majors showed +0.30R (5/6 folds, thin n=56). MODEL-ONLY — the strategy-agnostic
+    demo cBot cannot execute the RSI-50 exit without a rebuild, so this is NOT
+    emitted to the live feed."""
+    if PAIR_CLASS.get(pk) != 'major':
+        return []
+    bars = agg4h(h1)
+    if len(bars) < 120:
+        return []
+    closes = [b['c'] for b in bars]
+    rsi = precompute_rsi(closes, 14); macd, sig = macd_series(closes, 12, 26, 9)
+    n = len(bars); out = []; last = -1
+    for i in range(30, n - 1):
+        if i <= last:
+            continue
+        if rsi[i] is None or None in (macd[i], macd[i-1], sig[i], sig[i-1]):
+            continue
+        cross_dn = macd[i-1] >= sig[i-1] and macd[i] < sig[i]
+        cross_up = macd[i-1] <= sig[i-1] and macd[i] > sig[i]
+        win = [rsi[k] for k in range(max(0, i - RSIMR_RSI_WIN + 1), i + 1) if rsi[k] is not None]
+        d = None
+        if any(v > 70 for v in win) and cross_dn:
+            d = 'bear'
+        elif any(v < 30 for v in win) and cross_up:
+            d = 'bull'
+        if d is None:
+            continue
+        ei = i + 1; entry = bars[ei]['o']; a = atr(bars, 14, i) or 0.0
+        if d == 'bear':
+            stop = max(b['h'] for b in bars[max(0, i - RSIMR_SWING):i+1]) + RSIMR_ATR_BUF * a
+            if stop <= entry:
+                continue
+        else:
+            stop = min(b['l'] for b in bars[max(0, i - RSIMR_SWING):i+1]) - RSIMR_ATR_BUF * a
+            if stop >= entry:
+                continue
+        out.append({'strategy': 'rsimr', 'tf': '4h', 'pair': pk, 'dir': d,
+                    'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop})
+        last = ei + 3
+    return out
+
+
+def score_meanrev(bars, rsi, entry_ts, entry, stop, d, hold):
+    """RSI-50 mean-reversion exit scorer (continuous R). ('resolved', r) on stop OR
+    RSI-50 close OR hold-end; ('pending', None) if data runs out first."""
+    ts = [b['_ts'] for b in bars]; i0 = bisect.bisect_left(ts, entry_ts)
+    R = abs(entry - stop)
+    if R <= 0 or i0 >= len(bars):
+        return ('pending', None)
+    end = min(i0 + hold, len(bars))
+    for j in range(i0, end):
+        b = bars[j]
+        if d == 'bear':
+            if b['h'] >= stop:
+                return ('resolved', -1.0)
+            if rsi[j] is not None and rsi[j] <= 50:
+                return ('resolved', (entry - b['c']) / R)
+        else:
+            if b['l'] <= stop:
+                return ('resolved', -1.0)
+            if rsi[j] is not None and rsi[j] >= 50:
+                return ('resolved', (b['c'] - entry) / R)
+    if end >= len(bars):
+        return ('pending', None)
+    b = bars[end - 1]
+    return ('resolved', (entry - b['c']) / R if d == 'bear' else (b['c'] - entry) / R)
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -362,10 +441,11 @@ def main():
         draw = pairs[pk].get('daily', [])
         if len(h1) < 400 or len(daily) < 80: continue
         b4 = agg4h(h1); data_end = max(data_end, h1[-1]['_ts'])
+        rsi4 = precompute_rsi([b['c'] for b in b4], 14)
         found = (detect_hs(pk, h1, daily, draw) + detect_s5(pk, h1, daily, 'engulf')
                  + detect_s5(pk, h1, daily, 'rsi') + detect_ob(pk, h1, daily)
                  + detect_tl(pk, h1, daily) + detect_w5pb(pk, h1, daily)
-                 + detect_s5_rsi_wide(pk, h1, daily))
+                 + detect_s5_rsi_wide(pk, h1, daily) + detect_rsimr(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -375,7 +455,10 @@ def main():
             tf = rec['tf']
             bars = h1 if tf == 'h1' else (b4 if tf == '4h' else daily)
             hold = HS_HOLD if tf == 'h1' else (HOLD['4h'] if tf == '4h' else 20)
-            st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
+            if rec['strategy'] == 'rsimr':
+                st, o = score_meanrev(b4, rsi4, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], RSIMR_HOLD)
+            else:
+                st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
             if st == 'resolved':
                 rec['r'] = o - cost(o, rec['entry'], abs(rec['entry']-rec['stop']))
@@ -390,7 +473,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             if sub:
