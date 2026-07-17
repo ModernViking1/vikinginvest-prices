@@ -1452,6 +1452,20 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
           h+='<tr><td>'+esc(st)+'</td><td>'+(d?d.n:0)+'</td><td>'+(d&&d.n?d.wr.toFixed(0)+'%':'–')+'</td><td style="color:'+(d&&d.tot>=0?C.g:C.r)+'">'+(d&&d.n?(d.tot>=0?'+':'')+d.tot.toFixed(2)+'R':'–')+'</td><td>'+(m&&m.n?m.wr.toFixed(0)+'%':'–')+'</td><td>'+(m&&m.n?(m.exp>=0?'+':'')+m.exp.toFixed(3):'–')+'</td></tr>';
         });
         h+='</table>';
+        // ── BOS-aligned confluence split (uses the shadow bos_aligned tag) ──
+        var mAl=[],mNo=[],dAl=[],dNo=[];
+        Object.keys(sigs).forEach(function(k){ var s=sigs[k]; if(s.status==='resolved'&&typeof s.r==='number'&&typeof s.bos_aligned==='boolean'){ (s.bos_aligned?mAl:mNo).push(s.r); } });
+        closed.forEach(function(e){ var sh=sigs[e.signal_id||'']; if(sh&&typeof sh.bos_aligned==='boolean'){ (sh.bos_aligned?dAl:dNo).push(e.realized_r); } });
+        var ma=agg(mAl),mn=agg(mNo),da=agg(dAl),dn=agg(dNo);
+        if(ma.n||mn.n||da.n||dn.n){
+          h+='<div style="color:'+C.blue+';margin:8px 0 2px;font-weight:700;">BOS-aligned confluence · structure agrees at entry (ICT):</div>';
+          h+='<table style="width:100%;border-collapse:collapse;font-size:8.5px;"><tr style="color:'+C.mut+';text-align:left;"><th>bucket</th><th>demo n</th><th>demo R</th><th>model n</th><th>model exp</th></tr>';
+          function bosRow(lbl,dd,mm){ return '<tr><td>'+lbl+'</td><td>'+dd.n+'</td><td style="color:'+(dd.tot>=0?C.g:C.r)+'">'+(dd.n?(dd.tot>=0?'+':'')+dd.tot.toFixed(2)+'R':'–')+'</td><td>'+mm.n+'</td><td>'+(mm.n?(mm.exp>=0?'+':'')+mm.exp.toFixed(3)+'R':'–')+'</td></tr>'; }
+          h+=bosRow('BOS-aligned',da,ma);
+          h+=bosRow('not aligned',dn,mn);
+          h+='</table>';
+          h+='<div style="color:'+C.mut+';margin-top:2px;font-size:8px;">Read-only tag (changes nothing that fires). Backtest: alignment lifts the continuation edges (s5_rsi/tl_nowick/ob); demo split fills in as trades close.</div>';
+        }
         // per pair (demo)
         var pk=Object.keys(byPair);
         if(pk.length){

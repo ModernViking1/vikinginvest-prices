@@ -564,6 +564,34 @@ def cost(o, entry, R):
     return 0 if frac <= 0 else (WIN_COST_PCT if o > 0 else LOSS_COST_PCT)/frac
 
 
+def _bos_dir(bars, prd=3):
+    """Most-recent break-of-structure direction as of each bar (swing pivots
+    confirmed prd bars right, no lookahead). Used to tag signals bos_aligned."""
+    n = len(bars)
+    pl = sorted((i + prd, bars[i]['l']) for i in range(prd, n - prd)
+                if all(bars[i]['l'] < bars[i-k]['l'] and bars[i]['l'] < bars[i+k]['l'] for k in range(1, prd+1)))
+    ph = sorted((i + prd, bars[i]['h']) for i in range(prd, n - prd)
+                if all(bars[i]['h'] > bars[i-k]['h'] and bars[i]['h'] > bars[i+k]['h'] for k in range(1, prd+1)))
+    last_pl = [None]*n; last_ph = [None]*n; a = 0; b = 0
+    for i in range(n):
+        while a < len(pl) and pl[a][0] <= i:
+            last_pl[i] = pl[a][1]; a += 1
+        if i and last_pl[i] is None:
+            last_pl[i] = last_pl[i-1]
+        while b < len(ph) and ph[b][0] <= i:
+            last_ph[i] = ph[b][1]; b += 1
+        if i and last_ph[i] is None:
+            last_ph[i] = last_ph[i-1]
+    bdir = [None]*n; cd = None
+    for i in range(n):
+        if last_pl[i] is not None and bars[i]['c'] < last_pl[i]:
+            cd = 'bear'
+        if last_ph[i] is not None and bars[i]['c'] > last_ph[i]:
+            cd = 'bull'
+        bdir[i] = cd
+    return bdir
+
+
 def main():
     d = json.load(open(HIST)); pairs = d.get('pairs', {})
     log = json.load(open(LOG)) if os.path.exists(LOG) else {'baseline_data_end': None, 'signals': {}}
@@ -574,6 +602,8 @@ def main():
         if len(h1) < 400 or len(daily) < 80: continue
         b4 = agg4h(h1); data_end = max(data_end, h1[-1]['_ts'])
         rsi4 = precompute_rsi([b['c'] for b in b4], 14)
+        bos = {'h1': _bos_dir(h1), '4h': _bos_dir(b4), 'daily': _bos_dir(daily)}
+        bts = {'h1': [x['_ts'] for x in h1], '4h': [x['_ts'] for x in b4], 'daily': [x['_ts'] for x in daily]}
         found = (detect_hs(pk, h1, daily, draw) + detect_s5(pk, h1, daily, 'engulf')
                  + detect_s5(pk, h1, daily, 'rsi') + detect_ob(pk, h1, daily)
                  + detect_tl(pk, h1, daily) + detect_w5pb(pk, h1, daily)
@@ -585,6 +615,15 @@ def main():
             if k not in sigs:
                 s['first_seen'] = data_end; s['status'] = 'pending'; sigs[k] = s
             rec = sigs[k]
+            # tag confluence: does the break-of-structure at entry agree with the trade?
+            # computed once per signal (entry structure is fixed); backfills old signals.
+            if 'bos_aligned' not in rec:
+                bd = bos.get(rec['tf']); tl = bts.get(rec['tf'])
+                al = False
+                if bd is not None and tl:
+                    ci = bisect.bisect_left(tl, rec['entry_ts'])
+                    al = ci >= 1 and ci <= len(bd) and bd[ci-1] == rec['dir']
+                rec['bos_aligned'] = bool(al)
             tf = rec['tf']
             bars = h1 if tf == 'h1' else (b4 if tf == '4h' else daily)
             hold = HS_HOLD if tf == 'h1' else (HOLD['4h'] if tf == '4h' else 20)
