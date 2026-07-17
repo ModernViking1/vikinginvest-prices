@@ -34,6 +34,7 @@ ATR_BUF = 0.25
 BREAK_WIN = 40
 COOLDOWN = 4
 EXTS = {'100%': 1.0, '127%': 1.272, '162%': 1.618}
+FIXED_RR = {'RR2': 2.0}          # his published avg win ~= +2.14R -> a ~2R target
 HOLD = {'daily': 30, '4h': 40, 'h1': 60}
 
 
@@ -112,9 +113,10 @@ def scan(bars, tf, store, cls, store_cls):
         if (d == 'bull' and stop >= entry) or (d == 'bear' and stop <= entry):
             continue
         R = abs(entry - stop); ts = bars[ei]['_ts']
-        for name, ext in EXTS.items():
-            target = (L + ext*rng) if d == 'bull' else (H - ext*rng)
-            # target must be beyond entry in trade direction
+        targets = {name: ((L + ext*rng) if d == 'bull' else (H - ext*rng)) for name, ext in EXTS.items()}
+        for name, rr in FIXED_RR.items():
+            targets[name] = (entry + rr*R) if d == 'bull' else (entry - rr*R)
+        for name, target in targets.items():
             if (d == 'bull' and target <= entry) or (d == 'bear' and target >= entry):
                 continue
             o = walk_to(bars, ei, entry, stop, target, d, hold)
@@ -159,15 +161,21 @@ def main():
                 continue
             scan(bars, tf, store, cls, store_cls)
 
-    print(f"Dantev-style Fib golden-zone reversal — {npairs} pairs, realistic cost, OOS. Claim: ~64% WR / PF 2.30\n")
+    tgt_names = list(EXTS) + list(FIXED_RR)
+    print(f"Dantev-style Fib golden-zone reversal — {npairs} pairs, realistic cost, OOS. Published: 52.5% WR / PF 2.39 / +0.70R\n")
+    print("=== ALL PAIRS ===")
     for tf in ('daily', '4h', 'h1'):
-        print(f"=== {tf.upper()} ===")
-        for name in EXTS:
-            line(f"target {name}", store[(tf, name)])
+        for name in tgt_names:
+            line(f"{tf} {name}", store[(tf, name)])
         print()
-    print("Per-class (4h, target 127%):")
+
+    print("=== BY ASSET CLASS (does minor FX stand out?) ===")
     for c in ['comm', 'crypto', 'index', 'major', 'minor']:
-        line(c, store_cls[c][('4h', '127%')])
+        print(f"--- {c} ---")
+        for tf in ('daily', '4h', 'h1'):
+            for name in tgt_names:
+                line(f"{tf} {name}", store_cls[c][(tf, name)])
+        print()
 
 
 if __name__ == '__main__':
