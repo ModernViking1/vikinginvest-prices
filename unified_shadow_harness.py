@@ -467,6 +467,77 @@ def detect_fibgz(pk, h1, daily):
     return out
 
 
+FREDTL_PRD = 4
+FREDTL_TOUCH_WIN = 50
+FREDTL_NEAR = 0.25
+FREDTL_BREAK_TOL = 0.5
+FREDTL_ATR_BUF = 0.25
+FREDTL_COOLDOWN = 6
+
+
+def detect_fredtl(pk, h1, daily):
+    """Observed candidate #10 — Fred Trading (Fredtradingdk) trendline-BOUNCE,
+    XAUUSD + 4H only, fixed RR2. Two pivots define an intact trendline (ascending
+    support / descending resistance); price retraces to it and bounces in-trend;
+    stop beyond the line. VERY THIN (n=25 backtest, +0.31R, both OOS halves up).
+    Observed on request — treat the panel row as a curiosity, not an edge. Lowest
+    dedup priority, so real xauusd fills will be rare (higher-conviction strategies
+    usually win the per-pair dedup); the model row is the primary evidence."""
+    if pk != 'xauusd':
+        return []
+    bars = agg4h(h1); n = len(bars)
+    if n < 150:
+        return []
+    zz = _w5_zigzag(bars, FREDTL_PRD)
+    lows = [(i, p) for (i, p, k) in zz if k == 'L']
+    highs = [(i, p) for (i, p, k) in zz if k == 'H']
+    out = []; last = -1
+    for d, seq in (('bull', lows), ('bear', highs)):
+        for m in range(1, len(seq)):
+            (i1, v1), (i2, v2) = seq[m-1], seq[m]
+            if i2 <= i1:
+                continue
+            slope = (v2 - v1) / (i2 - i1)
+            if d == 'bull' and slope <= 0:
+                continue
+            if d == 'bear' and slope >= 0:
+                continue
+
+            def line(x, _v1=v1, _i1=i1, _s=slope):
+                return _v1 + _s * (x - _i1)
+
+            start = i2 + FREDTL_PRD + 1; ei = None
+            for j in range(start, min(start + FREDTL_TOUCH_WIN, n - 1)):
+                b = bars[j]; lv = line(j); a = atr(bars, 14, j) or 0.0
+                if a <= 0:
+                    continue
+                if d == 'bull':
+                    if b['c'] < lv - FREDTL_BREAK_TOL * a:
+                        break
+                    if b['l'] <= lv + FREDTL_NEAR * a and b['c'] > lv and b['c'] > b['o']:
+                        ei = j + 1; break
+                else:
+                    if b['c'] > lv + FREDTL_BREAK_TOL * a:
+                        break
+                    if b['h'] >= lv - FREDTL_NEAR * a and b['c'] < lv and b['c'] < b['o']:
+                        ei = j + 1; break
+            if ei is None or ei <= last or ei >= n:
+                continue
+            entry = bars[ei]['o']; a = atr(bars, 14, ei-1) or 0.0; lv = line(ei)
+            if d == 'bull':
+                stop = min(bars[ei-1]['l'], lv) - FREDTL_ATR_BUF * a
+                if stop >= entry:
+                    continue
+            else:
+                stop = max(bars[ei-1]['h'], lv) + FREDTL_ATR_BUF * a
+                if stop <= entry:
+                    continue
+            out.append({'strategy': 'fred_tl', 'tf': '4h', 'pair': pk, 'dir': d,
+                        'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop})
+            last = ei + FREDTL_COOLDOWN
+    return out
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -507,7 +578,7 @@ def main():
                  + detect_s5(pk, h1, daily, 'rsi') + detect_ob(pk, h1, daily)
                  + detect_tl(pk, h1, daily) + detect_w5pb(pk, h1, daily)
                  + detect_s5_rsi_wide(pk, h1, daily) + detect_rsimr(pk, h1, daily)
-                 + detect_fibgz(pk, h1, daily))
+                 + detect_fibgz(pk, h1, daily) + detect_fredtl(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -535,7 +606,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             if sub:

@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -62,7 +62,7 @@ FIBGZ_CLASSES = {'comm'}
 # shadow harness still logs EVERY signal independently, so per-strategy VOLUME stats
 # are unaffected — this caps only live demo exposure, mirroring the intraday cBot's
 # one-position-per-symbol rule. Order = validated backtest expectancy, best first.
-PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'tl_nowick': 4, 'fib_gz': 5, 'w5_pullback': 6}
+PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'tl_nowick': 4, 'fib_gz': 5, 'w5_pullback': 6, 'fred_tl': 7}
 
 
 def main():
@@ -98,6 +98,7 @@ def main():
             found += detect_s5_rsi_wide(pk, h1, daily)
         if cls in FIBGZ_CLASSES:
             found += detect_fibgz(pk, h1, daily)
+        found += detect_fredtl(pk, h1, daily)   # self-gates to xauusd only
         for s in found:
             if s['entry_ts'] < fresh_after:
                 continue
