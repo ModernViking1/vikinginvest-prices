@@ -406,6 +406,67 @@ def score_meanrev(bars, rsi, entry_ts, entry, stop, d, hold):
     return ('resolved', (entry - b['c']) / R if d == 'bear' else (b['c'] - entry) / R)
 
 
+FIBGZ_PRD = 5
+FIBGZ_ZHI, FIBGZ_ZLO = 0.5, 0.618
+FIBGZ_STOP_LVL = 0.786
+FIBGZ_ATR_BUF = 0.25
+FIBGZ_BREAK_WIN = 40
+FIBGZ_COOLDOWN = 4
+
+
+def detect_fibgz(pk, h1, daily):
+    """Observed candidate #9 — Dantev-style Fibonacci golden-zone reversal,
+    COMMODITIES + H1 only, fixed RR2 target (cBot-executable). Retrace into the
+    50-61.8% golden zone of a clean pivot swing leg, enter on the in-trend reversal
+    close; stop just beyond the 78.6% level. The ONLY out-of-sample-robust cell in
+    the Dantev class breakdown (+0.06R, PF ~1.1, both OOS halves positive) — a thin
+    edge, scoped to commodities. Not 'minor FX' (that cell failed OOS)."""
+    if PAIR_CLASS.get(pk) != 'comm':
+        return []
+    bars = h1
+    if len(bars) < 200:
+        return []
+    piv = _w5_zigzag(bars, FIBGZ_PRD); n = len(bars); out = []; last = -1
+    for k in range(1, len(piv)):
+        p0, p1 = piv[k-1], piv[k]
+        if p0[2] == 'L' and p1[2] == 'H':
+            d = 'bull'; L, H = p0[1], p1[1]
+        elif p0[2] == 'H' and p1[2] == 'L':
+            d = 'bear'; H, L = p0[1], p1[1]
+        else:
+            continue
+        rng = H - L
+        if rng <= 0:
+            continue
+        if d == 'bull':
+            zhi = H - FIBGZ_ZHI*rng; zlo = H - FIBGZ_ZLO*rng; void = H - FIBGZ_STOP_LVL*rng
+        else:
+            zlo = L + FIBGZ_ZHI*rng; zhi = L + FIBGZ_ZLO*rng; void = L + FIBGZ_STOP_LVL*rng
+        start = p1[0] + FIBGZ_PRD + 1; ei = None
+        for j in range(start, min(start + FIBGZ_BREAK_WIN, n - 1)):
+            b = bars[j]
+            if d == 'bull':
+                if b['l'] < void:
+                    break
+                if b['l'] <= zhi and b['c'] > b['o'] and b['c'] > zlo:
+                    ei = j + 1; break
+            else:
+                if b['h'] > void:
+                    break
+                if b['h'] >= zlo and b['c'] < b['o'] and b['c'] < zhi:
+                    ei = j + 1; break
+        if ei is None or ei <= last or ei >= n:
+            continue
+        entry = bars[ei]['o']; a = atr(bars, 14, ei-1) or 0.0
+        stop = (void - FIBGZ_ATR_BUF*a) if d == 'bull' else (void + FIBGZ_ATR_BUF*a)
+        if (d == 'bull' and stop >= entry) or (d == 'bear' and stop <= entry):
+            continue
+        out.append({'strategy': 'fib_gz', 'tf': 'h1', 'pair': pk, 'dir': d,
+                    'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop})
+        last = ei + FIBGZ_COOLDOWN
+    return out
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -445,7 +506,8 @@ def main():
         found = (detect_hs(pk, h1, daily, draw) + detect_s5(pk, h1, daily, 'engulf')
                  + detect_s5(pk, h1, daily, 'rsi') + detect_ob(pk, h1, daily)
                  + detect_tl(pk, h1, daily) + detect_w5pb(pk, h1, daily)
-                 + detect_s5_rsi_wide(pk, h1, daily) + detect_rsimr(pk, h1, daily))
+                 + detect_s5_rsi_wide(pk, h1, daily) + detect_rsimr(pk, h1, daily)
+                 + detect_fibgz(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -473,7 +535,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             if sub:
