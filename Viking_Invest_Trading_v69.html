@@ -22266,5 +22266,144 @@ function _renderCCIVariantPanel(host, commodityKeys){
 })();
 </script>
 
+<!-- ══ TAB ACCESS CONTROL — request → owner-approve gate (2026-07-18) ══
+     Guards Performance / Investor / Backtest tabs behind owner approval while
+     they're being finalised. A signed-in user without approval sees a "Request
+     access" overlay; the owner sees a floating admin panel to approve/revoke.
+     Backed by profiles.access_approved / access_requested_at (run access.sql).
+     Client-side gate (hides content) — server-side RLS in access.sql is the
+     real enforcement. Self-contained; wraps the existing switchPage. -->
+<script>
+(function(){
+  var OWNER_EMAIL = 'kmma@vikinginvest.org';
+  var GUARDED = {performance:1, investor:1, bt:1};
+  var _access = {approved:false, requestedAt:null, backend:true};
+
+  function sb(){ return window._vinlSb || null; }
+  function ses(){ return window._vinlSession || null; }
+  function email(){ var s=ses(); return s && s.user ? String(s.user.email||'').toLowerCase() : ''; }
+  function isOwner(){ return email() === OWNER_EMAIL.toLowerCase(); }
+  function signedIn(){ var s=ses(); return !!(s && s.user); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+  function allowed(tab){ if(!GUARDED[tab]) return true; if(isOwner()) return true; return signedIn() && _access.approved; }
+
+  function fetchAccess(cb){
+    var c=sb(), s=ses();
+    if(!c || !s || !s.user){ if(cb)cb(); return; }
+    c.from('profiles').select('access_approved,access_requested_at').eq('id', s.user.id).maybeSingle()
+      .then(function(r){
+        if(r && r.error){ if(r.error.code==='42P01' || /access_/.test(r.error.message||'')) _access.backend=false; }
+        else if(r && r.data){ _access.approved=!!r.data.access_approved; _access.requestedAt=r.data.access_requested_at||null; }
+        if(cb)cb();
+      }).catch(function(){ if(cb)cb(); });
+  }
+
+  function overlayFor(tab){
+    var page=document.getElementById('page-'+tab); if(!page) return null;
+    var ov=document.getElementById('viGate-'+tab);
+    if(!ov){
+      if(!page.style.position) page.style.position='relative';
+      ov=document.createElement('div'); ov.id='viGate-'+tab;
+      ov.style.cssText='position:absolute;inset:0;z-index:60;display:none;background:rgba(248,247,244,0.97);align-items:flex-start;justify-content:center;padding:52px 16px;';
+      ov.innerHTML='<div style="max-width:440px;width:100%;background:#fff;border:1px solid var(--rule,#ddd);border-radius:8px;padding:22px 24px;box-shadow:0 8px 28px rgba(0,0,0,0.10);font-family:Orbitron,monospace;">'
+        +'<div style="font-size:13px;font-weight:700;color:var(--blue,#1e408c);letter-spacing:.5px;margin-bottom:8px;">🔒 Access required</div>'
+        +'<div id="viGateMsg-'+tab+'" style="font-size:11px;color:#556;line-height:1.55;margin-bottom:16px;"></div>'
+        +'<button id="viGateBtn-'+tab+'" style="font-family:Orbitron,monospace;font-size:11px;font-weight:700;padding:9px 18px;border:none;border-radius:4px;background:var(--blue,#1e408c);color:#fff;cursor:pointer;letter-spacing:.5px;">Request access</button>'
+        +'<span id="viGateSt-'+tab+'" style="font-size:10px;color:#889;margin-left:10px;"></span></div>';
+      page.appendChild(ov);
+      document.getElementById('viGateBtn-'+tab).onclick=function(){ requestAccess(tab); };
+    }
+    return ov;
+  }
+
+  function renderGate(tab){
+    if(!overlayFor(tab)) return;
+    var msg=document.getElementById('viGateMsg-'+tab), btn=document.getElementById('viGateBtn-'+tab), st=document.getElementById('viGateSt-'+tab);
+    if(!signedIn()){ msg.innerHTML='This section is being finalised. Please <strong>sign in</strong> (top-right), then request access — the team will approve you.'; btn.style.display='none'; st.textContent=''; }
+    else if(!_access.backend){ msg.innerHTML='Access backend not enabled yet — please check back shortly.'; btn.style.display='none'; st.textContent=''; }
+    else if(_access.requestedAt && !_access.approved){ msg.innerHTML='Your request is <strong>pending approval</strong>. You’ll get access as soon as the team reviews it.'; btn.style.display='none'; st.textContent='✓ requested'; }
+    else { msg.innerHTML='This section is available on approval while it’s being finalised. Request access below and the team will review it.'; btn.style.display=''; st.textContent=''; }
+  }
+
+  function requestAccess(tab){
+    var c=sb(), s=ses(); if(!c || !s || !s.user) return;
+    var btn=document.getElementById('viGateBtn-'+tab), st=document.getElementById('viGateSt-'+tab);
+    if(btn){ btn.disabled=true; btn.textContent='Sending…'; }
+    c.from('profiles').upsert({id:s.user.id, access_requested_at:new Date().toISOString()}, {onConflict:'id'})
+      .then(function(r){ if(btn){btn.disabled=false;btn.textContent='Request access';}
+        if(r && r.error){ if(st) st.textContent='Error — try again'; return; }
+        _access.requestedAt=new Date().toISOString(); renderGate(tab);
+      }).catch(function(){ if(btn){btn.disabled=false;btn.textContent='Request access';} });
+  }
+
+  function applyGate(tab){
+    Object.keys(GUARDED).forEach(function(t){ var ov=document.getElementById('viGate-'+t); if(ov && t!==tab) ov.style.display='none'; });
+    if(!GUARDED[tab]) return;
+    var ov=overlayFor(tab); if(!ov) return;
+    if(allowed(tab)) ov.style.display='none'; else { renderGate(tab); ov.style.display='flex'; }
+  }
+
+  // ── owner-only approvals panel ──
+  function renderAdmin(){
+    var host=document.getElementById('viAdminPanel');
+    if(!isOwner()){ if(host) host.style.display='none'; return; }
+    if(!host){
+      host=document.createElement('div'); host.id='viAdminPanel';
+      host.style.cssText='position:fixed;bottom:14px;right:14px;z-index:9999;width:330px;max-height:62vh;overflow:auto;background:#fff;border:1px solid var(--gold,#c8860a);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,0.16);font-family:Orbitron,monospace;font-size:10px;';
+      document.body.appendChild(host);
+    }
+    host.style.display='block'; host.innerHTML='<div style="padding:9px 11px;color:#889;">Loading access requests…</div>';
+    var c=sb(); if(!c) return;
+    c.from('profiles').select('id,first_name,last_name,company,role,country,access_requested_at,access_approved')
+      .not('access_requested_at','is',null).order('access_requested_at',{ascending:false})
+      .then(function(r){
+        if(r && r.error){ host.innerHTML='<div style="padding:9px 11px;color:#c0281a;">'+(r.error.code==='42P01'?'Run access.sql migration first.':'Cannot load requests (check owner RLS).')+'</div>'; return; }
+        var rows=(r.data||[]), pend=rows.filter(function(x){return !x.access_approved;});
+        var h='<div style="padding:9px 11px;font-weight:700;color:var(--gold,#c8860a);border-bottom:1px solid #eee;position:sticky;top:0;background:#fff;">🔧 Access requests · '+pend.length+' pending</div>';
+        if(!rows.length) h+='<div style="padding:9px 11px;color:#889;">No requests yet.</div>';
+        rows.forEach(function(x){
+          var nm=((x.first_name||'')+' '+(x.last_name||'')).trim()||'(no name)';
+          var sub=[x.company,x.role,x.country].filter(Boolean).join(' · ');
+          h+='<div style="padding:8px 11px;border-bottom:1px solid #f3f3f3;">'
+            +'<div style="font-weight:700;">'+esc(nm)+(x.access_approved?' <span style="color:#0d5a36;">✓ approved</span>':'')+'</div>'
+            +(sub?'<div style="color:#889;margin:2px 0;">'+esc(sub)+'</div>':'')
+            +(x.access_approved
+               ? '<button data-uid="'+esc(x.id)+'" data-a="0" style="margin-top:4px;font-family:inherit;font-size:9px;padding:3px 9px;border:1px solid #ccc;background:#fff;border-radius:3px;cursor:pointer;">Revoke</button>'
+               : '<button data-uid="'+esc(x.id)+'" data-a="1" style="margin-top:4px;font-family:inherit;font-size:9px;font-weight:700;padding:3px 11px;border:none;background:#0d5a36;color:#fff;border-radius:3px;cursor:pointer;">Approve</button>')
+            +'</div>';
+        });
+        host.innerHTML=h;
+        Array.prototype.forEach.call(host.querySelectorAll('button[data-uid]'),function(b){
+          b.onclick=function(){ setApproval(b.getAttribute('data-uid'), b.getAttribute('data-a')==='1'); };
+        });
+      }).catch(function(){ host.innerHTML='<div style="padding:9px 11px;color:#c0281a;">Load error.</div>'; });
+  }
+  function setApproval(uid, val){
+    var c=sb(); if(!c) return;
+    c.from('profiles').update({access_approved:val}).eq('id',uid).then(function(){ renderAdmin(); }).catch(function(){});
+  }
+
+  function activeTab(){ var a=document.querySelector('.page.active'); return a?a.id.replace('page-',''):''; }
+  function refresh(){ fetchAccess(function(){ applyGate(activeTab()); renderAdmin(); }); }
+
+  // wrap switchPage (defined earlier in the file) so every navigation re-gates
+  var _orig=window.switchPage;
+  window.switchPage=function(p){
+    if(typeof _orig==='function') _orig(p);
+    var pp = p==='log'?'bt':(p==='journal'?'dash':(p==='newsletter'?'investor':p));
+    applyGate(pp);
+  };
+
+  // init once the supabase client is up; re-gate on every auth state change
+  var tries=0, iv=setInterval(function(){
+    tries++;
+    if(sb()){ clearInterval(iv);
+      try { sb().auth.onAuthStateChange(function(){ _access={approved:false,requestedAt:null,backend:true}; setTimeout(refresh,250); }); } catch(e){}
+      refresh();
+    } else if(tries>60){ clearInterval(iv); refresh(); }
+  }, 250);
+})();
+</script>
+
 </body>
 </html>
