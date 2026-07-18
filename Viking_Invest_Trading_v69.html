@@ -3959,8 +3959,16 @@ var _lazyBacktestTriggered = false;
 // only when DEEP_HIST is empty (boot fetch presumed failed/killed).
 var _lazyFetchTriggered = false;
 
+// Win rates are HIDDEN on the main dashboard (2026-07-18): the displayed rates are
+// backtest/simulation-derived and diverge materially from live cTrader results, so
+// they read as misleading. Flip to true to reinstate once verified LIVE win rates
+// from the cTrader forward-test have accumulated (~a couple of months). This is a
+// display flag ONLY — it changes nothing about signal detection or the 4/4 gate.
+var SHOW_WIN_RATES = false;
+
 function mainDashboardWrLabel(k, m, mode){
   mode = mode || 'short';
+  if(!SHOW_WIN_RATES) return '';
   var live = (typeof liveIntradayWinRate === 'function') ? liveIntradayWinRate(k) : null;
   // Layer 1: 12-month deep backtest — strongest data-driven source.
   // The cache + stats axes are chosen per pair class by _btProfileFor:
@@ -4492,7 +4500,7 @@ function updateOV(k){
     _ovWrTip = 'Headline win rate · sourced from (in priority order) 12-month deep BT '
              + '→ live 15m tracker → buffered simulator → EW structural estimate.';
   }
-  el.innerHTML=fdot+'<div class="osym">'+m.sym+ovEvt+ovIntra+ttag+'</div><div class="opx" style="color:'+(m.up?'var(--bull)':'var(--bear)')+'">'+m.px+'</div>'+pxTimeTag+'<div class="osig" style="color:'+col+'">'+lbl+' '+score.tot+'/4</div>'+alignBadge+'<div class="owr" style="color:'+mainDashboardWrColor(k,m)+';cursor:help;" title="'+_ovWrTip+'">'+_ovWrTxt+'</div>';
+  el.innerHTML=fdot+'<div class="osym">'+m.sym+ovEvt+ovIntra+ttag+'</div><div class="opx" style="color:'+(m.up?'var(--bull)':'var(--bear)')+'">'+m.px+'</div>'+pxTimeTag+'<div class="osig" style="color:'+col+'">'+lbl+' '+score.tot+'/4</div>'+alignBadge+(_ovWrTxt?'<div class="owr" style="color:'+mainDashboardWrColor(k,m)+';cursor:help;" title="'+_ovWrTip+'">'+_ovWrTxt+'</div>':'');
 }
 
 // ── Scroller ──────────────────────────────────────────────────
@@ -5344,7 +5352,10 @@ function refreshAlert(k){
   var nsTgtSrc = document.getElementById('ns-tgt-src-'+k);
   if(nsTgtSrc) nsTgtSrc.innerHTML = macroSourceBadge(k);
   ab.className='abanner';sco.className='scc';sco.textContent=score.tot+'/4';
-  var wb='<span style="font-family:Orbitron,monospace;font-size:7px;font-weight:700;padding:1px 5px;border-radius:2px;margin-left:4px;vertical-align:middle;background:'+(m.wr>=75?'rgba(26,122,74,.15)':'rgba(200,134,10,.12)')+';color:'+(m.wr>=75?'var(--bull)':'var(--gold)');wb+=';border:1px solid '+(m.wr>=75?'rgba(26,122,74,.3)':'rgba(200,134,10,.3)')+';"> '+wrLabel(m,'short')+'</span>';
+  var wb='';
+  if(SHOW_WIN_RATES){
+    wb='<span style="font-family:Orbitron,monospace;font-size:7px;font-weight:700;padding:1px 5px;border-radius:2px;margin-left:4px;vertical-align:middle;background:'+(m.wr>=75?'rgba(26,122,74,.15)':'rgba(200,134,10,.12)')+';color:'+(m.wr>=75?'var(--bull)':'var(--gold)');wb+=';border:1px solid '+(m.wr>=75?'rgba(26,122,74,.3)':'rgba(200,134,10,.3)')+';"> '+wrLabel(m,'short')+'</span>';
+  }
 
   // Event deferral: if a high-impact event is imminent for this pair,
   // override the 4/4 alert with a DEFERRED state to prevent trading
