@@ -22343,48 +22343,31 @@ function _renderCCIVariantPanel(host, commodityKeys){
     if(allowed(tab)) ov.style.display='none'; else { renderGate(tab); ov.style.display='flex'; }
   }
 
-  // ── owner-only approvals panel ──
-  function renderAdmin(){
-    var host=document.getElementById('viAdminPanel');
+  // ── owner-only "N pending" badge on the Backtest page ──
+  // Approvals themselves live on the admin site (stats.html); this is just a
+  // heads-up so the owner notices new requests and jumps over to approve.
+  function renderPendingBadge(){
+    var host=document.getElementById('viPendingBadge');
     if(!isOwner()){ if(host) host.style.display='none'; return; }
+    var page=document.getElementById('page-bt'); if(!page) return;
     if(!host){
-      host=document.createElement('div'); host.id='viAdminPanel';
-      host.style.cssText='position:fixed;bottom:14px;right:14px;z-index:9999;width:330px;max-height:62vh;overflow:auto;background:#fff;border:1px solid var(--gold,#c8860a);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,0.16);font-family:Orbitron,monospace;font-size:10px;';
-      document.body.appendChild(host);
+      host=document.createElement('a'); host.id='viPendingBadge';
+      host.href='stats.html'; host.target='_blank'; host.rel='noopener';
+      host.style.cssText='display:none;margin:10px 0 2px;padding:6px 11px;border:1px solid var(--gold,#c8860a);border-radius:5px;background:rgba(200,134,10,0.08);color:var(--gold,#c8860a);font-family:Orbitron,monospace;font-size:10px;font-weight:700;text-decoration:none;letter-spacing:.5px;';
+      page.insertBefore(host, page.firstChild);
     }
-    host.style.display='block'; host.innerHTML='<div style="padding:9px 11px;color:#889;">Loading access requests…</div>';
     var c=sb(); if(!c) return;
-    c.from('profiles').select('id,first_name,last_name,company,role,country,access_requested_at,access_approved')
-      .not('access_requested_at','is',null).order('access_requested_at',{ascending:false})
+    c.from('profiles').select('id', {count:'exact', head:true})
+      .not('access_requested_at','is',null).eq('access_approved', false)
       .then(function(r){
-        if(r && r.error){ host.innerHTML='<div style="padding:9px 11px;color:#c0281a;">'+(r.error.code==='42P01'?'Run access.sql migration first.':'Cannot load requests (check owner RLS).')+'</div>'; return; }
-        var rows=(r.data||[]), pend=rows.filter(function(x){return !x.access_approved;});
-        var h='<div style="padding:9px 11px;font-weight:700;color:var(--gold,#c8860a);border-bottom:1px solid #eee;position:sticky;top:0;background:#fff;">🔧 Access requests · '+pend.length+' pending</div>';
-        if(!rows.length) h+='<div style="padding:9px 11px;color:#889;">No requests yet.</div>';
-        rows.forEach(function(x){
-          var nm=((x.first_name||'')+' '+(x.last_name||'')).trim()||'(no name)';
-          var sub=[x.company,x.role,x.country].filter(Boolean).join(' · ');
-          h+='<div style="padding:8px 11px;border-bottom:1px solid #f3f3f3;">'
-            +'<div style="font-weight:700;">'+esc(nm)+(x.access_approved?' <span style="color:#0d5a36;">✓ approved</span>':'')+'</div>'
-            +(sub?'<div style="color:#889;margin:2px 0;">'+esc(sub)+'</div>':'')
-            +(x.access_approved
-               ? '<button data-uid="'+esc(x.id)+'" data-a="0" style="margin-top:4px;font-family:inherit;font-size:9px;padding:3px 9px;border:1px solid #ccc;background:#fff;border-radius:3px;cursor:pointer;">Revoke</button>'
-               : '<button data-uid="'+esc(x.id)+'" data-a="1" style="margin-top:4px;font-family:inherit;font-size:9px;font-weight:700;padding:3px 11px;border:none;background:#0d5a36;color:#fff;border-radius:3px;cursor:pointer;">Approve</button>')
-            +'</div>';
-        });
-        host.innerHTML=h;
-        Array.prototype.forEach.call(host.querySelectorAll('button[data-uid]'),function(b){
-          b.onclick=function(){ setApproval(b.getAttribute('data-uid'), b.getAttribute('data-a')==='1'); };
-        });
-      }).catch(function(){ host.innerHTML='<div style="padding:9px 11px;color:#c0281a;">Load error.</div>'; });
-  }
-  function setApproval(uid, val){
-    var c=sb(); if(!c) return;
-    c.from('profiles').update({access_approved:val}).eq('id',uid).then(function(){ renderAdmin(); }).catch(function(){});
+        var n = (r && typeof r.count==='number') ? r.count : 0;
+        if(n > 0){ host.textContent='🔧 '+n+' access request'+(n===1?'':'s')+' pending → approve in Admin'; host.style.display='inline-block'; }
+        else { host.style.display='none'; }
+      }).catch(function(){});
   }
 
   function activeTab(){ var a=document.querySelector('.page.active'); return a?a.id.replace('page-',''):''; }
-  function refresh(){ fetchAccess(function(){ applyGate(activeTab()); renderAdmin(); }); }
+  function refresh(){ fetchAccess(function(){ applyGate(activeTab()); renderPendingBadge(); }); }
 
   // wrap switchPage (defined earlier in the file) so every navigation re-gates
   var _orig=window.switchPage;

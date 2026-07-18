@@ -242,6 +242,17 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
       <div class="profile-field-grid" id="profileClassGridInner" data-purpose="alert-classes"></div>
     </div>
     <div class="note" id="profileNote" style="display:none;"></div>
+
+    <!-- ── Tab access requests — approve / revoke (admin) ──────────────
+         Users request access to the guarded dashboard tabs (Performance /
+         Investor / Backtest) from the trading platform; the owner grants it
+         here by flipping profiles.access_approved. Backed by access.sql. ── -->
+    <span class="eyebrow" style="margin-top:34px;">Tab access</span>
+    <h1 style="margin-bottom:6px;">Access requests <span id="accessReqCount" style="font-family:'Orbitron',monospace;font-size:14px;color:var(--gold);"></span></h1>
+    <div id="accessReqList" style="margin-top:12px;">
+      <div class="note">Loading requests&hellip;</div>
+    </div>
+
     <div class="note">
       Each number is unique browsers (one per device, ever). This page is
       unlinked from the site and marked <code>noindex</code> so search engines
@@ -566,6 +577,65 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
     loadProfiles();
   };
   loadAll();
+})();
+</script>
+
+<!-- ── Tab access requests — admin approve / revoke ─────────────────── -->
+<script>
+(function(){
+  function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+  function fmtDate(s){ try{ return new Date(s).toLocaleDateString(undefined,{month:'short',day:'numeric'}); }catch(e){ return ''; } }
+  function sb(){ return window._sbStats || null; }
+
+  function setApproval(uid, val, btn){
+    var c=sb(); if(!c) return;
+    if(btn){ btn.disabled=true; btn.textContent='…'; }
+    c.from('profiles').update({access_approved:val}).eq('id',uid).then(function(r){
+      if(r && r.error){ if(btn){ btn.disabled=false; btn.textContent='Retry'; } return; }
+      loadAccessRequests();
+    }).catch(function(){ if(btn){ btn.disabled=false; btn.textContent='Retry'; } });
+  }
+
+  function loadAccessRequests(){
+    var host=document.getElementById('accessReqList'), cnt=document.getElementById('accessReqCount');
+    if(!host) return;
+    var c=sb();
+    if(!c){ host.innerHTML='<div class="note">Auth not ready.</div>'; return; }
+    c.from('profiles').select('id,first_name,last_name,company,role,country,access_requested_at,access_approved')
+      .not('access_requested_at','is',null).order('access_requested_at',{ascending:false})
+      .then(function(r){
+        if(r && r.error){
+          host.innerHTML='<div class="note" style="color:#c0281a;">'+(r.error.code==='42P01'?'Run access.sql first (profiles.access_approved missing).':'Cannot load — check the owner RLS in access.sql.')+'</div>';
+          if(cnt) cnt.textContent=''; return;
+        }
+        var rows=(r.data||[]), pend=rows.filter(function(x){return !x.access_approved;});
+        if(cnt) cnt.textContent = pend.length ? '· '+pend.length+' pending' : '· all clear';
+        if(!rows.length){ host.innerHTML='<div class="note">No access requests yet.</div>'; return; }
+        var h='';
+        rows.forEach(function(x){
+          var nm=((x.first_name||'')+' '+(x.last_name||'')).trim()||'(no name)';
+          var sub=[x.company,x.role,x.country].filter(Boolean).join(' · ');
+          h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;margin-bottom:7px;background:var(--sf);">'
+            +'<div style="min-width:0;">'
+              +'<div style="font-weight:600;color:var(--ink);">'+esc(nm)+(x.access_approved?' <span style="color:#1a7a4a;font-size:11px;">✓ approved</span>':'')+'</div>'
+              +(sub?'<div style="font-size:11px;color:var(--inkd);margin-top:1px;">'+esc(sub)+'</div>':'')
+              +'<div style="font-size:10px;color:var(--inkd);margin-top:2px;">requested '+esc(fmtDate(x.access_requested_at))+'</div>'
+            +'</div>'
+            +'<button data-uid="'+esc(x.id)+'" data-a="'+(x.access_approved?'0':'1')+'" style="flex:0 0 auto;font-family:Orbitron,monospace;font-size:10px;font-weight:700;letter-spacing:.5px;padding:7px 14px;border-radius:6px;cursor:pointer;border:'+(x.access_approved?'1px solid var(--rule);background:#fff;color:var(--ink)':'0;background:#1a7a4a;color:#fff')+';">'+(x.access_approved?'Revoke':'Approve')+'</button>'
+          +'</div>';
+        });
+        host.innerHTML=h;
+        Array.prototype.forEach.call(host.querySelectorAll('button[data-uid]'),function(b){
+          b.onclick=function(){ setApproval(b.getAttribute('data-uid'), b.getAttribute('data-a')==='1', b); };
+        });
+      }).catch(function(){ host.innerHTML='<div class="note" style="color:#c0281a;">Load error.</div>'; });
+  }
+
+  // fold into the page's Refresh + admin-session load
+  var _orig=window.loadAll;
+  window.loadAll=function(){ if(typeof _orig==='function') _orig(); loadAccessRequests(); };
+  var body=document.getElementById('statsBody');
+  if(body && body.style.display !== 'none') loadAccessRequests();
 })();
 </script>
 </body>

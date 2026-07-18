@@ -436,6 +436,8 @@ section{padding:84px 0;}
         execute with discipline. Live signal generation, a transparent
         backtest engine, and an investor-grade performance report sit on
         the same datastore &mdash; what traders act on, investors see.
+        Every edge is validated out-of-sample and reconciled against real
+        broker fills before it earns capital &mdash; rigour over backtest theatre.
       </p>
       <ul class="feat-list">
         <li><span class="tick">&#10003;</span>39 active pairs across FX majors and minors, commodities, indices and crypto.</li>
@@ -445,6 +447,9 @@ section{padding:84px 0;}
         <li><span class="tick">&#10003;</span>Real-time Performance tab + on-demand investor-grade PDF (ITD / YTD / MTD / 7-day, asset-allocation pie, top &amp; bottom pairs, methodology, risk disclosures).</li>
         <li><span class="tick">&#10003;</span>Live broker bridge to cTrader &mdash; server-side dedup, daily-loss limiter, kill-switch, Telegram alerts; broker fills reconcile back to the dashboard in real time.</li>
         <li><span class="tick">&#10003;</span>12-month backtest engine on institutional-grade price history, auto-refreshed every six hours, with a per-pair failure-mode panel and structured trade journal.</li>
+        <li><span class="tick">&#10003;</span>Out-of-sample &amp; walk-forward validation on every candidate edge &mdash; scores of setups stress-tested, only the survivors deployed. We separate durable edges from backtest illusions, not chase headline win rates.</li>
+        <li><span class="tick">&#10003;</span>Execution-gap engineering &mdash; each strategy's modelled expectancy is calibrated against real broker fills, so headline numbers reflect live execution rather than idealised fills. Order-routing choices (market vs limit, entry timing) are A/B-measured, not assumed.</li>
+        <li><span class="tick">&#10003;</span>Live forward-test harness &mdash; new candidates run on an isolated demo account with model-vs-real tracking, proving (or disproving) an edge before a cent of real capital moves.</li>
       </ul>
       <a href="./dashboard.html" class="btn btn-gold">Open the live dashboard</a>
     </div>
