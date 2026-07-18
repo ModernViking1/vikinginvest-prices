@@ -1,0 +1,70 @@
+name: Intraday Limit-vs-Market A/B Tracker
+
+# Captures every live intraday signal with the market price at first sight and
+# scores a LIMIT-entry vs MARKET-entry A/B on m15, at the live 1:1 target. Reads
+# signals.json (does NOT touch signal generation) and writes intraday-ab-log.json,
+# which is inert research data — nothing on the platform reads it. No trading, no
+# orders. Runs every 15 min so the captured market price is close to signal time.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: intraday-ab
+  cancel-in-progress: false
+
+jobs:
+  ab:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Guard — required files present
+        run: |
+          for f in intraday_ab_tracker.py signals.json historical-ohlc.json backtest_rsi_per_class.py; do
+            if [ ! -f "$f" ]; then echo "::error::$f missing from repo root"; exit 1; fi
+          done
+
+      - name: Run intraday A/B tracker
+        run: python intraday_ab_tracker.py
+
+      - name: Commit + push intraday-ab-log.json (retry on race)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- intraday-ab-log.json && [ -f intraday-ab-log.json ]; then
+            echo "no change to intraday-ab-log.json"; exit 0
+          fi
+          git add intraday-ab-log.json
+          git commit -m "chore: update intraday limit-vs-market A/B log [skip ci]" || { echo "nothing to commit"; exit 0; }
+          pushed=0
+          for i in 1 2 3 4 5; do
+            if git push origin main 2>&1; then echo "pushed"; pushed=1; break; fi
+            echo "push race, rebasing (attempt $i)"; git fetch origin main && git rebase origin/main || git rebase --abort
+            sleep $((2 ** i))
+          done
+          if [ "$pushed" != "1" ]; then echo "::error::failed to push intraday-ab-log.json after retries"; exit 1; fi
+
+      - name: Purge CDN
+        run: |
+          curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/intraday-ab-log.json" || echo "purge gh failed"
