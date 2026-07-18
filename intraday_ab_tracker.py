@@ -32,6 +32,24 @@ HOLD = 40         # m15 bars to resolve the trade (~10h)
 RR = 1.0          # live intraday target (kept 1:1 — the sweep showed higher hurts)
 
 
+TOL = 0.10
+BODY_MIN = 0.5
+
+
+def _nowick_side(b):
+    """Decisive candle with ~no wick on one side (generic candle shape): bull = no
+    lower wick + bullish body, bear = no upper wick. Tags each signal nowick_aligned
+    so the Omar-style no-wick FILTER win rate accumulates live."""
+    rng = b['h'] - b['l']
+    if rng <= 0 or abs(b['c'] - b['o']) < BODY_MIN * rng:
+        return None
+    if b['c'] > b['o'] and (min(b['o'], b['c']) - b['l']) <= TOL * rng:
+        return 'bull'
+    if b['c'] < b['o'] and (b['h'] - max(b['o'], b['c'])) <= TOL * rng:
+        return 'bear'
+    return None
+
+
 def walk(bars, i0, entry, stop, d, hold):
     """('resolved', r) | ('pending', None) | ('expired', None)."""
     R = abs(entry - stop)
@@ -100,6 +118,10 @@ def main():
         if ci < 0:
             continue
         d = rec['dir']
+        # tag: was the signal (capture) bar a no-wick momentum candle in-trend?
+        # computed once per signal; backfills records captured before this tag.
+        if 'nowick_aligned' not in rec:
+            rec['nowick_aligned'] = bool(0 <= ci < len(bars) and _nowick_side(bars[ci]) == d)
         # MARKET arm — enter next bar after capture
         st, o = walk(bars, ci + 1, rec['market_entry'], rec['stop'], d, HOLD)
         rec['market_status'] = st
@@ -133,6 +155,14 @@ def main():
     print(f"  LIMIT  arm : resolved={ln:>3}  WR={lw:>5.1f}%  exp={le:+.3f}R  (fill rate {100*filled/max(1,filled+nofill):.0f}%, {nofill} no-fill/missed)")
     if mn and ln:
         print(f"  -> market minus limit: {me-le:+.3f}R/trade  (positive = market entry wins)")
+    # Omar no-wick FILTER split — on the market arm (the realistic-fill one).
+    def res_mkt(cond):
+        return [r['market_r'] for r in allv
+                if r.get('market_status') == 'resolved' and r.get('market_r') is not None and cond(r)]
+    al = res_mkt(lambda r: r.get('nowick_aligned') is True)
+    na = res_mkt(lambda r: r.get('nowick_aligned') is False)
+    an, aw, ae = agg(al); nn2, nw2, ne = agg(na)
+    print(f"  no-wick FILTER (market arm): ALIGNED n={an:>3} WR={aw:>5.1f}% exp={ae:+.3f}R  |  not-aligned n={nn2:>3} WR={nw2:>5.1f}% exp={ne:+.3f}R")
     print("  (forward A/B; sample sharpens as signals resolve)")
 
 
