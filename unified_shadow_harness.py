@@ -592,6 +592,20 @@ def _bos_dir(bars, prd=3):
     return bdir
 
 
+def _nowick_side(b, tol=0.10, body_min=0.5):
+    """A decisive candle with ~no wick on one side: bull = no lower wick (opened at
+    the low, bullish body), bear = no upper wick. Generic candle shape, used to tag
+    signals nowick_aligned (momentum-confirmation confluence)."""
+    rng = b['h'] - b['l']
+    if rng <= 0 or abs(b['c'] - b['o']) < body_min * rng:
+        return None
+    if b['c'] > b['o'] and (min(b['o'], b['c']) - b['l']) <= tol * rng:
+        return 'bull'
+    if b['c'] < b['o'] and (b['h'] - max(b['o'], b['c'])) <= tol * rng:
+        return 'bear'
+    return None
+
+
 def main():
     d = json.load(open(HIST)); pairs = d.get('pairs', {})
     log = json.load(open(LOG)) if os.path.exists(LOG) else {'baseline_data_end': None, 'signals': {}}
@@ -624,6 +638,14 @@ def main():
                     ci = bisect.bisect_left(tl, rec['entry_ts'])
                     al = ci >= 1 and ci <= len(bd) and bd[ci-1] == rec['dir']
                 rec['bos_aligned'] = bool(al)
+            # tag confluence: is the pre-entry bar a no-wick momentum candle in-trend?
+            if 'nowick_aligned' not in rec:
+                bn = {'h1': h1, '4h': b4, 'daily': daily}.get(rec['tf']); tl = bts.get(rec['tf'])
+                nwa = False
+                if bn and tl:
+                    ci = bisect.bisect_left(tl, rec['entry_ts'])
+                    nwa = ci >= 1 and ci <= len(bn) and _nowick_side(bn[ci-1]) == rec['dir']
+                rec['nowick_aligned'] = bool(nwa)
             tf = rec['tf']
             bars = h1 if tf == 'h1' else (b4 if tf == '4h' else daily)
             hold = HS_HOLD if tf == 'h1' else (HOLD['4h'] if tf == '4h' else 20)
