@@ -52,11 +52,12 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- intraday-ab-log.json && [ -f intraday-ab-log.json ]; then
+          git add intraday-ab-log.json
+          # stage-then-check: handles a brand-new (untracked) file on the first run
+          if git diff --cached --quiet; then
             echo "no change to intraday-ab-log.json"; exit 0
           fi
-          git add intraday-ab-log.json
-          git commit -m "chore: update intraday limit-vs-market A/B log [skip ci]" || { echo "nothing to commit"; exit 0; }
+          git commit -m "chore: update intraday limit-vs-market A/B log [skip ci]"
           pushed=0
           for i in 1 2 3 4 5; do
             if git push origin main 2>&1; then echo "pushed"; pushed=1; break; fi
