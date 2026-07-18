@@ -47,6 +47,20 @@ create trigger trg_guard_access_approved
   before insert or update on public.profiles
   for each row execute function public.guard_access_approved();
 
+-- 4) Own-row access so a signed-in user can create/read/update THEIR OWN profile
+--    row (this is how the "Request access" button writes access_requested_at).
+--    Self-approval is still blocked by the trigger above, so an own-row update
+--    can never set access_approved. Safe/idempotent — if your profiles.sql
+--    already defines equivalent policies, these simply coexist.
+drop policy if exists "own profile read"   on public.profiles;
+create policy "own profile read"   on public.profiles for select using (auth.uid() = id);
+
+drop policy if exists "own profile insert" on public.profiles;
+create policy "own profile insert" on public.profiles for insert with check (auth.uid() = id);
+
+drop policy if exists "own profile update" on public.profiles;
+create policy "own profile update" on public.profiles for update using (auth.uid() = id);
+
 -- Done. Reload the dashboard: guarded tabs now show a "Request access" overlay
 -- for signed-in users, and you (the owner) get a floating "Access requests"
 -- panel bottom-right to Approve / Revoke.

@@ -583,9 +583,11 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
 <!-- ── Tab access requests — admin approve / revoke ─────────────────── -->
 <script>
 (function(){
+  var _baseTitle = document.title;   // e.g. "Viking Invest — Visitor Stats"
   function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
   function fmtDate(s){ try{ return new Date(s).toLocaleDateString(undefined,{month:'short',day:'numeric'}); }catch(e){ return ''; } }
   function sb(){ return window._sbStats || null; }
+  function setTabCount(n){ try{ document.title = n > 0 ? '('+n+') '+_baseTitle : _baseTitle; }catch(e){} }
 
   function setApproval(uid, val, btn){
     var c=sb(); if(!c) return;
@@ -610,6 +612,7 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
         }
         var rows=(r.data||[]), pend=rows.filter(function(x){return !x.access_approved;});
         if(cnt) cnt.textContent = pend.length ? '· '+pend.length+' pending' : '· all clear';
+        setTabCount(pend.length);
         if(!rows.length){ host.innerHTML='<div class="note">No access requests yet.</div>'; return; }
         var h='';
         rows.forEach(function(x){
