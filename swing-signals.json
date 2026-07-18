@@ -1,8 +1,8 @@
 {
  "schema_version": 1,
- "generated": "2026-07-18T03:00:00+00:00",
- "data_end_ts": 1784343600,
- "raw_signal_count": 5,
+ "generated": "2026-07-18T08:00:00+00:00",
+ "data_end_ts": 1784361600,
+ "raw_signal_count": 4,
  "count": 4,
  "signals": [
   {
@@ -18,7 +18,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784332800,
-   "created_ts": 1784343600,
+   "created_ts": 1784361600,
    "expiry_ts": 1784376000,
    "state": "triggered",
    "cofire": [
@@ -26,6 +26,30 @@
    ],
    "cofire_dirs": [
     "ob:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "s5_rsi:euraud:1784300400",
+   "strategy": "s5_rsi",
+   "pair": "euraud",
+   "symbol": "EURAUD",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 1.64204,
+   "ref_entry": 1.63874,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784300400,
+   "created_ts": 1784361600,
+   "expiry_ts": 1784343600,
+   "state": "triggered",
+   "cofire": [
+    "s5_rsi"
+   ],
+   "cofire_dirs": [
+    "s5_rsi:bear"
    ],
    "suppressed": 0
   },
@@ -42,7 +66,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784275200,
-   "created_ts": 1784343600,
+   "created_ts": 1784361600,
    "expiry_ts": 1784318400,
    "state": "triggered",
    "cofire": [
@@ -66,39 +90,14 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784275200,
-   "created_ts": 1784343600,
+   "created_ts": 1784361600,
    "expiry_ts": 1784318400,
    "state": "triggered",
    "cofire": [
     "fib_gz"
    ],
    "cofire_dirs": [
-    "fib_gz:bear",
     "fib_gz:bull"
-   ],
-   "suppressed": 1
-  },
-  {
-   "id": "fib_gz:usoil:1784257200",
-   "strategy": "fib_gz",
-   "pair": "usoil",
-   "symbol": "USOIL",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 86.42028614,
-   "ref_entry": 85.343,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1784257200,
-   "created_ts": 1784343600,
-   "expiry_ts": 1784300400,
-   "state": "triggered",
-   "cofire": [
-    "fib_gz"
-   ],
-   "cofire_dirs": [
-    "fib_gz:bear"
    ],
    "suppressed": 0
   }
