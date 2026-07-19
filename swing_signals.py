@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -55,6 +55,10 @@ S5W_CLASSES = {'comm', 'crypto', 'index', 'major', 'minor'}
 # COMMODITIES + H1 only, fixed RR2. Thin edge (+0.06R, PF ~1.1) but the only cell
 # in the Dantev class breakdown positive on BOTH OOS halves. cBot-executable.
 FIBGZ_CLASSES = {'comm'}
+# 3-push + break-of-structure + retest reversal (2026-07-18) — 11th OBSERVED
+# candidate, COMMODITIES + 4H only. Thin (n=40, +0.19R, both OOS halves +,
+# parameter-robust) but only 3/6 walk-forward folds — observe, don't trust.
+THREEPUSH_CLASSES = {'comm'}
 # Exposure control: collapse all fresh signals on a pair into ONE live position so
 # correlated strategies don't stack (e.g. s5_rsi + s5_rsi_wide + tl_nowick all
 # short the same pair on the same bar = 3x one directional bet). Highest-conviction
@@ -62,7 +66,7 @@ FIBGZ_CLASSES = {'comm'}
 # shadow harness still logs EVERY signal independently, so per-strategy VOLUME stats
 # are unaffected — this caps only live demo exposure, mirroring the intraday cBot's
 # one-position-per-symbol rule. Order = validated backtest expectancy, best first.
-PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'tl_nowick': 4, 'fib_gz': 5, 'w5_pullback': 6, 'fred_tl': 7}
+PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'tl_nowick': 4, 'fib_gz': 5, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8}
 
 
 def main():
@@ -99,6 +103,8 @@ def main():
         if cls in FIBGZ_CLASSES:
             found += detect_fibgz(pk, h1, daily)
         found += detect_fredtl(pk, h1, daily)   # self-gates to xauusd only
+        if cls in THREEPUSH_CLASSES:
+            found += detect_threepush(pk, h1, daily)
         for s in found:
             if s['entry_ts'] < fresh_after:
                 continue

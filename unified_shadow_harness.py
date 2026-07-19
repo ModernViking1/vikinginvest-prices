@@ -538,6 +538,82 @@ def detect_fredtl(pk, h1, daily):
     return out
 
 
+TP_PRD = 3
+TP_BOS_WIN = 30
+TP_RETEST_WIN = 20
+TP_BUF = 0.25
+TP_COOLDOWN = 5
+
+
+def detect_threepush(pk, h1, daily):
+    """Observed candidate #11 — 3-push + break-of-structure + retest reversal
+    (user-drawn), COMMODITIES + 4H only, fixed RR2. Three higher highs on rising
+    structure -> close below the last higher low (BOS) -> retest of the broken level
+    -> sell (mirror 3-lows-down for longs). Only cell that held: comm 4H +0.19R, both
+    OOS halves positive, robust to every parameter perturbation — but thin (n=40) and
+    only 3/6 walk-forward folds. Observe, don't trust."""
+    if PAIR_CLASS.get(pk) != 'comm':
+        return []
+    bars = agg4h(h1); n = len(bars)
+    if n < 150:
+        return []
+    zz = _w5_zigzag(bars, TP_PRD); out = []; last = -1
+    for k in range(len(zz) - 5):
+        w = zz[k:k+6]; kinds = tuple(x[2] for x in w)
+        if kinds == ('L', 'H', 'L', 'H', 'L', 'H'):
+            l0, h1v, l1, h2, l2, h3 = (x[1] for x in w)
+            if not (h1v < h2 < h3 and l0 < l1 < l2):
+                continue
+            struct = l2; start = w[5][0] + TP_PRD + 1; bos = None
+            for j in range(start, min(start + TP_BOS_WIN, n - 1)):
+                if bars[j]['h'] > h3:
+                    break
+                if bars[j]['c'] < struct:
+                    bos = j; break
+            if bos is None:
+                continue
+            ei = None
+            for j in range(bos + 1, min(bos + 1 + TP_RETEST_WIN, n - 1)):
+                if bars[j]['c'] > h3:
+                    break
+                if bars[j]['h'] >= struct and bars[j]['c'] < struct:
+                    ei = j + 1; break
+            if ei is None or ei <= last or ei >= n:
+                continue
+            entry = bars[ei]['o']; a = atr(bars, 14, ei-1) or 0.0
+            stop = max(bars[ei-1]['h'], struct) + TP_BUF * a; d = 'bear'
+        elif kinds == ('H', 'L', 'H', 'L', 'H', 'L'):
+            h0, l1, h1b, l2b, h2b, l3 = (x[1] for x in w)
+            if not (l1 > l2b > l3 and h0 > h1b > h2b):
+                continue
+            struct = h2b; start = w[5][0] + TP_PRD + 1; bos = None
+            for j in range(start, min(start + TP_BOS_WIN, n - 1)):
+                if bars[j]['l'] < l3:
+                    break
+                if bars[j]['c'] > struct:
+                    bos = j; break
+            if bos is None:
+                continue
+            ei = None
+            for j in range(bos + 1, min(bos + 1 + TP_RETEST_WIN, n - 1)):
+                if bars[j]['c'] < l3:
+                    break
+                if bars[j]['l'] <= struct and bars[j]['c'] > struct:
+                    ei = j + 1; break
+            if ei is None or ei <= last or ei >= n:
+                continue
+            entry = bars[ei]['o']; a = atr(bars, 14, ei-1) or 0.0
+            stop = min(bars[ei-1]['l'], struct) - TP_BUF * a; d = 'bull'
+        else:
+            continue
+        if (d == 'bull' and stop >= entry) or (d == 'bear' and stop <= entry):
+            continue
+        out.append({'strategy': 'threepush', 'tf': '4h', 'pair': pk, 'dir': d,
+                    'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop})
+        last = ei + TP_COOLDOWN
+    return out
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -622,7 +698,8 @@ def main():
                  + detect_s5(pk, h1, daily, 'rsi') + detect_ob(pk, h1, daily)
                  + detect_tl(pk, h1, daily) + detect_w5pb(pk, h1, daily)
                  + detect_s5_rsi_wide(pk, h1, daily) + detect_rsimr(pk, h1, daily)
-                 + detect_fibgz(pk, h1, daily) + detect_fredtl(pk, h1, daily))
+                 + detect_fibgz(pk, h1, daily) + detect_fredtl(pk, h1, daily)
+                 + detect_threepush(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -667,7 +744,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             if sub:
