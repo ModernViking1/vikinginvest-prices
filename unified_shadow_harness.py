@@ -614,6 +614,44 @@ def detect_threepush(pk, h1, daily):
     return out
 
 
+EM_LB = 3
+EM_BUF = 0.10
+EM_COOLDOWN = 3
+
+
+def detect_engulf_manip(pk, h1, daily):
+    """Observed candidate #12 — 4H 'manipulation' engulfing reversal, CRYPTO only.
+    A bullish engulfing candle whose low sweeps recent lows (the manipulation) then
+    closes bullish -> buy; bearish mirror. Stop beyond the swept extreme, RR2. Crypto
+    4H was the one class that cleared breakeven: +0.14R, WR 38%, n=315, robust to every
+    parameter perturbation, 4/6 walk-forward folds, both OOS halves positive. Observe —
+    stronger evidence than the other thin adds, but single-class + 4/6 folds."""
+    if PAIR_CLASS.get(pk) != 'crypto':
+        return []
+    bars = agg4h(h1); n = len(bars)
+    if n < 150:
+        return []
+    out = []; last = -1
+    for i in range(EM_LB + 2, n - 1):
+        if i <= last:
+            continue
+        prior = bars[i-EM_LB:i]; d = None
+        if is_engulf(bars, i, 'bull') and bars[i]['l'] < min(b['l'] for b in prior):
+            d = 'bull'
+        elif is_engulf(bars, i, 'bear') and bars[i]['h'] > max(b['h'] for b in prior):
+            d = 'bear'
+        if d is None:
+            continue
+        ei = i + 1; entry = bars[ei]['o']; a = atr(bars, 14, i) or 0.0
+        stop = (bars[i]['l'] - EM_BUF*a) if d == 'bull' else (bars[i]['h'] + EM_BUF*a)
+        if (d == 'bull' and stop >= entry) or (d == 'bear' and stop <= entry):
+            continue
+        out.append({'strategy': 'engulf_manip', 'tf': '4h', 'pair': pk, 'dir': d,
+                    'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop})
+        last = ei + EM_COOLDOWN
+    return out
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -699,7 +737,7 @@ def main():
                  + detect_tl(pk, h1, daily) + detect_w5pb(pk, h1, daily)
                  + detect_s5_rsi_wide(pk, h1, daily) + detect_rsimr(pk, h1, daily)
                  + detect_fibgz(pk, h1, daily) + detect_fredtl(pk, h1, daily)
-                 + detect_threepush(pk, h1, daily))
+                 + detect_threepush(pk, h1, daily) + detect_engulf_manip(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -744,7 +782,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             if sub:
