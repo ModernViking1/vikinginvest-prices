@@ -1,10 +1,58 @@
 {
  "schema_version": 1,
- "generated": "2026-07-20T04:00:00+00:00",
- "data_end_ts": 1784520000,
- "raw_signal_count": 2,
- "count": 2,
+ "generated": "2026-07-20T09:00:00+00:00",
+ "data_end_ts": 1784538000,
+ "raw_signal_count": 5,
+ "count": 4,
  "signals": [
+  {
+   "id": "hs:ftse100:1784527200",
+   "strategy": "hs",
+   "pair": "ftse100",
+   "symbol": "FTSE100",
+   "class": "index",
+   "dir": "bear",
+   "stop": 10607.8,
+   "ref_entry": 10550.0,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784527200,
+   "created_ts": 1784538000,
+   "expiry_ts": 1784570400,
+   "state": "triggered",
+   "cofire": [
+    "hs"
+   ],
+   "cofire_dirs": [
+    "hs:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "fib_gz:xauusd:1784523600",
+   "strategy": "fib_gz",
+   "pair": "xauusd",
+   "symbol": "XAUUSD",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 4061.52571071,
+   "ref_entry": 4019.04,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784523600,
+   "created_ts": 1784538000,
+   "expiry_ts": 1784566800,
+   "state": "triggered",
+   "cofire": [
+    "fib_gz"
+   ],
+   "cofire_dirs": [
+    "fib_gz:bear"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "hs:xagusd:1784516400",
    "strategy": "hs",
@@ -18,38 +66,40 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784516400,
-   "created_ts": 1784520000,
+   "created_ts": 1784538000,
    "expiry_ts": 1784559600,
    "state": "triggered",
    "cofire": [
+    "fib_gz",
     "hs"
    ],
    "cofire_dirs": [
+    "fib_gz:bear",
     "hs:bull"
    ],
-   "suppressed": 0
+   "suppressed": 1
   },
   {
-   "id": "fib_gz:xauusd:1784505600",
-   "strategy": "fib_gz",
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bull",
-   "stop": 3969.41866857,
-   "ref_entry": 3995.5,
+   "id": "s5_rsi:solusd:1784491200",
+   "strategy": "s5_rsi",
+   "pair": "solusd",
+   "symbol": "SOLUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 76.62,
+   "ref_entry": 75.83,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
-   "trigger_ts": 1784505600,
-   "created_ts": 1784520000,
-   "expiry_ts": 1784548800,
+   "trigger_ts": 1784491200,
+   "created_ts": 1784538000,
+   "expiry_ts": 1784534400,
    "state": "triggered",
    "cofire": [
-    "fib_gz"
+    "s5_rsi"
    ],
    "cofire_dirs": [
-    "fib_gz:bull"
+    "s5_rsi:bear"
    ],
    "suppressed": 0
   }
