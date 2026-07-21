@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-21T02:05:55.013819+00:00",
-  "generated_ms": 1784599554937,
-  "detector_last_check": "2026-07-21T02:05:54.855255+00:00",
+  "generated": "2026-07-21T02:10:56.070254+00:00",
+  "generated_ms": 1784599855972,
+  "detector_last_check": "2026-07-21T02:10:55.868726+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,34 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 4,
-    "armed": 0,
+    "total": 6,
+    "armed": 2,
     "triggered": 4,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "taousd:1784599200000:wick",
+      "pair": "taousd",
+      "sym": "TAOUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 194.62,
+      "stop": 195.85,
+      "target": 193.39000000000001,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1784599200000,
+      "triggeredAt": null,
+      "lastSeenAt": 1784599855972,
+      "source": "server-detector",
+      "event_aligned": null
+    },
     {
       "id": "ethusd:1784593800000:wick",
       "pair": "ethusd",
@@ -34,7 +56,7 @@
       "cl": "bull",
       "armedAt": 1784593800000,
       "triggeredAt": 1784598300000,
-      "lastSeenAt": 1784599554937,
+      "lastSeenAt": 1784599855972,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -56,7 +78,7 @@
       "cl": "bull",
       "armedAt": 1784593800000,
       "triggeredAt": 1784597400000,
-      "lastSeenAt": 1784599554937,
+      "lastSeenAt": 1784599855972,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -78,7 +100,7 @@
       "cl": "bull",
       "armedAt": 1780424100000,
       "triggeredAt": 1784596500000,
-      "lastSeenAt": 1784599554937,
+      "lastSeenAt": 1784599855972,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -100,7 +122,29 @@
       "cl": "bull",
       "armedAt": 1780287300000,
       "triggeredAt": 1784595600000,
-      "lastSeenAt": 1784599554937,
+      "lastSeenAt": 1784599855972,
+      "source": "server-detector",
+      "event_aligned": null
+    },
+    {
+      "id": "taousd:1780254900000:fib",
+      "pair": "taousd",
+      "sym": "TAOUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 193.95256,
+      "stop": 195.85,
+      "target": 192.05512000000002,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1780254900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1784599855972,
       "source": "server-detector",
       "event_aligned": null
     }
