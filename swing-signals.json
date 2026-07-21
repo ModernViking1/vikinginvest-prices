@@ -1,10 +1,35 @@
 {
  "schema_version": 1,
- "generated": "2026-07-21T08:00:00+00:00",
- "data_end_ts": 1784620800,
+ "generated": "2026-07-21T14:00:00+00:00",
+ "data_end_ts": 1784642400,
  "raw_signal_count": 17,
- "count": 11,
+ "count": 12,
  "signals": [
+  {
+   "id": "fib_gz:usoil:1784624400",
+   "strategy": "fib_gz",
+   "pair": "usoil",
+   "symbol": "USOIL",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 87.11537614,
+   "ref_entry": 89.111,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784624400,
+   "created_ts": 1784642400,
+   "expiry_ts": 1784667600,
+   "state": "triggered",
+   "cofire": [
+    "fib_gz"
+   ],
+   "cofire_dirs": [
+    "fib_gz:bear",
+    "fib_gz:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "hs:suiusd:1784602800",
    "strategy": "hs",
@@ -18,7 +43,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784602800,
-   "created_ts": 1784620800,
+   "created_ts": 1784642400,
    "expiry_ts": 1784646000,
    "state": "triggered",
    "cofire": [
@@ -42,7 +67,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784595600,
-   "created_ts": 1784620800,
+   "created_ts": 1784642400,
    "expiry_ts": 1784638800,
    "state": "triggered",
    "cofire": [
@@ -51,10 +76,9 @@
    ],
    "cofire_dirs": [
     "fib_gz:bear",
-    "fib_gz:bull",
     "hs:bull"
    ],
-   "suppressed": 2
+   "suppressed": 1
   },
   {
    "id": "hs:eurusd:1784592000",
@@ -69,7 +93,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784592000,
-   "created_ts": 1784620800,
+   "created_ts": 1784642400,
    "expiry_ts": 1784635200,
    "state": "triggered",
    "cofire": [
@@ -79,31 +103,6 @@
     "hs:bull"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "fib_gz:usoil:1784577600",
-   "strategy": "fib_gz",
-   "pair": "usoil",
-   "symbol": "USOIL",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 90.97402029,
-   "ref_entry": 89.28,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1784577600,
-   "created_ts": 1784620800,
-   "expiry_ts": 1784620800,
-   "state": "triggered",
-   "cofire": [
-    "fib_gz"
-   ],
-   "cofire_dirs": [
-    "fib_gz:bear",
-    "fib_gz:bull"
-   ],
-   "suppressed": 1
   },
   {
    "id": "fib_gz:wtiusd:1784577600",
@@ -118,17 +117,16 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784577600,
-   "created_ts": 1784620800,
+   "created_ts": 1784642400,
    "expiry_ts": 1784620800,
    "state": "triggered",
    "cofire": [
     "fib_gz"
    ],
    "cofire_dirs": [
-    "fib_gz:bear",
-    "fib_gz:bull"
+    "fib_gz:bear"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "fib_gz:xauusd:1784574000",
@@ -143,7 +141,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784574000,
-   "created_ts": 1784620800,
+   "created_ts": 1784642400,
    "expiry_ts": 1784617200,
    "state": "triggered",
    "cofire": [
@@ -155,6 +153,54 @@
     "fred_tl:bear"
    ],
    "suppressed": 1
+  },
+  {
+   "id": "tl_nowick:ftse100:1784566800",
+   "strategy": "tl_nowick",
+   "pair": "ftse100",
+   "symbol": "FTSE100",
+   "class": "index",
+   "dir": "bear",
+   "stop": 10577.88571429,
+   "ref_entry": 10498.0,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784566800,
+   "created_ts": 1784642400,
+   "expiry_ts": 1784610000,
+   "state": "triggered",
+   "cofire": [
+    "tl_nowick"
+   ],
+   "cofire_dirs": [
+    "tl_nowick:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "tl_nowick:gbpcad:1784566800",
+   "strategy": "tl_nowick",
+   "pair": "gbpcad",
+   "symbol": "GBPCAD",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 1.89141357,
+   "ref_entry": 1.8865,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784566800,
+   "created_ts": 1784642400,
+   "expiry_ts": 1784610000,
+   "state": "triggered",
+   "cofire": [
+    "tl_nowick"
+   ],
+   "cofire_dirs": [
+    "tl_nowick:bear"
+   ],
+   "suppressed": 0
   },
   {
    "id": "hs:taousd:1784563200",
@@ -169,18 +215,20 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784563200,
-   "created_ts": 1784620800,
+   "created_ts": 1784642400,
    "expiry_ts": 1784606400,
    "state": "triggered",
    "cofire": [
+    "engulf_manip",
     "hs",
     "ob"
    ],
    "cofire_dirs": [
+    "engulf_manip:bull",
     "hs:bull",
     "ob:bear"
    ],
-   "suppressed": 1
+   "suppressed": 2
   },
   {
    "id": "hs:xrpusd:1784563200",
@@ -195,7 +243,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784563200,
-   "created_ts": 1784620800,
+   "created_ts": 1784642400,
    "expiry_ts": 1784606400,
    "state": "triggered",
    "cofire": [
@@ -203,6 +251,30 @@
    ],
    "cofire_dirs": [
     "hs:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "s5_rsi:de40:1784563200",
+   "strategy": "s5_rsi",
+   "pair": "de40",
+   "symbol": "DE40",
+   "class": "index",
+   "dir": "bear",
+   "stop": 24971.7,
+   "ref_entry": 24842.8,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784563200,
+   "created_ts": 1784642400,
+   "expiry_ts": 1784606400,
+   "state": "triggered",
+   "cofire": [
+    "s5_rsi"
+   ],
+   "cofire_dirs": [
+    "s5_rsi:bear"
    ],
    "suppressed": 0
   },
@@ -219,7 +291,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784559600,
-   "created_ts": 1784620800,
+   "created_ts": 1784642400,
    "expiry_ts": 1784602800,
    "state": "triggered",
    "cofire": [
@@ -227,54 +299,6 @@
    ],
    "cofire_dirs": [
     "fib_gz:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "s5_rsi:ftse100:1784559600",
-   "strategy": "s5_rsi",
-   "pair": "ftse100",
-   "symbol": "FTSE100",
-   "class": "index",
-   "dir": "bear",
-   "stop": 10598.6,
-   "ref_entry": 10530.0,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1784559600,
-   "created_ts": 1784620800,
-   "expiry_ts": 1784602800,
-   "state": "triggered",
-   "cofire": [
-    "s5_rsi"
-   ],
-   "cofire_dirs": [
-    "s5_rsi:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "s5_rsi:solusd:1784545200",
-   "strategy": "s5_rsi",
-   "pair": "solusd",
-   "symbol": "SOLUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 75.4,
-   "ref_entry": 76.28,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1784545200,
-   "created_ts": 1784620800,
-   "expiry_ts": 1784588400,
-   "state": "triggered",
-   "cofire": [
-    "s5_rsi"
-   ],
-   "cofire_dirs": [
-    "s5_rsi:bull"
    ],
    "suppressed": 0
   }
