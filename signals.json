@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-21T17:46:01.373652+00:00",
-  "generated_ms": 1784655961298,
-  "detector_last_check": "2026-07-21T17:46:01.216420+00:00",
+  "generated": "2026-07-21T17:51:00.725604+00:00",
+  "generated_ms": 1784656260626,
+  "detector_last_check": "2026-07-21T17:51:00.529271+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,10 +10,55 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 0,
+    "total": 2,
     "armed": 0,
     "triggered": 0,
-    "invalidated": 0
+    "invalidated": 2
   },
-  "signals": []
+  "signals": [
+    {
+      "id": "taousd:1784655900000:wick",
+      "pair": "taousd",
+      "sym": "TAOUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "invalidated",
+      "entry": null,
+      "stop": 200.1,
+      "target": null,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1784655900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1784656260626,
+      "source": "server-detector",
+      "event_aligned": null
+    },
+    {
+      "id": "taousd:1780254900000:fib",
+      "pair": "taousd",
+      "sym": "TAOUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "invalidated",
+      "entry": null,
+      "stop": 200.1,
+      "target": null,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1780254900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1784656260626,
+      "source": "server-detector",
+      "event_aligned": null
+    }
+  ]
 }
