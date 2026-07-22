@@ -652,6 +652,128 @@ def detect_engulf_manip(pk, h1, daily):
     return out
 
 
+SWEEPREV_K = 2
+SWEEPREV_BUF = 0.15
+SWEEPREV_TRIG = 15
+SWEEPREV_COOLDOWN = 4
+SWEEPREV_HOLD = 90
+
+
+def _pivots_hl(bars, k):
+    n = len(bars); ph = [False]*n; pl = [False]*n
+    for i in range(k, n-k):
+        h = bars[i]['h']; l = bars[i]['l']
+        if all(h >= bars[i-j]['h'] and h >= bars[i+j]['h'] for j in range(1, k+1)): ph[i] = True
+        if all(l <= bars[i-j]['l'] and l <= bars[i+j]['l'] for j in range(1, k+1)): pl[i] = True
+    return ph, pl
+
+
+def detect_sweeprev(pk, h1, daily):
+    """Observed candidate #13 — swept-extreme reversal + counter-trendline break,
+    reverting to the opposite swing (MINOR FX + 4H only, STRUCTURAL target).
+    Sweep a prior swing high (higher-high) / swing low (lower-low), enter on the
+    break back through the rally's last higher-low / fall's last lower-high, stop
+    beyond the swept extreme, target the PREVIOUS OPPOSITE swing. MODEL-ONLY: the
+    edge lives at a low structural RR (~0.25R median) that sits BELOW the measured
+    execution gap, and the target is structural (not fixed-RR) — so it is shadow-
+    observed against its own target, NOT placed on the demo cBot (kept out of the
+    swing feed, like rsimr). Minor-4H is the only parameter-robust, both-OOS-
+    positive cell (+0.08..+0.13R across the k/buffer/window grid); every other
+    class fails walk-forward and majors are negative (the sweep gets run over)."""
+    if PAIR_CLASS.get(pk) != 'minor':
+        return []
+    bars = agg4h(h1); n = len(bars); k = SWEEPREV_K
+    if n < 2*k + 30:
+        return []
+    ph, pl = _pivots_hl(bars, k)
+    ph_idx = [i for i in range(n) if ph[i]]; pl_idx = [i for i in range(n) if pl[i]]
+    out = []
+    # SHORTS: sweep above prior swing high, break the rally's last higher-low.
+    last = -1
+    for bi in range(1, len(ph_idx)):
+        idxB = ph_idx[bi]; idxA = ph_idx[bi-1]
+        if bars[idxB]['h'] <= bars[idxA]['h']:
+            continue
+        seg = bars[idxA:idxB+1]
+        if len(seg) < 3:
+            continue
+        tgt_low = min(b['l'] for b in seg)                    # previous swing low = target
+        hls = [j for j in pl_idx if idxA < j < idxB]
+        if not hls:
+            continue
+        hl_lvl = bars[hls[-1]]['l']                           # last higher-low = trigger level
+        if hl_lvl <= tgt_low:
+            continue
+        t = None
+        for j in range(max(idxB + k, hls[-1] + k + 1), min(idxB + SWEEPREV_TRIG, n-1)):
+            if j <= last:
+                break
+            if bars[j]['c'] < hl_lvl:
+                t = j; break
+        if t is None or t + 1 >= n:
+            continue
+        ei = t + 1; entry = bars[ei]['o']; a = atr(bars, 14, t) or 0.0
+        stop = bars[idxB]['h'] + SWEEPREV_BUF*a
+        if stop <= entry or tgt_low >= entry:
+            continue
+        out.append({'strategy': 'sweeprev', 'tf': '4h', 'pair': pk, 'dir': 'bear',
+                    'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop, 'target': tgt_low})
+        last = ei + SWEEPREV_COOLDOWN
+    # LONGS: sweep below prior swing low, break the fall's last lower-high.
+    last = -1
+    for bi in range(1, len(pl_idx)):
+        idxB = pl_idx[bi]; idxA = pl_idx[bi-1]
+        if bars[idxB]['l'] >= bars[idxA]['l']:
+            continue
+        seg = bars[idxA:idxB+1]
+        if len(seg) < 3:
+            continue
+        tgt_high = max(b['h'] for b in seg)                   # previous swing high = target
+        lhs = [j for j in ph_idx if idxA < j < idxB]
+        if not lhs:
+            continue
+        lh_lvl = bars[lhs[-1]]['h']                           # last lower-high = trigger level
+        if lh_lvl >= tgt_high:
+            continue
+        t = None
+        for j in range(max(idxB + k, lhs[-1] + k + 1), min(idxB + SWEEPREV_TRIG, n-1)):
+            if j <= last:
+                break
+            if bars[j]['c'] > lh_lvl:
+                t = j; break
+        if t is None or t + 1 >= n:
+            continue
+        ei = t + 1; entry = bars[ei]['o']; a = atr(bars, 14, t) or 0.0
+        stop = bars[idxB]['l'] - SWEEPREV_BUF*a
+        if stop >= entry or tgt_high <= entry:
+            continue
+        out.append({'strategy': 'sweeprev', 'tf': '4h', 'pair': pk, 'dir': 'bull',
+                    'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop, 'target': tgt_high})
+        last = ei + SWEEPREV_COOLDOWN
+    return out
+
+
+def score_sweeprev(bars, entry_ts, entry, stop, target, d, hold):
+    """Score sweeprev against its STRUCTURAL target price (variable RR), not the
+    global fixed RR. Win = realized structural RR, stop = -1R; timeouts excluded
+    ('expired') exactly like score(). Mirrors the research walk_to_target."""
+    ts = [b['_ts'] for b in bars]; i0 = bisect.bisect_left(ts, entry_ts)
+    R = abs(entry - stop)
+    if R <= 0 or i0 >= len(bars):
+        return ('pending', None)
+    rr_avail = abs(target - entry) / R
+    end = min(i0 + hold, len(bars))
+    for j in range(i0, end):
+        b = bars[j]
+        if d == 'bull':
+            if b['l'] <= stop: return ('resolved', -1.0)
+            if b['h'] >= target: return ('resolved', rr_avail)
+        else:
+            if b['h'] >= stop: return ('resolved', -1.0)
+            if b['l'] <= target: return ('resolved', rr_avail)
+    return ('pending', None) if end >= len(bars) else ('expired', None)
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -737,7 +859,8 @@ def main():
                  + detect_tl(pk, h1, daily) + detect_w5pb(pk, h1, daily)
                  + detect_s5_rsi_wide(pk, h1, daily) + detect_rsimr(pk, h1, daily)
                  + detect_fibgz(pk, h1, daily) + detect_fredtl(pk, h1, daily)
-                 + detect_threepush(pk, h1, daily) + detect_engulf_manip(pk, h1, daily))
+                 + detect_threepush(pk, h1, daily) + detect_engulf_manip(pk, h1, daily)
+                 + detect_sweeprev(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -766,6 +889,8 @@ def main():
             hold = HS_HOLD if tf == 'h1' else (HOLD['4h'] if tf == '4h' else 20)
             if rec['strategy'] == 'rsimr':
                 st, o = score_meanrev(b4, rsi4, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], RSIMR_HOLD)
+            elif rec['strategy'] == 'sweeprev':
+                st, o = score_sweeprev(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], SWEEPREV_HOLD)
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -782,7 +907,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             if sub:
