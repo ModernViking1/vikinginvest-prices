@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -70,7 +70,13 @@ ENGULF_CLASSES = {'crypto'}
 # shadow harness still logs EVERY signal independently, so per-strategy VOLUME stats
 # are unaffected — this caps only live demo exposure, mirroring the intraday cBot's
 # one-position-per-symbol rule. Order = validated backtest expectancy, best first.
-PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'tl_nowick': 4, 'fib_gz': 5, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9}
+# 'Asian-session gold glitch' (2026-07-22) — 14th OBSERVED candidate, XAUUSD only,
+# H1, session-timed sweep-reversal at RR3 (self-gates to xauusd in the detector).
+# cBot-executable (market entry + 3R bracket); +0.18..+0.28R at 3:1 with both OOS
+# halves positive, robust across the reference-hour/buffer/hold grid. GOLD-ONLY —
+# every other pair/class is negative. Lowest live priority so it never suppresses
+# an established edge on gold; still shadow-logged and recorded as cofire.
+PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'tl_nowick': 4, 'fib_gz': 5, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10}
 
 
 def main():
@@ -107,6 +113,7 @@ def main():
         if cls in FIBGZ_CLASSES:
             found += detect_fibgz(pk, h1, daily)
         found += detect_fredtl(pk, h1, daily)   # self-gates to xauusd only
+        found += detect_asianglitch(pk, h1, daily)   # self-gates to xauusd only; emits rr=3.0
         if cls in THREEPUSH_CLASSES:
             found += detect_threepush(pk, h1, daily)
         if cls in ENGULF_CLASSES:
@@ -124,7 +131,7 @@ def main():
                 'dir': s['dir'],
                 'stop': round(s['stop'], 8),
                 'ref_entry': round(s['entry'], 8),   # reference only; cBot enters at market
-                'rr': RR,
+                'rr': s.get('rr', RR),   # per-signal RR (asianglitch=3.0); others default to RR (2.0)
                 'r_pct': R_PCT,
                 'entry_mode': 'market',
                 'trigger_ts': int(s['entry_ts']),

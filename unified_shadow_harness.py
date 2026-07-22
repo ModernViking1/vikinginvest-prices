@@ -774,6 +774,92 @@ def score_sweeprev(bars, entry_ts, entry, stop, target, d, hold):
     return ('pending', None) if end >= len(bars) else ('expired', None)
 
 
+ASIANGLITCH_US_HOUR = 20                       # UTC bar defining the US last-hour high/low
+ASIANGLITCH_ASIA = {23, 0, 1, 2, 3, 4, 5}      # Asian-session sweep+reversal window
+ASIANGLITCH_MAX = 12                           # bars after the ref bar to keep the episode alive
+ASIANGLITCH_BUF = 0.10                          # stop buffer beyond the swept extreme, in ATR
+ASIANGLITCH_RR = 3.0                            # target reward:risk (beats 2:1 at every realistic hold)
+ASIANGLITCH_HOLD = 120                          # generous hold — mirrors the cBot's hold-to-bracket behaviour
+
+
+def detect_asianglitch(pk, h1, daily):
+    """Observed candidate #14 — 'Asian-session gold glitch' (session-timed
+    liquidity-sweep reversal, GOLD only, cBot-executable at RR3). Mark the high/
+    low of the US last-hour bar (20:00 UTC); during the Asian window (23:00-06:00
+    UTC) fade the FIRST sweep of that level on the reclaim (close back inside),
+    stop beyond the swept extreme, target 3R. GOLD-SPECIFIC: XAUUSD is +0.18..
+    +0.28R at 3:1 with both OOS halves positive, robust across the reference-hour
+    / buffer / hold grid; every other pair and class is negative (the source's
+    gold-only framing is correct). RR3 chosen over 2 by a fixed-entry-set sweep —
+    expectancy scales with reward and 3:1 beats 2:1 at every realistic hold."""
+    if pk != 'xauusd':
+        return []
+    bars = h1; n = len(bars); out = []; hh = ASIANGLITCH_US_HOUR
+    for r in range(14, n - 2):
+        if (bars[r]['_ts'] // 3600) % 24 != hh:
+            continue
+        ref_hi = bars[r]['h']; ref_lo = bars[r]['l']; swept = None; ext = None
+        for j in range(r + 1, min(r + 1 + ASIANGLITCH_MAX, n - 1)):
+            hr = (bars[j]['_ts'] // 3600) % 24
+            if hr == hh:
+                break
+            if hr not in ASIANGLITCH_ASIA:
+                continue
+            b = bars[j]
+            if swept is None:
+                if b['h'] > ref_hi:
+                    swept = 'high'; ext = b['h']
+                elif b['l'] < ref_lo:
+                    swept = 'low'; ext = b['l']
+                if swept == 'high' and b['c'] < ref_hi:
+                    d = 'bear'
+                elif swept == 'low' and b['c'] > ref_lo:
+                    d = 'bull'
+                else:
+                    continue
+            else:
+                ext = max(ext, b['h']) if swept == 'high' else min(ext, b['l'])
+                if swept == 'high' and b['c'] < ref_hi:
+                    d = 'bear'
+                elif swept == 'low' and b['c'] > ref_lo:
+                    d = 'bull'
+                else:
+                    continue
+            ei = j + 1
+            if ei >= n:
+                break
+            entry = bars[ei]['o']; a = atr(bars, 14, j) or 0.0
+            stop = (ext + ASIANGLITCH_BUF*a) if d == 'bear' else (ext - ASIANGLITCH_BUF*a)
+            if (d == 'bear' and stop <= entry) or (d == 'bull' and stop >= entry):
+                break
+            out.append({'strategy': 'asianglitch', 'tf': 'h1', 'pair': pk, 'dir': d,
+                        'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop,
+                        'rr': ASIANGLITCH_RR})
+            break
+    return out
+
+
+def score_asianglitch(bars, entry_ts, entry, stop, d, hold, rr):
+    """Score asianglitch against its fixed RR target (bracket: target-or-stop,
+    unresolved excluded like score()). Matches the cBot's hold-to-bracket
+    behaviour with a generous hold."""
+    ts = [b['_ts'] for b in bars]; i0 = bisect.bisect_left(ts, entry_ts)
+    R = abs(entry - stop)
+    if R <= 0 or i0 >= len(bars):
+        return ('pending', None)
+    tgt = entry + rr*R if d == 'bull' else entry - rr*R
+    end = min(i0 + hold, len(bars))
+    for j in range(i0, end):
+        b = bars[j]
+        if d == 'bull':
+            if b['l'] <= stop: return ('resolved', -1.0)
+            if b['h'] >= tgt: return ('resolved', rr)
+        else:
+            if b['h'] >= stop: return ('resolved', -1.0)
+            if b['l'] <= tgt: return ('resolved', rr)
+    return ('pending', None) if end >= len(bars) else ('expired', None)
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -860,7 +946,7 @@ def main():
                  + detect_s5_rsi_wide(pk, h1, daily) + detect_rsimr(pk, h1, daily)
                  + detect_fibgz(pk, h1, daily) + detect_fredtl(pk, h1, daily)
                  + detect_threepush(pk, h1, daily) + detect_engulf_manip(pk, h1, daily)
-                 + detect_sweeprev(pk, h1, daily))
+                 + detect_sweeprev(pk, h1, daily) + detect_asianglitch(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -891,6 +977,8 @@ def main():
                 st, o = score_meanrev(b4, rsi4, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], RSIMR_HOLD)
             elif rec['strategy'] == 'sweeprev':
                 st, o = score_sweeprev(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], SWEEPREV_HOLD)
+            elif rec['strategy'] == 'asianglitch':
+                st, o = score_asianglitch(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], ASIANGLITCH_HOLD, rec.get('rr', ASIANGLITCH_RR))
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -907,7 +995,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             if sub:
