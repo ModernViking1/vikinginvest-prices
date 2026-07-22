@@ -1407,17 +1407,134 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   <script>
   (function(){
     var BASE = 'https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/';
-    var _shadow = null, _shadowAt = 0;
+    var _shadow = null, _shadowAt = 0, _lastExec = null;
+    var C={blue:'#1e408c',g:'#0d5a36',r:'#c0281a',ink:'#556',mut:'#889'};
     function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
     function agg(rs){ var n=rs.length,w=0,s=0; for(var i=0;i<n;i++){ if(rs[i]>0)w++; s+=rs[i]; } return {n:n, wr:n?100*w/n:0, exp:n?s/n:0, tot:s}; }
+
+    // ── Day / Week / Month / All window (mirrors the intraday LIVE panel).
+    // Filters the DEMO side (real cBot fills); the MODEL shadow aggregate
+    // stays full-history (it's the backtest reference). Default 'all' —
+    // swing trades resolve over days, so the narrow windows fill slowly.
+    try { if(!window._swWindow){ var _sw=null; try{_sw=localStorage.getItem('vit_swing_window');}catch(e){} window._swWindow=({day:1,week:1,month:1,all:1}[_sw])?_sw:'all'; } } catch(e){ window._swWindow='all'; }
+    window.__swSetWindow=function(w){ window._swWindow=({day:1,week:1,month:1,all:1}[w])?w:'all'; try{localStorage.setItem('vit_swing_window',window._swWindow);}catch(e){} try{ render(_lastExec||{}, _shadow||{signals:{}}); }catch(e){} };
+    function _swAnchor(mode){ var now=Date.now(); if(mode==='all')return 0; if(mode==='week')return now-7*864e5; if(mode==='month')return now-30*864e5; var d=new Date(now); return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()); }
+    function _swWinLabel(mode){ return mode==='all'?'all time':mode==='week'?'last 7 days':mode==='month'?'last 30 days':'today UTC'; }
+    function _swToggle(active){ var btn=function(w,label){ var on=active===w; return '<button onclick="window.__swSetWindow(\''+w+'\')" style="font-family:Orbitron,monospace;font-size:8px;font-weight:700;letter-spacing:0.5px;padding:3px 8px;border-radius:3px;cursor:pointer;margin-left:4px;border:1px solid '+(on?C.blue:'rgba(30,64,140,0.3)')+';background:'+(on?C.blue:'transparent')+';color:'+(on?'#fff':C.blue)+';">'+label+'</button>'; }; return '<span style="display:inline-flex;align-items:center;flex-wrap:wrap;">'+btn('day','Day')+btn('week','Week')+btn('month','Month')+btn('all','All')+'</span>'; }
+
+    // ── Close-reason classifier for a demo fill (target / stop / invalidation
+    // / other), re-derived from realized_r so mislabelled rows self-correct.
+    function _swReason(e){
+      var rs=(e.reason||'').toLowerCase().replace(/_/g,'-');
+      if(rs.indexOf('invalid')>=0) return 'invalidation';
+      var rr=(typeof e.realized_r==='number')?e.realized_r:null;
+      if(rs.indexOf('target')>=0 || (rr!=null&&rr>=0.85)) return 'target-hit';
+      if(rs.indexOf('stop')>=0 || (rr!=null&&rr<=-0.85)) return 'stop-hit';
+      return 'other';
+    }
+
+    // ── Losses by pair · click to diagnose ── (swing analogue of the
+    // intraday replay list — each pair's losses roll up to one Diagnose).
+    function _swLossesList(closed, sigs){
+      var losses=(closed||[]).filter(function(e){ return (e.realized_r<0) || (typeof e.net_profit==='number'&&e.net_profit<0); })
+                             .sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+      if(!losses.length) return '';
+      var byPair={}; losses.forEach(function(L){ var p=(L.pair||'?'); (byPair[p]=byPair[p]||[]).push(L); });
+      window._swLossesByPair=byPair; window._swSigs=sigs;
+      var keys=Object.keys(byPair).sort(function(a,b){ var d=byPair[b].length-byPair[a].length; if(d)return d; var s=function(arr){return arr.reduce(function(t,r){return t+(r.realized_r||0);},0);}; return s(byPair[a])-s(byPair[b]); });
+      var rows=keys.map(function(p){
+        var arr=byPair[p]; var n=arr.length; var totR=arr.reduce(function(t,r){return t+(r.realized_r||0);},0);
+        var lastTs=Math.max.apply(null,arr.map(function(r){return r.ts||0;})); var lt=lastTs?new Date(lastTs):null;
+        var ltTxt=lt?(('0'+lt.getUTCHours()).slice(-2)+':'+('0'+lt.getUTCMinutes()).slice(-2)+'Z'):'?';
+        var lbl=n>1?('🔬 Diagnose ('+n+')'):'🔬 Diagnose';
+        return '<tr style="border-bottom:1px solid rgba(30,64,140,0.08);">'
+          +'<td style="padding:5px 8px;font-weight:700;">'+esc(p.toUpperCase())+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;color:'+C.r+';font-weight:700;">'+n+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;color:'+C.r+';font-weight:700;">'+totR.toFixed(2)+'R</td>'
+          +'<td style="padding:5px 8px;color:'+C.mut+';font-size:8.5px;">last '+ltTxt+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;"><button onclick="window.__swDiagnosePair(\''+esc(p)+'\')" style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.5px;padding:3px 9px;background:rgba(30,64,140,0.08);color:'+C.blue+';border:1px solid rgba(30,64,140,0.35);border-radius:3px;cursor:pointer;">'+lbl+'</button></td></tr>';
+      }).join('');
+      return '<div style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(30,64,140,0.25);">'
+        +'<div style="font-weight:700;letter-spacing:0.6px;color:'+C.blue+';margin-bottom:6px;display:flex;justify-content:space-between;align-items:baseline;">'
+        +  '<span>📒 Losses by pair</span>'
+        +  '<span style="font-weight:400;font-size:8px;color:'+C.mut+';">'+keys.length+' pair'+(keys.length===1?'':'s')+' · '+losses.length+' losses · click to diagnose</span>'
+        +'</div>'
+        +'<div style="background:#fff;border:1px solid rgba(30,64,140,0.15);border-radius:3px;overflow:hidden;"><table style="width:100%;border-collapse:collapse;font-size:8.5px;">'
+        +'<thead><tr style="background:rgba(30,64,140,0.05);color:'+C.mut+';text-align:left;"><th style="padding:6px 8px;">Pair</th><th style="padding:6px 8px;text-align:right;">Losses</th><th style="padding:6px 8px;text-align:right;">Total R</th><th style="padding:6px 8px;">Latest</th><th style="padding:6px 8px;text-align:right;">Diagnose</th></tr></thead>'
+        +'<tbody>'+rows+'</tbody></table></div></div>';
+    }
+
+    // ── Consolidated per-pair diagnosis modal. Splits each loss into an
+    // EXECUTION failure (shadow model won the same signal → the fill gave
+    // up the edge) vs a SIGNAL failure (model lost too → the setup itself
+    // failed), and reports what a BOS / no-wick entry gate would have
+    // filtered. Uses only data already in the panel (exec + shadow).
+    function _swRenderDiagnoseModal(pair, losses, sigs){
+      var pairU=(pair||'').toUpperCase();
+      var totR=losses.reduce(function(s,r){return s+(r.realized_r||0);},0);
+      var matched=0, execFail=0, sigFail=0, bosBlock=0, nowBlock=0, invalid=0;
+      var rowsH=losses.map(function(L){
+        var sid=L.signal_id||''; var st=sid.split(':')[0]||'?';
+        var sh=sigs[sid]; var mR=(sh&&sh.status==='resolved'&&typeof sh.r==='number')?sh.r:null;
+        var reason=_swReason(L); if(reason==='invalidation') invalid++;
+        var mTxt='pending', mCol=C.mut;
+        if(mR!=null){ matched++; if(mR>0){ execFail++; mTxt='+'+mR.toFixed(2)+'R won'; mCol=C.r; } else { sigFail++; mTxt=mR.toFixed(2)+'R lost'; mCol=C.g; } }
+        var bos=sh?(sh.bos_aligned===true?'✓':sh.bos_aligned===false?'✗':'–'):'–';
+        var nw=sh?(sh.nowick_aligned===true?'✓':sh.nowick_aligned===false?'✗':'–'):'–';
+        if(sh&&sh.bos_aligned===false) bosBlock++;
+        if(sh&&sh.nowick_aligned===false) nowBlock++;
+        var d=L.ts?new Date(L.ts):null; var dt=d?((d.getUTCMonth()+1)+'/'+d.getUTCDate()+' '+('0'+d.getUTCHours()).slice(-2)+':'+('0'+d.getUTCMinutes()).slice(-2)+'Z'):'?';
+        return '<tr style="border-bottom:1px solid rgba(30,64,140,0.08);">'
+          +'<td style="padding:4px 6px;">'+esc(st)+'</td>'
+          +'<td style="padding:4px 6px;">'+esc(L.dir||'')+'</td>'
+          +'<td style="padding:4px 6px;text-align:right;color:'+C.r+';font-weight:700;">'+(L.realized_r||0).toFixed(2)+'R</td>'
+          +'<td style="padding:4px 6px;">'+esc(reason)+'</td>'
+          +'<td style="padding:4px 6px;color:'+mCol+';">'+mTxt+'</td>'
+          +'<td style="padding:4px 6px;text-align:center;">'+bos+'</td>'
+          +'<td style="padding:4px 6px;text-align:center;">'+nw+'</td>'
+          +'<td style="padding:4px 6px;color:'+C.mut+';font-size:8px;">'+dt+'</td></tr>';
+      }).join('');
+      var diag=[];
+      if(matched){
+        diag.push('Model resolved <b>'+matched+'</b> of '+losses.length+' loss'+(losses.length===1?'':'es')+': <b style="color:'+C.r+'">'+execFail+'</b> execution failure'+(execFail===1?'':'s')+' (model won the same signal — the demo fill gave up the edge to spread/slippage/late entry) and <b style="color:'+C.g+'">'+sigFail+'</b> signal failure'+(sigFail===1?'':'s')+' (the setup itself lost — a better fill would not have saved it).');
+        if(execFail>sigFail) diag.push('Dominant fault is <b>execution</b>: the signals were right more often than the fills. Tighten entry (pullback limit / earlier trigger) before touching the rule.');
+        else if(sigFail>execFail) diag.push('Dominant fault is the <b>setup</b> on '+pairU+': the model lost too. That is a rule/scope question, not an execution one — consider narrowing the class scope if it persists.');
+        else diag.push('Execution and signal faults are evenly split on '+pairU+' — no single lever dominates yet; let the sample grow.');
+      } else {
+        diag.push('None of these losses have resolved in the shadow model yet, so execution vs signal fault can\'t be split. Re-open once the model resolves them (hours–days).');
+      }
+      if(bosBlock) diag.push('A <b>BOS-aligned</b> entry gate would have skipped <b>'+bosBlock+'</b> of these (structure disagreed at entry).');
+      if(nowBlock) diag.push('A <b>no-wick-aligned</b> entry gate would have skipped <b>'+nowBlock+'</b> (no decisive momentum candle at entry).');
+      if(invalid) diag.push('<b>'+invalid+'</b> closed on cBot invalidation (post-trigger reversal filter) — check the model didn\'t score these as wins.');
+      var head='<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:10px;">'
+        +'<span style="color:'+C.blue+';font-weight:700;font-size:11px;letter-spacing:0.6px;">🔬 '+esc(pairU)+' · '+losses.length+' loss'+(losses.length===1?'':'es')+' · <span style="color:'+C.r+'">'+totR.toFixed(2)+'R</span></span>'
+        +'<button onclick="window.__swDiagnoseClose()" style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;padding:3px 10px;border:1px solid rgba(30,64,140,0.3);background:transparent;color:'+C.blue+';border-radius:3px;cursor:pointer;">✕ close</button></div>';
+      var tbl='<table style="width:100%;border-collapse:collapse;font-family:Orbitron,monospace;font-size:8.5px;margin-bottom:10px;"><thead><tr style="color:'+C.mut+';text-align:left;"><th style="padding:4px 6px;">strategy</th><th style="padding:4px 6px;">dir</th><th style="padding:4px 6px;text-align:right;">demo R</th><th style="padding:4px 6px;">close</th><th style="padding:4px 6px;">model</th><th style="padding:4px 6px;text-align:center;">BOS</th><th style="padding:4px 6px;text-align:center;">no-wick</th><th style="padding:4px 6px;">when</th></tr></thead><tbody>'+rowsH+'</tbody></table>';
+      var box='<div style="background:rgba(30,64,140,0.05);border-radius:4px;padding:8px 10px;font-family:Mukta,sans-serif;font-size:11px;line-height:1.5;color:#333;">'
+        +'<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.6px;color:'+C.blue+';margin-bottom:5px;">CONSOLIDATED DIAGNOSIS</div>'
+        + diag.map(function(x){return '<div style="margin-bottom:4px;">• '+x+'</div>';}).join('')
+        +'<div style="margin-top:6px;color:'+C.mut+';font-size:9.5px;">BOS / no-wick are read-only confluence tags today — this shows what they WOULD have filtered, to decide whether to promote either to a live entry gate.</div></div>';
+      return '<div style="background:#fff;max-width:700px;width:100%;border:1px solid rgba(30,64,140,0.3);border-radius:6px;padding:16px 18px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">'+head+tbl+box+'</div>';
+    }
+    window.__swDiagnoseClose=function(){ var o=document.getElementById('sw-diagnose-overlay'); if(o) o.style.display='none'; };
+    window.__swDiagnosePair=function(pair){
+      var losses=(window._swLossesByPair&&window._swLossesByPair[pair])||[]; if(!losses.length) return;
+      var html=_swRenderDiagnoseModal(pair, losses, window._swSigs||{});
+      var ov=document.getElementById('sw-diagnose-overlay');
+      if(!ov){ ov=document.createElement('div'); ov.id='sw-diagnose-overlay'; ov.style.cssText='position:fixed;inset:0;background:rgba(28,26,23,0.78);z-index:9998;display:none;align-items:flex-start;justify-content:center;padding:24px;backdrop-filter:blur(4px);overflow-y:auto;'; ov.onclick=function(ev){ if(ev.target===ov) window.__swDiagnoseClose(); }; document.body.appendChild(ov); }
+      ov.innerHTML=html; ov.style.display='flex';
+    };
     function render(exec, shadow){
       var host = document.getElementById('swingTestPanel'); if(!host) return;
       try {
         var execs = (exec && exec.executions) || [];
         var sigs = (shadow && shadow.signals) || {};
+        // ── window filter (Day/Week/Month/All) — DEMO side only ──
+        var mode=window._swWindow||'all'; var anchor=_swAnchor(mode); var winLabel=_swWinLabel(mode);
+        var inWin=function(e){ return typeof e.ts!=='number' || e.ts>=anchor; };
         // demo
-        var closed = execs.filter(function(e){return e.event==='closed' && typeof e.realized_r==='number';});
-        var placed = execs.filter(function(e){return e.event==='placed';});
+        var closed = execs.filter(function(e){return e.event==='closed' && typeof e.realized_r==='number' && inWin(e);});
+        var placed = execs.filter(function(e){return e.event==='placed' && inWin(e);});
         var openN = Math.max(0, placed.length - closed.length);
         var demoAll = agg(closed.map(function(e){return e.realized_r;}));
         // model (shadow resolved)
@@ -1432,9 +1549,10 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
         });
         // per pair (demo closed)
         var byPair={}; closed.forEach(function(e){ var p=(e.pair||'?').toUpperCase(); (byPair[p]=byPair[p]||[]).push(e.realized_r); });
-        var C={blue:'#1e408c',g:'#0d5a36',r:'#c0281a',ink:'#556',mut:'#889'};
         var h='';
-        h+='<div style="color:'+C.blue+';font-weight:700;letter-spacing:0.5px;margin-bottom:6px;">🏹 SWING FORWARD-TEST · demo vs model <span style="color:'+C.mut+';font-weight:400;">(separate from intraday)</span></div>';
+        h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;">'
+          +'<span style="color:'+C.blue+';font-weight:700;letter-spacing:0.5px;">🏹 SWING FORWARD-TEST · demo vs model <span style="color:'+C.mut+';font-weight:400;">(separate from intraday · '+winLabel+')</span></span>'
+          +_swToggle(mode)+'</div>';
         h+='<div style="color:'+C.ink+';margin-bottom:4px;">DEMO: <b>'+placed.length+'</b> placed · <b>'+closed.length+'</b> closed · '+openN+' open · realised <b style="color:'+(demoAll.tot>=0?C.g:C.r)+'">'+(demoAll.tot>=0?'+':'')+demoAll.tot.toFixed(2)+'R</b>'+(closed.length?' · WR '+demoAll.wr.toFixed(0)+'%':'')+'</div>';
         h+='<div style="color:'+C.ink+';margin-bottom:6px;">MODEL (shadow): <b>'+modelAll.n+'</b> resolved · WR '+modelAll.wr.toFixed(0)+'% · exp '+(modelAll.exp>=0?'+':'')+modelAll.exp.toFixed(3)+'R</div>';
         if(gapD.length){
@@ -1478,12 +1596,15 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
           pk.sort(function(a,b){return byPair[b].length-byPair[a].length;}).forEach(function(p){ var a=agg(byPair[p]); h+='<tr><td>'+esc(p)+'</td><td>'+a.n+'</td><td>'+a.wr.toFixed(0)+'%</td><td style="color:'+(a.tot>=0?C.g:C.r)+'">'+(a.tot>=0?'+':'')+a.tot.toFixed(2)+'R</td></tr>'; });
           h+='</table>';
         }
+        // ── Losses by pair · click to diagnose (execution vs signal fault) ──
+        h+=_swLossesList(closed, sigs);
         h+='<div style="color:'+C.mut+';margin-top:6px;font-size:8px;">DEMO = real cBot fills (spread/slippage/swap). MODEL = idealised shadow (next-bar fill). Small samples until closes accrue.</div>';
         host.innerHTML=h;
       } catch(e){ host.innerHTML='<span style="color:#889;">🏹 SWING FORWARD-TEST · (render error, non-fatal)</span>'; }
     }
     function load(){
       fetch(BASE+'swing-executions.json?t='+Date.now()).then(function(r){return r.json();}).then(function(exec){
+        _lastExec=exec;
         var now=Date.now();
         if(_shadow && (now-_shadowAt)<600000){ render(exec,_shadow); return; }
         fetch(BASE+'swing-shadow-log.json?t='+Date.now()).then(function(r){return r.json();}).then(function(sh){ _shadow=sh; _shadowAt=now; render(exec,sh); }).catch(function(){ render(exec,_shadow||{signals:{}}); });
