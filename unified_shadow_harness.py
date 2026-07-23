@@ -406,6 +406,60 @@ def score_meanrev(bars, rsi, entry_ts, entry, stop, d, hold):
     return ('resolved', (entry - b['c']) / R if d == 'bear' else (b['c'] - entry) / R)
 
 
+SID_LO = 35          # steadier than the book's 30/70 (walk-forward-robust on index-4H)
+SID_HI = 65
+SID_CONF_WIN = 10    # bars after the RSI extreme to wait for the MACD cross
+SID_BUF = 0.10
+SID_HOLD = 90
+SID_COOLDOWN = 3
+
+
+def detect_sid(pk, h1, daily):
+    """Observed candidate #16 — 'Sid' RSI+MACD mean-reversion, INDEX + 4H only,
+    RSI-50 exit. Long when RSI<35 then a MACD(12,26,9) cross UP within 10 bars (RSI
+    still <50); short mirror at RSI>65 + cross DOWN. Stop below the low made while
+    oversold / above the high while overbought. Exit when RSI returns to 50 (scored
+    by score_meanrev). Indices are the book's own instrument domain and the only
+    cell with an edge (+0.10..+0.19R, WR ~60%, positive across the RSI/window grid);
+    the aggregate strategy is a high-WR / ~zero-expectancy mirage. 35/65 chosen over
+    the book's 30/70 because it holds up in BOTH out-of-sample halves where 30/70 is
+    borderline. MODEL-ONLY — the RSI-50 exit isn't fixed-RR-cBot-executable, so this
+    is shadow-observed, not emitted to the demo feed (like rsimr)."""
+    if PAIR_CLASS.get(pk) != 'index':
+        return []
+    bars = agg4h(h1); n = len(bars)
+    if n < 120:
+        return []
+    closes = [b['c'] for b in bars]
+    rsi = precompute_rsi(closes, 14); macd, sig = macd_series(closes, 12, 26, 9)
+    out = []; last = -1; i = 30
+    while i < n - 1:
+        if i <= last or rsi[i] is None:
+            i += 1; continue
+        d = 'bull' if rsi[i] < SID_LO else ('bear' if rsi[i] > SID_HI else None)
+        if d is None:
+            i += 1; continue
+        ext = bars[i]['l'] if d == 'bull' else bars[i]['h']; ei = None
+        for j in range(i, min(i + SID_CONF_WIN, n - 1)):
+            ext = min(ext, bars[j]['l']) if d == 'bull' else max(ext, bars[j]['h'])
+            if None in (macd[j], sig[j], macd[j-1], sig[j-1]) or rsi[j] is None:
+                continue
+            if d == 'bull' and macd[j-1] <= sig[j-1] and macd[j] > sig[j] and rsi[j] < 50:
+                ei = j + 1; break
+            if d == 'bear' and macd[j-1] >= sig[j-1] and macd[j] < sig[j] and rsi[j] > 50:
+                ei = j + 1; break
+        if ei is None:
+            i += 1; continue
+        a = atr(bars, 14, ei-1) or 0.0; entry = bars[ei]['o']
+        stop = (ext - SID_BUF*a) if d == 'bull' else (ext + SID_BUF*a)
+        if (d == 'bull' and stop >= entry) or (d == 'bear' and stop <= entry):
+            i += 1; continue
+        out.append({'strategy': 'sid', 'tf': '4h', 'pair': pk, 'dir': d,
+                    'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop})
+        last = ei + SID_COOLDOWN; i = last + 1
+    return out
+
+
 FIBGZ_PRD = 5
 FIBGZ_ZHI, FIBGZ_ZLO = 0.5, 0.618
 FIBGZ_STOP_LVL = 0.786
@@ -1028,7 +1082,7 @@ def main():
                  + detect_fibgz(pk, h1, daily) + detect_fredtl(pk, h1, daily)
                  + detect_threepush(pk, h1, daily) + detect_engulf_manip(pk, h1, daily)
                  + detect_sweeprev(pk, h1, daily) + detect_asianglitch(pk, h1, daily)
-                 + detect_wm(pk, h1, daily))
+                 + detect_wm(pk, h1, daily) + detect_sid(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -1057,6 +1111,8 @@ def main():
             hold = HS_HOLD if tf == 'h1' else (HOLD['4h'] if tf == '4h' else 20)
             if rec['strategy'] == 'rsimr':
                 st, o = score_meanrev(b4, rsi4, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], RSIMR_HOLD)
+            elif rec['strategy'] == 'sid':
+                st, o = score_meanrev(b4, rsi4, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], SID_HOLD)
             elif rec['strategy'] == 'sweeprev':
                 st, o = score_sweeprev(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], SWEEPREV_HOLD)
             elif rec['strategy'] == 'asianglitch':
@@ -1079,7 +1135,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             if sub:
