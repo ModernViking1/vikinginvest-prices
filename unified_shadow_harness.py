@@ -860,6 +860,87 @@ def score_asianglitch(bars, entry_ts, entry, stop, d, hold, rr):
     return ('pending', None) if end >= len(bars) else ('expired', None)
 
 
+WM_PRD = 3
+WM_PEAK_TOL = 0.40
+WM_MAX_WAIT = 15
+WM_BUF = 0.10
+WM_RR = 1.0
+WM_HOLD = 96
+WM_COOLDOWN = 4
+
+
+def _wm_pivots(bars, k):
+    n = len(bars); out = []
+    for i in range(k, n - k):
+        h = bars[i]['h']; l = bars[i]['l']
+        if all(h >= bars[i-j]['h'] and h >= bars[i+j]['h'] for j in range(1, k+1)):
+            out.append((i, h, 'H'))
+        elif all(l <= bars[i-j]['l'] and l <= bars[i+j]['l'] for j in range(1, k+1)):
+            out.append((i, l, 'L'))
+    return out
+
+
+def detect_wm(pk, h1, daily):
+    """Observed candidate #15 — W-bottom / M-top neckline-break reversal (CRYPTO +
+    H1 only, fixed 1:1). Two roughly-equal peaks (M) / troughs (W) after a run;
+    neckline = the middle trough/peak. Signal fires on the BREAK of the neckline
+    (sell-stop for M / buy-stop for W) — a momentum entry, so entry is recorded at
+    the worse of neckline/break-bar open (the realistic fill, NOT the optimistic
+    exact-neckline fill). Stop beyond the pattern extreme; target 1:1. Cancel if the
+    far extreme breaks first or >15 bars pass sideways. CRYPTO-only: on a realistic
+    fill it is the sole class that survives walk-forward (+0.09R, both OOS halves +,
+    robust across pivot/tolerance); every other class and timeframe fails."""
+    if PAIR_CLASS.get(pk) != 'crypto':
+        return []
+    bars = h1; n = len(bars)
+    if n < 2*WM_PRD + 20:
+        return []
+    piv = _wm_pivots(bars, WM_PRD); out = []; last = -1
+    for p in range(3, len(piv)):
+        a4, b3, c2, d1 = piv[p-3], piv[p-2], piv[p-1], piv[p]
+        if b3[2] == 'H' and c2[2] == 'L' and d1[2] == 'H' and a4[2] == 'L':
+            d = 'bear'; peak1, peak2, neck, run0 = b3[1], d1[1], c2[1], a4[1]
+            hgt = max(peak1, peak2) - neck
+            if hgt <= 0 or abs(peak1 - peak2) > WM_PEAK_TOL*hgt or run0 >= neck:
+                continue
+            extreme = max(peak1, peak2)
+        elif b3[2] == 'L' and c2[2] == 'H' and d1[2] == 'L' and a4[2] == 'H':
+            d = 'bull'; tr1, tr2, neck, run0 = b3[1], d1[1], c2[1], a4[1]
+            hgt = neck - min(tr1, tr2)
+            if hgt <= 0 or abs(tr1 - tr2) > WM_PEAK_TOL*hgt or run0 <= neck:
+                continue
+            extreme = min(tr1, tr2)
+        else:
+            continue
+        confirm = d1[0] + WM_PRD
+        if confirm <= last or confirm >= n - 1:
+            continue
+        a = atr(bars, WM_PRD*3, d1[0]) or atr(bars, 14, min(d1[0], n-1)) or 0.0
+        stop = (extreme + WM_BUF*a) if d == 'bear' else (extreme - WM_BUF*a)
+        ei = None
+        for k in range(confirm, min(confirm + WM_MAX_WAIT, n)):
+            bk = bars[k]
+            if d == 'bear':
+                if bk['h'] > extreme:               # broke the top of the M -> cancel
+                    break
+                if bk['l'] <= neck:                 # sell-stop triggers
+                    ei = k; break
+            else:
+                if bk['l'] < extreme:               # broke the bottom of the W -> cancel
+                    break
+                if bk['h'] >= neck:                 # buy-stop triggers
+                    ei = k; break
+        if ei is None:
+            continue
+        entry = min(neck, bars[ei]['o']) if d == 'bear' else max(neck, bars[ei]['o'])
+        if (d == 'bear' and stop <= entry) or (d == 'bull' and stop >= entry):
+            continue
+        out.append({'strategy': 'wm', 'tf': 'h1', 'pair': pk, 'dir': d,
+                    'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop, 'rr': WM_RR})
+        last = ei + WM_COOLDOWN
+    return out
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -946,7 +1027,8 @@ def main():
                  + detect_s5_rsi_wide(pk, h1, daily) + detect_rsimr(pk, h1, daily)
                  + detect_fibgz(pk, h1, daily) + detect_fredtl(pk, h1, daily)
                  + detect_threepush(pk, h1, daily) + detect_engulf_manip(pk, h1, daily)
-                 + detect_sweeprev(pk, h1, daily) + detect_asianglitch(pk, h1, daily))
+                 + detect_sweeprev(pk, h1, daily) + detect_asianglitch(pk, h1, daily)
+                 + detect_wm(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -979,6 +1061,8 @@ def main():
                 st, o = score_sweeprev(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], SWEEPREV_HOLD)
             elif rec['strategy'] == 'asianglitch':
                 st, o = score_asianglitch(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], ASIANGLITCH_HOLD, rec.get('rr', ASIANGLITCH_RR))
+            elif rec['strategy'] == 'wm':
+                st, o = score_asianglitch(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], WM_HOLD, rec.get('rr', WM_RR))
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -995,7 +1079,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             if sub:
