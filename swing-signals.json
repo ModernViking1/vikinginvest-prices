@@ -1,10 +1,106 @@
 {
  "schema_version": 1,
- "generated": "2026-07-24T03:00:00+00:00",
- "data_end_ts": 1784862000,
- "raw_signal_count": 10,
- "count": 8,
+ "generated": "2026-07-24T08:00:00+00:00",
+ "data_end_ts": 1784880000,
+ "raw_signal_count": 11,
+ "count": 9,
  "signals": [
+  {
+   "id": "wm:solusd:1784876400",
+   "strategy": "wm",
+   "pair": "solusd",
+   "symbol": "SOLUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 75.19788889,
+   "ref_entry": 76.21,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784876400,
+   "created_ts": 1784880000,
+   "expiry_ts": 1784919600,
+   "state": "triggered",
+   "cofire": [
+    "wm"
+   ],
+   "cofire_dirs": [
+    "wm:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "wm:xrpusd:1784872800",
+   "strategy": "wm",
+   "pair": "xrpusd",
+   "symbol": "XRPUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 1.09939444,
+   "ref_entry": 1.1135,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784872800,
+   "created_ts": 1784880000,
+   "expiry_ts": 1784916000,
+   "state": "triggered",
+   "cofire": [
+    "wm"
+   ],
+   "cofire_dirs": [
+    "wm:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "engulf_manip:nearusd:1784862000",
+   "strategy": "engulf_manip",
+   "pair": "nearusd",
+   "symbol": "NEARUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 1.90708571,
+   "ref_entry": 1.874,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784862000,
+   "created_ts": 1784880000,
+   "expiry_ts": 1784905200,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "wm:btcusd:1784862000",
+   "strategy": "wm",
+   "pair": "btcusd",
+   "symbol": "BTCUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 64536.46477778,
+   "ref_entry": 65178.42,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784862000,
+   "created_ts": 1784880000,
+   "expiry_ts": 1784905200,
+   "state": "triggered",
+   "cofire": [
+    "wm"
+   ],
+   "cofire_dirs": [
+    "wm:bull"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "fib_gz:natgas:1784836800",
    "strategy": "fib_gz",
@@ -18,7 +114,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784836800,
-   "created_ts": 1784862000,
+   "created_ts": 1784880000,
    "expiry_ts": 1784880000,
    "state": "triggered",
    "cofire": [
@@ -30,20 +126,20 @@
    "suppressed": 0
   },
   {
-   "id": "tl_nowick:spx500:1784815200",
+   "id": "tl_nowick:gbpcad:1784818800",
    "strategy": "tl_nowick",
-   "pair": "spx500",
-   "symbol": "SPX500",
-   "class": "index",
+   "pair": "gbpcad",
+   "symbol": "GBPCAD",
+   "class": "minor",
    "dir": "bear",
-   "stop": 7501.97857143,
-   "ref_entry": 7427.0,
+   "stop": 1.88337375,
+   "ref_entry": 1.87602,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
-   "trigger_ts": 1784815200,
-   "created_ts": 1784862000,
-   "expiry_ts": 1784858400,
+   "trigger_ts": 1784818800,
+   "created_ts": 1784880000,
+   "expiry_ts": 1784862000,
    "state": "triggered",
    "cofire": [
     "tl_nowick"
@@ -66,7 +162,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784811600,
-   "created_ts": 1784862000,
+   "created_ts": 1784880000,
    "expiry_ts": 1784854800,
    "state": "triggered",
    "cofire": [
@@ -76,6 +172,32 @@
     "hs:bear"
    ],
    "suppressed": 0
+  },
+  {
+   "id": "engulf_manip:ethusd:1784804400",
+   "strategy": "engulf_manip",
+   "pair": "ethusd",
+   "symbol": "ETHUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 1908.59421429,
+   "ref_entry": 1927.31,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1784804400,
+   "created_ts": 1784880000,
+   "expiry_ts": 1784847600,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip",
+    "wm"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bull",
+    "wm:bull"
+   ],
+   "suppressed": 1
   },
   {
    "id": "fib_gz:xauusd:1784804400",
@@ -90,7 +212,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784804400,
-   "created_ts": 1784862000,
+   "created_ts": 1784880000,
    "expiry_ts": 1784847600,
    "state": "triggered",
    "cofire": [
@@ -102,104 +224,6 @@
     "fib_gz:bull"
    ],
    "suppressed": 1
-  },
-  {
-   "id": "fib_gz:xptusd:1784782800",
-   "strategy": "fib_gz",
-   "pair": "xptusd",
-   "symbol": "XPTUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 1655.95254129,
-   "ref_entry": 1643.032,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1784782800,
-   "created_ts": 1784862000,
-   "expiry_ts": 1784826000,
-   "state": "triggered",
-   "cofire": [
-    "fib_gz"
-   ],
-   "cofire_dirs": [
-    "fib_gz:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "hs:ethusd:1784779200",
-   "strategy": "hs",
-   "pair": "ethusd",
-   "symbol": "ETHUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 1940.67,
-   "ref_entry": 1919.53,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1784779200,
-   "created_ts": 1784862000,
-   "expiry_ts": 1784822400,
-   "state": "triggered",
-   "cofire": [
-    "hs"
-   ],
-   "cofire_dirs": [
-    "hs:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "hs:solusd:1784779200",
-   "strategy": "hs",
-   "pair": "solusd",
-   "symbol": "SOLUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 78.5,
-   "ref_entry": 77.58,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1784779200,
-   "created_ts": 1784862000,
-   "expiry_ts": 1784822400,
-   "state": "triggered",
-   "cofire": [
-    "hs",
-    "wm"
-   ],
-   "cofire_dirs": [
-    "hs:bear",
-    "wm:bear"
-   ],
-   "suppressed": 1
-  },
-  {
-   "id": "wm:btcusd:1784775600",
-   "strategy": "wm",
-   "pair": "btcusd",
-   "symbol": "BTCUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 66403.12722222,
-   "ref_entry": 65645.07,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1784775600,
-   "created_ts": 1784862000,
-   "expiry_ts": 1784818800,
-   "state": "triggered",
-   "cofire": [
-    "wm"
-   ],
-   "cofire_dirs": [
-    "wm:bear"
-   ],
-   "suppressed": 0
   }
  ]
 }
