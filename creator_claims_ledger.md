@@ -55,6 +55,27 @@ for the ongoing forward numbers vs the claim.
 - **Wired as:** `fib_gz` (Dantev golden-zone reversal, **commodities-only**, H1, 2:1) —
   observe.
 
+## "Millionaire trader" — ICT FVG-inversion + CISD
+
+- **Claimed:** "the ONLY strategy you need to win in 2026." A stacked-confluence ICT
+  model: draw-on-liquidity (1H FVG) → liquidity sweep → CISD (change in state of
+  delivery) → FVG inversion (iFVG, price *closes through* a fair-value gap) → lower-TF
+  entry, targeting the opposite liquidity. No hard performance numbers given — sold on
+  the framework and hand-picked chart examples.
+- **Measured (39 pairs, ALL timeframes 15m/h1/4h/daily, realistic close-through fill, OOS):**
+  - **Negative in every single cell** — every timeframe, every target (opposite-liquidity
+    *and* fixed 1.5/2/3:1), every asset class: **−0.13R to −0.62R**.
+  - Not a fill illusion — the entry is a realistic momentum close-through (no favourable
+    limit) and it still loses. The iFVG/CISD trigger fires ~9,000×/yr on 15m/h1 and does
+    not predict continuation.
+  - Same sweep/FVG-reversal family as our own tests (Flow Model, Liquidity Sniper,
+    NY-fakeout-FVG). The **only** ingredient that ever gave this family an edge was a
+    **NY-open session filter on FX** — already captured by `flowmodel`. This all-hours,
+    all-pair formulation adds nothing.
+- **Verdict:** no mechanical edge anywhere. Coherent framework, cherry-picked examples,
+  zero measured edge — the strongest "claimed vs measured" gap of the three.
+- **Wired as:** nothing (rejected).
+
 ---
 
 *Extensible: add a row per creator/strategy as tested. The broader batch (supply &
