@@ -995,6 +995,52 @@ def detect_wm(pk, h1, daily):
     return out
 
 
+def _rc_engulf(bars, i, d):
+    if i < 1: return False
+    o, c = bars[i]['o'], bars[i]['c']; po, pc = bars[i-1]['o'], bars[i-1]['c']
+    lo1, hi1 = min(po, pc), max(po, pc)
+    if d == 'bull': return c > o and o <= lo1 and c >= hi1
+    return c < o and o >= hi1 and c <= lo1
+
+
+def _rc_pin(b, d):
+    rng = b['h'] - b['l']
+    if rng <= 0: return False
+    if d == 'bull': return (min(b['o'], b['c']) - b['l']) >= 0.5*rng
+    return (b['h'] - max(b['o'], b['c'])) >= 0.5*rng
+
+
+def _rc_3bar(bars, i, d):
+    if i < 2: return False
+    if d == 'bull':
+        return bars[i-2]['c'] < bars[i-2]['o'] and bars[i]['c'] > bars[i]['o'] and bars[i]['c'] > bars[i-2]['h']
+    return bars[i-2]['c'] > bars[i-2]['o'] and bars[i]['c'] < bars[i]['o'] and bars[i]['c'] < bars[i-2]['l']
+
+
+def _rev_candle(bars, i, d):
+    if i < 0 or i >= len(bars): return False
+    return _rc_engulf(bars, i, d) or _rc_pin(bars[i], d) or _rc_3bar(bars, i, d)
+
+
+def detect_ob_rev(pk, h1, daily):
+    """Observed candidate #17 — Order Blocks + reversal-candle entry confirmation.
+    A read-only SUBSET of `ob`: keep only OB signals whose pre-entry daily candle is
+    a bullish/bearish engulfing, 3-bar reversal or pin bar in the trade direction
+    (the entry model tests as a filter). Plain ob is fragile (+0.087R, FAILS walk-
+    forward); the confirmation lifts it to +0.26R with both OOS halves positive
+    (+0.411/+0.103) by cutting the passive zone-entries. Same fixed RR2 / daily /
+    cBot-executable as ob — runs in parallel, like s5_rsi_wide beside s5_rsi."""
+    sigs = detect_ob(pk, h1, daily)
+    if not sigs:
+        return []
+    ts = [b['_ts'] for b in daily]; out = []
+    for s in sigs:
+        ci = bisect.bisect_left(ts, s['entry_ts'])
+        if _rev_candle(daily, ci-1, s['dir']):
+            out.append({**s, 'strategy': 'ob_rev'})
+    return out
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -1082,7 +1128,8 @@ def main():
                  + detect_fibgz(pk, h1, daily) + detect_fredtl(pk, h1, daily)
                  + detect_threepush(pk, h1, daily) + detect_engulf_manip(pk, h1, daily)
                  + detect_sweeprev(pk, h1, daily) + detect_asianglitch(pk, h1, daily)
-                 + detect_wm(pk, h1, daily) + detect_sid(pk, h1, daily))
+                 + detect_wm(pk, h1, daily) + detect_sid(pk, h1, daily)
+                 + detect_ob_rev(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -1135,7 +1182,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'ob_rev', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             if sub:

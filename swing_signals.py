@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_ob_rev
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -80,7 +80,12 @@ ENGULF_CLASSES = {'crypto'}
 # H1, fixed 1:1 (self-gates to crypto). Emits on the neckline break (market entry ~
 # break price). Thin but the only class surviving a realistic fill (+0.09R, both OOS
 # halves +, robust across pivot/tolerance). Lowest live priority.
-PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'tl_nowick': 4, 'fib_gz': 5, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11}
+# Order Blocks + reversal-candle confirmation (2026-07-23) — 17th OBSERVED candidate,
+# a SUBSET of ob (all classes, daily, RR2). Reversal candle (engulf/3-bar/pin bar) at
+# the pre-entry bar lifts ob from fragile (+0.087R, fails walk-forward) to robust
+# (+0.26R, both OOS halves +). Runs parallel to ob; ranked just above it so the
+# confirmed variant wins the live tag on overlaps (the trade is identical either way).
+PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob_rev': 2.5, 'ob': 3, 'tl_nowick': 4, 'fib_gz': 5, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11}
 
 
 def main():
@@ -108,6 +113,8 @@ def main():
             found += detect_hs(pk, h1, daily, draw)
         if cls in OB_CLASSES:
             found += detect_ob(pk, h1, daily)
+        if cls in OB_CLASSES:
+            found += detect_ob_rev(pk, h1, daily)   # OB + reversal-candle confirmation (parallel)
         if cls in TL_CLASSES:
             found += detect_tl(pk, h1, daily)
         if cls in W5PB_CLASSES:
