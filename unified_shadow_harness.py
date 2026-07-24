@@ -80,7 +80,12 @@ def detect_s5(pk, h1, daily, trigger):
 def detect_ob(pk, h1, daily):
     """Bonus #7 — Order Blocks (SMC), DAILY only (4H fails validation). Last
     opposite-colour candle before a break-of-structure impulse; entry on
-    retrace-into-zone confirmation, stop beyond the zone (RR2 via the harness)."""
+    retrace-into-zone confirmation, stop beyond the zone (RR2 via the harness).
+    2026-07-23: the retrace bar must now be a REVERSAL CANDLE (engulfing / 3-bar /
+    pin bar) in the trade direction, not just any in-trend close. Validated as a
+    filter: it cut the passive zone-entries and lifted ob from fragile (+0.087R,
+    fails walk-forward) to robust (+0.257R, WR 42%, both OOS halves +). ~1/3 the
+    volume, ~3x the expectancy."""
     bars = daily; BOS_LB, OB_SCAN, MITIG_WIN = 10, 6, 40
     n = len(bars); out = []; last = -1
     for i in range(BOS_LB + OB_SCAN, n - 1):
@@ -96,11 +101,12 @@ def detect_ob(pk, h1, daily):
             if zhi <= zlo: continue
             buf = 0.05*(zhi-zlo)
             for j in range(i+1, min(i+1+MITIG_WIN, n-1)):
-                if bars[j]['l'] <= zhi and bars[j]['c'] > zlo and bars[j]['c'] > bars[j]['o']:
-                    entry, stop = bars[j+1]['o'], zlo-buf
-                    if stop < entry:
-                        out.append({'strategy':'ob','tf':'daily','pair':pk,'dir':'bull','entry_ts':bars[j+1]['_ts'],'entry':entry,'stop':stop})
-                    last = j+1; break
+                if bars[j]['l'] <= zhi and bars[j]['c'] > zlo and bars[j]['c'] > bars[j]['o']:   # first retrace
+                    if _rev_candle(bars, j, 'bull'):                                            # emit only if confirmed
+                        entry, stop = bars[j+1]['o'], zlo-buf
+                        if stop < entry:
+                            out.append({'strategy':'ob','tf':'daily','pair':pk,'dir':'bull','entry_ts':bars[j+1]['_ts'],'entry':entry,'stop':stop})
+                    last = j+1; break                                                          # break on first retrace regardless
         elif bars[i]['c'] < plo:
             ob = None
             for k in range(i-1, max(-1, i-1-OB_SCAN), -1):
@@ -110,11 +116,12 @@ def detect_ob(pk, h1, daily):
             if zhi <= zlo: continue
             buf = 0.05*(zhi-zlo)
             for j in range(i+1, min(i+1+MITIG_WIN, n-1)):
-                if bars[j]['h'] >= zlo and bars[j]['c'] < zhi and bars[j]['c'] < bars[j]['o']:
-                    entry, stop = bars[j+1]['o'], zhi+buf
-                    if stop > entry:
-                        out.append({'strategy':'ob','tf':'daily','pair':pk,'dir':'bear','entry_ts':bars[j+1]['_ts'],'entry':entry,'stop':stop})
-                    last = j+1; break
+                if bars[j]['h'] >= zlo and bars[j]['c'] < zhi and bars[j]['c'] < bars[j]['o']:   # first retrace
+                    if _rev_candle(bars, j, 'bear'):                                            # emit only if confirmed
+                        entry, stop = bars[j+1]['o'], zhi+buf
+                        if stop > entry:
+                            out.append({'strategy':'ob','tf':'daily','pair':pk,'dir':'bear','entry_ts':bars[j+1]['_ts'],'entry':entry,'stop':stop})
+                    last = j+1; break                                                          # break on first retrace regardless
     return out
 
 
@@ -1022,25 +1029,6 @@ def _rev_candle(bars, i, d):
     return _rc_engulf(bars, i, d) or _rc_pin(bars[i], d) or _rc_3bar(bars, i, d)
 
 
-def detect_ob_rev(pk, h1, daily):
-    """Observed candidate #17 — Order Blocks + reversal-candle entry confirmation.
-    A read-only SUBSET of `ob`: keep only OB signals whose pre-entry daily candle is
-    a bullish/bearish engulfing, 3-bar reversal or pin bar in the trade direction
-    (the entry model tests as a filter). Plain ob is fragile (+0.087R, FAILS walk-
-    forward); the confirmation lifts it to +0.26R with both OOS halves positive
-    (+0.411/+0.103) by cutting the passive zone-entries. Same fixed RR2 / daily /
-    cBot-executable as ob — runs in parallel, like s5_rsi_wide beside s5_rsi."""
-    sigs = detect_ob(pk, h1, daily)
-    if not sigs:
-        return []
-    ts = [b['_ts'] for b in daily]; out = []
-    for s in sigs:
-        ci = bisect.bisect_left(ts, s['entry_ts'])
-        if _rev_candle(daily, ci-1, s['dir']):
-            out.append({**s, 'strategy': 'ob_rev'})
-    return out
-
-
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -1128,8 +1116,7 @@ def main():
                  + detect_fibgz(pk, h1, daily) + detect_fredtl(pk, h1, daily)
                  + detect_threepush(pk, h1, daily) + detect_engulf_manip(pk, h1, daily)
                  + detect_sweeprev(pk, h1, daily) + detect_asianglitch(pk, h1, daily)
-                 + detect_wm(pk, h1, daily) + detect_sid(pk, h1, daily)
-                 + detect_ob_rev(pk, h1, daily))
+                 + detect_wm(pk, h1, daily) + detect_sid(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -1182,7 +1169,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'ob_rev', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             if sub:
