@@ -1,0 +1,64 @@
+# Creator "Claimed vs Measured" Ledger (internal)
+
+A one-glance record of social-media / course trading strategies we've stress-tested:
+what the creator **claimed**, what we **measured** under realistic, cost-applied,
+out-of-sample testing, and where each one is **monitored forward** if it earned a
+scoped slot.
+
+Method for every row: full 39-pair universe, realistic fills (market/stop, not
+favourable limits), fixed dealing cost, chronological OOS split (both halves must be
+positive), per asset class. We separate durable edges from backtest illusions — most
+headline numbers are gross, idealised-fill, or curated-subset figures that do not
+reproduce.
+
+**How the wired ones are monitored:** any strategy with a "Wired as" tag runs in the
+shadow forward-test harness (`unified_shadow_harness.py` → `swing-shadow-log.json`)
+and its live demo-vs-model split shows on the dashboard swing panel. Check those rows
+for the ongoing forward numbers vs the claim.
+
+---
+
+## Paul Bratby / xBratAI
+
+- **Claimed (weekly report):** 63.44% win rate · "+5,304.68% total profit" · simulated
+  $1,000 → $6,305 · profit factor implied "exceptional". Method: multi-layer
+  confluence + RSI, "Trade the Fifth" Elliott-wave pullbacks.
+- **Measured (his own 372-trade export + our replication):**
+  - Raw (unleveraged) edge is **real but tiny**: +0.057% price move captured per trade
+    (t≈3.37, statistically non-zero), win/loss ratio ~1.24.
+  - The **"+5,304%" is a nonsense metric** — a sum of leveraged per-trade percentages
+    (leverage ranged 43×–2,469×, median ~466×); it is not an achievable return.
+  - **Cost-fragile:** ~25% of his winners cleared less than 0.02% (inside a typical
+    spread). After realistic costs the +0.057% gross drops toward **breakeven**.
+  - Our own rigorous test of his confluence / Trade-the-Fifth method was our **weakest
+    candidate** — aggregate 4H breakeven, only comm/crypto positive on both OOS halves.
+- **Verdict:** legitimate *small* edge, **dishonestly marketed**. Headline returns are
+  unachievable (summed leveraged % + fantasy leverage + gross fills).
+- **Wired as:** `w5_pullback` (Elliott wave-5 pullback, comm/crypto 4H only) — observe.
+
+## Denislav Dantev — Fibonacci method
+
+- **Claimed (internal dashboard):** profit factor **2.39** · +0.70R/trade all-time
+  (541 trades) · 52.5% win rate · 2.21× win/loss · avg win +2.14R, avg loss −0.97R ·
+  ~6.5-day swing hold. Method: retrace into the 50–61.8% Fibonacci "golden zone".
+- **Measured (39 pairs, all TFs, realistic fills, OOS):**
+  - Profit factor across the universe was mostly **0.6–0.9 (a losing system)**, negative
+    expectancy on majors, minors, 4H and H1.
+  - At a genuine 2:1 target on realistic fills, win rate came in **~30%, not 52.5%** —
+    the golden-zone limit entry (favourable fill) is what inflates the claimed WR.
+  - **Exactly one** walk-forward-robust cell survived: **commodities · H1 · 2:1**,
+    **PF ~1.1, +0.06R**, both OOS halves positive. (Their claimed "best on minor FX"
+    cell *failed* our OOS test.)
+- **Verdict:** the 2.39 PF / +0.70R headline **does not reproduce** — same pattern as
+  Bratby (idealised-fill + curated subset). The real edge is a thin commodities-only
+  sliver, ~1.1 PF, not 2.39.
+- **Wired as:** `fib_gz` (Dantev golden-zone reversal, **commodities-only**, H1, 2:1) —
+  observe.
+
+---
+
+*Extensible: add a row per creator/strategy as tested. The broader batch (supply &
+demand, Bollinger trend-continuation, Liquidity Sniper, John Wick box, engulf-imbalance,
+Sid RSI+MACD, W/M reversal, Asian-session gold, NY-open flow model, …) lives in the
+`*_research.py` scripts; only the ones with hard marketed numbers get a claimed-vs-measured
+row here.*
