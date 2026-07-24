@@ -46,7 +46,8 @@ jobs:
         run: |
           for f in unified_shadow_harness.py historical-ohlc.json \
                    detect_triggers.py backtest_rsi_per_class.py \
-                   hs_swing_research.py five_strategies_research.py; do
+                   hs_swing_research.py five_strategies_research.py \
+                   flow_model_shadow.py flow_model_research.py; do
             if [ ! -f "$f" ]; then echo "::error::$f missing from repo root"; exit 1; fi
           done
 
@@ -69,6 +70,26 @@ jobs:
             sleep $((2 ** i))
           done
           if [ "$pushed" != "1" ]; then echo "::error::failed to push swing-shadow-log.json after retries"; exit 1; fi
+
+      - name: Run flow-model intraday shadow (NY-open FX observe candidate)
+        run: python flow_model_shadow.py
+
+      - name: Commit + push flow-model-shadow-log.json (retry on race)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- flow-model-shadow-log.json; then
+            echo "no change to flow-model-shadow-log.json"; exit 0
+          fi
+          git add flow-model-shadow-log.json
+          git commit -m "chore: update flow-model shadow log [skip ci]"
+          pushed=0
+          for i in 1 2 3 4 5; do
+            if git push origin main 2>&1; then echo "pushed"; pushed=1; break; fi
+            echo "push race, rebasing (attempt $i)"; git fetch origin main && git rebase origin/main || git rebase --abort
+            sleep $((2 ** i))
+          done
+          if [ "$pushed" != "1" ]; then echo "::error::failed to push flow-model-shadow-log.json after retries"; exit 1; fi
 
       - name: Purge CDN (so the dashboard swing panel reads the fresh log)
         run: |

@@ -153,6 +153,83 @@ def scan(m15, h1, S, cls, SC):
             i += 1
 
 
+FM_RR = 2.0          # deploy target: fixed 2:1 (the DOL/opposite-liquidity target does NOT work)
+
+
+def detect_flow_model(m15, h1, ny_only=True):
+    """Reusable detector for the NY-open FX flow model (market entry, fixed 2:1).
+    Returns signal dicts {dir, entry(=market close), stop, target, entry_ts}. FX/
+    class gating is the caller's job. Mirrors scan() but yields signals instead of
+    scoring; validated cell = FX (majors/minors), NY-open window, RR ~2."""
+    b4 = agg4h(h1); t4 = [b['_ts'] for b in b4]
+    ph1, pl1 = pivots(h1, PIV_K); t1 = [b['_ts'] for b in h1]
+    lph1 = [None]*len(h1); lpl1 = [None]*len(h1); a=b=None
+    for k in range(len(h1)):
+        if k-PIV_K>=0 and ph1[k-PIV_K] is not None: a=ph1[k-PIV_K]
+        if k-PIV_K>=0 and pl1[k-PIV_K] is not None: b=pl1[k-PIV_K]
+        lph1[k]=a; lpl1[k]=b
+    phm, plm = pivots(m15, PIV_K); n=len(m15)
+    lphm=[None]*n; lplm=[None]*n; c=e=None
+    for i in range(n):
+        if i-PIV_K>=0 and phm[i-PIV_K] is not None: c=phm[i-PIV_K]
+        if i-PIV_K>=0 and plm[i-PIV_K] is not None: e=plm[i-PIV_K]
+        lphm[i]=c; lplm[i]=e
+    out=[]; last=-1; i=PIV_K+4
+    while i < n-1:
+        if i <= last:
+            i += 1; continue
+        if ny_only and ((m15[i]['_ts']//3600) % 24) not in (13, 14, 15):
+            i += 1; continue
+        k4 = bisect.bisect_right(t4, m15[i]['_ts']-4*3600) - 1
+        bias=None
+        for kk in range(k4, max(-1,k4-NOWICK_LOOK), -1):
+            if kk<0: break
+            bias = nowick_dir(b4[kk])
+            if bias: break
+        if bias is None:
+            i += 1; continue
+        k1 = bisect.bisect_right(t1, m15[i]['_ts']) - 1
+        if k1<1 or lph1[k1] is None or lpl1[k1] is None:
+            i += 1; continue
+        at = atr(m15,14,i) or 0.0
+        if at<=0:
+            i += 1; continue
+        made=False
+        if bias=='bear' and m15[i]['h'] > lph1[k1]:
+            sweep_hi=m15[i]['h']; fvg_lo=None; mss=False
+            for j in range(i+1, min(i+1+SWEEP_WIN, n-1)):
+                sweep_hi=max(sweep_hi, m15[j]['h'])
+                if not mss and lplm[j] is not None and m15[j]['c']<lplm[j]: mss=True
+                if mss and j>=i+2 and m15[j-2]['l'] > m15[j]['h']: fvg_lo=m15[j]['h']
+                if mss and fvg_lo is not None:
+                    for r in range(j+1, min(j+1+SWEEP_WIN, n-1)):
+                        if m15[r]['h'] >= fvg_lo:
+                            entry=m15[r]['c']; stop=sweep_hi+BUF*at; R=abs(entry-stop)
+                            if stop>entry and R>0:
+                                out.append({'dir':'bear','entry':entry,'stop':stop,
+                                            'target':entry-FM_RR*R,'entry_ts':m15[r]['_ts']})
+                            last=r+COOLDOWN; i=last+1; made=True; break
+                    break
+        elif bias=='bull' and m15[i]['l'] < lpl1[k1]:
+            sweep_lo=m15[i]['l']; fvg_hi=None; mss=False
+            for j in range(i+1, min(i+1+SWEEP_WIN, n-1)):
+                sweep_lo=min(sweep_lo, m15[j]['l'])
+                if not mss and lphm[j] is not None and m15[j]['c']>lphm[j]: mss=True
+                if mss and j>=i+2 and m15[j-2]['h'] < m15[j]['l']: fvg_hi=m15[j]['l']
+                if mss and fvg_hi is not None:
+                    for r in range(j+1, min(j+1+SWEEP_WIN, n-1)):
+                        if m15[r]['l'] <= fvg_hi:
+                            entry=m15[r]['c']; stop=sweep_lo-BUF*at; R=abs(entry-stop)
+                            if stop<entry and R>0:
+                                out.append({'dir':'bull','entry':entry,'stop':stop,
+                                            'target':entry+FM_RR*R,'entry_ts':m15[r]['_ts']})
+                            last=r+COOLDOWN; i=last+1; made=True; break
+                    break
+        if not made:
+            i += 1
+    return out
+
+
 def _emit(bars, ei, entry, stop, tgt, d, S, cls, SC, mode):
     if ei>=len(bars): return
     if (d=='bear' and (stop<=entry or tgt>=entry)) or (d=='bull' and (stop>=entry or tgt<=entry)): return
