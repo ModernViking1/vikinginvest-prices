@@ -76,6 +76,29 @@ for the ongoing forward numbers vs the claim.
   zero measured edge — the strongest "claimed vs measured" gap of the three.
 - **Wired as:** nothing (rejected).
 
+## ICT "sequential confluence" model (sweep → BOS → retrace-to-zone)
+
+- **Claimed:** an anonymous mechanical ICT ruleset (screenshots / scribd, no named
+  creator, no hard numbers): trend context + liquidity sweep + reclaim → break of
+  structure → retrace into an FVG/OB/Breaker zone → enter, SL beyond the sweep, TP =
+  next unswept liquidity. Sold as deterministic — "a trade is valid only when all
+  conditions fire *in sequence*."
+- **Measured (39 pairs, all TFs 15m/h1/4h/daily, dual-fill, OOS):**
+  - Negative on 15m / h1 / daily, and negative on its OWN stated target (next-unswept-
+    liquidity) at *every* timeframe — the marketed exit is the part that fails.
+  - The only positive is 4H with a **fixed 2R** (not the stated target): +0.04R (market)
+    / +0.06R (limit), both OOS halves +, and the realistic fill survives (not an illusion).
+  - Per class that thin 4H edge — crypto +0.10R, minor +0.08R, index +0.06R — is a
+    **weaker duplicate** of edges already wired: `engulf_manip` (crypto-4H +0.14R) and
+    `sweeprev` (minor-4H +0.10R). Same sweep-reversal pockets, captured better elsewhere.
+- **Verdict:** no *new* deployable edge — a redundant, thinner slice of the ICT
+  sweep-reversal family; stated target doesn't work. This is the **8th** strategy from
+  this family we've tested (Flow Model, Liquidity Sniper, NY-fakeout-FVG, iFVG/CISD,
+  sweeprev, engulf_manip, liquidity-sweep-retest, this) — all converge to the same
+  place: a ≤0.1–0.2R 4H reversal whisper in crypto/minor/index/gold-session FX, never
+  with the marketed liquidity target, always better captured by a narrowly-scoped variant.
+- **Wired as:** nothing (redundant with `engulf_manip` / `sweeprev`).
+
 ---
 
 *Extensible: add a row per creator/strategy as tested. The broader batch (supply &
