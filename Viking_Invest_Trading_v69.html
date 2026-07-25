@@ -4178,7 +4178,17 @@ function mainDashboardWrLabel(k, m, mode){
     // when the cards already reflected the cached numbers. With the
     // fingerprint changes of the last few days that meant every page
     // load was repeating the full chain.
-    if(_autoEwCacheCurrentlyFresh){
+    // 2026-07-25 — ALSO require the structural (4/4 BT) cache before short-
+    // circuiting. Auto-EW alone used to skip the whole chain, so the structural
+    // variant never computed on load: majors fell back to auto-EW stats
+    // ("STATS: EW EST") and every card's "4/4 BT" row read "no data — force
+    // re-run backtests" until Force was clicked. Now only short-circuit when
+    // BOTH variants are cached; if structural is missing the chain below runs
+    // (auto-EW loads from its cache instantly, structural computes) — so the
+    // correct 4/4 numbers appear on load with no manual force.
+    var _structCacheCurrentlyFresh = (typeof _loadRecentBtCache === 'function')
+      && _loadRecentBtCache('structural') != null;
+    if(_autoEwCacheCurrentlyFresh && _structCacheCurrentlyFresh){
       _lazyBacktestTriggered = true;
     } else if(!_lazyBacktestTriggered &&
        typeof DEEP_HIST !== 'undefined' && Object.keys(DEEP_HIST).length > 0 &&
