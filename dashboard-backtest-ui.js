@@ -277,8 +277,11 @@ function buildBacktest(){
     // backtest tab header matches what the dashboard shows. Previously
     // this called wrLabel(m,'short') which always returned the static EW
     // value, hiding the v54+ deep backtest improvements.
+    // force=true — the backtest tab shows the (simulated) win-rate headline even
+    // while SHOW_WIN_RATES hides it on the live dashboard surfaces. This is a
+    // backtest view, so the number is unambiguous here.
     var wrTxt = (typeof mainDashboardWrLabel === 'function')
-      ? mainDashboardWrLabel(k, m, 'short') : wrLabel(m, 'short');
+      ? mainDashboardWrLabel(k, m, 'short', true) : wrLabel(m, 'short');
     var col = (typeof mainDashboardWrColor === 'function')
       ? mainDashboardWrColor(k, m) : wrLabelColor(m);
     var sb=srcBadge(k);var sbCol=srcBadgeColor(sb);

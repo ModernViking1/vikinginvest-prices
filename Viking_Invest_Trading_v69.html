@@ -4117,9 +4117,14 @@ var _lazyFetchTriggered = false;
 // display flag ONLY — it changes nothing about signal detection or the 4/4 gate.
 var SHOW_WIN_RATES = false;
 
-function mainDashboardWrLabel(k, m, mode){
+function mainDashboardWrLabel(k, m, mode, force){
   mode = mode || 'short';
-  if(!SHOW_WIN_RATES) return '';
+  // `force` lets the BACKTEST TAB cards show the win rate even while the global
+  // SHOW_WIN_RATES flag hides it on the live dashboard surfaces (overview grid,
+  // pair-detail price row). The backtest cards are an unambiguous simulation
+  // context (every card is labelled "365d bt" / "STATS: … BT"), so a simulated
+  // rate reads correctly there without the live-vs-sim confusion.
+  if(!SHOW_WIN_RATES && !force) return '';
   var live = (typeof liveIntradayWinRate === 'function') ? liveIntradayWinRate(k) : null;
   // Layer 1: 12-month deep backtest — strongest data-driven source.
   // The cache + stats axes are chosen per pair class by _btProfileFor:
