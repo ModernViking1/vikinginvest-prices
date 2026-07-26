@@ -1566,14 +1566,35 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
         // tracking-start per strategy (harness backfills earliest first_seen) → "how long tracked"
         var _track=(shadow&&shadow.tracking)||{}, _trackEnd=(shadow&&(shadow.last_run_data_end||shadow.data_end_ts))||0;
         var _trackedDays=function(st){ var t=_track[st]; return (t&&_trackEnd)?Math.max(0,Math.round((_trackEnd-t)/86400)):null; };
+        // Anonymized origin label per row. Publicly-marketed / community methods are
+        // described by technique only (no names); proprietary Viking edges carry no
+        // mechanics. Lets a viewer see which rows track independent strategies forward.
+        var _stratOrigin={
+          w5_pullback:'Elliott wave-5 pullback · popular "trade-the-fifth" weekly-report method',
+          fib_gz:'Fibonacci golden-zone reversal · widely-taught retracement method',
+          sweeprev:'liquidity-sweep reversal · ICT sweep-and-reclaim family',
+          engulf_manip:'manipulation-engulfing reversal · ICT sweep family',
+          asianglitch:'Asian-session gold sweep · session-timed social-media setup',
+          wm:'W/M neckline-break reversal · classic double top / bottom',
+          sid:'RSI + MACD confluence · popular indicator-combo method',
+          threepush:'three-push exhaustion + break-of-structure · community pattern',
+          obfvg:'order-block + fair-value-gap retrace · ICT day-range family',
+          obfvg_w:'order-block + FVG retrace · ICT day-range family (watch)',
+          hs:'Viking Edge · proprietary', s5_rsi:'Viking Edge · proprietary',
+          s5_engulf:'Viking Edge · proprietary', ob:'Viking Edge · proprietary',
+          tl_nowick:'Viking Edge · proprietary', s5_rsi_wide:'Viking Edge · proprietary',
+          rsimr:'Viking Edge · proprietary', fred_tl:'Viking Edge · proprietary'
+        };
         h+='<table style="width:100%;border-collapse:collapse;font-size:8.5px;"><tr style="color:'+C.mut+';text-align:left;"><th>strategy</th><th>tracked</th><th>demo n</th><th>demo WR</th><th>demo R</th><th>model WR</th><th>model exp</th></tr>';
         strats.forEach(function(st){
           var d=byStratD[st]?agg(byStratD[st]):null, m=byStratM[st]?agg(byStratM[st]):null;
           if(!d && !m) return;
-          var td=_trackedDays(st);
-          h+='<tr><td>'+esc(st)+'</td><td style="color:'+C.mut+'">'+(td!==null?td+'d':'–')+'</td><td>'+(d?d.n:0)+'</td><td>'+(d&&d.n?d.wr.toFixed(0)+'%':'–')+'</td><td style="color:'+(d&&d.tot>=0?C.g:C.r)+'">'+(d&&d.n?(d.tot>=0?'+':'')+d.tot.toFixed(2)+'R':'–')+'</td><td>'+(m&&m.n?m.wr.toFixed(0)+'%':'–')+'</td><td>'+(m&&m.n?(m.exp>=0?'+':'')+m.exp.toFixed(3):'–')+'</td></tr>';
+          var td=_trackedDays(st), og=_stratOrigin[st];
+          var nameCell='<span style="font-weight:600;">'+esc(st)+'</span>'+(og?'<div style="color:'+C.mut+';font-size:7px;font-weight:400;line-height:1.15;margin-top:1px;">'+esc(og)+'</div>':'');
+          h+='<tr style="vertical-align:top;"><td>'+nameCell+'</td><td style="color:'+C.mut+'">'+(td!==null?td+'d':'–')+'</td><td>'+(d?d.n:0)+'</td><td>'+(d&&d.n?d.wr.toFixed(0)+'%':'–')+'</td><td style="color:'+(d&&d.tot>=0?C.g:C.r)+'">'+(d&&d.n?(d.tot>=0?'+':'')+d.tot.toFixed(2)+'R':'–')+'</td><td>'+(m&&m.n?m.wr.toFixed(0)+'%':'–')+'</td><td>'+(m&&m.n?(m.exp>=0?'+':'')+m.exp.toFixed(3):'–')+'</td></tr>';
         });
         h+='</table>';
+        h+='<div style="color:'+C.mut+';margin-top:3px;font-size:8px;">Rows tagged by technique track independent / publicly-marketed methods we stress-tested (anonymized); model WR is our idealised simulation. Proprietary Viking edges carry no method detail.</div>';
         // ── Confluence splits (read-only shadow tags) — BOS + no-wick ──
         function _confSplit(tagKey){
           var mA=[],mN=[],dA=[],dN=[];
@@ -22524,7 +22545,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       return;
     }
     var wrap='<div style="border:1px solid rgba(200,134,10,0.35);border-radius:6px;background:rgba(200,134,10,0.06);padding:9px 13px;margin:0 0 12px;font-family:Orbitron,monospace;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">';
-    var x='<button onclick="window._viBannerDismiss()" title="dismiss" style="background:none;border:none;color:#b0a89a;font-size:13px;cursor:pointer;line-height:1;padding:2px;">✕</button>';
+    var x='';   // dismiss ✕ removed — the hint is a compact single-line prompt now
     var left, right;
     if(!signedIn()){
       left='<span style="font-size:10px;font-weight:700;letter-spacing:.5px;color:#8a6a0a;">🔒 PERFORMANCE &amp; INVESTOR ANALYTICS — <span style="font-weight:400;color:#77706a;">sign in (top-right) to request access</span></span>';
