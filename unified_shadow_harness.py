@@ -1244,6 +1244,18 @@ def main():
     if log['baseline_data_end'] is None:
         log['baseline_data_end'] = data_end
     log['last_run_data_end'] = data_end
+    # Per-strategy tracking-start = the earliest first_seen we have for it (recovers
+    # each candidate's true add-date; brand-new strategies get this run's data_end).
+    # Lets the dashboard/report show HOW LONG each candidate has been tracked.
+    tracking = log.setdefault('tracking', {})
+    fs_by_strat = {}
+    for s in sigs.values():
+        st = s.get('strategy'); fs = s.get('first_seen')
+        if st and fs is not None:
+            fs_by_strat[st] = fs if st not in fs_by_strat else min(fs_by_strat[st], fs)
+    for st, fs in fs_by_strat.items():
+        if st not in tracking:
+            tracking[st] = int(fs)
     with open(LOG, 'w') as f:
         json.dump(log, f, indent=1)
 
@@ -1253,11 +1265,13 @@ def main():
         for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
+            ts0 = tracking.get(strat)
+            td = f" · tracked {int((data_end - ts0)/86400)}d" if ts0 else ""
             if sub:
                 w = sum(1 for s in sub if s['r'] > 0)
-                print(f"  {strat:<10} resolved={len(sub):>3} pending={pend:>3} WR={100*w/len(sub):>4.1f}% exp={sum(s['r'] for s in sub)/len(sub):+.3f}R")
+                print(f"  {strat:<10} resolved={len(sub):>3} pending={pend:>3} WR={100*w/len(sub):>4.1f}% exp={sum(s['r'] for s in sub)/len(sub):+.3f}R{td}")
             else:
-                print(f"  {strat:<10} resolved=0 pending={pend}")
+                print(f"  {strat:<10} resolved=0 pending={pend}{td}")
     print(f"harness run · data_end {int(data_end)} · detected {detected} signals this pass")
     rep("ALL logged (incl. in-sample backfill):", allv)
     rep("GENUINE FORWARD (entry after first run):", [s for s in allv if s['entry_ts'] > base])

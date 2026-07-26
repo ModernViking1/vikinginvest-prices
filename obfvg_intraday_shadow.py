@@ -78,6 +78,15 @@ def main():
     if log['baseline_data_end'] is None:
         log['baseline_data_end'] = data_end
     log['last_run_data_end'] = data_end
+    tracking = log.setdefault('tracking', {})
+    fs_by_strat = {}
+    for s in sigs.values():
+        st = s.get('strategy'); fs = s.get('first_seen')
+        if st and fs is not None:
+            fs_by_strat[st] = fs if st not in fs_by_strat else min(fs_by_strat[st], fs)
+    for st, fs in fs_by_strat.items():
+        if st not in tracking:
+            tracking[st] = int(fs)
     with open(LOG, 'w') as f:
         json.dump(log, f, indent=1)
 
@@ -94,7 +103,8 @@ def main():
 
     print(f"obfvg intraday shadow · data_end {int(data_end)} · detected {detected} (m15, RR{RR})")
     for pk, tag in {**LIVE_15M, **WATCH_15M}.items():
-        rep(f"{pk} ({tag})", [s for s in allv if s.get('strategy') == tag])
+        _t = tracking.get(tag); _td = f" · tracked {int((data_end - _t)/86400)}d" if _t else ""
+        rep(f"{pk} ({tag}){_td}", [s for s in allv if s.get('strategy') == tag])
     rep("GENUINE FORWARD", [s for s in allv if s['entry_ts'] > base])
     if all(s['entry_ts'] <= base for s in allv):
         print("  (baseline just set — re-run as new m15 bars publish)")

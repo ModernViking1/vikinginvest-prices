@@ -76,10 +76,21 @@ def main():
     if log['baseline_data_end'] is None:
         log['baseline_data_end'] = data_end
     log['last_run_data_end'] = data_end
+    # tracking-start per strategy (earliest first_seen) -> "how long tracked"
+    tracking = log.setdefault('tracking', {})
+    fs_by_strat = {}
+    for s in sigs.values():
+        st = s.get('strategy'); fs = s.get('first_seen')
+        if st and fs is not None:
+            fs_by_strat[st] = fs if st not in fs_by_strat else min(fs_by_strat[st], fs)
+    for st, fs in fs_by_strat.items():
+        if st not in tracking:
+            tracking[st] = int(fs)
     with open(LOG, 'w') as f:
         json.dump(log, f, indent=1)
 
     base = log['baseline_data_end']; allv = list(sigs.values())
+    _t = tracking.get('flowmodel'); _td = f" · tracked {int((data_end - _t)/86400)}d" if _t else ""
 
     def rep(title, rows):
         sub = [s for s in rows if s['status'] == 'resolved' and 'r' in s]
@@ -90,7 +101,7 @@ def main():
         else:
             print(f"  {title:<28} resolved=0 pending={pend}")
 
-    print(f"flow-model shadow · data_end {int(data_end)} · detected {detected} (RR{FM_RR}, NY-open FX)")
+    print(f"flow-model shadow · data_end {int(data_end)} · detected {detected} (RR{FM_RR}, NY-open FX){_td}")
     rep("ALL (incl. in-sample)", allv)
     rep("GENUINE FORWARD", [s for s in allv if s['entry_ts'] > base])
     for c in ('major', 'minor'):
