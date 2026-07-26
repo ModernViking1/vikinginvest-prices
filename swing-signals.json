@@ -1,32 +1,33 @@
 {
  "schema_version": 1,
- "generated": "2026-07-26T13:00:00+00:00",
- "data_end_ts": 1785070800,
- "raw_signal_count": 4,
- "count": 3,
+ "generated": "2026-07-26T19:00:00+00:00",
+ "data_end_ts": 1785092400,
+ "raw_signal_count": 3,
+ "count": 2,
  "signals": [
   {
-   "id": "wm:xrpusd:1785070800",
-   "strategy": "wm",
+   "id": "engulf_manip:xrpusd:1785060000",
+   "strategy": "engulf_manip",
    "pair": "xrpusd",
    "symbol": "XRPUSD",
    "class": "crypto",
-   "dir": "bear",
-   "stop": 1.10732889,
-   "ref_entry": 1.0959,
-   "rr": 1.0,
+   "dir": "bull",
+   "stop": 1.09350571,
+   "ref_entry": 1.0988,
+   "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
-   "trigger_ts": 1785070800,
-   "created_ts": 1785070800,
-   "expiry_ts": 1785114000,
+   "trigger_ts": 1785060000,
+   "created_ts": 1785092400,
+   "expiry_ts": 1785103200,
    "state": "triggered",
    "cofire": [
+    "engulf_manip",
     "wm"
    ],
    "cofire_dirs": [
-    "wm:bear",
-    "wm:bull"
+    "engulf_manip:bull",
+    "wm:bear"
    ],
    "suppressed": 1
   },
@@ -43,7 +44,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785024000,
-   "created_ts": 1785070800,
+   "created_ts": 1785092400,
    "expiry_ts": 1785067200,
    "state": "triggered",
    "cofire": [
@@ -51,30 +52,6 @@
    ],
    "cofire_dirs": [
     "ob:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "hs:taousd:1784998800",
-   "strategy": "hs",
-   "pair": "taousd",
-   "symbol": "TAOUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 187.92,
-   "ref_entry": 191.68,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1784998800,
-   "created_ts": 1785070800,
-   "expiry_ts": 1785042000,
-   "state": "triggered",
-   "cofire": [
-    "hs"
-   ],
-   "cofire_dirs": [
-    "hs:bull"
    ],
    "suppressed": 0
   }
