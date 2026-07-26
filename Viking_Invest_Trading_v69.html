@@ -22503,7 +22503,52 @@ function _renderCCIVariantPanel(host, commodityKeys){
   }
 
   function activeTab(){ var a=document.querySelector('.page.active'); return a?a.id.replace('page-',''):''; }
-  function refresh(){ fetchAccess(function(){ applyGate(activeTab()); renderPendingBadge(); }); }
+  // ── Dashboard access banner (2026-07-25) ── An on-brand, state-aware prompt at
+  // the top of the Dashboard so a locked user can request access WITHOUT first
+  // opening the Performance/Investor tabs. Reuses the existing access state +
+  // request plumbing; dismissible (collapses to a small chip). Hidden for the
+  // owner and for approved users.
+  function renderAccessBanner(){
+    var page=document.getElementById('page-dash'); if(!page) return;
+    var host=document.getElementById('viAccessBanner');
+    if(isOwner() || _access.approved || !_access.backend){ if(host) host.style.display='none'; return; }
+    if(!host){ host=document.createElement('div'); host.id='viAccessBanner'; page.insertBefore(host, page.firstChild); }
+    host.style.display='';
+    var dismissed=false; try{ dismissed=localStorage.getItem('vi_access_banner_dismissed')==='1'; }catch(e){}
+    if(dismissed){
+      host.innerHTML='<div style="margin:0 0 10px;"><button onclick="window._viBannerExpand()" style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border:1px solid rgba(200,134,10,0.35);border-radius:4px;background:rgba(200,134,10,0.05);color:#8a6a0a;cursor:pointer;">🔒 Unlock Performance + Investor</button></div>';
+      return;
+    }
+    var wrap='<div style="border:1px solid rgba(200,134,10,0.35);border-radius:6px;background:rgba(200,134,10,0.06);padding:9px 13px;margin:0 0 12px;font-family:Orbitron,monospace;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">';
+    var x='<button onclick="window._viBannerDismiss()" title="dismiss" style="background:none;border:none;color:#b0a89a;font-size:13px;cursor:pointer;line-height:1;padding:2px;">✕</button>';
+    var left, right;
+    if(!signedIn()){
+      left='<span style="font-size:10px;font-weight:700;letter-spacing:.5px;color:#8a6a0a;">🔒 PERFORMANCE &amp; INVESTOR ANALYTICS — <span style="font-weight:400;color:#77706a;">sign in (top-right) to request access</span></span>';
+      right='<span style="display:inline-flex;align-items:center;gap:8px;">'+x+'</span>';
+    } else if(_access.requestedAt && !_access.approved){
+      left='<span style="font-size:10px;font-weight:700;letter-spacing:.5px;color:#8a6a0a;">⏳ ACCESS REQUESTED — <span style="font-weight:400;color:#77706a;">you’ll be notified once the team approves (Performance + Investor)</span></span>';
+      right='<span style="display:inline-flex;align-items:center;gap:8px;">'+x+'</span>';
+    } else {
+      left='<span style="font-size:10px;font-weight:700;letter-spacing:.5px;color:#8a6a0a;">🔒 PERFORMANCE &amp; INVESTOR TABS ARE LOCKED</span>';
+      right='<span style="display:inline-flex;align-items:center;gap:8px;">'
+        +'<button id="viBannerBtn" onclick="window._viBannerRequest()" style="font-family:Orbitron,monospace;font-size:10px;font-weight:700;padding:6px 13px;border:none;border-radius:4px;background:var(--gold,#c8860a);color:#fff;cursor:pointer;letter-spacing:.5px;">Request access</button>'
+        +'<span id="viBannerSt" style="font-size:9px;color:#889;"></span>'+x+'</span>';
+    }
+    host.innerHTML=wrap+left+right+'</div>';
+  }
+  window._viBannerRequest=function(){
+    var c=sb(), s=ses(); if(!c||!s||!s.user) return;
+    var b=document.getElementById('viBannerBtn'), st=document.getElementById('viBannerSt');
+    if(b){ b.disabled=true; b.textContent='Sending…'; }
+    c.from('profiles').upsert({id:s.user.id, access_requested_at:new Date().toISOString()}, {onConflict:'id'})
+      .then(function(r){ if(r&&r.error){ if(b){b.disabled=false;b.textContent='Request access';} if(st) st.textContent='error, retry'; return; }
+        _access.requestedAt=new Date().toISOString(); renderAccessBanner(); })
+      .catch(function(){ if(b){b.disabled=false;b.textContent='Request access';} });
+  };
+  window._viBannerDismiss=function(){ try{localStorage.setItem('vi_access_banner_dismissed','1');}catch(e){} renderAccessBanner(); };
+  window._viBannerExpand=function(){ try{localStorage.removeItem('vi_access_banner_dismissed');}catch(e){} renderAccessBanner(); };
+
+  function refresh(){ fetchAccess(function(){ applyGate(activeTab()); renderPendingBadge(); renderAccessBanner(); }); }
 
   // wrap switchPage (defined earlier in the file) so every navigation re-gates
   var _orig=window.switchPage;
@@ -22511,6 +22556,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     if(typeof _orig==='function') _orig(p);
     var pp = p==='log'?'bt':(p==='journal'?'dash':(p==='newsletter'?'investor':p));
     applyGate(pp);
+    try { renderAccessBanner(); } catch(e){}
   };
 
   // init once the supabase client is up; re-gate on every auth state change
