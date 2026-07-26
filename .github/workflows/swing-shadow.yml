@@ -47,7 +47,8 @@ jobs:
           for f in unified_shadow_harness.py historical-ohlc.json \
                    detect_triggers.py backtest_rsi_per_class.py \
                    hs_swing_research.py five_strategies_research.py \
-                   flow_model_shadow.py flow_model_research.py; do
+                   flow_model_shadow.py flow_model_research.py \
+                   obfvg_intraday_shadow.py; do
             if [ ! -f "$f" ]; then echo "::error::$f missing from repo root"; exit 1; fi
           done
 
@@ -90,6 +91,26 @@ jobs:
             sleep $((2 ** i))
           done
           if [ "$pushed" != "1" ]; then echo "::error::failed to push flow-model-shadow-log.json after retries"; exit 1; fi
+
+      - name: Run obfvg intraday shadow (SPX500/DJ30 15m observe candidates)
+        run: python obfvg_intraday_shadow.py
+
+      - name: Commit + push obfvg-intraday-shadow-log.json (retry on race)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- obfvg-intraday-shadow-log.json; then
+            echo "no change to obfvg-intraday-shadow-log.json"; exit 0
+          fi
+          git add obfvg-intraday-shadow-log.json
+          git commit -m "chore: update obfvg intraday shadow log [skip ci]"
+          pushed=0
+          for i in 1 2 3 4 5; do
+            if git push origin main 2>&1; then echo "pushed"; pushed=1; break; fi
+            echo "push race, rebasing (attempt $i)"; git fetch origin main && git rebase origin/main || git rebase --abort
+            sleep $((2 ** i))
+          done
+          if [ "$pushed" != "1" ]; then echo "::error::failed to push obfvg-intraday-shadow-log.json after retries"; exit 1; fi
 
       - name: Purge CDN (so the dashboard swing panel reads the fresh log)
         run: |

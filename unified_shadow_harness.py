@@ -1039,11 +1039,12 @@ OBFVG_LIVE = {'xrpusd', 'usdcad'}      # parameter-robust -> live feed
 OBFVG_WATCH = {'ftse100', 'btcusd'}    # base-positive but grid-borderline -> shadow-only WATCH
 
 
-def _obfvg_signals(pk, h1, tag):
+def _obfvg_signals(pk, h1, tag, tf='h1'):
     """OB+FVG retrace, MARKET entry (tag-bar close), fixed RR2 (scored by score()).
     Impulse -> order block (last opposite candle) + FVG (3-bar gap) = zone; retrace
     into the zone -> enter in the impulse direction; stop beyond the OB. The robust
-    cell across the parameter grid (not the fat-tailed day-range target)."""
+    cell across the parameter grid (not the fat-tailed day-range target). `tf` is the
+    entry timeframe of the bars passed in (h1 for the swing cells, 15m for intraday)."""
     bars = h1; n = len(bars); out = []; last = -1
     for j in range(OBFVG_OB_LOOK+2, n-2):
         if j <= last:
@@ -1065,7 +1066,7 @@ def _obfvg_signals(pk, h1, tag):
                 if bars[r]['h'] >= zone_lo:
                     entry = bars[r]['c']; stop = ob_top + OBFVG_BUF*a
                     if stop > entry:
-                        out.append({'strategy': tag, 'tf': 'h1', 'pair': pk, 'dir': 'bear',
+                        out.append({'strategy': tag, 'tf': tf, 'pair': pk, 'dir': 'bear',
                                     'entry_ts': bars[r+1]['_ts'], 'entry': entry, 'stop': stop})
                     last = r + OBFVG_COOLDOWN; break
         elif body >= OBFVG_IMP*a and rng >= OBFVG_IMP*a:            # bullish impulse -> demand
@@ -1081,7 +1082,7 @@ def _obfvg_signals(pk, h1, tag):
                 if bars[r]['l'] <= zone_hi:
                     entry = bars[r]['c']; stop = ob_bot - OBFVG_BUF*a
                     if stop < entry:
-                        out.append({'strategy': tag, 'tf': 'h1', 'pair': pk, 'dir': 'bull',
+                        out.append({'strategy': tag, 'tf': tf, 'pair': pk, 'dir': 'bull',
                                     'entry_ts': bars[r+1]['_ts'], 'entry': entry, 'stop': stop})
                     last = r + OBFVG_COOLDOWN; break
     return out
