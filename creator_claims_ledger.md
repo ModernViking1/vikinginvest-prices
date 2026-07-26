@@ -76,10 +76,10 @@ for the ongoing forward numbers vs the claim.
   zero measured edge — the strongest "claimed vs measured" gap of the three.
 - **Wired as:** nothing (rejected).
 
-## ICT "sequential confluence" model (sweep → BOS → retrace-to-zone)
+## TJR — ICT sweep/OB/FVG model (sweep → BOS → retrace-to-zone)
 
-- **Claimed:** an anonymous mechanical ICT ruleset (screenshots / scribd, no named
-  creator, no hard numbers): trend context + liquidity sweep + reclaim → break of
+- **Claimed:** TJR's mechanical ICT ruleset (no hard performance numbers published):
+  trend context + liquidity sweep + reclaim → break of
   structure → retrace into an FVG/OB/Breaker zone → enter, SL beyond the sweep, TP =
   next unswept liquidity. Sold as deterministic — "a trade is valid only when all
   conditions fire *in sequence*."
@@ -98,6 +98,25 @@ for the ongoing forward numbers vs the claim.
   place: a ≤0.1–0.2R 4H reversal whisper in crypto/minor/index/gold-session FX, never
   with the marketed liquidity target, always better captured by a narrowly-scoped variant.
 - **Wired as:** nothing (redundant with `engulf_manip` / `sweeprev`).
+
+## TJR — OB+FVG day-range strategy
+
+- **Claimed:** TJR's other signature setup: mark Day High / Day Low; a strong impulse
+  leaves a stacked Order Block + FVG (supply/demand); price retraces into the zone →
+  enter, SL beyond the OB, target the opposite daily extreme. Sold via clean annotated
+  chart examples (no hard numbers).
+- **Measured (39 pairs, 15m/h1/4h, dual-fill, OOS):**
+  - **Textbook fill illusion.** On a FAVOURABLE LIMIT fill at the zone edge it looks
+    strong — h1 day-target +0.136R, 4H day-target **+0.222R**, both PASS.
+  - On a REALISTIC market fill it flips **negative** — h1/4H day-target ≈ −0.07R,
+    every market + fixed-RR cell negative. The ~0.29R limit-vs-market gap is pure
+    adverse selection (same as supply/demand, engulf-imbalance).
+  - Only thin crypto/index 4H cells survive a realistic fill, redundant with existing
+    candidates.
+- **Verdict:** no real edge — the retrace-into-zone *limit* entry flatters the
+  backtest; honest fills lose. The high win rate (46–54% at the day-target) is a
+  small-target-at-a-favourable-price artifact.
+- **Wired as:** nothing (rejected).
 
 ---
 
