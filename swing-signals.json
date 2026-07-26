@@ -1,10 +1,35 @@
 {
  "schema_version": 1,
- "generated": "2026-07-26T08:00:00+00:00",
- "data_end_ts": 1785052800,
+ "generated": "2026-07-26T13:00:00+00:00",
+ "data_end_ts": 1785070800,
  "raw_signal_count": 4,
  "count": 3,
  "signals": [
+  {
+   "id": "wm:xrpusd:1785070800",
+   "strategy": "wm",
+   "pair": "xrpusd",
+   "symbol": "XRPUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 1.10732889,
+   "ref_entry": 1.0959,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1785070800,
+   "created_ts": 1785070800,
+   "expiry_ts": 1785114000,
+   "state": "triggered",
+   "cofire": [
+    "wm"
+   ],
+   "cofire_dirs": [
+    "wm:bear",
+    "wm:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "ob:btcusd:1785024000",
    "strategy": "ob",
@@ -18,18 +43,16 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785024000,
-   "created_ts": 1785052800,
+   "created_ts": 1785070800,
    "expiry_ts": 1785067200,
    "state": "triggered",
    "cofire": [
-    "engulf_manip",
     "ob"
    ],
    "cofire_dirs": [
-    "engulf_manip:bull",
     "ob:bull"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "hs:taousd:1784998800",
@@ -44,7 +67,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1784998800,
-   "created_ts": 1785052800,
+   "created_ts": 1785070800,
    "expiry_ts": 1785042000,
    "state": "triggered",
    "cofire": [
@@ -52,30 +75,6 @@
    ],
    "cofire_dirs": [
     "hs:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "wm:xrpusd:1784991600",
-   "strategy": "wm",
-   "pair": "xrpusd",
-   "symbol": "XRPUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 1.08336333,
-   "ref_entry": 1.0943,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1784991600,
-   "created_ts": 1785052800,
-   "expiry_ts": 1785034800,
-   "state": "triggered",
-   "cofire": [
-    "wm"
-   ],
-   "cofire_dirs": [
-    "wm:bull"
    ],
    "suppressed": 0
   }
