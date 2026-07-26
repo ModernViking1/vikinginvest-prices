@@ -1029,6 +1029,83 @@ def _rev_candle(bars, i, d):
     return _rc_engulf(bars, i, d) or _rc_pin(bars[i], d) or _rc_3bar(bars, i, d)
 
 
+OBFVG_IMP = 1.0
+OBFVG_OB_LOOK = 4
+OBFVG_RETR = 20
+OBFVG_BUF = 0.10
+OBFVG_COOLDOWN = 5
+OBFVG_HOLD = 72
+OBFVG_LIVE = {'xrpusd', 'usdcad'}      # parameter-robust -> live feed
+OBFVG_WATCH = {'ftse100', 'btcusd'}    # base-positive but grid-borderline -> shadow-only WATCH
+
+
+def _obfvg_signals(pk, h1, tag):
+    """OB+FVG retrace, MARKET entry (tag-bar close), fixed RR2 (scored by score()).
+    Impulse -> order block (last opposite candle) + FVG (3-bar gap) = zone; retrace
+    into the zone -> enter in the impulse direction; stop beyond the OB. The robust
+    cell across the parameter grid (not the fat-tailed day-range target)."""
+    bars = h1; n = len(bars); out = []; last = -1
+    for j in range(OBFVG_OB_LOOK+2, n-2):
+        if j <= last:
+            continue
+        a = atr(bars, 14, j) or 0.0
+        if a <= 0:
+            continue
+        rng = bars[j]['h'] - bars[j]['l']; body = bars[j]['c'] - bars[j]['o']
+        if -body >= OBFVG_IMP*a and rng >= OBFVG_IMP*a:              # bearish impulse -> supply
+            ob = None
+            for k in range(j-1, max(-1, j-1-OBFVG_OB_LOOK), -1):
+                if bars[k]['c'] > bars[k]['o']: ob = k; break
+            if ob is None or not (j >= 2 and bars[j-2]['l'] > bars[j]['h']):
+                continue
+            zone_lo = bars[j]['h']; ob_top = bars[ob]['h']
+            if ob_top <= zone_lo:
+                continue
+            for r in range(j+1, min(j+1+OBFVG_RETR, n-1)):
+                if bars[r]['h'] >= zone_lo:
+                    entry = bars[r]['c']; stop = ob_top + OBFVG_BUF*a
+                    if stop > entry:
+                        out.append({'strategy': tag, 'tf': 'h1', 'pair': pk, 'dir': 'bear',
+                                    'entry_ts': bars[r+1]['_ts'], 'entry': entry, 'stop': stop})
+                    last = r + OBFVG_COOLDOWN; break
+        elif body >= OBFVG_IMP*a and rng >= OBFVG_IMP*a:            # bullish impulse -> demand
+            ob = None
+            for k in range(j-1, max(-1, j-1-OBFVG_OB_LOOK), -1):
+                if bars[k]['c'] < bars[k]['o']: ob = k; break
+            if ob is None or not (j >= 2 and bars[j-2]['h'] < bars[j]['l']):
+                continue
+            zone_hi = bars[j]['l']; ob_bot = bars[ob]['l']
+            if ob_bot >= zone_hi:
+                continue
+            for r in range(j+1, min(j+1+OBFVG_RETR, n-1)):
+                if bars[r]['l'] <= zone_hi:
+                    entry = bars[r]['c']; stop = ob_bot - OBFVG_BUF*a
+                    if stop < entry:
+                        out.append({'strategy': tag, 'tf': 'h1', 'pair': pk, 'dir': 'bull',
+                                    'entry_ts': bars[r+1]['_ts'], 'entry': entry, 'stop': stop})
+                    last = r + OBFVG_COOLDOWN; break
+    return out
+
+
+def detect_obfvg(pk, h1, daily):
+    """Observed candidate #18 — OB+FVG retrace (market entry, fixed 2:1), XRPUSD +
+    USDCAD H1 only. Parameter-robust across the impulse/OB/retrace grid (22/26 and
+    20/26 combos PASS; +0.23..+0.29R median) — found by per-pair scan, so pair-scoped
+    and watch-forward. cBot-executable."""
+    if pk not in OBFVG_LIVE:
+        return []
+    return _obfvg_signals(pk, h1, 'obfvg')
+
+
+def detect_obfvg_watch(pk, h1, daily):
+    """WATCH cells — FTSE100 + BTCUSD H1. Base-positive but grid-borderline (3/19 and
+    9/25 combos PASS); shadow-logged only (NOT fed to the cBot) to decide edge vs
+    noise on forward data."""
+    if pk not in OBFVG_WATCH:
+        return []
+    return _obfvg_signals(pk, h1, 'obfvg_w')
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -1116,7 +1193,8 @@ def main():
                  + detect_fibgz(pk, h1, daily) + detect_fredtl(pk, h1, daily)
                  + detect_threepush(pk, h1, daily) + detect_engulf_manip(pk, h1, daily)
                  + detect_sweeprev(pk, h1, daily) + detect_asianglitch(pk, h1, daily)
-                 + detect_wm(pk, h1, daily) + detect_sid(pk, h1, daily))
+                 + detect_wm(pk, h1, daily) + detect_sid(pk, h1, daily)
+                 + detect_obfvg(pk, h1, daily) + detect_obfvg_watch(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -1153,6 +1231,8 @@ def main():
                 st, o = score_asianglitch(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], ASIANGLITCH_HOLD, rec.get('rr', ASIANGLITCH_RR))
             elif rec['strategy'] == 'wm':
                 st, o = score_asianglitch(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], WM_HOLD, rec.get('rr', WM_RR))
+            elif rec['strategy'] in ('obfvg', 'obfvg_w'):
+                st, o = score(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], OBFVG_HOLD)
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -1169,7 +1249,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             if sub:

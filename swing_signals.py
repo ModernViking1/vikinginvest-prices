@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -83,7 +83,10 @@ ENGULF_CLASSES = {'crypto'}
 # 2026-07-23: ob now REQUIRES a reversal candle (engulf/3-bar/pin bar) at the retrace
 # bar — validated filter that lifted ob from fragile (+0.087R, fails walk-forward) to
 # robust (+0.257R, WR 42%, both OOS halves +). Folded into detect_ob; no separate tag.
-PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'tl_nowick': 4, 'fib_gz': 5, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11}
+# OB+FVG retrace (2026-07-25) — 18th OBSERVED candidate, XRPUSD + USDCAD H1 only,
+# fixed RR2 market entry. Parameter-robust per-pair cells (+0.23..+0.29R median).
+# FTSE100/BTCUSD H1 run shadow-only (obfvg_w) to decide edge vs noise forward.
+PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'tl_nowick': 4, 'fib_gz': 5, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12}
 
 
 def main():
@@ -122,6 +125,7 @@ def main():
         found += detect_fredtl(pk, h1, daily)   # self-gates to xauusd only
         found += detect_asianglitch(pk, h1, daily)   # self-gates to xauusd only; emits rr=3.0
         found += detect_wm(pk, h1, daily)            # self-gates to crypto only; H1 1:1, emits rr=1.0
+        found += detect_obfvg(pk, h1, daily)         # self-gates to xrpusd/usdcad H1; OB+FVG retrace, RR2
         if cls in THREEPUSH_CLASSES:
             found += detect_threepush(pk, h1, daily)
         if cls in ENGULF_CLASSES:
