@@ -1,10 +1,34 @@
 {
  "schema_version": 1,
- "generated": "2026-07-27T10:00:00+00:00",
- "data_end_ts": 1785146400,
- "raw_signal_count": 14,
- "count": 11,
+ "generated": "2026-07-27T15:00:00+00:00",
+ "data_end_ts": 1785164400,
+ "raw_signal_count": 13,
+ "count": 9,
  "signals": [
+  {
+   "id": "fib_gz:xauusd:1785153600",
+   "strategy": "fib_gz",
+   "pair": "xauusd",
+   "symbol": "XAUUSD",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 4113.16235929,
+   "ref_entry": 4094.03,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1785153600,
+   "created_ts": 1785164400,
+   "expiry_ts": 1785196800,
+   "state": "triggered",
+   "cofire": [
+    "fib_gz"
+   ],
+   "cofire_dirs": [
+    "fib_gz:bear"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "fib_gz:xagusd:1785142800",
    "strategy": "fib_gz",
@@ -18,7 +42,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785142800,
-   "created_ts": 1785146400,
+   "created_ts": 1785164400,
    "expiry_ts": 1785186000,
    "state": "triggered",
    "cofire": [
@@ -42,7 +66,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785142800,
-   "created_ts": 1785146400,
+   "created_ts": 1785164400,
    "expiry_ts": 1785186000,
    "state": "triggered",
    "cofire": [
@@ -66,7 +90,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785139200,
-   "created_ts": 1785146400,
+   "created_ts": 1785164400,
    "expiry_ts": 1785182400,
    "state": "triggered",
    "cofire": [
@@ -74,30 +98,6 @@
    ],
    "cofire_dirs": [
     "wm:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "fib_gz:xauusd:1785121200",
-   "strategy": "fib_gz",
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 4139.33705571,
-   "ref_entry": 4093.68,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1785121200,
-   "created_ts": 1785146400,
-   "expiry_ts": 1785164400,
-   "state": "triggered",
-   "cofire": [
-    "fib_gz"
-   ],
-   "cofire_dirs": [
-    "fib_gz:bear"
    ],
    "suppressed": 0
   },
@@ -114,7 +114,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785110400,
-   "created_ts": 1785146400,
+   "created_ts": 1785164400,
    "expiry_ts": 1785153600,
    "state": "triggered",
    "cofire": [
@@ -138,7 +138,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785106800,
-   "created_ts": 1785146400,
+   "created_ts": 1785164400,
    "expiry_ts": 1785150000,
    "state": "triggered",
    "cofire": [
@@ -164,7 +164,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785106800,
-   "created_ts": 1785146400,
+   "created_ts": 1785164400,
    "expiry_ts": 1785150000,
    "state": "triggered",
    "cofire": [
@@ -192,7 +192,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785103200,
-   "created_ts": 1785146400,
+   "created_ts": 1785164400,
    "expiry_ts": 1785146400,
    "state": "triggered",
    "cofire": [
@@ -216,7 +216,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785103200,
-   "created_ts": 1785146400,
+   "created_ts": 1785164400,
    "expiry_ts": 1785146400,
    "state": "triggered",
    "cofire": [
@@ -224,54 +224,6 @@
    ],
    "cofire_dirs": [
     "wm:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "s5_rsi:btcusd:1785099600",
-   "strategy": "s5_rsi",
-   "pair": "btcusd",
-   "symbol": "BTCUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 64878.0,
-   "ref_entry": 64595.26,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1785099600,
-   "created_ts": 1785146400,
-   "expiry_ts": 1785142800,
-   "state": "triggered",
-   "cofire": [
-    "s5_rsi"
-   ],
-   "cofire_dirs": [
-    "s5_rsi:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "w5_pullback:solusd:1785099600",
-   "strategy": "w5_pullback",
-   "pair": "solusd",
-   "symbol": "SOLUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 76.06589286,
-   "ref_entry": 75.28,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1785099600,
-   "created_ts": 1785146400,
-   "expiry_ts": 1785142800,
-   "state": "triggered",
-   "cofire": [
-    "w5_pullback"
-   ],
-   "cofire_dirs": [
-    "w5_pullback:bear"
    ],
    "suppressed": 0
   }
