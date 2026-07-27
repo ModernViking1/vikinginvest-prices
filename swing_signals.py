@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -86,7 +86,12 @@ ENGULF_CLASSES = {'crypto'}
 # OB+FVG retrace (2026-07-25) — 18th OBSERVED candidate, XRPUSD + USDCAD H1 only,
 # fixed RR2 market entry. Parameter-robust per-pair cells (+0.23..+0.29R median).
 # FTSE100/BTCUSD H1 run shadow-only (obfvg_w) to decide edge vs noise forward.
-PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'tl_nowick': 4, 'fib_gz': 5, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12}
+# Gold playbook (2026-07-27) — 19th/20th OBSERVED candidates, XAUUSD only:
+# gbreak = #3 volatility-confirmed range breakout (H1, RR2) — the robust standout
+#          (15/15 parameter cells pass both OOS halves); highest gold priority.
+# gtrend = #1 50/200 EMA trend pullback (H4, RR2, choppiness filter removed —
+#          it hurt in testing). Both self-gate to xauusd and are cBot-executable.
+PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'tl_nowick': 4, 'fib_gz': 5, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14}
 
 
 def main():
@@ -126,6 +131,8 @@ def main():
         found += detect_asianglitch(pk, h1, daily)   # self-gates to xauusd only; emits rr=3.0
         found += detect_wm(pk, h1, daily)            # self-gates to crypto only; H1 1:1, emits rr=1.0
         found += detect_obfvg(pk, h1, daily)         # self-gates to xrpusd/usdcad H1; OB+FVG retrace, RR2
+        found += detect_gbreak(pk, h1, daily)        # self-gates to xauusd H1; range breakout + expanding ATR, RR2
+        found += detect_gtrend(pk, h1, daily)        # self-gates to xauusd H4; 50/200 EMA trend pullback (no choppiness filter), RR2
         if cls in THREEPUSH_CLASSES:
             found += detect_threepush(pk, h1, daily)
         if cls in ENGULF_CLASSES:

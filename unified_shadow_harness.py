@@ -1107,6 +1107,131 @@ def detect_obfvg_watch(pk, h1, daily):
     return _obfvg_signals(pk, h1, 'obfvg_w')
 
 
+# ── Gold playbook (Audacity Capital list) — tested in gold_strategies_research.py ──
+# XAUUSD-only. #3 breakout + #1 trend go LIVE (cBot feed); #7 fib is MONITOR-only.
+GOLD = 'xauusd'
+GBUF = 0.25                 # structural stop buffer, in ATR
+GBREAK_LOOK = 48            # #3 recent-range Donchian lookback (h1 bars)
+GBREAK_ATRLB = 10           # #3 ATR-expansion comparison lookback
+GBREAK_HOLD = 80            # #3/#7 h1 bars to reach the RR2 target
+GTREND_HOLD = 80            # #1 4h bars to reach the RR2 target
+GFIB_W = 5                  # #7 pivot half-window
+
+
+def _ema(vals, period):
+    k = 2.0 / (period + 1); out = [None] * len(vals); e = None
+    for i, v in enumerate(vals):
+        e = v if e is None else v * k + e * (1 - k); out[i] = e
+    return out
+
+
+def _donchian(bars, i, look):
+    """Recent range [lo,hi] over the `look` bars ending just before i (a 20-DAY
+    daily envelope is useless in trending gold — price never leaves it)."""
+    if i < look:
+        return None
+    seg = bars[i - look:i]
+    return (min(x['l'] for x in seg), max(x['h'] for x in seg))
+
+
+def detect_gbreak(pk, h1, daily):
+    """#3 Breakout + expanding-ATR (XAUUSD H1) — LIVE. Close (not wick) beyond the
+    recent Donchian range WITH rising ATR; stop 1 ATR back inside the level; market
+    entry, RR2. Robust: 15/15 parameter cells PASS both OOS halves on gold, silver
+    corroborates, and the ATR filter ~doubles expectancy."""
+    if pk != GOLD:
+        return []
+    out = []; n = len(h1)
+    for i in range(GBREAK_LOOK + 2, n - 1):
+        band = _donchian(h1, i, GBREAK_LOOK)
+        if not band:
+            continue
+        lo, hi = band; a = atr(h1, 14, i); ap = atr(h1, 14, i - GBREAK_ATRLB)
+        if a is None or ap is None or a <= 0 or a <= ap:   # require expanding volatility
+            continue
+        b = h1[i]
+        if b['c'] > hi:
+            entry = b['c']; stop = hi - 1.0 * a
+            if stop < entry:
+                out.append({'strategy': 'gbreak', 'tf': 'h1', 'pair': pk, 'dir': 'bull',
+                            'entry_ts': h1[i + 1]['_ts'], 'entry': entry, 'stop': stop})
+        elif b['c'] < lo:
+            entry = b['c']; stop = lo + 1.0 * a
+            if stop > entry:
+                out.append({'strategy': 'gbreak', 'tf': 'h1', 'pair': pk, 'dir': 'bear',
+                            'entry_ts': h1[i + 1]['_ts'], 'entry': entry, 'stop': stop})
+    return out
+
+
+def detect_gtrend(pk, h1, daily):
+    """#1 Trend-following (XAUUSD H4, 50/200 EMA, pullback-to-50) — LIVE. Choppiness
+    filter REMOVED (it hurt expectancy in testing). Longs only above both EMAs / shorts
+    below; entry when a bar pulls back to touch the 50 EMA and holds in-trend on close;
+    stop beyond the pullback extreme; market entry, RR2. Positive both OOS halves,
+    gold + silver."""
+    if pk != GOLD:
+        return []
+    b4 = agg4h(h1); n = len(b4)
+    e50 = _ema([x['c'] for x in b4], 50); e200 = _ema([x['c'] for x in b4], 200)
+    out = []
+    for i in range(201, n - 1):
+        if e50[i] is None or e200[i] is None:
+            continue
+        b = b4[i]
+        bull = e50[i] > e200[i] and b['c'] > e50[i] and b['c'] > e200[i]
+        bear = e50[i] < e200[i] and b['c'] < e50[i] and b['c'] < e200[i]
+        if not (bull or bear):
+            continue
+        touched = b['l'] <= e50[i] <= b['h']
+        held = (b['c'] > e50[i]) if bull else (b['c'] < e50[i])
+        if not (touched and held):
+            continue
+        a = atr(b4, 14, i) or 0.0; d = 'bull' if bull else 'bear'
+        entry = b['c']; stop = (b['l'] - GBUF * a) if bull else (b['h'] + GBUF * a)
+        if (bull and stop < entry) or (bear and stop > entry):
+            out.append({'strategy': 'gtrend', 'tf': '4h', 'pair': pk, 'dir': d,
+                        'entry_ts': b4[i + 1]['_ts'], 'entry': entry, 'stop': stop})
+    return out
+
+
+def detect_gfib(pk, h1, daily):
+    """#7 Fibonacci pullback (XAUUSD H1) — MONITOR ONLY (not fed to the cBot yet).
+    After a clear leg, continuation entry on a retrace into the 38.2-61.8 zone; the leg
+    is failed (skip) if the retrace exceeds 78.6; stop beyond the swing origin; market
+    entry, RR2. Thin but both OOS halves + on gold H1 — watch forward before wiring."""
+    if pk != GOLD:
+        return []
+    bars = h1; n = len(bars); out = []
+    ph = []; pl = []
+    for i in range(GFIB_W, n - GFIB_W):
+        seg = bars[i - GFIB_W:i + GFIB_W + 1]
+        if bars[i]['h'] == max(x['h'] for x in seg): ph.append(i)
+        if bars[i]['l'] == min(x['l'] for x in seg): pl.append(i)
+    for i in range(2 * GFIB_W + 5, n - 1):
+        b = bars[i]; a = atr(bars, 14, i) or 0.0
+        li = bisect.bisect_left(pl, i - GFIB_W) - 1; hi_ = bisect.bisect_left(ph, i - GFIB_W) - 1
+        L = pl[li] if li >= 0 else None; H = ph[hi_] if hi_ >= 0 else None
+        if L is None or H is None:
+            continue
+        if L < H:   # up-leg, bull continuation on the retrace down
+            lo = bars[L]['l']; hh = bars[H]['h']; rng = hh - lo
+            if rng > 0 and (hh - 0.618 * rng) <= b['l'] <= (hh - 0.382 * rng) \
+               and b['l'] >= hh - 0.786 * rng and b['c'] > b['o']:
+                entry = b['c']; stop = lo - GBUF * a
+                if stop < entry:
+                    out.append({'strategy': 'gfib', 'tf': 'h1', 'pair': pk, 'dir': 'bull',
+                                'entry_ts': bars[i + 1]['_ts'], 'entry': entry, 'stop': stop})
+        elif H < L:  # down-leg, bear continuation on the retrace up
+            hh = bars[H]['h']; lo = bars[L]['l']; rng = hh - lo
+            if rng > 0 and (lo + 0.382 * rng) <= b['h'] <= (lo + 0.618 * rng) \
+               and b['h'] <= lo + 0.786 * rng and b['c'] < b['o']:
+                entry = b['c']; stop = hh + GBUF * a
+                if stop > entry:
+                    out.append({'strategy': 'gfib', 'tf': 'h1', 'pair': pk, 'dir': 'bear',
+                                'entry_ts': bars[i + 1]['_ts'], 'entry': entry, 'stop': stop})
+    return out
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -1195,7 +1320,9 @@ def main():
                  + detect_threepush(pk, h1, daily) + detect_engulf_manip(pk, h1, daily)
                  + detect_sweeprev(pk, h1, daily) + detect_asianglitch(pk, h1, daily)
                  + detect_wm(pk, h1, daily) + detect_sid(pk, h1, daily)
-                 + detect_obfvg(pk, h1, daily) + detect_obfvg_watch(pk, h1, daily))
+                 + detect_obfvg(pk, h1, daily) + detect_obfvg_watch(pk, h1, daily)
+                 + detect_gbreak(pk, h1, daily) + detect_gtrend(pk, h1, daily)
+                 + detect_gfib(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -1234,6 +1361,10 @@ def main():
                 st, o = score_asianglitch(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], WM_HOLD, rec.get('rr', WM_RR))
             elif rec['strategy'] in ('obfvg', 'obfvg_w'):
                 st, o = score(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], OBFVG_HOLD)
+            elif rec['strategy'] in ('gbreak', 'gfib'):
+                st, o = score(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], GBREAK_HOLD)
+            elif rec['strategy'] == 'gtrend':
+                st, o = score(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], GTREND_HOLD)
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -1262,7 +1393,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'gbreak', 'gtrend', 'gfib'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
