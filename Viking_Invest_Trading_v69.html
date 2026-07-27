@@ -22463,6 +22463,19 @@ function _renderCCIVariantPanel(host, commodityKeys){
       .then(function(r){
         if(r && r.error){ if(r.error.code==='42P01' || /access_/.test(r.error.message||'')) _access.backend=false; }
         else if(r && r.data){ _access.approved=!!r.data.access_approved; _access.requestedAt=r.data.access_requested_at||null; }
+        // Auto-enqueue on signup (2026-07-27): any signed-in, non-owner user who
+        // isn't approved and has no request timestamp is placed in the approval
+        // queue automatically — so a signup surfaces to the admin without the
+        // user having to click "Request access". Idempotent: only sets when null,
+        // so it never overwrites an existing request or an approval, and it runs
+        // once (subsequent loads read a non-null timestamp and skip). Same upsert
+        // shape as the manual "Request access" button.
+        if(_access.backend && !isOwner() && !_access.approved && !_access.requestedAt){
+          var _ts=new Date().toISOString();
+          c.from('profiles').upsert({id:s.user.id, access_requested_at:_ts}, {onConflict:'id'})
+            .then(function(){}).catch(function(){});
+          _access.requestedAt=_ts;
+        }
         if(cb)cb();
       }).catch(function(){ if(cb)cb(); });
   }
