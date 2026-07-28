@@ -154,6 +154,24 @@ for the ongoing forward numbers vs the claim.
   fragile (fails OOS, highly sensitive to the session-open hour). Rejected.
   See `hougaard_pyramid_research.py`.
 
+## '90% win rate' VWAP + STDV band sweep (social-media, gold desk)
+
+- **Claimed:** ~90% win rate. Anchored VWAP with 2σ/3σ standard-deviation bands; fade a
+  liquidity sweep of the outer band back to the mean (VWAP). RR shown 3.0–5.7.
+- **Measured (39 pairs, m15/h1/4h, 2σ & 3σ, realistic fills, per-trade RR=mean, OOS;
+  VWAP approximated equal-weighted — our OHLC carries no volume):**
+  - The **90% does NOT reproduce** — actual win rate is **27–40%** everywhere (median RR
+    ~2). Nearly every cell is negative in both OOS halves on huge samples (pooled h1 ±2σ
+    −0.069R, n=19,135).
+  - The single apparent PASS (4h ±3σ indices, N=30, +0.162R) is fragile: it passes only
+    at that one window (N=20/40/50 all fail), only DJ30 is per-index robust, DE40 and
+    JP225 are negative, and the pool is carried by a fat-tailed NAS100 — curve-fit +
+    multiple-testing noise, not an edge.
+- **Verdict:** large claimed-vs-measured gap; fading σ-band extremes back to the mean has
+  no robust edge — the losing mirror of continuation entries (same lesson as the 7AM
+  '50% isolated leg' fade). Rejected. See `vwap_stdv_research.py`.
+- **Wired as:** nothing (rejected).
+
 ---
 
 *Extensible: add a row per creator/strategy as tested. The broader batch (supply &
