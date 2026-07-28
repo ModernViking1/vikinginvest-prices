@@ -4194,9 +4194,9 @@
    "cap_ts": 1785209400.0,
    "state_at_capture": "triggered",
    "nowick_aligned": false,
-   "market_status": "pending",
+   "market_status": "expired",
    "market_r": null,
-   "limit_status": "pending",
+   "limit_status": "expired",
    "limit_r": null
   },
   "natgas:1785237300000:wick": {
@@ -4211,9 +4211,9 @@
    "cap_ts": 1785227400.0,
    "state_at_capture": "invalidated",
    "nowick_aligned": true,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": 1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "nearusd:1785236400000:wick": {
@@ -4228,9 +4228,9 @@
    "cap_ts": 1785228300.0,
    "state_at_capture": "armed",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "solusd:1785236400000:wick": {
@@ -4245,9 +4245,9 @@
    "cap_ts": 1785228300.0,
    "state_at_capture": "armed",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": 1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "xptusd:1785236400000:wick": {
@@ -4262,9 +4262,9 @@
    "cap_ts": 1785227400.0,
    "state_at_capture": "armed",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "xrpusd:1785236400000:wick": {
@@ -4279,10 +4279,10 @@
    "cap_ts": 1785228300.0,
    "state_at_capture": "invalidated",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
-   "limit_r": null
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "resolved",
+   "limit_r": -1.0
   },
   "xagusd:1785233700000:wick": {
    "id": "xagusd:1785233700000:wick",
@@ -4296,9 +4296,9 @@
    "cap_ts": 1785227400.0,
    "state_at_capture": "invalidated",
    "nowick_aligned": true,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "natgas:1785231900000:fib": {
@@ -4313,9 +4313,9 @@
    "cap_ts": 1785227400.0,
    "state_at_capture": "invalidated",
    "nowick_aligned": true,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": 1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "xagusd:1785231900000:fib": {
@@ -4330,9 +4330,9 @@
    "cap_ts": 1785227400.0,
    "state_at_capture": "invalidated",
    "nowick_aligned": true,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "xptusd:1785200400000:fib": {
@@ -4347,9 +4347,9 @@
    "cap_ts": 1785227400.0,
    "state_at_capture": "armed",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "ethusd:1785243600000:wick": {
@@ -4364,9 +4364,9 @@
    "cap_ts": 1785228300.0,
    "state_at_capture": "armed",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "natgas:1785237300000:fib": {
@@ -4381,6 +4381,40 @@
    "cap_ts": 1785227400.0,
    "state_at_capture": "triggered",
    "nowick_aligned": true,
+   "market_status": "resolved",
+   "market_r": 1.0,
+   "limit_status": "nofill",
+   "limit_r": null
+  },
+  "ethusd:1785251700000:wick": {
+   "id": "ethusd:1785251700000:wick",
+   "pair": "ethusd",
+   "dir": "bull",
+   "method": "wick",
+   "cls": "crypto",
+   "limit_entry": 1885.51,
+   "stop": 1854.52,
+   "market_entry": 1882.5,
+   "cap_ts": 1785249000.0,
+   "state_at_capture": "armed",
+   "nowick_aligned": true,
+   "market_status": "pending",
+   "market_r": null,
+   "limit_status": "pending",
+   "limit_r": null
+  },
+  "natgas:1785251700000:wick": {
+   "id": "natgas:1785251700000:wick",
+   "pair": "natgas",
+   "dir": "bear",
+   "method": "fib",
+   "cls": "comm",
+   "limit_entry": 2.699,
+   "stop": 2.7304999999999997,
+   "market_entry": 2.712,
+   "cap_ts": 1785248100.0,
+   "state_at_capture": "invalidated",
+   "nowick_aligned": false,
    "market_status": "pending",
    "market_r": null,
    "limit_status": "pending",
