@@ -29,7 +29,7 @@ IMP = 1.2                # min impulse-leg size, in ATR
 WINDOW = 40              # bars after the leg to find the 50% retrace
 TOL = 0.15               # 50% zone half-width, as a fraction of the leg
 BUF = 0.25               # stop buffer beyond the rejection extreme, in ATR
-RRS = [0.5, 1.0, 1.5, 2.0]
+RRS = [0.25, 0.5, 1.0, 1.5, 2.0]   # incl. 0.25R (tiny counter-move): WR ~65% vs 80% breakeven — still loses
 
 
 def pivots(bars, k):
