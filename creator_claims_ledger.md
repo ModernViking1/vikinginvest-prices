@@ -118,6 +118,31 @@ for the ongoing forward numbers vs the claim.
   small-target-at-a-favourable-price artifact.
 - **Wired as:** nothing (rejected).
 
+## Tom Hougaard — 'situational analysis' Friday → Monday revisit
+
+- **Claimed:** if Friday fails to trade above Thursday's high, the following Monday
+  revisits Friday's low with "overwhelmingly high" probability — ~21 of 24 instances,
+  or "roughly 95%", from manual analysis of years of Dow Jones data. Framed as a
+  situational directional bias, target = Friday's low.
+- **Measured (39 pairs, daily setup + h1-resolved trade, weekend-gap session detection,
+  ~1yr):**
+  - The **95% does NOT reproduce** — the actual Friday-low revisit rate under the setup
+    is **~50–54%** (indices highest), not 95%.
+  - There **is a real situational LIFT**, though: the setup adds **+10.5pp overall**
+    (indices +18pp, commodities +12pp, majors +11pp) to the revisit probability vs the
+    base rate when Friday *did* exceed Thursday's high — so the directional observation
+    is genuine, just far weaker than marketed.
+  - **Not tradeable as-is:** short Monday open → target Friday's low, stop Thursday's
+    (or Friday's) high nets **~0 to slightly negative** expectancy everywhere
+    (all-pairs −0.02 to −0.08R). A ~65% target-hit rate monetises to nothing because
+    the target is near and the stop far — a low-RR mirage. Only DJ30 (the Dow Hougaard
+    cites) is positive (+0.26R) but on n=17 trades, and neighbouring indices contradict
+    (multiple-testing noise).
+- **Verdict:** large claimed-vs-measured gap on the headline number; the underlying
+  bias is real but modest and not profitably tradeable with the natural target/stop
+  geometry. Useful only as a weak index directional-context flag, not a signal.
+- **Wired as:** nothing (candidate read-only index bias tag only; not a trade).
+
 ---
 
 *Extensible: add a row per creator/strategy as tested. The broader batch (supply &
