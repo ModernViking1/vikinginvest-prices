@@ -1,32 +1,33 @@
 {
  "schema_version": 1,
- "generated": "2026-07-28T03:00:00+00:00",
- "data_end_ts": 1785207600,
- "raw_signal_count": 9,
- "count": 7,
+ "generated": "2026-07-28T08:00:00+00:00",
+ "data_end_ts": 1785225600,
+ "raw_signal_count": 10,
+ "count": 8,
  "signals": [
   {
-   "id": "fib_gz:xauusd:1785164400",
+   "id": "fib_gz:xauusd:1785211200",
    "strategy": "fib_gz",
    "pair": "xauusd",
    "symbol": "XAUUSD",
    "class": "comm",
    "dir": "bull",
-   "stop": 4060.45662714,
-   "ref_entry": 4076.315,
+   "stop": 4031.95041786,
+   "ref_entry": 4049.605,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
-   "trigger_ts": 1785164400,
-   "created_ts": 1785207600,
-   "expiry_ts": 1785207600,
+   "trigger_ts": 1785211200,
+   "created_ts": 1785225600,
+   "expiry_ts": 1785254400,
    "state": "triggered",
    "cofire": [
-    "fib_gz"
+    "fib_gz",
+    "gtrend"
    ],
    "cofire_dirs": [
-    "fib_gz:bear",
-    "fib_gz:bull"
+    "fib_gz:bull",
+    "gtrend:bear"
    ],
    "suppressed": 1
   },
@@ -43,7 +44,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785164400,
-   "created_ts": 1785207600,
+   "created_ts": 1785225600,
    "expiry_ts": 1785207600,
    "state": "triggered",
    "cofire": [
@@ -55,20 +56,20 @@
    "suppressed": 0
   },
   {
-   "id": "s5_rsi_wide:spx500:1785160800",
+   "id": "s5_rsi_wide:spx500:1785164400",
    "strategy": "s5_rsi_wide",
    "pair": "spx500",
    "symbol": "SPX500",
    "class": "index",
    "dir": "bear",
    "stop": 7495.6,
-   "ref_entry": 7445.4,
+   "ref_entry": 7426.9,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
-   "trigger_ts": 1785160800,
-   "created_ts": 1785207600,
-   "expiry_ts": 1785204000,
+   "trigger_ts": 1785164400,
+   "created_ts": 1785225600,
+   "expiry_ts": 1785207600,
    "state": "triggered",
    "cofire": [
     "s5_rsi",
@@ -93,7 +94,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785153600,
-   "created_ts": 1785207600,
+   "created_ts": 1785225600,
    "expiry_ts": 1785196800,
    "state": "triggered",
    "cofire": [
@@ -117,7 +118,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785142800,
-   "created_ts": 1785207600,
+   "created_ts": 1785225600,
    "expiry_ts": 1785186000,
    "state": "triggered",
    "cofire": [
@@ -141,7 +142,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785142800,
-   "created_ts": 1785207600,
+   "created_ts": 1785225600,
    "expiry_ts": 1785186000,
    "state": "triggered",
    "cofire": [
@@ -149,6 +150,30 @@
    ],
    "cofire_dirs": [
     "wm:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "tl_nowick:eurnok:1785139200",
+   "strategy": "tl_nowick",
+   "pair": "eurnok",
+   "symbol": "EURNOK",
+   "class": "minor",
+   "dir": "bull",
+   "stop": 10.90537643,
+   "ref_entry": 10.96894,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1785139200,
+   "created_ts": 1785225600,
+   "expiry_ts": 1785182400,
+   "state": "triggered",
+   "cofire": [
+    "tl_nowick"
+   ],
+   "cofire_dirs": [
+    "tl_nowick:bull"
    ],
    "suppressed": 0
   },
@@ -165,7 +190,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785139200,
-   "created_ts": 1785207600,
+   "created_ts": 1785225600,
    "expiry_ts": 1785182400,
    "state": "triggered",
    "cofire": [
