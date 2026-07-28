@@ -146,8 +146,12 @@ for the ongoing forward numbers vs the claim.
   pyramid add at +1R with structure confirmation (breakeven the first unit, trail
   both), on DAX/DJI/FTSE m15. No hard marketed number, so no separate row — but the
   result is clean: **adding does NOT beat the plain probe** (pooled +0.082R -> +0.057R,
-  a −0.025R delta; the add hurt in 6 of 8 index/open-hour variants). The base ORB probe
-  is itself fragile (fails OOS, highly sensitive to the session-open hour). Rejected.
+  a −0.025R delta; the add hurt in 6 of 8 index/open-hour variants). A deeper 21-config
+  sweep (3 indices × 2–3 opens × 15/30/60-min opening ranges) measuring the per-trade
+  add-vs-probe DELTA found it positive in both OOS halves in **0 of 21** configs — the
+  couple of positive-delta cells (FTSE 07:00, DJI 14:30) are driven entirely by their
+  second OOS half (first half negative), i.e. noise. The base ORB probe is itself
+  fragile (fails OOS, highly sensitive to the session-open hour). Rejected.
   See `hougaard_pyramid_research.py`.
 
 ---
