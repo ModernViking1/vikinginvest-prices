@@ -142,6 +142,13 @@ for the ongoing forward numbers vs the claim.
   bias is real but modest and not profitably tradeable with the natural target/stop
   geometry. Useful only as a weak index directional-context flag, not a signal.
 - **Wired as:** nothing (candidate read-only index bias tag only; not a trade).
+- **Also tested (Hougaard 'add to a winner'):** opening-range-breakout probe + one
+  pyramid add at +1R with structure confirmation (breakeven the first unit, trail
+  both), on DAX/DJI/FTSE m15. No hard marketed number, so no separate row — but the
+  result is clean: **adding does NOT beat the plain probe** (pooled +0.082R -> +0.057R,
+  a −0.025R delta; the add hurt in 6 of 8 index/open-hour variants). The base ORB probe
+  is itself fragile (fails OOS, highly sensitive to the session-open hour). Rejected.
+  See `hougaard_pyramid_research.py`.
 
 ---
 
