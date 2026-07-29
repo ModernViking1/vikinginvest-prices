@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-29T06:05:54.996452+00:00",
-  "generated_ms": 1785305154898,
-  "detector_last_check": "2026-07-29T06:05:54.803196+00:00",
+  "generated": "2026-07-29T06:11:09.607546+00:00",
+  "generated_ms": 1785305469505,
+  "detector_last_check": "2026-07-29T06:11:09.408248+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,9 +10,9 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 3,
+    "total": 5,
     "armed": 2,
-    "triggered": 1,
+    "triggered": 3,
     "invalidated": 0
   },
   "signals": [
@@ -34,7 +34,7 @@
       "cl": "bull",
       "armedAt": 1785303000000,
       "triggeredAt": null,
-      "lastSeenAt": 1785305154898,
+      "lastSeenAt": 1785305469505,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -56,9 +56,53 @@
       "cl": "bull",
       "armedAt": 1785302100000,
       "triggeredAt": 1785302100000,
-      "lastSeenAt": 1785305154898,
+      "lastSeenAt": 1785305469505,
       "source": "server-detector",
       "event_aligned": false
+    },
+    {
+      "id": "nearusd:1785297600000:wick",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 1.604,
+      "stop": 1.641,
+      "target": 1.5670000000000002,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1785297600000,
+      "triggeredAt": 1785299400000,
+      "lastSeenAt": 1785305469505,
+      "source": "server-detector",
+      "event_aligned": null
+    },
+    {
+      "id": "nearusd:1780433100000:fib",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 1.595348,
+      "stop": 1.641,
+      "target": 1.549696,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1780433100000,
+      "triggeredAt": 1785299400000,
+      "lastSeenAt": 1785305469505,
+      "source": "server-detector",
+      "event_aligned": null
     },
     {
       "id": "ethusd:1780287300000:fib",
@@ -78,7 +122,7 @@
       "cl": "bull",
       "armedAt": 1780287300000,
       "triggeredAt": null,
-      "lastSeenAt": 1785305154898,
+      "lastSeenAt": 1785305469505,
       "source": "server-detector",
       "event_aligned": null
     }
