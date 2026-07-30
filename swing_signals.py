@@ -93,6 +93,16 @@ ENGULF_CLASSES = {'crypto'}
 #          it hurt in testing). Both self-gate to xauusd and are cBot-executable.
 PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'tl_nowick': 4, 'fib_gz': 5, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14}
 
+# Scaled exit for the 2:1 gold signals (2026-08-01) — bank profit progressively instead of a
+# single far TP. gbreak/gtrend are emitted as THREE legs (1/3 risk each, SHARED stop) with
+# targets at 1R / 2R / 3R. The cBot opens one market position per signal id, so 3 ids = 3
+# partial take-profits: the first two bank on the way up and only the runner rides to 3R, so
+# a winner can't fully round-trip to a loss. Backtest: ~RR2 expectancy (gbreak +0.256R) with
+# progressive banking. asianglitch stays single-TP at 3:1 (scaling it costs more than it saves).
+# Requires the swing cBot / account to allow multiple positions per symbol (cTrader hedging mode).
+SCALED_GOLD = {'gbreak', 'gtrend'}
+SCALE_LEGS = (1.0, 2.0, 3.0)
+
 
 def main():
     d = json.load(open(HIST)); pairs = d.get('pairs', {})
@@ -172,6 +182,22 @@ def main():
         primary['suppressed'] = len(group) - 1
         deduped.append(primary)
     rows = deduped
+
+    # ---- scaled exit: split the 2:1 gold signals into 3 partial-TP legs (1R/2R/3R) ----
+    scaled = []
+    for r in rows:
+        if r['strategy'] in SCALED_GOLD and r['pair'] == 'xauusd':
+            n = len(SCALE_LEGS)
+            for i, rr in enumerate(SCALE_LEGS, 1):
+                leg = dict(r)
+                leg['id'] = f"{r['id']}:t{i}"
+                leg['rr'] = rr                       # per-leg target: 1R / 2R / 3R
+                leg['r_pct'] = round(R_PCT / n, 6)   # 1/3 risk each -> total risk = R_PCT
+                leg['scaled_leg'] = i; leg['scaled_legs'] = n
+                scaled.append(leg)
+        else:
+            scaled.append(r)
+    rows = scaled
 
     # newest first, stable
     rows.sort(key=lambda r: (-r['trigger_ts'], r['id']))
