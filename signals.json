@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-07-30T07:55:51.033990+00:00",
-  "generated_ms": 1785398150936,
-  "detector_last_check": "2026-07-30T07:55:50.833150+00:00",
+  "generated": "2026-07-30T08:01:26.219149+00:00",
+  "generated_ms": 1785398486131,
+  "detector_last_check": "2026-07-30T08:01:26.048778+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,10 +10,10 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 4,
-    "armed": 1,
-    "triggered": 1,
-    "invalidated": 2
+    "total": 6,
+    "armed": 0,
+    "triggered": 2,
+    "invalidated": 4
   },
   "signals": [
     {
@@ -24,7 +24,7 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bear",
-      "state": "armed",
+      "state": "triggered",
       "entry": 2.733,
       "stop": 2.741,
       "target": 2.725,
@@ -33,8 +33,8 @@
       "nw": "bear",
       "cl": "bear",
       "armedAt": 1785395700000,
-      "triggeredAt": null,
-      "lastSeenAt": 1785398150936,
+      "triggeredAt": 1785398400000,
+      "lastSeenAt": 1785398486131,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -56,7 +56,29 @@
       "cl": "bear",
       "armedAt": 1785395700000,
       "triggeredAt": 1785397500000,
-      "lastSeenAt": 1785398150936,
+      "lastSeenAt": 1785398486131,
+      "source": "server-detector",
+      "event_aligned": null
+    },
+    {
+      "id": "usoil:1785392100000:wick",
+      "pair": "usoil",
+      "sym": "USOIL",
+      "cls": "comm",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 93.902,
+      "stop": 92.84675,
+      "target": 94.95725,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1785392100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1785398486131,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -78,7 +100,7 @@
       "cl": "bull",
       "armedAt": 1785392100000,
       "triggeredAt": null,
-      "lastSeenAt": 1785398150936,
+      "lastSeenAt": 1785398486131,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -100,7 +122,29 @@
       "cl": "bull",
       "armedAt": 1785392100000,
       "triggeredAt": null,
-      "lastSeenAt": 1785398150936,
+      "lastSeenAt": 1785398486131,
+      "source": "server-detector",
+      "event_aligned": null
+    },
+    {
+      "id": "usoil:1785336300000:fib",
+      "pair": "usoil",
+      "sym": "USOIL",
+      "cls": "comm",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 94.114592,
+      "stop": 92.84675,
+      "target": 95.382434,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1785336300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1785398486131,
       "source": "server-detector",
       "event_aligned": null
     }
