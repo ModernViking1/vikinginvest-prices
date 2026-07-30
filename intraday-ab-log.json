@@ -4925,9 +4925,9 @@
    "cap_ts": 1785334500.0,
    "state_at_capture": "armed",
    "nowick_aligned": false,
-   "market_status": "pending",
+   "market_status": "expired",
    "market_r": null,
-   "limit_status": "pending",
+   "limit_status": "expired",
    "limit_r": null
   },
   "wtiusd:1785336300000:wick": {
@@ -4942,10 +4942,10 @@
    "cap_ts": 1785334500.0,
    "state_at_capture": "armed",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
-   "limit_r": null
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "resolved",
+   "limit_r": -1.0
   },
   "usoil:1785327300000:fib": {
    "id": "usoil:1785327300000:fib",
@@ -4959,9 +4959,9 @@
    "cap_ts": 1785334500.0,
    "state_at_capture": "armed",
    "nowick_aligned": false,
-   "market_status": "pending",
+   "market_status": "expired",
    "market_r": null,
-   "limit_status": "pending",
+   "limit_status": "expired",
    "limit_r": null
   },
   "taousd:1785339900000:wick": {
@@ -4978,8 +4978,8 @@
    "nowick_aligned": false,
    "market_status": "resolved",
    "market_r": 1.0,
-   "limit_status": "pending",
-   "limit_r": null
+   "limit_status": "resolved",
+   "limit_r": 1.0
   },
   "usoil:1785336300000:fib": {
    "id": "usoil:1785336300000:fib",
@@ -4993,9 +4993,9 @@
    "cap_ts": 1785334500.0,
    "state_at_capture": "triggered",
    "nowick_aligned": false,
-   "market_status": "pending",
+   "market_status": "expired",
    "market_r": null,
-   "limit_status": "pending",
+   "limit_status": "expired",
    "limit_r": null
   },
   "wtiusd:1785353400000:wick": {
@@ -5063,7 +5063,7 @@
    "nowick_aligned": true,
    "market_status": "pending",
    "market_r": null,
-   "limit_status": "pending",
+   "limit_status": "nofill",
    "limit_r": null
   },
   "xrpusd:1785354300000:wick": {
@@ -5080,7 +5080,7 @@
    "nowick_aligned": true,
    "market_status": "pending",
    "market_r": null,
-   "limit_status": "pending",
+   "limit_status": "nofill",
    "limit_r": null
   },
   "solusd:1785354300000:wick": {
@@ -5128,6 +5128,91 @@
    "market_entry": 0.6864,
    "cap_ts": 1785353400.0,
    "state_at_capture": "invalidated",
+   "nowick_aligned": false,
+   "market_status": "resolved",
+   "market_r": 1.0,
+   "limit_status": "resolved",
+   "limit_r": 1.0
+  },
+  "usoil:1785389400000:wick": {
+   "id": "usoil:1785389400000:wick",
+   "pair": "usoil",
+   "dir": "bull",
+   "method": "fib",
+   "cls": "comm",
+   "limit_entry": 92.75,
+   "stop": 92.10725000000001,
+   "market_entry": 91.517,
+   "cap_ts": 1785380400.0,
+   "state_at_capture": "armed",
+   "nowick_aligned": false,
+   "market_status": "pending",
+   "market_r": null,
+   "limit_status": "pending",
+   "limit_r": null
+  },
+  "wtiusd:1785389400000:wick": {
+   "id": "wtiusd:1785389400000:wick",
+   "pair": "wtiusd",
+   "dir": "bull",
+   "method": "fib",
+   "cls": "comm",
+   "limit_entry": 85.098,
+   "stop": 84.4025,
+   "market_entry": 83.923,
+   "cap_ts": 1785380400.0,
+   "state_at_capture": "armed",
+   "nowick_aligned": false,
+   "market_status": "pending",
+   "market_r": null,
+   "limit_status": "pending",
+   "limit_r": null
+  },
+  "xauusd:1785389400000:wick": {
+   "id": "xauusd:1785389400000:wick",
+   "pair": "xauusd",
+   "dir": "bear",
+   "method": "fib",
+   "cls": "comm",
+   "limit_entry": 4051.445,
+   "stop": 4069.965,
+   "market_entry": 4063.125,
+   "cap_ts": 1785380400.0,
+   "state_at_capture": "armed",
+   "nowick_aligned": false,
+   "market_status": "pending",
+   "market_r": null,
+   "limit_status": "pending",
+   "limit_r": null
+  },
+  "suiusd:1785386700000:wick": {
+   "id": "suiusd:1785386700000:wick",
+   "pair": "suiusd",
+   "dir": "bear",
+   "method": "wick",
+   "cls": "crypto",
+   "limit_entry": 0.6864,
+   "stop": 0.691,
+   "market_entry": 0.6879,
+   "cap_ts": 1785381300.0,
+   "state_at_capture": "armed",
+   "nowick_aligned": false,
+   "market_status": "pending",
+   "market_r": null,
+   "limit_status": "pending",
+   "limit_r": null
+  },
+  "xauusd:1785327300000:fib": {
+   "id": "xauusd:1785327300000:fib",
+   "pair": "xauusd",
+   "dir": "bear",
+   "method": "fib",
+   "cls": "comm",
+   "limit_entry": 4037.38241,
+   "stop": 4069.965,
+   "market_entry": 4063.125,
+   "cap_ts": 1785380400.0,
+   "state_at_capture": "armed",
    "nowick_aligned": false,
    "market_status": "pending",
    "market_r": null,
