@@ -91,7 +91,8 @@ def line(label, rows, rr):
     print(f"    {label:<8} RR{rr} n={n:>4} WR={w:>5.1f}% exp={e:>+6.3f}R OOS[{eh:>+6.3f}/{es:>+6.3f}] {v}")
 
 
-def run(tf_name):
+def run(zone_tf):
+    """zone_tf in {m15,h1}: detect+trade on that LTF; {4h,daily}: HTF zone, h1 entry."""
     d = json.load(open(HIST)); pairs = d.get('pairs', {})
     store = defaultdict(lambda: defaultdict(list)); npr = 0
     for pk in [x for x in PAIR_CLASS if x in pairs]:
@@ -99,20 +100,25 @@ def run(tf_name):
         h1 = _bars_norm(pairs[pk].get('h1', []))
         if len(h1) < 500:
             continue
-        if tf_name == '4h':
-            htf = make_4h(h1); secs = 4 * 3600
+        if zone_tf == 'm15':
+            zbars = _bars_norm(pairs[pk].get('m15', [])); ebars = zbars; secs = 900
+        elif zone_tf == 'h1':
+            zbars = h1; ebars = h1; secs = 3600
+        elif zone_tf == '4h':
+            zbars = make_4h(h1); ebars = h1; secs = 4 * 3600
         else:
-            htf = _bars_norm(pairs[pk].get('daily', [])); secs = 86400
-        if len(htf) < 60:
+            zbars = _bars_norm(pairs[pk].get('daily', [])); ebars = h1; secs = 86400
+        if len(zbars) < 60:
             continue
         npr += 1
-        for ready, dr, zlo, zhi in zones(htf, secs):
+        for ready, dr, zlo, zhi in zones(zbars, secs):
             for rr in RRS:
-                res = score(h1, ready, dr, zlo, zhi, rr)
+                res = score(ebars, ready, dr, zlo, zhi, rr)
                 if res is not None:
                     o, entry, R = res
                     store[cls][rr].append((ready, o - cost(o, entry, R)))
-    print(f"\n===== {tf_name}-zone small-body supply/demand — {npr} pairs =====")
+    exec_note = zone_tf if zone_tf in ('m15', 'h1') else 'h1'
+    print(f"\n===== {zone_tf}-zone small-body supply/demand (entry {exec_note}) — {npr} pairs =====")
     for c in ['comm', 'crypto', 'index', 'major', 'minor']:
         for rr in RRS:
             line(c, store[c][rr], rr)
@@ -124,7 +130,7 @@ def main():
     print("=" * 88)
     print("Small-body-base + explosive-departure supply/demand zone (retrace entry, RR2/3)")
     print("=" * 88)
-    for tf in ('4h', 'daily'):
+    for tf in ('m15', 'h1', '4h', 'daily'):   # LTF (15m/1h) detect+trade + HTF zone/h1 entry
         run(tf)
 
 
