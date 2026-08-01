@@ -57,9 +57,10 @@ def zones(htf, bar_secs):
     return out
 
 
-def score(h1, ready_ts, d, zlo, zhi, rr):
+def score(h1, ready_ts, d, zlo, zhi, rr, retr=None, hold=None):
+    retr = retr or RETR_H1; hold = hold or HOLD
     ts = [b['_ts'] for b in h1]; s = bisect.bisect_left(ts, ready_ts)
-    for r in range(s, min(s + RETR_H1, len(h1) - 1)):
+    for r in range(s, min(s + retr, len(h1) - 1)):
         b = h1[r]
         if d == 'bull':
             touched = b['l'] <= zhi and b['c'] > zlo          # dipped into zone, held above its low
@@ -72,7 +73,7 @@ def score(h1, ready_ts, d, zlo, zhi, rr):
         if (d == 'bull' and stop >= entry) or (d == 'bear' and stop <= entry):
             return None
         R = abs(entry - stop); tgt = entry + rr * R if d == 'bull' else entry - rr * R
-        for j in range(r + 1, min(r + 1 + HOLD, len(h1))):
+        for j in range(r + 1, min(r + 1 + hold, len(h1))):
             bb = h1[j]
             if d == 'bull':
                 if bb['l'] <= stop: return (-1.0, entry, R)
@@ -91,34 +92,35 @@ def line(label, rows, rr):
     print(f"    {label:<8} RR{rr} n={n:>4} WR={w:>5.1f}% exp={e:>+6.3f}R OOS[{eh:>+6.3f}/{es:>+6.3f}] {v}")
 
 
-def run(zone_tf):
-    """zone_tf in {m15,h1}: detect+trade on that LTF; {4h,daily}: HTF zone, h1 entry."""
+def run(zone_tf, exec_tf=None):
+    """zone_tf = timeframe the zone is detected on; exec_tf = timeframe the retrace/entry is
+    resolved on (default: same TF for m15/h1, h1 for 4h/daily). Retrace/hold windows scale
+    with the exec TF so every combination covers the same wall-clock (~16d retrace / ~6.7d)."""
     d = json.load(open(HIST)); pairs = d.get('pairs', {})
     store = defaultdict(lambda: defaultdict(list)); npr = 0
+    ZSECS = {'m15': 900, 'h1': 3600, '4h': 4 * 3600, 'daily': 86400}
+    # exec windows in bars = ~16.7d retrace / ~6.7d hold at that TF
+    EWIN = {'m15': (1600, 640), 'h1': (400, 160)}
+    ex = exec_tf or ('h1' if zone_tf in ('4h', 'daily') else zone_tf)
+    retr, hold = EWIN[ex]
     for pk in [x for x in PAIR_CLASS if x in pairs]:
         cls = PAIR_CLASS.get(pk)
         h1 = _bars_norm(pairs[pk].get('h1', []))
         if len(h1) < 500:
             continue
-        if zone_tf == 'm15':
-            zbars = _bars_norm(pairs[pk].get('m15', [])); ebars = zbars; secs = 900
-        elif zone_tf == 'h1':
-            zbars = h1; ebars = h1; secs = 3600
-        elif zone_tf == '4h':
-            zbars = make_4h(h1); ebars = h1; secs = 4 * 3600
-        else:
-            zbars = _bars_norm(pairs[pk].get('daily', [])); ebars = h1; secs = 86400
-        if len(zbars) < 60:
+        zbars = ({'m15': _bars_norm(pairs[pk].get('m15', [])), 'h1': h1, '4h': make_4h(h1),
+                  'daily': _bars_norm(pairs[pk].get('daily', []))}[zone_tf])
+        ebars = h1 if ex == 'h1' else _bars_norm(pairs[pk].get(ex, []))
+        if len(zbars) < 60 or len(ebars) < 500:
             continue
         npr += 1
-        for ready, dr, zlo, zhi in zones(zbars, secs):
+        for ready, dr, zlo, zhi in zones(zbars, ZSECS[zone_tf]):
             for rr in RRS:
-                res = score(ebars, ready, dr, zlo, zhi, rr)
+                res = score(ebars, ready, dr, zlo, zhi, rr, retr, hold)
                 if res is not None:
                     o, entry, R = res
                     store[cls][rr].append((ready, o - cost(o, entry, R)))
-    exec_note = zone_tf if zone_tf in ('m15', 'h1') else 'h1'
-    print(f"\n===== {zone_tf}-zone small-body supply/demand (entry {exec_note}) — {npr} pairs =====")
+    print(f"\n===== {zone_tf}-zone -> {ex} entry (small-body supply/demand) — {npr} pairs =====")
     for c in ['comm', 'crypto', 'index', 'major', 'minor']:
         for rr in RRS:
             line(c, store[c][rr], rr)
@@ -130,8 +132,9 @@ def main():
     print("=" * 88)
     print("Small-body-base + explosive-departure supply/demand zone (retrace entry, RR2/3)")
     print("=" * 88)
-    for tf in ('m15', 'h1', '4h', 'daily'):   # LTF (15m/1h) detect+trade + HTF zone/h1 entry
-        run(tf)
+    run('m15'); run('h1')                    # LTF detect + trade
+    run('4h'); run('daily')                  # HTF zone, h1 entry
+    run('4h', exec_tf='m15')                 # HTF zone, 15m entry (finer confirmation)
 
 
 if __name__ == '__main__':
