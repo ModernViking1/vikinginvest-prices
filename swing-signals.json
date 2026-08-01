@@ -1,10 +1,82 @@
 {
  "schema_version": 1,
- "generated": "2026-08-01T13:00:00+00:00",
- "data_end_ts": 1785589200,
- "raw_signal_count": 7,
- "count": 8,
+ "generated": "2026-08-01T19:00:00+00:00",
+ "data_end_ts": 1785610800,
+ "raw_signal_count": 8,
+ "count": 6,
  "signals": [
+  {
+   "id": "wm:btcusd:1785603600",
+   "strategy": "wm",
+   "pair": "btcusd",
+   "symbol": "BTCUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 63248.359,
+   "ref_entry": 62781.86,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1785603600,
+   "created_ts": 1785610800,
+   "expiry_ts": 1785646800,
+   "state": "triggered",
+   "cofire": [
+    "wm"
+   ],
+   "cofire_dirs": [
+    "wm:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "wm:xrpusd:1785603600",
+   "strategy": "wm",
+   "pair": "xrpusd",
+   "symbol": "XRPUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 1.07031556,
+   "ref_entry": 1.0579,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1785603600,
+   "created_ts": 1785610800,
+   "expiry_ts": 1785646800,
+   "state": "triggered",
+   "cofire": [
+    "wm"
+   ],
+   "cofire_dirs": [
+    "wm:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "hs:solusd:1785596400",
+   "strategy": "hs",
+   "pair": "solusd",
+   "symbol": "SOLUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 72.6,
+   "ref_entry": 72.96,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1785596400,
+   "created_ts": 1785610800,
+   "expiry_ts": 1785639600,
+   "state": "triggered",
+   "cofire": [
+    "hs"
+   ],
+   "cofire_dirs": [
+    "hs:bull"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "hs:taousd:1785556800",
    "strategy": "hs",
@@ -18,18 +90,44 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785556800,
-   "created_ts": 1785589200,
+   "created_ts": 1785610800,
    "expiry_ts": 1785600000,
    "state": "triggered",
    "cofire": [
     "hs",
+    "tl_nowick",
     "wm"
    ],
    "cofire_dirs": [
     "hs:bull",
+    "tl_nowick:bull",
     "wm:bear"
    ],
-   "suppressed": 1
+   "suppressed": 2
+  },
+  {
+   "id": "w5_pullback:nearusd:1785535200",
+   "strategy": "w5_pullback",
+   "pair": "nearusd",
+   "symbol": "NEARUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 1.71641071,
+   "ref_entry": 1.663,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1785535200,
+   "created_ts": 1785610800,
+   "expiry_ts": 1785578400,
+   "state": "triggered",
+   "cofire": [
+    "w5_pullback"
+   ],
+   "cofire_dirs": [
+    "w5_pullback:bear"
+   ],
+   "suppressed": 0
   },
   {
    "id": "fib_gz:natgas:1785524400",
@@ -44,7 +142,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785524400,
-   "created_ts": 1785589200,
+   "created_ts": 1785610800,
    "expiry_ts": 1785567600,
    "state": "triggered",
    "cofire": [
@@ -52,156 +150,6 @@
    ],
    "cofire_dirs": [
     "fib_gz:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "fib_gz:xptusd:1785510000",
-   "strategy": "fib_gz",
-   "pair": "xptusd",
-   "symbol": "XPTUSD",
-   "class": "comm",
-   "dir": "bull",
-   "stop": 1588.08005314,
-   "ref_entry": 1638.854,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1785510000,
-   "created_ts": 1785589200,
-   "expiry_ts": 1785553200,
-   "state": "triggered",
-   "cofire": [
-    "fib_gz"
-   ],
-   "cofire_dirs": [
-    "fib_gz:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "gtrend:xauusd:1785506400:t1",
-   "strategy": "gtrend",
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 4071.30232143,
-   "ref_entry": 4025.57,
-   "rr": 1.0,
-   "r_pct": 0.333333,
-   "entry_mode": "market",
-   "trigger_ts": 1785506400,
-   "created_ts": 1785589200,
-   "expiry_ts": 1785549600,
-   "state": "triggered",
-   "cofire": [
-    "gtrend"
-   ],
-   "cofire_dirs": [
-    "gtrend:bear"
-   ],
-   "suppressed": 0,
-   "scaled_leg": 1,
-   "scaled_legs": 3
-  },
-  {
-   "id": "gtrend:xauusd:1785506400:t2",
-   "strategy": "gtrend",
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 4071.30232143,
-   "ref_entry": 4025.57,
-   "rr": 2.0,
-   "r_pct": 0.333333,
-   "entry_mode": "market",
-   "trigger_ts": 1785506400,
-   "created_ts": 1785589200,
-   "expiry_ts": 1785549600,
-   "state": "triggered",
-   "cofire": [
-    "gtrend"
-   ],
-   "cofire_dirs": [
-    "gtrend:bear"
-   ],
-   "suppressed": 0,
-   "scaled_leg": 2,
-   "scaled_legs": 3
-  },
-  {
-   "id": "gtrend:xauusd:1785506400:t3",
-   "strategy": "gtrend",
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 4071.30232143,
-   "ref_entry": 4025.57,
-   "rr": 3.0,
-   "r_pct": 0.333333,
-   "entry_mode": "market",
-   "trigger_ts": 1785506400,
-   "created_ts": 1785589200,
-   "expiry_ts": 1785549600,
-   "state": "triggered",
-   "cofire": [
-    "gtrend"
-   ],
-   "cofire_dirs": [
-    "gtrend:bear"
-   ],
-   "suppressed": 0,
-   "scaled_leg": 3,
-   "scaled_legs": 3
-  },
-  {
-   "id": "obfvg:usdcad:1785506400",
-   "strategy": "obfvg",
-   "pair": "usdcad",
-   "symbol": "USDCAD",
-   "class": "major",
-   "dir": "bull",
-   "stop": 1.4006435,
-   "ref_entry": 1.40399,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1785506400,
-   "created_ts": 1785589200,
-   "expiry_ts": 1785549600,
-   "state": "triggered",
-   "cofire": [
-    "obfvg"
-   ],
-   "cofire_dirs": [
-    "obfvg:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "wm:nearusd:1785502800",
-   "strategy": "wm",
-   "pair": "nearusd",
-   "symbol": "NEARUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 1.63238889,
-   "ref_entry": 1.665,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "trigger_ts": 1785502800,
-   "created_ts": 1785589200,
-   "expiry_ts": 1785546000,
-   "state": "triggered",
-   "cofire": [
-    "wm"
-   ],
-   "cofire_dirs": [
-    "wm:bull"
    ],
    "suppressed": 0
   }
