@@ -1,7 +1,7 @@
 {
  "schema_version": 1,
- "generated": "2026-08-01T08:00:00+00:00",
- "data_end_ts": 1785571200,
+ "generated": "2026-08-01T13:00:00+00:00",
+ "data_end_ts": 1785589200,
  "raw_signal_count": 7,
  "count": 8,
  "signals": [
@@ -18,16 +18,18 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785556800,
-   "created_ts": 1785571200,
+   "created_ts": 1785589200,
    "expiry_ts": 1785600000,
    "state": "triggered",
    "cofire": [
-    "hs"
+    "hs",
+    "wm"
    ],
    "cofire_dirs": [
-    "hs:bull"
+    "hs:bull",
+    "wm:bear"
    ],
-   "suppressed": 0
+   "suppressed": 1
   },
   {
    "id": "fib_gz:natgas:1785524400",
@@ -42,7 +44,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785524400,
-   "created_ts": 1785571200,
+   "created_ts": 1785589200,
    "expiry_ts": 1785567600,
    "state": "triggered",
    "cofire": [
@@ -66,7 +68,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785510000,
-   "created_ts": 1785571200,
+   "created_ts": 1785589200,
    "expiry_ts": 1785553200,
    "state": "triggered",
    "cofire": [
@@ -76,6 +78,84 @@
     "fib_gz:bull"
    ],
    "suppressed": 0
+  },
+  {
+   "id": "gtrend:xauusd:1785506400:t1",
+   "strategy": "gtrend",
+   "pair": "xauusd",
+   "symbol": "XAUUSD",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 4071.30232143,
+   "ref_entry": 4025.57,
+   "rr": 1.0,
+   "r_pct": 0.333333,
+   "entry_mode": "market",
+   "trigger_ts": 1785506400,
+   "created_ts": 1785589200,
+   "expiry_ts": 1785549600,
+   "state": "triggered",
+   "cofire": [
+    "gtrend"
+   ],
+   "cofire_dirs": [
+    "gtrend:bear"
+   ],
+   "suppressed": 0,
+   "scaled_leg": 1,
+   "scaled_legs": 3
+  },
+  {
+   "id": "gtrend:xauusd:1785506400:t2",
+   "strategy": "gtrend",
+   "pair": "xauusd",
+   "symbol": "XAUUSD",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 4071.30232143,
+   "ref_entry": 4025.57,
+   "rr": 2.0,
+   "r_pct": 0.333333,
+   "entry_mode": "market",
+   "trigger_ts": 1785506400,
+   "created_ts": 1785589200,
+   "expiry_ts": 1785549600,
+   "state": "triggered",
+   "cofire": [
+    "gtrend"
+   ],
+   "cofire_dirs": [
+    "gtrend:bear"
+   ],
+   "suppressed": 0,
+   "scaled_leg": 2,
+   "scaled_legs": 3
+  },
+  {
+   "id": "gtrend:xauusd:1785506400:t3",
+   "strategy": "gtrend",
+   "pair": "xauusd",
+   "symbol": "XAUUSD",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 4071.30232143,
+   "ref_entry": 4025.57,
+   "rr": 3.0,
+   "r_pct": 0.333333,
+   "entry_mode": "market",
+   "trigger_ts": 1785506400,
+   "created_ts": 1785589200,
+   "expiry_ts": 1785549600,
+   "state": "triggered",
+   "cofire": [
+    "gtrend"
+   ],
+   "cofire_dirs": [
+    "gtrend:bear"
+   ],
+   "suppressed": 0,
+   "scaled_leg": 3,
+   "scaled_legs": 3
   },
   {
    "id": "obfvg:usdcad:1785506400",
@@ -90,7 +170,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785506400,
-   "created_ts": 1785571200,
+   "created_ts": 1785589200,
    "expiry_ts": 1785549600,
    "state": "triggered",
    "cofire": [
@@ -100,84 +180,6 @@
     "obfvg:bull"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "gtrend:xauusd:1785502800:t1",
-   "strategy": "gtrend",
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 4074.40196429,
-   "ref_entry": 4040.765,
-   "rr": 1.0,
-   "r_pct": 0.333333,
-   "entry_mode": "market",
-   "trigger_ts": 1785502800,
-   "created_ts": 1785571200,
-   "expiry_ts": 1785546000,
-   "state": "triggered",
-   "cofire": [
-    "gtrend"
-   ],
-   "cofire_dirs": [
-    "gtrend:bear"
-   ],
-   "suppressed": 1,
-   "scaled_leg": 1,
-   "scaled_legs": 3
-  },
-  {
-   "id": "gtrend:xauusd:1785502800:t2",
-   "strategy": "gtrend",
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 4074.40196429,
-   "ref_entry": 4040.765,
-   "rr": 2.0,
-   "r_pct": 0.333333,
-   "entry_mode": "market",
-   "trigger_ts": 1785502800,
-   "created_ts": 1785571200,
-   "expiry_ts": 1785546000,
-   "state": "triggered",
-   "cofire": [
-    "gtrend"
-   ],
-   "cofire_dirs": [
-    "gtrend:bear"
-   ],
-   "suppressed": 1,
-   "scaled_leg": 2,
-   "scaled_legs": 3
-  },
-  {
-   "id": "gtrend:xauusd:1785502800:t3",
-   "strategy": "gtrend",
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 4074.40196429,
-   "ref_entry": 4040.765,
-   "rr": 3.0,
-   "r_pct": 0.333333,
-   "entry_mode": "market",
-   "trigger_ts": 1785502800,
-   "created_ts": 1785571200,
-   "expiry_ts": 1785546000,
-   "state": "triggered",
-   "cofire": [
-    "gtrend"
-   ],
-   "cofire_dirs": [
-    "gtrend:bear"
-   ],
-   "suppressed": 1,
-   "scaled_leg": 3,
-   "scaled_legs": 3
   },
   {
    "id": "wm:nearusd:1785502800",
@@ -192,7 +194,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785502800,
-   "created_ts": 1785571200,
+   "created_ts": 1785589200,
    "expiry_ts": 1785546000,
    "state": "triggered",
    "cofire": [
