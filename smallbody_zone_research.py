@@ -24,8 +24,12 @@ from backtest_rsi_per_class import _bars_norm
 from five_strategies_research import atr, agg, cost
 
 HIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'historical-ohlc.json')
-SMALL = 0.6          # base body <= SMALL * ATR (small-body candle)
-EXPL = 1.3           # departure body >= EXPL * ATR (explosive candle)
+# Corrected to the actual "Small Body Candles" indicator (RealDTA): a small-body / base
+# candle is one whose BODY is < 50% of the candle's RANGE (high-low) — a body-to-range
+# ratio (indecision/absorption candle with long wicks), NOT a body-vs-ATR measure.
+SMALL_RATIO = 0.50   # base: |close-open| <= SMALL_RATIO * (high-low)
+EXPL_RATIO = 0.60    # explosive departure: directional body >= EXPL_RATIO * (high-low)
+EXPL_ATR = 1.20      # explosive departure body also >= EXPL_ATR * ATR (a big move)
 BUF = 0.20           # stop buffer beyond the zone (ATR)
 RETR_H1 = 400        # h1 bars to wait for the retrace
 HOLD = 160           # h1 bars to reach the target
@@ -38,22 +42,25 @@ def make_4h(h1):
 
 
 def zones(htf, bar_secs):
-    """(ready_ts, dir, zlo, zhi) for each small-base -> explosive-departure zone."""
+    """(ready_ts, dir, zlo, zhi) for each small-BODY base (body<50% range) -> explosive
+    (big directional) departure zone. The base candle's range is the supply/demand zone."""
     out = []
     for i in range(14, len(htf) - 1):
         a = atr(htf, 14, i) or 0.0
         if a <= 0:
             continue
         base = htf[i]; nxt = htf[i + 1]
-        base_body = abs(base['c'] - base['o']); dep_body = nxt['c'] - nxt['o']
-        if base_body > SMALL * a:
+        base_rng = base['h'] - base['l']; nxt_rng = nxt['h'] - nxt['l']
+        if base_rng <= 0 or nxt_rng <= 0:
             continue
-        ready = nxt['_ts'] + bar_secs        # start scanning after the explosive candle closes
+        base_body = abs(base['c'] - base['o']); dep_body = nxt['c'] - nxt['o']
+        if base_body > SMALL_RATIO * base_rng:          # not a small-body / base candle
+            continue
+        if abs(dep_body) < EXPL_RATIO * nxt_rng or abs(dep_body) < EXPL_ATR * a:
+            continue                                    # not an explosive directional departure
+        ready = nxt['_ts'] + bar_secs
         zlo, zhi = base['l'], base['h']
-        if dep_body >= EXPL * a:             # explosive UP -> demand zone (buy)
-            out.append((ready, 'bull', zlo, zhi))
-        elif -dep_body >= EXPL * a:          # explosive DOWN -> supply zone (sell)
-            out.append((ready, 'bear', zlo, zhi))
+        out.append((ready, 'bull' if dep_body > 0 else 'bear', zlo, zhi))
     return out
 
 
