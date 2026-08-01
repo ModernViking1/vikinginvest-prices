@@ -1232,6 +1232,51 @@ def detect_gfib(pk, h1, daily):
     return out
 
 
+# ── 90-EMA range break (TikTok 'reversal vs not') — CRYPTO-ONLY H1 OBSERVER at 1.5:1 ──
+# Consolidation around the 90 EMA forms a range; a close beyond the range is the entry
+# (long on an up-break, short on a down-break), stop the opposite side, target 1.5R.
+# Universe-wide it has no edge, but crypto-h1 is a thin real edge (BTC/ETH/XRP/SUI pass
+# both OOS halves, +0.069R pooled) — shadow-only, not fed to the cBot.
+E90_EMA = 90
+E90_LOOK = 12
+E90_MAXATR = 3.0
+E90_BUF = 0.10
+E90_RR = 1.5
+E90_HOLD = 90
+E90_COOLDOWN = 5
+
+
+def detect_e90break(pk, h1, daily):
+    if PAIR_CLASS.get(pk) != 'crypto':
+        return []
+    e = _ema([b['c'] for b in h1], E90_EMA); n = len(h1); out = []; last = -1
+    for i in range(E90_EMA + E90_LOOK, n - 1):
+        if i <= last or e[i] is None:
+            continue
+        a = atr(h1, 14, i) or 0.0
+        if a <= 0:
+            continue
+        seg = h1[i - E90_LOOK:i]
+        box_hi = max(x['h'] for x in seg); box_lo = min(x['l'] for x in seg)
+        if not (box_lo <= e[i] <= box_hi):           # EMA inside the range = consolidation
+            continue
+        if (box_hi - box_lo) > E90_MAXATR * a:        # tight consolidation only
+            continue
+        c = h1[i]['c']; d = None
+        if c > box_hi:
+            d = 'bull'; entry = c; stop = box_lo - E90_BUF * a
+        elif c < box_lo:
+            d = 'bear'; entry = c; stop = box_hi + E90_BUF * a
+        if not d:
+            continue
+        if (d == 'bull' and stop >= entry) or (d == 'bear' and stop <= entry):
+            last = i + E90_COOLDOWN; continue
+        out.append({'strategy': 'e90break', 'tf': 'h1', 'pair': pk, 'dir': d,
+                    'entry_ts': h1[i + 1]['_ts'], 'entry': entry, 'stop': stop, 'rr': E90_RR})
+        last = i + E90_COOLDOWN
+    return out
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -1322,7 +1367,7 @@ def main():
                  + detect_wm(pk, h1, daily) + detect_sid(pk, h1, daily)
                  + detect_obfvg(pk, h1, daily) + detect_obfvg_watch(pk, h1, daily)
                  + detect_gbreak(pk, h1, daily) + detect_gtrend(pk, h1, daily)
-                 + detect_gfib(pk, h1, daily))
+                 + detect_gfib(pk, h1, daily) + detect_e90break(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -1365,6 +1410,8 @@ def main():
                 st, o = score(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], GBREAK_HOLD)
             elif rec['strategy'] == 'gtrend':
                 st, o = score(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], GTREND_HOLD)
+            elif rec['strategy'] == 'e90break':
+                st, o = score_asianglitch(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], E90_HOLD, rec.get('rr', E90_RR))
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -1393,7 +1440,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'gbreak', 'gtrend', 'gfib'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'gbreak', 'gtrend', 'gfib', 'e90break'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
