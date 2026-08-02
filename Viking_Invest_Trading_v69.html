@@ -1022,6 +1022,17 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
   .pf-cls-pill{font-size:7px;padding:1px 4px;letter-spacing:0.3px;}
 }
 </style>
+<style>
+/* Readable-font mode (subscriber preference, 2026-08-01) — from a reviewer who found the
+   Orbitron display face hard to read on dense data. Opt-in toggle swaps it for a clean
+   sans everywhere; persisted in localStorage. */
+body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-serif !important; letter-spacing:normal !important; }
+#vi-font-toggle{ position:fixed; right:14px; bottom:14px; z-index:9997; width:38px; height:38px; border-radius:50%;
+  border:1px solid var(--rule,#ddd); background:#fff; color:var(--ink,#1c1a17); cursor:pointer;
+  box-shadow:0 4px 14px rgba(0,0,0,.16); font-weight:700; font-size:15px; line-height:1;
+  display:flex; align-items:center; justify-content:center; font-family:'Mukta',sans-serif; }
+#vi-font-toggle.on{ background:var(--gold,#c8860a); color:#fff; border-color:var(--gold,#c8860a); }
+</style>
 </head>
 <body>
 
@@ -4525,6 +4536,15 @@ function buildOvGrid(){
 function updateOV(k){
   var el=document.getElementById('ov-'+k);if(!el)return;
   var m=MKTS[k],score=sc(k),cc,col,lbl;
+  // Live "why N/4" tooltip: which of the four confluence layers agree with the setup
+  // direction (✓) and which are missing (✗) — so a PARTIAL card is legible on hover,
+  // and clicking still opens the full panel (layer cards + Watch Zone / Stop / Target).
+  try {
+    var _st=(typeof STATE!=='undefined'&&STATE[k])||{}, _dir=score.dir;
+    var _ln={ew:'Macro',tl:'Trendline',nw:'No-wick',cl:'4H Cloud'};
+    var _lb=['ew','tl','nw','cl'].map(function(L){ return _ln[L]+' '+(_st[L]===_dir&&_dir!=='neutral'?'✓':'✗'); }).join('  ·  ');
+    el.title=(m.sym||k.toUpperCase())+' — '+score.tot+'/4'+(_dir&&_dir!=='neutral'?' '+_dir:'')+'\n'+_lb+'\nClick for entry / stop / target';
+  } catch(e){}
   // v6 — 4/4 gate (EW · TL · NW · 4H Cloud). SETUP READY at tot===4;
   // PARTIAL covers both 2/4 and 3/4; everything else WAIT.
   if(score.tot===4&&score.dir==='bear'){cc='bc';col='var(--bear)';lbl='&#128308; SELL';}
@@ -22640,5 +22660,21 @@ function _renderCCIVariantPanel(host, commodityKeys){
 })();
 </script>
 
+<script>
+/* Readable-font toggle — floating control; persists the subscriber's choice. */
+(function(){
+  try{
+    var KEY='vi_readable_font';
+    function apply(on){ document.body.classList.toggle('vi-readable', on); var b=document.getElementById('vi-font-toggle'); if(b) b.classList.toggle('on', on); }
+    var on=false; try{ on=localStorage.getItem(KEY)==='1'; }catch(e){}
+    var btn=document.createElement('button'); btn.id='vi-font-toggle'; btn.textContent='Aa';
+    btn.title='Toggle readable font (swaps the display font for a cleaner sans)';
+    btn.setAttribute('aria-label','Toggle readable font');
+    btn.onclick=function(){ var now=!document.body.classList.contains('vi-readable'); apply(now); try{ localStorage.setItem(KEY, now?'1':'0'); }catch(e){} };
+    document.body.appendChild(btn);
+    apply(on);
+  }catch(e){}
+})();
+</script>
 </body>
 </html>
