@@ -1277,6 +1277,76 @@ def detect_e90break(pk, h1, daily):
     return out
 
 
+# ── 'Money move' — imbalance / fair-value-gap retrace continuation — SCOPED OBSERVERS (RR2) ──
+# Strong impulse leaves a 3-candle FVG; price retraces INTO the gap and holds (test); enter in
+# the impulse direction, stop just beyond the gap's far edge, target 2:1 (the money move). FVG
+# family (cousin of obfvg). Universe-wide it has no edge, but per-pair-verified pockets pass
+# both OOS halves — wired as MONITOR-ONLY observers, not fed to the cBot:
+#   mmove     crypto H1 (5/7 coins pass incl. BTC)
+#   mmove_ix  index H1 — DE40 + JP225 only
+#   mmove_ix4 index 4H — FTSE / DJ30 / NAS100 / JP225
+#   mmove_c4  commodities 4H — silver / WTI / natgas
+MMOVE_IMP = 1.0
+MMOVE_RETR = 24
+MMOVE_BUF = 0.10
+MMOVE_COOLDOWN = 3
+MMOVE_HOLD = 80
+MMOVE_IX1 = {'de40', 'jp225'}
+MMOVE_IX4 = {'ftse100', 'dj30', 'nas100', 'jp225'}
+MMOVE_C4 = {'xagusd', 'wtiusd', 'natgas'}
+
+
+def _mmove_signals(bars, pk, tag, tf):
+    n = len(bars); out = []; last = -1
+    for i in range(15, n - 2):
+        if i <= last:
+            continue
+        a = atr(bars, 14, i) or 0.0
+        if a <= 0:
+            continue
+        body = bars[i]['c'] - bars[i]['o']
+        if body >= MMOVE_IMP * a and bars[i + 1]['l'] > bars[i - 1]['h']:      # bullish FVG
+            g_bot = bars[i - 1]['h']; g_top = bars[i + 1]['l']
+            for r in range(i + 2, min(i + 2 + MMOVE_RETR, n - 1)):
+                b = bars[r]
+                if b['l'] <= g_top and b['c'] > g_bot:
+                    entry = b['c']; stop = g_bot - MMOVE_BUF * a
+                    if stop < entry:
+                        out.append({'strategy': tag, 'tf': tf, 'pair': pk, 'dir': 'bull',
+                                    'entry_ts': bars[r + 1]['_ts'], 'entry': entry, 'stop': stop})
+                    last = r + MMOVE_COOLDOWN; break
+                if b['c'] < g_bot:
+                    break
+        elif -body >= MMOVE_IMP * a and bars[i + 1]['h'] < bars[i - 1]['l']:   # bearish FVG
+            g_top = bars[i - 1]['l']; g_bot = bars[i + 1]['h']
+            for r in range(i + 2, min(i + 2 + MMOVE_RETR, n - 1)):
+                b = bars[r]
+                if b['h'] >= g_bot and b['c'] < g_top:
+                    entry = b['c']; stop = g_top + MMOVE_BUF * a
+                    if stop > entry:
+                        out.append({'strategy': tag, 'tf': tf, 'pair': pk, 'dir': 'bear',
+                                    'entry_ts': bars[r + 1]['_ts'], 'entry': entry, 'stop': stop})
+                    last = r + MMOVE_COOLDOWN; break
+                if b['c'] > g_top:
+                    break
+    return out
+
+
+def detect_mmove(pk, h1, daily):
+    out = []
+    if PAIR_CLASS.get(pk) == 'crypto':
+        out += _mmove_signals(h1, pk, 'mmove', 'h1')
+    if pk in MMOVE_IX1:
+        out += _mmove_signals(h1, pk, 'mmove_ix', 'h1')
+    if pk in MMOVE_IX4 or pk in MMOVE_C4:
+        b4 = agg4h(h1)
+        if pk in MMOVE_IX4:
+            out += _mmove_signals(b4, pk, 'mmove_ix4', '4h')
+        if pk in MMOVE_C4:
+            out += _mmove_signals(b4, pk, 'mmove_c4', '4h')
+    return out
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -1367,7 +1437,8 @@ def main():
                  + detect_wm(pk, h1, daily) + detect_sid(pk, h1, daily)
                  + detect_obfvg(pk, h1, daily) + detect_obfvg_watch(pk, h1, daily)
                  + detect_gbreak(pk, h1, daily) + detect_gtrend(pk, h1, daily)
-                 + detect_gfib(pk, h1, daily) + detect_e90break(pk, h1, daily))
+                 + detect_gfib(pk, h1, daily) + detect_e90break(pk, h1, daily)
+                 + detect_mmove(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -1412,6 +1483,10 @@ def main():
                 st, o = score(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], GTREND_HOLD)
             elif rec['strategy'] == 'e90break':
                 st, o = score_asianglitch(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], E90_HOLD, rec.get('rr', E90_RR))
+            elif rec['strategy'] in ('mmove', 'mmove_ix'):
+                st, o = score(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], MMOVE_HOLD)
+            elif rec['strategy'] in ('mmove_ix4', 'mmove_c4'):
+                st, o = score(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], MMOVE_HOLD)
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -1440,7 +1515,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'gbreak', 'gtrend', 'gfib', 'e90break'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
