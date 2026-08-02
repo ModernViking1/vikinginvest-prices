@@ -448,7 +448,7 @@ section{padding:84px 0;}
         <li><span class="tick">&#10003;</span>Live broker bridge to cTrader &mdash; server-side dedup, daily-loss limiter, kill-switch, Telegram alerts; broker fills reconcile back to the dashboard in real time.</li>
         <li><span class="tick">&#10003;</span>12-month backtest engine on institutional-grade price history, auto-refreshed every six hours, with a per-pair failure-mode panel and structured trade journal.</li>
         <li><span class="tick">&#10003;</span>Out-of-sample &amp; walk-forward validation on every candidate edge &mdash; <strong>more than 50 published strategies stress-tested to date; only a small minority survived</strong> and earned a place in the engine. Most fail the moment realistic execution costs are applied &mdash; we separate durable edges from backtest illusions, not chase headline win rates.</li>
-        <li><span class="tick">&#10003;</span>Execution-gap engineering &mdash; each strategy's modelled expectancy is calibrated against real broker fills, so headline numbers reflect live execution rather than idealised fills. Order-routing choices (market vs limit, entry timing) are A/B-measured, not assumed.</li>
+        <li><span class="tick">&#10003;</span>Execution-gap engineering &mdash; modelled expectancy is measured against real broker fills so the gap between idealised and live execution is <em>quantified, not hidden</em>. Backtest figures are simulated (frictionless) and run higher than live trading will; live results are reported separately, always with their sample size. Order-routing choices (market vs limit, entry timing) are A/B-measured, not assumed.</li>
         <li><span class="tick">&#10003;</span>Live forward-test harness &mdash; new candidates run on an isolated demo account with model-vs-real tracking, proving (or disproving) an edge before a cent of real capital moves.</li>
       </ul>
       <a href="./dashboard.html" class="btn btn-gold">Open the live dashboard</a>
@@ -476,7 +476,7 @@ section{padding:84px 0;}
           <span class="mock-px">68,420 <span class="tag tag-bull">Long</span></span>
         </div>
         <div class="mock-row">
-          <span class="mock-sym">Performance &middot; YTD</span>
+          <span class="mock-sym">Backtest &middot; YTD <span style="opacity:.7;">(simulated)</span></span>
           <span class="tag tag-gold">+341R</span>
         </div>
         <div class="mock-row">
