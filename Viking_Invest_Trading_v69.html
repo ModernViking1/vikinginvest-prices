@@ -1991,7 +1991,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Mukta',sans-serif;paddin
 
   <!-- ── 9. BACKTEST DISCLAIMER ── -->
   <div style="background:var(--beart);border:1px solid rgba(192,40,26,.2);border-radius:3px;padding:10px 12px;font-size:10px;color:var(--inkm);line-height:1.7;margin-bottom:10px;">
-    <strong style="color:var(--ink);">⚠ Backtest Disclaimer:</strong> Results reconstructed from documented Apr 2025–Apr 2026 price turning points. Viking Edge rules applied consistently — proprietary entry, structural stop, liquidity-zone target. Slippage, spread and execution delay are not modelled. The Viking Edge filter is applied strictly across every recorded setup. Past performance does not guarantee future results.
+    <strong style="color:var(--ink);">⚠ Backtest Disclaimer:</strong> The live Viking Edge detector is replayed <strong>forward, bar-by-bar</strong> over Apr 2025–Apr 2026 history — each bar is evaluated using only data available at its close, with subsequent bars revealed in sequence. Turning points are found causally, as they would have appeared in real time; there is <strong>no look-ahead</strong> and no hindsight labelling. Proprietary entry, structural stop and liquidity-zone target are applied consistently across every setup. Slippage, spread and execution delay are <strong>not</strong> modelled here — these are simulated (frictionless) figures that run higher than live; see the Performance tab for net-of-cost live results with sample size. Past performance does not guarantee future results.
   </div>
 
   <!-- ════ SIGNAL LOG (merged into the Backtest page 2026-06-13qq) ════
@@ -4513,6 +4513,9 @@ function buildOvGrid(){
     keys.forEach(function(k){
       var d = document.createElement('div');
       d.id = 'ov-' + k;
+      d.style.cursor = 'pointer';
+      d.title = 'Open ' + ((MKTS[k] && MKTS[k].sym) || k.toUpperCase()) + ' — entry, stop, target & confluence breakdown';
+      d.setAttribute('role', 'button');
       d.onclick = (function(key){return function(){switchPage('dash');switchMkt(key);};})(k);
       g.appendChild(d);
       updateOV(k);
@@ -22519,11 +22522,31 @@ function _renderCCIVariantPanel(host, commodityKeys){
       }).catch(function(){ if(btn){btn.disabled=false;btn.textContent='Request access';} });
   }
 
+  // Hide/restore the REAL content of a guarded page (everything except the gate overlay).
+  // A semi-opaque overlay alone leaves the content in the DOM and readable (scroll / devtools),
+  // so an unapproved viewer could read Performance/Investor/Backtest in full. This blanks the
+  // actual content when gated. NOTE: this is client-side only — the content still exists in the
+  // browser once fetched, so the NDA-grade fix is to gate the sensitive data SERVER-SIDE (render
+  // guarded panels only after Supabase confirms approval). This closes the casual-read hole now.
+  function _setGateHidden(pg, ov, hidden){
+    if(!pg) return;
+    Array.prototype.forEach.call(pg.children, function(ch){
+      if(ch===ov) return;
+      if(hidden){ ch.setAttribute('data-gated','1'); ch.style.display='none'; }
+      else if(ch.getAttribute('data-gated')){ ch.style.display=''; ch.removeAttribute('data-gated'); }
+    });
+  }
   function applyGate(tab){
-    Object.keys(GUARDED).forEach(function(t){ var ov=document.getElementById('viGate-'+t); if(ov && t!==tab) ov.style.display='none'; });
+    Object.keys(GUARDED).forEach(function(t){
+      if(t===tab) return;
+      var ov=document.getElementById('viGate-'+t); if(ov) ov.style.display='none';
+      _setGateHidden(document.getElementById('page-'+t), ov, false);   // restore inactive guarded pages
+    });
     if(!GUARDED[tab]) return;
     var ov=overlayFor(tab); if(!ov) return;
-    if(allowed(tab)) ov.style.display='none'; else { renderGate(tab); ov.style.display='flex'; }
+    var pg=document.getElementById('page-'+tab);
+    if(allowed(tab)){ ov.style.display='none'; _setGateHidden(pg, ov, false); }
+    else { renderGate(tab); ov.style.display='flex'; _setGateHidden(pg, ov, true); }
   }
 
   // ── owner-only "N pending" badge on the Backtest page ──
