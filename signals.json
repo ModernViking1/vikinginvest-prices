@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-08-03T01:06:03.107353+00:00",
-  "generated_ms": 1785719163006,
-  "detector_last_check": "2026-08-03T01:06:02.909483+00:00",
+  "generated": "2026-08-03T01:11:13.701602+00:00",
+  "generated_ms": 1785719473602,
+  "detector_last_check": "2026-08-03T01:11:13.506354+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,34 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
-    "armed": 1,
-    "triggered": 1,
+    "total": 4,
+    "armed": 2,
+    "triggered": 2,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "btcusd:1785716100000:wick",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 63364.01,
+      "stop": 63730.49,
+      "target": 62997.530000000006,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1785716100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1785719473602,
+      "source": "server-detector",
+      "event_aligned": null
+    },
     {
       "id": "suiusd:1785715200000:wick",
       "pair": "suiusd",
@@ -34,7 +56,29 @@
       "cl": "bear",
       "armedAt": 1785715200000,
       "triggeredAt": null,
-      "lastSeenAt": 1785719163006,
+      "lastSeenAt": 1785719473602,
+      "source": "server-detector",
+      "event_aligned": null
+    },
+    {
+      "id": "btcusd:1780440300000:fib",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 63249.30302,
+      "stop": 63730.49,
+      "target": 62768.11604,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1780440300000,
+      "triggeredAt": 1785717900000,
+      "lastSeenAt": 1785719473602,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -56,7 +100,7 @@
       "cl": "bear",
       "armedAt": 1780424100000,
       "triggeredAt": 1785717000000,
-      "lastSeenAt": 1785719163006,
+      "lastSeenAt": 1785719473602,
       "source": "server-detector",
       "event_aligned": null
     }
