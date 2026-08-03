@@ -1,10 +1,61 @@
 {
  "schema_version": 1,
- "generated": "2026-08-03T10:00:00+00:00",
- "data_end_ts": 1785751200,
- "raw_signal_count": 11,
- "count": 8,
+ "generated": "2026-08-03T15:00:00+00:00",
+ "data_end_ts": 1785769200,
+ "raw_signal_count": 18,
+ "count": 11,
  "signals": [
+  {
+   "id": "fib_gz:xauusd:1785758400",
+   "strategy": "fib_gz",
+   "pair": "xauusd",
+   "symbol": "XAUUSD",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 4029.67649357,
+   "ref_entry": 4062.465,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1785758400,
+   "created_ts": 1785769200,
+   "expiry_ts": 1785801600,
+   "state": "triggered",
+   "cofire": [
+    "fib_gz",
+    "gtrend"
+   ],
+   "cofire_dirs": [
+    "fib_gz:bear",
+    "fib_gz:bull",
+    "gtrend:bear"
+   ],
+   "suppressed": 2
+  },
+  {
+   "id": "fib_gz:xptusd:1785758400",
+   "strategy": "fib_gz",
+   "pair": "xptusd",
+   "symbol": "XPTUSD",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 1617.88898143,
+   "ref_entry": 1639.022,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1785758400,
+   "created_ts": 1785769200,
+   "expiry_ts": 1785801600,
+   "state": "triggered",
+   "cofire": [
+    "fib_gz"
+   ],
+   "cofire_dirs": [
+    "fib_gz:bull"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "fib_gz:natgas:1785747600",
    "strategy": "fib_gz",
@@ -18,7 +69,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785747600,
-   "created_ts": 1785751200,
+   "created_ts": 1785769200,
    "expiry_ts": 1785790800,
    "state": "triggered",
    "cofire": [
@@ -43,7 +94,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785744000,
-   "created_ts": 1785751200,
+   "created_ts": 1785769200,
    "expiry_ts": 1785787200,
    "state": "triggered",
    "cofire": [
@@ -68,7 +119,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785740400,
-   "created_ts": 1785751200,
+   "created_ts": 1785769200,
    "expiry_ts": 1785783600,
    "state": "triggered",
    "cofire": [
@@ -92,7 +143,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785736800,
-   "created_ts": 1785751200,
+   "created_ts": 1785769200,
    "expiry_ts": 1785780000,
    "state": "triggered",
    "cofire": [
@@ -116,7 +167,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785736800,
-   "created_ts": 1785751200,
+   "created_ts": 1785769200,
    "expiry_ts": 1785780000,
    "state": "triggered",
    "cofire": [
@@ -128,52 +179,80 @@
    "suppressed": 0
   },
   {
-   "id": "wm:btcusd:1785726000",
-   "strategy": "wm",
+   "id": "engulf_manip:btcusd:1785722400",
+   "strategy": "engulf_manip",
    "pair": "btcusd",
    "symbol": "BTCUSD",
    "class": "crypto",
    "dir": "bear",
-   "stop": 63752.526,
-   "ref_entry": 62921.09,
-   "rr": 1.0,
+   "stop": 63769.31364286,
+   "ref_entry": 63130.88,
+   "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
-   "trigger_ts": 1785726000,
-   "created_ts": 1785751200,
-   "expiry_ts": 1785769200,
+   "trigger_ts": 1785722400,
+   "created_ts": 1785769200,
+   "expiry_ts": 1785765600,
    "state": "triggered",
    "cofire": [
+    "engulf_manip",
     "wm"
    ],
    "cofire_dirs": [
+    "engulf_manip:bear",
     "wm:bear"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "engulf_manip:nearusd:1785722400",
+   "strategy": "engulf_manip",
+   "pair": "nearusd",
+   "symbol": "NEARUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 1.72582143,
+   "ref_entry": 1.698,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "trigger_ts": 1785722400,
+   "created_ts": 1785769200,
+   "expiry_ts": 1785765600,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear"
    ],
    "suppressed": 0
   },
   {
-   "id": "fib_gz:xauusd:1785711600",
-   "strategy": "fib_gz",
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
+   "id": "engulf_manip:xrpusd:1785722400",
+   "strategy": "engulf_manip",
+   "pair": "xrpusd",
+   "symbol": "XRPUSD",
+   "class": "crypto",
    "dir": "bear",
-   "stop": 4103.053345,
-   "ref_entry": 4063.705,
+   "stop": 1.09292857,
+   "ref_entry": 1.0741,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
-   "trigger_ts": 1785711600,
-   "created_ts": 1785751200,
-   "expiry_ts": 1785754800,
+   "trigger_ts": 1785722400,
+   "created_ts": 1785769200,
+   "expiry_ts": 1785765600,
    "state": "triggered",
    "cofire": [
-    "fib_gz"
+    "engulf_manip",
+    "obfvg"
    ],
    "cofire_dirs": [
-    "fib_gz:bear"
+    "engulf_manip:bear",
+    "obfvg:bear"
    ],
-   "suppressed": 0
+   "suppressed": 1
   },
   {
    "id": "hs:taousd:1785704400",
@@ -188,7 +267,7 @@
    "r_pct": 1.0,
    "entry_mode": "market",
    "trigger_ts": 1785704400,
-   "created_ts": 1785751200,
+   "created_ts": 1785769200,
    "expiry_ts": 1785747600,
    "state": "triggered",
    "cofire": [
