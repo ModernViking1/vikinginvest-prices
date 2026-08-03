@@ -91,7 +91,19 @@ ENGULF_CLASSES = {'crypto'}
 #          (15/15 parameter cells pass both OOS halves); highest gold priority.
 # gtrend = #1 50/200 EMA trend pullback (H4, RR2, choppiness filter removed —
 #          it hurt in testing). Both self-gate to xauusd and are cBot-executable.
-PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'tl_nowick': 4, 'fib_gz': 5, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14}
+PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'fib_gz': 5, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14}
+
+# Demoted to observer-only (2026-08-03) — genuine-forward decay on live data since
+# tracking began (see swing-shadow-log.json GENUINE FORWARD):
+#   tl_nowick    fwd n=38  WR 18.4%  exp -0.475R  — negative across every class
+#   w5_pullback  fwd n=50  WR 24.0%  exp -0.314R  — deteriorating (OOS 2nd half
+#                -0.678R; majors 0% WR over n=14). Only comm stayed positive.
+# The harness (unified_shadow_harness) still runs both detectors and logs them as
+# observers, so they keep accumulating forward evidence — they are simply held back
+# from the cBot feed until they re-earn a slot (target: n>=40 fwd, BOTH OOS halves
+# positive). To re-promote, delete the tag from DEMOTED. Their per-class survivors
+# (w5_pullback/comm, and s5_engulf/index on the observer side) are the cells to watch.
+DEMOTED = {'tl_nowick', 'w5_pullback'}
 
 # Scaled exit for the 2:1 gold signals (2026-08-01) — bank profit progressively instead of a
 # single far TP. gbreak/gtrend are emitted as THREE legs (1/3 risk each, SHARED stop) with
@@ -149,6 +161,8 @@ def main():
             found += detect_engulf_manip(pk, h1, daily)
         for s in found:
             if s['entry_ts'] < fresh_after:
+                continue
+            if s['strategy'] in DEMOTED:   # detected but held back from the cBot; harness still logs it
                 continue
             sid = f"{s['strategy']}:{pk}:{int(s['entry_ts'])}"
             rows.append({
