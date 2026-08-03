@@ -603,11 +603,17 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
     if(!host) return;
     var c=sb();
     if(!c){ host.innerHTML='<div class="note">Auth not ready.</div>'; return; }
-    c.from('profiles').select('id,first_name,last_name,company,role,country,access_requested_at,access_approved')
-      .not('access_requested_at','is',null).order('access_requested_at',{ascending:false})
+    // admin_pending_access RPC joins auth.users so each request carries its
+    // account email (profiles has no email column) — see supabase/admin_pending_access.sql.
+    c.rpc('admin_pending_access')
       .then(function(r){
         if(r && r.error){
-          host.innerHTML='<div class="note" style="color:#c0281a;">'+(r.error.code==='42P01'?'Run access.sql first (profiles.access_approved missing).':'Cannot load — check the owner RLS in access.sql.')+'</div>';
+          var code=r.error.code;
+          var msg = code==='PGRST202' ? 'Run supabase/admin_pending_access.sql in the Supabase SQL editor to enable this panel.'
+                  : code==='42501'    ? 'Not authorised — your email is not on the admin allowlist.'
+                  : code==='42P01'    ? 'Run access.sql first (profiles.access_approved missing).'
+                  :                     'Cannot load access requests.';
+          host.innerHTML='<div class="note" style="color:#c0281a;">'+esc(msg)+'</div>';
           if(cnt) cnt.textContent=''; return;
         }
         var rows=(r.data||[]), pend=rows.filter(function(x){return !x.access_approved;});
@@ -616,11 +622,15 @@ h1{font-family:'Orbitron',monospace;font-size:28px;font-weight:800;text-align:ce
         if(!rows.length){ host.innerHTML='<div class="note">No access requests yet.</div>'; return; }
         var h='';
         rows.forEach(function(x){
-          var nm=((x.first_name||'')+' '+(x.last_name||'')).trim()||'(no name)';
-          var sub=[x.company,x.role,x.country].filter(Boolean).join(' · ');
+          var nm=((x.first_name||'')+' '+(x.last_name||'')).trim();
+          // Prefer a real name; fall back to the account email so a nameless
+          // auto-enqueued request is still identifiable. Email always exists.
+          var primary=nm||x.email||'(no identity on file)';
+          // When a name is present, show the email in the sub-line too.
+          var sub=[nm?x.email:null,x.company,x.role,x.country].filter(Boolean).join(' · ');
           h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;margin-bottom:7px;background:var(--sf);">'
             +'<div style="min-width:0;">'
-              +'<div style="font-weight:600;color:var(--ink);">'+esc(nm)+(x.access_approved?' <span style="color:#1a7a4a;font-size:11px;">✓ approved</span>':'')+'</div>'
+              +'<div style="font-weight:600;color:var(--ink);word-break:break-word;">'+esc(primary)+(x.access_approved?' <span style="color:#1a7a4a;font-size:11px;">✓ approved</span>':'')+'</div>'
               +(sub?'<div style="font-size:11px;color:var(--inkd);margin-top:1px;">'+esc(sub)+'</div>':'')
               +'<div style="font-size:10px;color:var(--inkd);margin-top:2px;">requested '+esc(fmtDate(x.access_requested_at))+'</div>'
             +'</div>'
