@@ -1107,6 +1107,22 @@ def detect_obfvg_watch(pk, h1, daily):
     return _obfvg_signals(pk, h1, 'obfvg_w')
 
 
+OBFVG_FX4_HOLD = 60          # 4h bars (~10 trading days) to reach the RR2 target
+
+
+def detect_obfvg_fx4(pk, h1, daily):
+    """SHADOW OBSERVER — Alex Morris / Trading Cafe 4H order-block setup on FX
+    minor+major (his universe). Identical OB+FVG retrace logic as the live obfvg
+    cell, but on 4h zones and OBSERVE-ONLY. Systematic realistic-fill testing showed
+    FX negative at every RR and both zone TFs (alex_morris_ob_research.py), and the
+    posted 'winning setups' are a selected-winner highlight reel with no base rate —
+    so this is logged, NOT fed to the cBot. It accumulates forward, out-of-sample
+    evidence on his exact method so we can revisit on live data, not backtest."""
+    if PAIR_CLASS.get(pk) not in ('minor', 'major'):
+        return []
+    return _obfvg_signals(pk, agg4h(h1), 'obfvg_fx4', '4h')
+
+
 # ── Gold playbook (Audacity Capital list) — tested in gold_strategies_research.py ──
 # XAUUSD-only. #3 breakout + #1 trend go LIVE (cBot feed); #7 fib is MONITOR-only.
 GOLD = 'xauusd'
@@ -1438,7 +1454,7 @@ def main():
                  + detect_obfvg(pk, h1, daily) + detect_obfvg_watch(pk, h1, daily)
                  + detect_gbreak(pk, h1, daily) + detect_gtrend(pk, h1, daily)
                  + detect_gfib(pk, h1, daily) + detect_e90break(pk, h1, daily)
-                 + detect_mmove(pk, h1, daily))
+                 + detect_mmove(pk, h1, daily) + detect_obfvg_fx4(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -1477,6 +1493,8 @@ def main():
                 st, o = score_asianglitch(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], WM_HOLD, rec.get('rr', WM_RR))
             elif rec['strategy'] in ('obfvg', 'obfvg_w'):
                 st, o = score(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], OBFVG_HOLD)
+            elif rec['strategy'] == 'obfvg_fx4':
+                st, o = score(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], OBFVG_FX4_HOLD)
             elif rec['strategy'] in ('gbreak', 'gfib'):
                 st, o = score(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], GBREAK_HOLD)
             elif rec['strategy'] == 'gtrend':
@@ -1515,7 +1533,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)

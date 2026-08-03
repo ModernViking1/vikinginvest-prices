@@ -174,6 +174,34 @@ for the ongoing forward numbers vs the claim.
 
 ---
 
+## Alex Morris / Trading Cafe — supply/demand + order blocks
+
+- **Claimed (course marketing + student results):** 60.72% avg win rate · 154.16% avg
+  return · 8,400 student trades; one student's PDF log = 300 trades, 76.7% WR, +1.90R avg,
+  +568.7R total (not fat-tailed). Method: fresh HTF supply/demand zone / 4H "bullish order
+  block", top-down weekly/daily bias, retest entry, stop beyond the zone, 2:1+ (runners).
+- **Measured (systematic replication, our full universe):**
+  - The student log is a **manual BarReplay backtest** on FX minors/majors — hand-placed
+    limit entries at zone edges + discretionary bias/quality filtering (the fill illusion
+    plus survivorship).
+  - **Tight-base S&D zone, market fills** (`alex_morris_sd_research.py`): 4h FX negative
+    (−0.05R base, and the top-down-bias filter makes it *worse*, −0.22R); the lone daily
+    n≥40 pass (+0.35R) is 1–5 trades/pair pooled across 18 pairs — small-sample noise.
+  - **His exact 4H order-block method, market fills** (`alex_morris_ob_research.py`): FX
+    negative at every target (4h RR2 −0.219R; h1 RR2 −0.214R with the recent OOS half
+    strongly negative), and the RR5 "let it run" target he showcases makes FX *worse*.
+    Order blocks only work on crypto (already live as `obfvg`) — not the FX he trades.
+  - The posted "winning setups" are a **selected-winner highlight reel** (a #trading-results
+    channel of winners) — no losers, no denominator, so they cannot move a base rate.
+- **Verdict:** skilled discretionary trader; the *judgement* about which zones to take does
+  the work and does not survive mechanisation on FX with realistic fills. Rejected for the
+  live feed. Because Trading Cafe actively markets it, kept under forward observation.
+- **Wired as:** shadow observer `obfvg_fx4` (4H order block on FX minor+major, logged NOT
+  fed to the cBot) — accumulates forward, out-of-sample evidence on his exact method to
+  revisit on live data rather than backtest.
+
+---
+
 *Extensible: add a row per creator/strategy as tested. The broader batch (supply &
 demand, Bollinger trend-continuation, Liquidity Sniper, John Wick box, engulf-imbalance,
 Sid RSI+MACD, W/M reversal, Asian-session gold, NY-open flow model, …) lives in the
