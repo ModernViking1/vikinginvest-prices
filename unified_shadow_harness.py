@@ -1037,15 +1037,37 @@ OBFVG_COOLDOWN = 5
 OBFVG_HOLD = 72
 OBFVG_LIVE = {'xrpusd', 'usdcad'}      # parameter-robust -> live feed
 OBFVG_WATCH = {'ftse100', 'btcusd'}    # base-positive but grid-borderline -> shadow-only WATCH
+OBFVG_REGIME_GATE = True               # daily-50-EMA regime filter (validated per-pair 2026-08-04,
+                                       # ma_reclaim_research.py): only take obfvg entries ALIGNED with
+                                       # the daily-50-EMA side. Counter-trend entries are negative in
+                                       # aggregate and in most pairs; aligned beats counter in 31/39.
+                                       # Only removes trades -> more selective. Live cells net improve
+                                       # (xrpusd/usdcad combined +0.235R -> +0.358R gated).
+OBFVG_REGIME_MA = 50
 
 
-def _obfvg_signals(pk, h1, tag, tf='h1'):
+def _obfvg_signals(pk, h1, tag, tf='h1', daily=None):
     """OB+FVG retrace, MARKET entry (tag-bar close), fixed RR2 (scored by score()).
     Impulse -> order block (last opposite candle) + FVG (3-bar gap) = zone; retrace
     into the zone -> enter in the impulse direction; stop beyond the OB. The robust
     cell across the parameter grid (not the fat-tailed day-range target). `tf` is the
-    entry timeframe of the bars passed in (h1 for the swing cells, 15m for intraday)."""
+    entry timeframe of the bars passed in (h1 for the swing cells, 15m for intraday).
+    When `daily` is supplied and OBFVG_REGIME_GATE is on, counter-trend entries (against
+    the daily-50-EMA side) are suppressed — a validated regime filter."""
     bars = h1; n = len(bars); out = []; last = -1
+    de = dts = None
+    if OBFVG_REGIME_GATE and daily and len(daily) > OBFVG_REGIME_MA:
+        de = ema([b['c'] for b in daily], OBFVG_REGIME_MA); dts = [b['_ts'] for b in daily]
+
+    def _aligned(entry_ts, d):
+        if de is None:                                          # no daily / too little -> don't gate
+            return True
+        di = bisect.bisect_right(dts, entry_ts) - 1
+        if di < OBFVG_REGIME_MA or de[di] is None:
+            return True
+        up = daily[di]['c'] > de[di]
+        return (up and d == 'bull') or ((not up) and d == 'bear')
+
     for j in range(OBFVG_OB_LOOK+2, n-2):
         if j <= last:
             continue
@@ -1065,7 +1087,7 @@ def _obfvg_signals(pk, h1, tag, tf='h1'):
             for r in range(j+1, min(j+1+OBFVG_RETR, n-1)):
                 if bars[r]['h'] >= zone_lo:
                     entry = bars[r]['c']; stop = ob_top + OBFVG_BUF*a
-                    if stop > entry:
+                    if stop > entry and _aligned(bars[r+1]['_ts'], 'bear'):
                         out.append({'strategy': tag, 'tf': tf, 'pair': pk, 'dir': 'bear',
                                     'entry_ts': bars[r+1]['_ts'], 'entry': entry, 'stop': stop})
                     last = r + OBFVG_COOLDOWN; break
@@ -1081,7 +1103,7 @@ def _obfvg_signals(pk, h1, tag, tf='h1'):
             for r in range(j+1, min(j+1+OBFVG_RETR, n-1)):
                 if bars[r]['l'] <= zone_hi:
                     entry = bars[r]['c']; stop = ob_bot - OBFVG_BUF*a
-                    if stop < entry:
+                    if stop < entry and _aligned(bars[r+1]['_ts'], 'bull'):
                         out.append({'strategy': tag, 'tf': tf, 'pair': pk, 'dir': 'bull',
                                     'entry_ts': bars[r+1]['_ts'], 'entry': entry, 'stop': stop})
                     last = r + OBFVG_COOLDOWN; break
@@ -1095,7 +1117,7 @@ def detect_obfvg(pk, h1, daily):
     and watch-forward. cBot-executable."""
     if pk not in OBFVG_LIVE:
         return []
-    return _obfvg_signals(pk, h1, 'obfvg')
+    return _obfvg_signals(pk, h1, 'obfvg', daily=daily)
 
 
 def detect_obfvg_watch(pk, h1, daily):
@@ -1104,7 +1126,7 @@ def detect_obfvg_watch(pk, h1, daily):
     noise on forward data."""
     if pk not in OBFVG_WATCH:
         return []
-    return _obfvg_signals(pk, h1, 'obfvg_w')
+    return _obfvg_signals(pk, h1, 'obfvg_w', daily=daily)
 
 
 OBFVG_FX4_HOLD = 60          # 4h bars (~10 trading days) to reach the RR2 target
@@ -1120,7 +1142,7 @@ def detect_obfvg_fx4(pk, h1, daily):
     evidence on his exact method so we can revisit on live data, not backtest."""
     if PAIR_CLASS.get(pk) not in ('minor', 'major'):
         return []
-    return _obfvg_signals(pk, agg4h(h1), 'obfvg_fx4', '4h')
+    return _obfvg_signals(pk, agg4h(h1), 'obfvg_fx4', '4h', daily=daily)
 
 
 # ── Gold playbook (Audacity Capital list) — tested in gold_strategies_research.py ──
