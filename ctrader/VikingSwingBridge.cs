@@ -133,6 +133,19 @@ namespace cAlgo.Robots
                 if (Server.Time > exp) { MarkSeen(s.Id); return; }
             }
 
+            var symbol = ResolveSymbol(s.Pair);
+            if (symbol == null) { Print($"[VikingSwing] symbol not found for {s.Pair} id={s.Id}"); MarkSeen(s.Id); return; }
+
+            var isBuy = s.Dir == "bull";
+
+            // Reversal handling: a same-strategy signal in the new direction flattens THIS
+            // strategy's OPPOSITE-direction exposure on this pair, so a strategy can never hold
+            // both a long and a short on the same pair at once (the self-hedging seen on ETHUSD).
+            // Positions from OTHER strategies, and this strategy's same-direction scaled legs,
+            // are deliberately left untouched. Done BEFORE the concurrency check so a reversal
+            // frees its own slot rather than being blocked by MaxConcurrent.
+            CloseOppositeSameStrategy(symbol, s.Strategy, isBuy);
+
             var concurrent = Positions.Count(p => p.Label == OrderLabel);
             if (concurrent >= MaxConcurrent)
             {
@@ -140,10 +153,6 @@ namespace cAlgo.Robots
                 return; // do NOT MarkSeen: retry next poll when a slot frees
             }
 
-            var symbol = ResolveSymbol(s.Pair);
-            if (symbol == null) { Print($"[VikingSwing] symbol not found for {s.Pair} id={s.Id}"); MarkSeen(s.Id); return; }
-
-            var isBuy = s.Dir == "bull";
             var entry = isBuy ? symbol.Ask : symbol.Bid;   // MARKET entry now
             if (entry <= 0) return;
 
@@ -201,6 +210,61 @@ namespace cAlgo.Robots
                 Print($"❌ [VikingSwing] order rejected {direction} {symbol.Name}: {result.Error} id={s.Id}");
             }
             MarkSeen(s.Id);
+        }
+
+        // Close our own SAME-strategy, OPPOSITE-direction positions on this symbol, enforcing
+        // "one net direction per (pair, strategy)". Cross-strategy positions and same-direction
+        // scaled legs (e.g. gbreak :t1/:t2/:t3) are NOT touched — only a genuine reversal of the
+        // same strategy flattens its stale opposite side.
+        private void CloseOppositeSameStrategy(Symbol symbol, string strategy, bool newIsBuy)
+        {
+            if (symbol == null || string.IsNullOrEmpty(strategy)) return;
+            var opposite = newIsBuy ? TradeType.Sell : TradeType.Buy;
+            List<Position> toClose;
+            try
+            {
+                toClose = Positions.Where(p => p.Label == OrderLabel
+                                            && p.SymbolName == symbol.Name
+                                            && p.TradeType == opposite
+                                            && string.Equals(StrategyOf(p), strategy, StringComparison.Ordinal))
+                                   .ToList();   // snapshot first — ClosePosition mutates Positions
+            }
+            catch (Exception ex) { Print($"[VikingSwing] scan opposite threw: {ex.Message}"); return; }
+
+            foreach (var p in toClose)
+            {
+                try
+                {
+                    var net = p.NetProfit;
+                    var res = ClosePosition(p);
+                    if (res != null && res.IsSuccessful)
+                        Print($"🔄 [VikingSwing] reversal: closed opposite {p.TradeType} {p.SymbolName} strat={strategy} pid={p.Id} net={net:F2}");
+                    else
+                        Print($"[VikingSwing] reversal close failed {p.SymbolName} pid={p.Id}: {res?.Error}");
+                }
+                catch (Exception ex) { Print($"[VikingSwing] reversal close threw pid={p.Id}: {ex.Message}"); }
+            }
+        }
+
+        // Recover the strategy tag for one of our open positions. Prefer the in-memory
+        // position->signal-id map (id = "strategy:pair:ts[:leg]"); fall back to the position
+        // Comment ("SwingTrade | {strategy} | {id}") so it still works after a bot restart,
+        // when the in-memory map is empty but existing positions still carry the comment.
+        private string StrategyOf(Position p)
+        {
+            string sigId;
+            if (_positionIdToSignalId.TryGetValue(p.Id, out sigId) && !string.IsNullOrEmpty(sigId))
+            {
+                var i = sigId.IndexOf(':');
+                return i > 0 ? sigId.Substring(0, i) : sigId;
+            }
+            var c = p.Comment;
+            if (!string.IsNullOrEmpty(c))
+            {
+                var seg = c.Split('|');
+                if (seg.Length >= 2) return seg[1].Trim();
+            }
+            return null;
         }
 
         private Symbol ResolveSymbol(string pair)
