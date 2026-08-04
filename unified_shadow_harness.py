@@ -1036,7 +1036,10 @@ OBFVG_BUF = 0.10
 OBFVG_COOLDOWN = 5
 OBFVG_HOLD = 72
 OBFVG_LIVE = {'xrpusd', 'usdcad'}      # parameter-robust -> live feed
-OBFVG_WATCH = {'ftse100', 'btcusd'}    # base-positive but grid-borderline -> shadow-only WATCH
+OBFVG_WATCH = {'ftse100', 'btcusd', 'jp225'}   # base-positive but grid-borderline -> shadow-only WATCH.
+                                       # jp225 added 2026-08-04: only index/major that newly qualifies
+                                       # once regime-gated (both OOS halves +, +0.255R, n=21 -> thin,
+                                       # so observer not live). See obfvg_regime_candidates.py.
 OBFVG_REGIME_GATE = True               # daily-50-EMA regime filter (validated per-pair 2026-08-04,
                                        # ma_reclaim_research.py): only take obfvg entries ALIGNED with
                                        # the daily-50-EMA side. Counter-trend entries are negative in
