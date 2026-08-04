@@ -15,7 +15,7 @@
 <style>
 :root{
   --bg:#f0ede8;--bg2:#e8e4dd;--sf:#fff;--sf2:#f7f4ef;
-  --ink:#1c1a17;--inkm:#4a4640;--inkd:#9a9088;--rule:#ddd8d0;
+  --ink:#1c1a17;--dark:#242019;--inkm:#4a4640;--inkd:#9a9088;--rule:#ddd8d0;
   --bull:#1a7a4a;--bear:#c0281a;--gold:#c8860a;--purple:#6b3fa0;
   --orange:#c86010;--neu:#5a6878;
   --shad:0 2px 12px rgba(0,0,0,0.07);
@@ -134,28 +134,33 @@ section{padding:84px 0;}
 .card p{font-size:14.5px;color:var(--inkm);font-weight:300;}
 
 /* ── PLATFORM ── */
-.platform{background:var(--ink);color:var(--bg);}
+.platform{background:var(--dark);color:var(--bg);}
 .platform .eyebrow{color:var(--gold);}
+/* upright, on-brand emphasis inside the feature list — italic reads as skewed on dark */
+.feat-list em{font-style:normal;color:var(--gold);font-weight:500;}
 .platform-grid{
   display:grid;grid-template-columns:1fr 1fr;gap:54px;align-items:center;
 }
 .platform h2{font-size:clamp(26px,3.4vw,38px);font-weight:700;color:#fff;margin:14px 0 16px;}
 .platform p.intro{color:#c8c2b8;font-size:16.5px;font-weight:300;margin-bottom:24px;}
 .feat-list{list-style:none;display:flex;flex-direction:column;gap:14px;margin-bottom:30px;}
-.feat-list li{display:flex;gap:12px;font-size:15px;color:#ddd8cf;font-weight:300;}
+/* block (not flex) so inline <strong>/<em> stay in the text flow — flex was splitting
+   each emphasis into its own narrow column. Tick is absolutely positioned in the gutter. */
+.feat-list li{position:relative;padding-left:33px;font-size:15px;color:#e4dfd6;font-weight:300;line-height:1.55;}
 .feat-list .tick{
-  flex-shrink:0;width:21px;height:21px;border-radius:50%;
+  position:absolute;left:0;top:1px;
+  width:21px;height:21px;border-radius:50%;
   background:rgba(200,134,10,0.18);color:var(--gold);
   display:flex;align-items:center;justify-content:center;
-  font-size:12px;font-weight:700;margin-top:2px;
+  font-size:12px;font-weight:700;
 }
 .mock{
-  background:#26231f;border:1px solid #3a352e;border-radius:14px;
+  background:#2e2921;border:1px solid #3f3a32;border-radius:14px;
   overflow:hidden;box-shadow:var(--shad-lg);
 }
 .mock-bar{
   display:flex;align-items:center;gap:6px;padding:11px 14px;
-  background:#2f2b26;border-bottom:1px solid #3a352e;
+  background:#37322b;border-bottom:1px solid #3f3a32;
 }
 .mock-bar i{width:9px;height:9px;border-radius:50%;background:#4a443c;display:block;}
 .mock-bar .url{
@@ -244,7 +249,7 @@ section{padding:84px 0;}
 
 /* ── CONTACT ── */
 .contact{
-  background:var(--ink);color:var(--bg);text-align:center;
+  background:var(--dark);color:var(--bg);text-align:center;
 }
 .contact .eyebrow{color:var(--gold);}
 .contact h2{font-size:clamp(28px,3.8vw,42px);font-weight:700;color:#fff;margin:14px 0 14px;}
@@ -440,7 +445,7 @@ section{padding:84px 0;}
         broker fills before it earns capital &mdash; rigour over backtest theatre.
       </p>
       <ul class="feat-list">
-        <li><span class="tick">&#10003;</span>39 active pairs across FX majors and minors, commodities, indices and crypto.</li>
+        <li><span class="tick">&#10003;</span>40 active pairs across FX majors and minors, commodities, indices and crypto.</li>
         <li><span class="tick">&#10003;</span>Live <strong>Viking Edge</strong> &mdash; multi-timeframe signal engine: primary four-layer confluence path plus two parallel momentum-cross detectors per asset class. Methodology and rule set under NDA.</li>
         <li><span class="tick">&#10003;</span>Per-asset-class production routing &mdash; macro, execution and risk-sizing tier chosen from the per-pair edge curve. One engine, class-aware behaviour.</li>
         <li><span class="tick">&#10003;</span>Fully automated entry, in-trade and exit. Post-trigger noise filters keep clean wins from being reclassified as invalidations.</li>

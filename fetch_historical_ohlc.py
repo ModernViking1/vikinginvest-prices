@@ -117,8 +117,9 @@ PAIRS: Dict[str, Dict[str, str]] = {
     "spx500":  {"oanda": "SPX500_USD"},
     # v7 additions (2026-06-03 — indices)
     "jp225":   {"oanda": "JP225_USD"},   # Nikkei 225
-    # fra40 (CAC 40) removed 2026-06-10 — low win-rate drag.
-    # Re-add: '"fra40": {"oanda": "FR40_EUR"},'
+    # fra40 (CAC 40) reinstated 2026-08-04 — promoted to reach 40 active pairs; fills the
+    # France gap in the European index basket (indices are the strongest class in testing).
+    "fra40":   {"oanda": "FR40_EUR"},
     # IBEX 35 (esp35) removed 2026-06-08 — OANDA practice endpoint
     # rejected both ES35_EUR and ESP35_EUR. Re-add when the correct
     # ticker is confirmed (ESPIX_EUR is a candidate).

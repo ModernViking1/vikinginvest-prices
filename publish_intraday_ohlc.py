@@ -91,8 +91,8 @@ PAIRS = {
     "spx500":  {"oanda": "SPX500_USD"},  # was missing — present in MKTS, fetch-prices.js, fetch_historical_ohlc.py
     # v7 additions (2026-06-03 — indices)
     "jp225":   {"oanda": "JP225_USD"},
-    # fra40 (CAC 40) removed 2026-06-10 — low win-rate drag.
-    # Re-add: '"fra40": {"oanda": "FR40_EUR"},'
+    # fra40 (CAC 40) reinstated 2026-08-04 — promoted to reach 40 active pairs.
+    "fra40":   {"oanda": "FR40_EUR"},
     # esp35 (IBEX 35) removed 2026-06-08 — OANDA practice endpoint
     # rejected both ES35_EUR and ESP35_EUR.
     # Crypto

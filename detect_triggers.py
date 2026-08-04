@@ -132,7 +132,7 @@ PAIR_CLASS = {
     'dj30': 'index',
     'de40': 'index',  # reinstated 2026-06-15lll
     'nas100': 'index', 'spx500': 'index', 'jp225': 'index',
-    # fra40 removed 2026-06-10 — low win-rate drag.
+    'fra40': 'index',  # reinstated 2026-08-04 — 40th active pair (France CAC 40)
     'dxy': 'index',
     # Crypto
     'btcusd': 'crypto', 'ethusd': 'crypto', 'solusd': 'crypto',
