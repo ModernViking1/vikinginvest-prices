@@ -2064,13 +2064,11 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
       <div id="pf-live-host"><div class="pf-empty">scanning…</div></div>
       <div id="pf-kill-banner" class="pf-kill-banner" style="display:none;"></div>
       <div id="pf-broker-strip" class="pf-broker-strip" style="display:none;"></div>
-      <div id="pf-sig-log-strip" class="pf-sig-log-strip" title="Phase 0–3 of the broker auto-execution roadmap — every detector transition is persisted with a stable idempotency key (pair:creatorTs). Broker fills imported from the cTrader cBot are merged in.">
+      <div id="pf-sig-log-strip" class="pf-sig-log-strip" title="Phase 0–3 of the broker auto-execution roadmap — every detector transition is persisted with a stable idempotency key (pair:creatorTs). Broker fills are auto-imported from the cTrader cBot and merged in.">
         <span class="pf-sig-log-tag">📡 Signal Log</span>
         <span id="pf-sig-log-summary">initialising…</span>
-        <span class="pf-sig-log-actions">
-          <input type="file" id="pf-exec-import-input" accept=".jsonl,.json,.txt,application/json" style="display:none;" onchange="window._performanceImportExecutions && window._performanceImportExecutions(this)">
-          <button type="button" class="pf-sig-log-btn" onclick="document.getElementById('pf-exec-import-input').click()" title="Import the executions.jsonl file written by the cTrader cBot on your VPS to reconcile broker fills against detector predictions.">📥 Import Executions</button>
-        </span>
+        <!-- Manual "Import Executions" button removed 2026-08-04: the cTrader cBot now
+             auto-publishes fills (repo dispatch -> CI ingest), so reconciliation is automatic. -->
       </div>
     </div>
 
@@ -2153,14 +2151,17 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
     </div>
 
     <div class="nl-card">
-      <div class="nl-card-hd">▸ Overall Performance <span class="nl-card-hd-r" id="nl-overall-window">all resolved trades · 12-month auto-EW backtest</span></div>
+      <div class="nl-card-hd">▸ Overall Performance <span class="nl-card-hd-r" id="nl-overall-window">all resolved trades · 12-month simulated backtest</span></div>
       <div class="nl-headline">
         <div id="nl-overall-donut"></div>
         <div class="nl-headline-stats">
           <div class="nl-headline-pct" id="nl-overall-pct">—</div>
           <div class="nl-headline-wl" id="nl-overall-wl">awaiting backtest cache…</div>
-          <div class="nl-headline-lbl">Win rate · Viking Edge signals · target 1R</div>
+          <div class="nl-headline-lbl">Win rate · Viking Edge signals · target 1R · <strong>simulated</strong></div>
         </div>
+      </div>
+      <div class="nl-sim-caveat" style="margin-top:14px;padding:9px 12px;border:1px solid rgba(200,134,10,0.4);border-radius:5px;background:rgba(200,134,10,0.07);font-size:11px;line-height:1.5;color:#5f564d;">
+        <strong style="color:#a6790f;">⚠ Simulated backtest — not live results.</strong> The detector is replayed forward, bar-by-bar, with no look-ahead, but <strong>slippage, spread and execution cost are not modelled</strong>. This is a frictionless win rate and it runs <strong>higher than live trading will</strong>. Realised net-of-cost demo results, with sample size, are shown in the live demo panel below.
       </div>
     </div>
 
