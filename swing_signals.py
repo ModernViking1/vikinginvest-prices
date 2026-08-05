@@ -103,12 +103,15 @@ PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'w5_pullback': 6, '
 #              full-history +0.061R was carried by the in-sample half) AND live demo 0/5
 #              -5.16R (5 straight stop-outs). Marginal model edge that has rolled negative
 #              forward and is live-confirmed losing → demote.
+#   wm         (2026-08-05)  live demo WR 13%  -6.5R  — crypto-only 1:1 mean-reversion that
+#              has decayed hard on the live account (mostly straight stop-outs). Held back
+#              from the cBot; harness keeps logging it as an observer to see if it recovers.
 #
 # w5_pullback (fwd n=50, WR 24.0%, -0.314R, OOS 2nd half -0.678R; majors 0%/n14, only
 # comm +0.632R) is left LIVE a few more weeks by decision (2026-08-03) to fatten the
 # sample before a keep/kill call — its first OOS half was positive and comm still
 # holds an edge. Re-review once n climbs; demote then if the decay persists.
-DEMOTED = {'tl_nowick', 'fib_gz'}
+DEMOTED = {'tl_nowick', 'fib_gz', 'wm'}
 
 # Scaled exit for the 2:1 gold signals (2026-08-01) — bank profit progressively instead of a
 # single far TP. gbreak/gtrend are emitted as THREE legs (1/3 risk each, SHARED stop) with
