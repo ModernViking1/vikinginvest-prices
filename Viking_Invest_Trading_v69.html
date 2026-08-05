@@ -1604,15 +1604,25 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
           tl_nowick:'Viking Edge · proprietary', s5_rsi_wide:'Viking Edge · proprietary',
           rsimr:'Viking Edge · proprietary', fred_tl:'Viking Edge · proprietary'
         };
-        h+='<table style="width:100%;border-collapse:collapse;font-size:8.5px;"><tr style="color:'+C.mut+';text-align:left;"><th>strategy</th><th>tracked</th><th>demo n</th><th>demo WR</th><th>demo R</th><th>model WR</th><th>model exp</th></tr>';
-        strats.forEach(function(st){
+        // LIVE (executing on cTrader) vs OBSERVING (shadow-only, not yet qualified for
+        // live capital). Mirrors swing_signals.py PRIORITY minus DEMOTED.
+        var LIVE_SWING={hs:1,s5_rsi:1,s5_rsi_wide:1,ob:1,fib_gz:1,w5_pullback:1,fred_tl:1,threepush:1,engulf_manip:1,asianglitch:1,wm:1,obfvg:1,gbreak:1,gtrend:1};
+        var _hdr='<tr style="color:'+C.mut+';text-align:left;"><th>strategy</th><th>tracked</th><th>demo n</th><th>demo WR</th><th>demo R</th><th>model WR</th><th>model exp</th></tr>';
+        function _swRow(st){
           var d=byStratD[st]?agg(byStratD[st]):null, m=byStratM[st]?agg(byStratM[st]):null;
-          if(!d && !m) return;
-          var td=_trackedDays(st), og=_stratOrigin[st];
-          var nameCell='<span style="font-weight:600;">'+esc(st)+'</span>'+(og?'<div style="color:'+C.mut+';font-size:7px;font-weight:400;line-height:1.15;margin-top:1px;">'+esc(og)+'</div>':'');
-          h+='<tr style="vertical-align:top;"><td>'+nameCell+'</td><td style="color:'+C.mut+'">'+(td!==null?td+'d':'–')+'</td><td>'+(d?d.n:0)+'</td><td>'+(d&&d.n?d.wr.toFixed(0)+'%':'–')+'</td><td style="color:'+(d&&d.tot>=0?C.g:C.r)+'">'+(d&&d.n?(d.tot>=0?'+':'')+d.tot.toFixed(2)+'R':'–')+'</td><td>'+(m&&m.n?m.wr.toFixed(0)+'%':'–')+'</td><td>'+(m&&m.n?(m.exp>=0?'+':'')+m.exp.toFixed(3):'–')+'</td></tr>';
-        });
-        h+='</table>';
+          if(!d && !m) return '';
+          var td=_trackedDays(st), og=_stratOrigin[st], live=!!LIVE_SWING[st];
+          var badge=live
+            ? '<span style="display:inline-block;font-size:6.5px;font-weight:700;letter-spacing:0.3px;color:#fff;background:'+C.g+';border-radius:2px;padding:1px 4px;margin-left:4px;vertical-align:middle;">● LIVE</span>'
+            : '<span style="display:inline-block;font-size:6.5px;font-weight:700;letter-spacing:0.3px;color:'+C.mut+';background:rgba(120,120,130,0.14);border-radius:2px;padding:1px 4px;margin-left:4px;vertical-align:middle;">○ OBSERVING</span>';
+          var nameCell='<span style="font-weight:600;">'+esc(st)+'</span>'+badge+(og?'<div style="color:'+C.mut+';font-size:7px;font-weight:400;line-height:1.15;margin-top:1px;">'+esc(og)+'</div>':'');
+          return '<tr style="vertical-align:top;'+(live?'':'opacity:0.7;')+'"><td>'+nameCell+'</td><td style="color:'+C.mut+'">'+(td!==null?td+'d':'–')+'</td><td>'+(d?d.n:0)+'</td><td>'+(d&&d.n?d.wr.toFixed(0)+'%':'–')+'</td><td style="color:'+(d&&d.tot>=0?C.g:C.r)+'">'+(d&&d.n?(d.tot>=0?'+':'')+d.tot.toFixed(2)+'R':'–')+'</td><td>'+(m&&m.n?m.wr.toFixed(0)+'%':'–')+'</td><td>'+(m&&m.n?(m.exp>=0?'+':'')+m.exp.toFixed(3):'–')+'</td></tr>';
+        }
+        var liveRows=strats.filter(function(st){return LIVE_SWING[st] && (byStratD[st]||byStratM[st]);}).map(_swRow).join('');
+        var obsRows=strats.filter(function(st){return !LIVE_SWING[st] && (byStratD[st]||byStratM[st]);}).map(_swRow).join('');
+        h+='<div style="background:rgba(200,134,10,0.06);border:1px solid rgba(200,134,10,0.28);border-radius:3px;padding:5px 8px;margin:4px 0 6px;color:#7a5c0a;font-size:8px;line-height:1.45;">These edges target ~2:1 reward:risk — so a win rate near 40% is <b>profitable</b>. <b>Expectancy (R per trade)</b> is what matters here, not win rate alone. Only <b style="color:'+C.g+';">● LIVE</b> rows execute on cTrader; <b>○ OBSERVING</b> rows are shadow-tracked candidates that have not yet qualified for live capital.</div>';
+        if(liveRows){ h+='<div style="color:'+C.g+';font-weight:700;letter-spacing:0.5px;margin:2px 0 2px;">● LIVE · executing on cTrader</div><table style="width:100%;border-collapse:collapse;font-size:8.5px;">'+_hdr+liveRows+'</table>'; }
+        if(obsRows){ h+='<div style="color:'+C.mut+';font-weight:700;letter-spacing:0.5px;margin:9px 0 2px;">○ OBSERVING · shadow-only · not yet qualified for live</div><table style="width:100%;border-collapse:collapse;font-size:8.5px;">'+_hdr+obsRows+'</table>'; }
         h+='<div style="color:'+C.mut+';margin-top:3px;font-size:8px;">Rows tagged by technique track independent / publicly-marketed methods we stress-tested (anonymized); model WR is our idealised simulation. Proprietary Viking edges carry no method detail.</div>';
         // ── Confluence splits (read-only shadow tags) — BOS + no-wick ──
         function _confSplit(tagKey){
@@ -1634,10 +1644,13 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         h+=_confTable('BOS-aligned confluence · structure agrees at entry (ICT):','bos_aligned','Read-only tag (changes nothing that fires). Backtest: alignment lifts the continuation edges (s5_rsi/tl_nowick/ob).');
         h+=_confTable('No-wick-aligned confluence · decisive momentum candle at entry:','nowick_aligned','Read-only tag. Backtest: alignment lifts s5_rsi / s5_rsi_wide; demo split fills in as trades close.');
         // per pair (demo)
-        var pk=Object.keys(byPair);
-        if(pk.length){
-          h+='<div style="color:'+C.mut+';margin:6px 0 2px;">demo closed · per pair:</div><table style="width:100%;border-collapse:collapse;font-size:8.5px;">';
-          pk.sort(function(a,b){return byPair[b].length-byPair[a].length;}).forEach(function(p){ var a=agg(byPair[p]); h+='<tr><td>'+esc(p)+'</td><td>'+a.n+'</td><td>'+a.wr.toFixed(0)+'%</td><td style="color:'+(a.tot>=0?C.g:C.r)+'">'+(a.tot>=0?'+':'')+a.tot.toFixed(2)+'R</td></tr>'; });
+        // demo closed · per pair AND strategy (so it's clear which edge each fill belonged to)
+        var byPairStrat={};
+        closed.forEach(function(e){ var p=(e.pair||'?').toUpperCase(); var st=(e.signal_id||'').split(':')[0]||'?'; var key=p+'|'+st; (byPairStrat[key]=byPairStrat[key]||[]).push(e.realized_r); });
+        var pks=Object.keys(byPairStrat);
+        if(pks.length){
+          h+='<div style="color:'+C.mut+';margin:6px 0 2px;">demo closed · per pair &amp; strategy:</div><table style="width:100%;border-collapse:collapse;font-size:8.5px;"><tr style="color:'+C.mut+';text-align:left;"><th>pair</th><th>strategy</th><th>n</th><th>WR</th><th>R</th></tr>';
+          pks.sort(function(a,b){ var d=byPairStrat[b].length-byPairStrat[a].length; if(d)return d; return a<b?-1:1; }).forEach(function(key){ var parts=key.split('|'); var a=agg(byPairStrat[key]); var stLive=LIVE_SWING[parts[1]]; var tag=stLive?' <span style="color:'+C.g+';font-size:6.5px;font-weight:700;">●LIVE</span>':' <span style="color:'+C.mut+';font-size:6.5px;">○obs</span>'; h+='<tr><td style="font-weight:600;">'+esc(parts[0])+'</td><td>'+esc(parts[1])+tag+'</td><td>'+a.n+'</td><td>'+a.wr.toFixed(0)+'%</td><td style="color:'+(a.tot>=0?C.g:C.r)+'">'+(a.tot>=0?'+':'')+a.tot.toFixed(2)+'R</td></tr>'; });
           h+='</table>';
         }
         // ── Losses by pair · click to diagnose (execution vs signal fault) ──
@@ -1654,7 +1667,11 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         fetch(BASE+'swing-shadow-log.json?t='+Date.now()).then(function(r){return r.json();}).then(function(sh){ _shadow=sh; _shadowAt=now; render(exec,sh); }).catch(function(){ render(exec,_shadow||{signals:{}}); });
       }).catch(function(){});
     }
-    function boot(){ try{ load(); setInterval(load,60000);}catch(e){} }
+    // Move the swing forward-test panel ABOVE the auto-EW + failure-mode boxes
+    // (swing is the more important investor-facing surface). Reorder at runtime so
+    // we don't have to relocate the large script block. (2026-08-04)
+    function _swReorder(){ try{ var sp=document.getElementById('swingTestPanel'), ae=document.getElementById('autoEWDiag'); if(sp&&ae&&sp.parentNode&&ae.parentNode===sp.parentNode&&sp.previousElementSibling!==null){ ae.parentNode.insertBefore(sp, ae); } }catch(e){} }
+    function boot(){ _swReorder(); try{ load(); setInterval(load,60000);}catch(e){} }
     if(document.readyState!=='loading') boot(); else document.addEventListener('DOMContentLoaded', boot);
   })();
   </script>
