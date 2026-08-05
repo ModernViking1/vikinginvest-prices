@@ -21005,11 +21005,12 @@ function _renderCCIVariantPanel(host, commodityKeys){
       if(r.realized_r > 0) totalW++;
       else if(r.realized_r < 0) totalL++;
       var p = byPair[r.pair] || (byPair[r.pair] = {
-        trades:0, wins:0, losses:0, R:0, net:0,
+        trades:0, wins:0, losses:0, R:0, net:0, winStrats:{},
         buckets:{'target-hit':0,'stop-clean':0,'stop-after-progress':0,'cbot-invalidation':0,'manual':0}
       });
       p.trades++;
-      if(r.realized_r > 0) p.wins++; else if(r.realized_r < 0) p.losses++;
+      if(r.realized_r > 0){ p.wins++; var _wm=(r.signal_id||'').split(':')[2]||r.strategy||'?'; p.winStrats[_wm]=(p.winStrats[_wm]||0)+1; }
+      else if(r.realized_r < 0) p.losses++;
       if(typeof r.realized_r === 'number') p.R += r.realized_r;
       if(typeof r.net_profit === 'number') p.net += r.net_profit;
       p.buckets[bucket]++;
@@ -21100,7 +21101,16 @@ function _renderCCIVariantPanel(host, commodityKeys){
                  + '</div>';
 
     // ── Per-pair table ──
-    var pairKeys = Object.keys(byPair).sort(function(a,b){ return byPair[b].trades - byPair[a].trades; });
+    // Sort by highest live win rate first (reads better for investors); tie-break by
+    // trade count, then realised R. Pairs with no resolved W/L sink to the bottom.
+    var pairKeys = Object.keys(byPair).sort(function(a,b){
+      var pa=byPair[a], pb=byPair[b];
+      var na=pa.wins+pa.losses, nb=pb.wins+pb.losses;
+      var wa=na?pa.wins/na:-1, wb=nb?pb.wins/nb:-1;
+      if(wb!==wa) return wb-wa;
+      if(pb.trades!==pa.trades) return pb.trades-pa.trades;
+      return pb.R-pa.R;
+    });
     var rows = pairKeys.map(function(k){
       var p = byPair[k];
       var wr = pct(p.wins, p.wins + p.losses);
@@ -21127,12 +21137,18 @@ function _renderCCIVariantPanel(host, commodityKeys){
         deltaTxt = ' <span style="color:' + dCol + ';font-weight:700;">' + (d>=0?'+':'') + d.toFixed(0) + 'pp</span>';
       }
       var _liveP = (typeof MKTS !== 'undefined' && MKTS[k] && MKTS[k].t === 'crypto');
+      // Winning-strategy breakdown — which intraday method(s) produced this pair's wins.
+      var _mLbl = { macdp:'MACD cross', fib:'Fibonacci', wick:'Wick reversal', divg:'MACD divergence' };
+      var _wk = Object.keys(p.winStrats || {}).sort(function(x,y){ return p.winStrats[y] - p.winStrats[x]; });
+      var wonBy = _wk.length
+        ? '<div style="font-size:8px;color:#0d5a36;margin-top:2px;">won by: ' + _wk.map(function(m){ return (_mLbl[m]||m) + ' (' + p.winStrats[m] + ')'; }).join(', ') + '</div>'
+        : '<div style="font-size:8px;color:var(--inkd);margin-top:2px;">no wins in window</div>';
       return '<tr>'
            + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;">' + (k.toUpperCase()) + (_liveP ? ' <span style="font-size:6.5px;color:#0d5a36;font-weight:700;letter-spacing:0.3px;">●LIVE</span>' : ' <span style="font-size:6.5px;color:var(--inkd);font-weight:700;letter-spacing:0.3px;">○obs</span>') + '</td>'
            + '<td style="padding:5px 8px;text-align:right;">' + p.trades + '</td>'
            + '<td style="padding:5px 8px;text-align:right;color:' + pctColor(wr) + ';font-weight:700;">' + liveWrTxt + deltaTxt + '</td>'
            + '<td style="padding:5px 8px;text-align:right;color:' + (p.R>=0?'#0d5a36':'#c0281a') + ';">' + fmtR(p.R) + '</td>'
-           + '<td style="padding:5px 8px;font-size:8.5px;letter-spacing:0.2px;color:var(--inkm);">' + domLabel + ' <span style="opacity:0.6;">(' + domN + '/' + p.trades + ')</span> &middot; ' + simShown + '</td>'
+           + '<td style="padding:5px 8px;font-size:8.5px;letter-spacing:0.2px;color:var(--inkm);">' + domLabel + ' <span style="opacity:0.6;">(' + domN + '/' + p.trades + ')</span> &middot; ' + simShown + wonBy + '</td>'
            + '</tr>';
     }).join('');
 
