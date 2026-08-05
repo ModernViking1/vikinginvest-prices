@@ -1606,7 +1606,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         };
         // LIVE (executing on cTrader) vs OBSERVING (shadow-only, not yet qualified for
         // live capital). Mirrors swing_signals.py PRIORITY minus DEMOTED.
-        var LIVE_SWING={hs:1,s5_rsi:1,s5_rsi_wide:1,ob:1,fib_gz:1,w5_pullback:1,fred_tl:1,threepush:1,engulf_manip:1,asianglitch:1,wm:1,obfvg:1,gbreak:1,gtrend:1};
+        var LIVE_SWING={hs:1,s5_rsi:1,s5_rsi_wide:1,ob:1,w5_pullback:1,fred_tl:1,threepush:1,engulf_manip:1,asianglitch:1,wm:1,obfvg:1,gbreak:1,gtrend:1};
         var _hdr='<tr style="color:'+C.mut+';text-align:left;"><th>strategy</th><th>tracked</th><th>demo n</th><th>demo WR</th><th>demo R</th><th>model WR</th><th>model exp</th></tr>';
         function _swRow(st){
           var d=byStratD[st]?agg(byStratD[st]):null, m=byStratM[st]?agg(byStratM[st]):null;
@@ -1650,8 +1650,10 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         closed.forEach(function(e){ var p=(e.pair||'?').toUpperCase(); var st=e.strategy||(e.signal_id||'').split(':')[0]||'?'; var key=p+'|'+st; (byPairStrat[key]=byPairStrat[key]||[]).push(e.realized_r); });
         var pks=Object.keys(byPairStrat);
         if(pks.length){
-          h+='<div style="color:'+C.mut+';margin:6px 0 2px;">demo closed · per pair &amp; strategy:</div><table style="width:100%;border-collapse:collapse;font-size:8.5px;"><tr style="color:'+C.mut+';text-align:left;"><th>pair</th><th>strategy</th><th>n</th><th>WR</th><th>R</th></tr>';
-          pks.sort(function(a,b){ var d=byPairStrat[b].length-byPairStrat[a].length; if(d)return d; return a<b?-1:1; }).forEach(function(key){ var parts=key.split('|'); var a=agg(byPairStrat[key]); var stLive=LIVE_SWING[parts[1]]; var tag=stLive?' <span style="color:'+C.g+';font-size:6.5px;font-weight:700;">●LIVE</span>':' <span style="color:'+C.mut+';font-size:6.5px;">○obs</span>'; h+='<tr><td style="font-weight:600;">'+esc(parts[0])+'</td><td>'+esc(parts[1])+tag+'</td><td>'+a.n+'</td><td>'+a.wr.toFixed(0)+'%</td><td style="color:'+(a.tot>=0?C.g:C.r)+'">'+(a.tot>=0?'+':'')+a.tot.toFixed(2)+'R</td></tr>'; });
+          h+='<div style="color:'+C.mut+';margin:6px 0 2px;">demo closed · per pair &amp; strategy:</div>';
+          h+='<div style="background:rgba(13,90,54,0.05);border-left:3px solid '+C.g+';border-radius:2px;padding:5px 8px;margin-bottom:3px;font-size:8px;line-height:1.4;color:'+C.g+';"><b>Every trade below is a LIVE cTrader execution.</b> Observer / shadow strategies never reach the broker, so all demo fills are live by definition. If a strategy shown here now appears under <b>○ OBSERVING</b> above (e.g. after a demotion), it was <b>live at the time these trades filled</b>.</div>';
+          h+='<table style="width:100%;border-collapse:collapse;font-size:8.5px;"><tr style="color:'+C.mut+';text-align:left;"><th>pair</th><th>strategy</th><th>n</th><th>WR</th><th>R</th></tr>';
+          pks.sort(function(a,b){ var d=byPairStrat[b].length-byPairStrat[a].length; if(d)return d; return a<b?-1:1; }).forEach(function(key){ var parts=key.split('|'); var a=agg(byPairStrat[key]); var stName=(parts[1]==='?')?'<span style="color:'+C.mut+';font-style:italic;">unlabelled</span>':esc(parts[1]); h+='<tr><td style="font-weight:600;">'+esc(parts[0])+'</td><td>'+stName+'</td><td>'+a.n+'</td><td>'+a.wr.toFixed(0)+'%</td><td style="color:'+(a.tot>=0?C.g:C.r)+'">'+(a.tot>=0?'+':'')+a.tot.toFixed(2)+'R</td></tr>'; });
           h+='</table>';
         }
         // ── Losses by pair · click to diagnose (execution vs signal fault) ──

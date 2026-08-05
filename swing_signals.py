@@ -91,21 +91,24 @@ ENGULF_CLASSES = {'crypto'}
 #          (15/15 parameter cells pass both OOS halves); highest gold priority.
 # gtrend = #1 50/200 EMA trend pullback (H4, RR2, choppiness filter removed —
 #          it hurt in testing). Both self-gate to xauusd and are cBot-executable.
-PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'fib_gz': 5, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14}
+PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14}
 
-# Demoted to observer-only (2026-08-03) — genuine-forward decay on live data since
-# tracking began (see swing-shadow-log.json GENUINE FORWARD):
-#   tl_nowick    fwd n=38  WR 18.4%  exp -0.475R  — negative across every class
-# The harness (unified_shadow_harness) still runs detect_tl and logs tl_nowick as an
-# observer, so it keeps accumulating forward evidence — it is simply held back from
-# the cBot feed until it re-earns a slot (target: n>=40 fwd, BOTH OOS halves +). To
-# re-promote, delete the tag from DEMOTED.
+# Demoted to observer-only — genuine-forward decay on live data since tracking began
+# (see swing-shadow-log.json GENUINE FORWARD). The harness still runs each detector and
+# logs it as an observer, so it keeps accumulating forward evidence — it is simply held
+# back from the cBot feed until it re-earns a slot (target: n>=40 fwd, BOTH OOS halves +).
+# To re-promote, delete the tag from DEMOTED.
+#   tl_nowick  (2026-08-03)  fwd n=38  WR 18.4%  -0.475R  — negative across every class
+#   fib_gz     (2026-08-05)  fwd n=86  WR 29%    -0.136R  (OOS 2nd half -0.241, decaying;
+#              full-history +0.061R was carried by the in-sample half) AND live demo 0/5
+#              -5.16R (5 straight stop-outs). Marginal model edge that has rolled negative
+#              forward and is live-confirmed losing → demote.
 #
 # w5_pullback (fwd n=50, WR 24.0%, -0.314R, OOS 2nd half -0.678R; majors 0%/n14, only
 # comm +0.632R) is left LIVE a few more weeks by decision (2026-08-03) to fatten the
 # sample before a keep/kill call — its first OOS half was positive and comm still
 # holds an edge. Re-review once n climbs; demote then if the decay persists.
-DEMOTED = {'tl_nowick'}
+DEMOTED = {'tl_nowick', 'fib_gz'}
 
 # Scaled exit for the 2:1 gold signals (2026-08-01) — bank profit progressively instead of a
 # single far TP. gbreak/gtrend are emitted as THREE legs (1/3 risk each, SHARED stop) with
