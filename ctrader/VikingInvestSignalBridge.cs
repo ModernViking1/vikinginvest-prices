@@ -1334,6 +1334,11 @@ namespace cAlgo.Robots
 
             string sigId = null;
             _positionIdToSignalId.TryGetValue(p.Id, out sigId);
+            // Survive a cBot restart (in-memory map lost): the signal_id — which carries the
+            // method as its 3rd segment (pair:ts:method) — is recoverable from the position
+            // Comment. Without this fallback the closed row logs a null signal_id, which the
+            // dashboard renders as an "unlabelled" winning strategy ("?").
+            if (string.IsNullOrEmpty(sigId)) sigId = SignalIdFromComment(p.Comment);
 
             double realizedR = 0;
             try

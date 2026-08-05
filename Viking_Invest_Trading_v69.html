@@ -1655,7 +1655,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
           h+='<div style="color:'+C.mut+';margin:6px 0 2px;">demo closed · per pair &amp; strategy:</div>';
           h+='<div style="background:rgba(13,90,54,0.05);border-left:3px solid '+C.g+';border-radius:2px;padding:5px 8px;margin-bottom:3px;font-size:8px;line-height:1.4;color:'+C.g+';"><b>Every trade below is a LIVE cTrader execution.</b> Observer / shadow strategies never reach the broker, so all demo fills are live by definition. If a strategy shown here now appears under <b>○ OBSERVING</b> above (e.g. after a demotion), it was <b>live at the time these trades filled</b>.</div>';
           h+='<table style="width:100%;border-collapse:collapse;font-size:8.5px;"><tr style="color:'+C.mut+';text-align:left;"><th>pair</th><th>strategy</th><th>n</th><th>WR</th><th>R</th></tr>';
-          pks.sort(function(a,b){ var d=byPairStrat[b].length-byPairStrat[a].length; if(d)return d; return a<b?-1:1; }).forEach(function(key){ var parts=key.split('|'); var a=agg(byPairStrat[key]); var stName=(parts[1]==='?')?'<span style="color:'+C.mut+';font-style:italic;">unlabelled</span>':esc(parts[1]); h+='<tr><td style="font-weight:600;">'+esc(parts[0])+'</td><td>'+stName+'</td><td>'+a.n+'</td><td>'+a.wr.toFixed(0)+'%</td><td style="color:'+(a.tot>=0?C.g:C.r)+'">'+(a.tot>=0?'+':'')+a.tot.toFixed(2)+'R</td></tr>'; });
+          pks.sort(function(a,b){ var A=byPairStrat[a],B=byPairStrat[b]; var wa=A.length?A.filter(function(x){return x>0;}).length/A.length:-1, wb=B.length?B.filter(function(x){return x>0;}).length/B.length:-1; if(wb!==wa)return wb-wa; if(B.length!==A.length)return B.length-A.length; return a<b?-1:1; }).forEach(function(key){ var parts=key.split('|'); var a=agg(byPairStrat[key]); var stName=(parts[1]==='?')?'<span style="color:'+C.mut+';font-style:italic;">unlabelled</span>':esc(parts[1]); h+='<tr><td style="font-weight:600;">'+esc(parts[0])+'</td><td>'+stName+'</td><td>'+a.n+'</td><td>'+a.wr.toFixed(0)+'%</td><td style="color:'+(a.tot>=0?C.g:C.r)+'">'+(a.tot>=0?'+':'')+a.tot.toFixed(2)+'R</td></tr>'; });
           h+='</table>';
         }
         // ── Losses by pair · click to diagnose (execution vs signal fault) ──
@@ -21040,17 +21040,27 @@ function _renderCCIVariantPanel(host, commodityKeys){
       return '#c0281a';
     };
 
-    var liveWR = pct(totalW, totalW + totalL);
-    var winShare = pct(aggC['target-hit'], execs.length);
-    var stopCleanShare = pct(aggC['stop-clean'], execs.length);
-    var stopProgShare  = pct(aggC['stop-after-progress'], execs.length);
-    var cbotInvShare   = pct(aggC['cbot-invalidation'], execs.length);
-    var manualShare    = pct(aggC['manual'], execs.length);
+    // ── HEADLINE = currently-live cohort only (crypto). Demoted pairs (commodities,
+    //    indices, FX — now observed, no longer traded) stay in the per-pair table below
+    //    for transparency but are subtracted from the live totals. Fair: the headline
+    //    should reflect what the engine still trades, not strategies we've since pruned.
+    var _isLiveClass = function(pr){ return (typeof MKTS !== 'undefined' && MKTS[pr] && MKTS[pr].t === 'crypto'); };
+    var Lw=0, Ll=0, LR=0, Ln=0, aggCL={'target-hit':0,'stop-clean':0,'stop-after-progress':0,'cbot-invalidation':0,'manual':0};
+    Object.keys(byPair).forEach(function(k){ if(!_isLiveClass(k)) return; var p=byPair[k]; Lw+=p.wins; Ll+=p.losses; LR+=p.R; Ln+=p.trades; Object.keys(aggCL).forEach(function(bb){ aggCL[bb]+=(p.buckets[bb]||0); }); });
+    var demotedN = execs.length - Ln;
 
-    var smallSample = execs.length < 20;
-    var sampleNote = smallSample
-      ? '<span style="color:#c0281a;font-weight:700;">⚠ small sample (' + execs.length + ' closed)</span> — figures stabilise around n≥30. '
-      : '';
+    var liveWR = pct(Lw, Lw + Ll);
+    var winShare = pct(aggCL['target-hit'], Ln);
+    var stopCleanShare = pct(aggCL['stop-clean'], Ln);
+    var stopProgShare  = pct(aggCL['stop-after-progress'], Ln);
+    var cbotInvShare   = pct(aggCL['cbot-invalidation'], Ln);
+    var manualShare    = pct(aggCL['manual'], Ln);
+
+    var smallSample = Ln < 20;
+    var sampleNote = (smallSample
+      ? '<span style="color:#c0281a;font-weight:700;">⚠ small sample (' + Ln + ' live closed)</span> — figures stabilise around n≥30. '
+      : '')
+      + (demotedN > 0 ? '<span style="color:var(--inkd);">Headline = <b>live cohort only</b> (' + Ln + ' crypto trades); ' + demotedN + ' now-demoted trades (commodities / indices / FX, since moved to observer) are shown below but excluded from the totals.</span> ' : '');
 
     // ── Header + aggregate stats row ──
     // Trade-weighted simulated WR across the same pairs that traded
@@ -21061,6 +21071,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     // shifting the blended sim toward un-comparable pairs.
     var simBlendedN = 0, simBlendedSum = 0;
     Object.keys(byPair).forEach(function(k){
+      if(!_isLiveClass(k)) return;                 // blend sim over the live cohort only
       var p = byPair[k];
       var sN = p.wins + p.losses;
       if(typeof simWR[k] === 'number' && sN > 0){
@@ -21090,14 +21101,14 @@ function _renderCCIVariantPanel(host, commodityKeys){
                    + '<span style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);letter-spacing:0.5px;">' + winLabel + ' ' + deltaPill + '</span>'
                    + _viLiveWindowToggle(mode)
                    + '</div>'
-                   + '<div style="text-align:right;font-size:8.5px;color:var(--inkd);letter-spacing:0.6px;font-weight:400;margin-bottom:8px;">' + execs.length + ' closed' + (openCount > 0 ? ' &middot; ' + openCount + ' still open' : '') + ' &middot; ' + fmtR(totalR) + ' realised &middot; ' + fmtPct(liveWR) + ' WR</div>';
+                   + '<div style="text-align:right;font-size:8.5px;color:var(--inkd);letter-spacing:0.6px;font-weight:400;margin-bottom:8px;">' + Ln + ' live closed' + (openCount > 0 ? ' &middot; ' + openCount + ' still open' : '') + (demotedN > 0 ? ' &middot; +' + demotedN + ' demoted' : '') + ' &middot; ' + fmtR(LR) + ' realised &middot; ' + fmtPct(liveWR) + ' WR</div>';
 
     var statsRow = '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px;font-size:9px;">'
-                 + _liveStatTile('🎯 Target hit', aggC['target-hit'], winShare, '#0d5a36')
-                 + _liveStatTile('🛑 Stop clean', aggC['stop-clean'], stopCleanShare, '#c0281a')
-                 + _liveStatTile('📉 Stop after MFE', aggC['stop-after-progress'], stopProgShare, '#d97706')
-                 + _liveStatTile('⚠️ cBot invalidation', aggC['cbot-invalidation'], cbotInvShare, '#c8860a')
-                 + _liveStatTile('🛠 Manual / other', aggC['manual'], manualShare, '#5a5550')
+                 + _liveStatTile('🎯 Target hit', aggCL['target-hit'], winShare, '#0d5a36')
+                 + _liveStatTile('🛑 Stop clean', aggCL['stop-clean'], stopCleanShare, '#c0281a')
+                 + _liveStatTile('📉 Stop after MFE', aggCL['stop-after-progress'], stopProgShare, '#d97706')
+                 + _liveStatTile('⚠️ cBot invalidation', aggCL['cbot-invalidation'], cbotInvShare, '#c8860a')
+                 + _liveStatTile('🛠 Manual / other', aggCL['manual'], manualShare, '#5a5550')
                  + '</div>';
 
     // ── Per-pair table ──
@@ -21138,7 +21149,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       }
       var _liveP = (typeof MKTS !== 'undefined' && MKTS[k] && MKTS[k].t === 'crypto');
       // Winning-strategy breakdown — which intraday method(s) produced this pair's wins.
-      var _mLbl = { macdp:'MACD cross', fib:'Fibonacci', wick:'Wick reversal', divg:'MACD divergence' };
+      var _mLbl = { macdp:'MACD cross', fib:'Fibonacci', wick:'Wick reversal', divg:'MACD divergence', '?':'unlabelled' };
       var _wk = Object.keys(p.winStrats || {}).sort(function(x,y){ return p.winStrats[y] - p.winStrats[x]; });
       var wonBy = _wk.length
         ? '<div style="font-size:8px;color:#0d5a36;margin-top:2px;">won by: ' + _wk.map(function(m){ return (_mLbl[m]||m) + ' (' + p.winStrats[m] + ')'; }).join(', ') + '</div>'
