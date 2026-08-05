@@ -1165,8 +1165,15 @@ namespace cAlgo.Robots
             if (UseLimitEntry)
             {
                 var expiry = Server.Time.AddMinutes(LimitExpiryMin);
+                // CS0618: this pips-based PlaceLimitOrder overload is deprecated by cTrader but
+                // still fully functional (slPips/tpPips are pip distances, exactly as intended).
+                // The replacement overload's SL/TP parameters need demo verification before
+                // migrating, so suppress the deprecation notice here rather than risk changing
+                // live stop/target placement untested.
+#pragma warning disable CS0618
                 var lr = PlaceLimitOrder(direction, symbol.Name, volume, sig.Entry, OrderLabel,
                                          slPips, tpPips, expiry, "viking-" + sig.Id);
+#pragma warning restore CS0618
                 if (lr.IsSuccessful)
                 {
                     _pendingLimitSignals[sig.Id] = new PendingLimit {

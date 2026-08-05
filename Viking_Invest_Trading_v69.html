@@ -1676,11 +1676,14 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
     // (swing is the more important investor-facing surface). Reorder at runtime so
     // we don't have to relocate the large script block. (2026-08-04)
     function _swReorder(){ try{
-      var sp=document.getElementById('swingTestPanel'), ae=document.getElementById('autoEWDiag'), fl=document.getElementById('failureModeAnalysisLive');
+      var sp=document.getElementById('swingTestPanel'), ae=document.getElementById('autoEWDiag'),
+          fl=document.getElementById('failureModeAnalysisLive'), fm=document.getElementById('failureModeAnalysis');
       // 1) swing panel leads
       if(sp&&ae&&sp.parentNode&&ae.parentNode===sp.parentNode&&sp.previousElementSibling!==null){ ae.parentNode.insertBefore(sp, ae); }
-      // 2) intraday failure-mode boxes above the auto-EW diagnostic (move auto-EW to after the LIVE failure-mode box)
-      if(ae&&fl&&ae.parentNode&&fl.parentNode===ae.parentNode&&fl.nextElementSibling!==ae){ fl.insertAdjacentElement('afterend', ae); }
+      // 2) Intraday Forward Testing (live) above the Failure Mode Analysis (simulated) box
+      if(fl&&fm&&fl.parentNode&&fm.parentNode===fl.parentNode&&fm.previousElementSibling!==fl){ fm.parentNode.insertBefore(fl, fm); }
+      // 3) auto-EW diagnostic last (after the Failure Mode Analysis box)
+      if(ae&&fm&&ae.parentNode&&fm.parentNode===ae.parentNode&&fm.nextElementSibling!==ae){ fm.insertAdjacentElement('afterend', ae); }
     }catch(e){} }
     function boot(){ _swReorder(); try{ load(); setInterval(load,60000);}catch(e){} }
     if(document.readyState!=='loading') boot(); else document.addEventListener('DOMContentLoaded', boot);
@@ -20936,7 +20939,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
            + 'This panel fills in with the actual cTrader outcome (target / stop / invalidation) as each trade closes. Auto-refreshes on every CDN poll (60s).')
         : 'No closed broker executions in this window (' + winLabel + '). This panel mirrors the simulated breakdown above using actual cTrader fills. Switch the window above, or wait for the next close. Auto-refreshes on every CDN poll (60s).';
       host.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;">'
-                     +   '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;">▸ Intraday failure mode &middot; LIVE <span style="font-weight:400;opacity:0.7;">· ' + winLabel + '</span></div>'
+                     +   '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;">▸ Intraday Forward Testing &middot; LIVE <span style="font-weight:400;opacity:0.7;">· ' + winLabel + '</span></div>'
                      +   _viLiveWindowToggle(mode)
                      + '</div>'
                      + '<div style="font-size:10px;color:var(--inkd);font-family:Mukta,sans-serif;letter-spacing:0;">' + awaitMsg + '</div>'
@@ -21094,8 +21097,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var _fmCollapsed; try{ var _fv=localStorage.getItem('vit_fmlive_collapsed'); _fmCollapsed=(_fv===null?true:_fv==='1'); }catch(e){ _fmCollapsed=true; }
     if(typeof window.__fmLiveToggle!=='function'){ window.__fmLiveToggle=function(){ try{ var v=localStorage.getItem('vit_fmlive_collapsed'); localStorage.setItem('vit_fmlive_collapsed',(v==='0')?'1':'0'); }catch(e){} var b=document.getElementById('fmLiveBody'), a=document.getElementById('fmLiveArrow'); if(b){ var hid=b.style.display==='none'; b.style.display=hid?'block':'none'; if(a) a.textContent=hid?'▾':'▸'; } }; }
     var headerHtml = '<div onclick="window.__fmLiveToggle()" title="Intraday diagnostic — tap to expand / collapse" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;cursor:pointer;user-select:none;">'
-                   + '<span style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;"><span id="fmLiveArrow">'+(_fmCollapsed?'▸':'▾')+'</span> Intraday failure mode &middot; LIVE</span>'
-                   + '<span style="font-family:Orbitron,monospace;font-size:8px;color:var(--inkd);font-weight:400;letter-spacing:0.5px;">crypto-only live &middot; diagnostic &middot; tap to '+(_fmCollapsed?'expand':'collapse')+'</span>'
+                   + '<span style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;"><span id="fmLiveArrow">'+(_fmCollapsed?'▸':'▾')+'</span> Intraday Forward Testing &middot; LIVE</span>'
+                   + '<span style="font-family:Orbitron,monospace;font-size:8px;color:var(--inkd);font-weight:400;letter-spacing:0.5px;">crypto-only live &middot; forward test &middot; tap to '+(_fmCollapsed?'expand':'collapse')+'</span>'
                    + '</div>';
     var summaryRow = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin:8px 0 6px;">'
                    + '<span style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);letter-spacing:0.5px;">' + winLabel + ' ' + deltaPill + '</span>'
@@ -21196,7 +21199,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     }
 
     var frameNote = '<div style="background:rgba(200,134,10,0.06);border:1px solid rgba(200,134,10,0.28);border-radius:3px;padding:6px 9px;margin-bottom:9px;font-family:Mukta,sans-serif;font-size:10px;line-height:1.5;color:#7a5c0a;letter-spacing:0;">'
-      + '<b>Diagnostic surface — this shows where the intraday feed is FAILING, by design, so it can be pruned.</b> After realised-fill review the <b style="color:#0d5a36;">● LIVE</b> intraday feed is <b>crypto-only</b>; commodities, indices, majors &amp; minors are <b>○ observed</b> (shadow-tracked, not traded). Intraday targets are ~1:1, so — unlike the 2:1 swing edges — a sub-50% win rate here is a losing cohort, which is exactly why the live feed is being narrowed to what survives. A research panel, not a performance headline.'
+      + '<b>Forward-test surface — this tracks the live intraday feed as it is pruned to what survives.</b> After realised-fill review the <b style="color:#0d5a36;">● LIVE</b> intraday feed is <b>crypto-only</b>; commodities, indices, majors &amp; minors are <b>○ observed</b> (shadow-tracked, not traded). Intraday targets are ~1:1, so — unlike the 2:1 swing edges — a sub-50% win rate here is a losing cohort, which is exactly why the live feed is being narrowed to what survives. A research panel, not a performance headline.'
       + '</div>';
     host.innerHTML = headerHtml
                    + '<div id="fmLiveBody" style="display:' + (_fmCollapsed ? 'none' : 'block') + ';">'
