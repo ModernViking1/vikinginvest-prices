@@ -203,7 +203,7 @@ namespace cAlgo.Robots
                       $"SL={pos.StopLoss:F5} TPpips={tpPips:F1} strat={s.Strategy} id={s.Id} pid={pos.Id}");
                 _positionIdToSignalId[pos.Id] = s.Id;
                 WriteExec("placed", s.Id, pos.Id, symbol.Name, s.Dir, pos.VolumeInUnits,
-                          pos.EntryPrice, 0, pos.StopLoss ?? s.Stop, pos.TakeProfit ?? 0, 0, 0, 0, 0, "placed");
+                          pos.EntryPrice, 0, pos.StopLoss ?? s.Stop, pos.TakeProfit ?? 0, 0, 0, 0, 0, "placed", s.Strategy);
             }
             else
             {
@@ -326,22 +326,28 @@ namespace cAlgo.Robots
 
             WriteExec("closed", sigId, p.Id, p.SymbolName, p.TradeType == TradeType.Buy ? "bull" : "bear",
                       p.VolumeInUnits, p.EntryPrice, p.Symbol?.Bid ?? 0, p.StopLoss ?? 0, p.TakeProfit ?? 0,
-                      p.NetProfit, p.Commissions, p.Swap, realizedR, reason);
+                      p.NetProfit, p.Commissions, p.Swap, realizedR, reason, StrategyOf(p));
             if (sigId != null) _positionIdToSignalId.Remove(p.Id);
             Print($"📒 [VikingSwing] closed {p.SymbolName} {p.TradeType} net={p.NetProfit:F2} R={realizedR:F2} reason={reason} id={sigId ?? "(unlinked)"}");
         }
 
         private void WriteExec(string ev, string sigId, long posId, string symbol, string dir, double vol,
                                double entry, double exit, double stop, double target,
-                               double net, double comm, double swap, double realizedR, string reason)
+                               double net, double comm, double swap, double realizedR, string reason,
+                               string strategy = null)
         {
             long tsMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            // Strategy travels with every row even when the in-memory signal-id map was lost to a
+            // bot restart — fall back to the signal_id prefix. Stops the dashboard showing "?".
+            var strat = !string.IsNullOrEmpty(strategy) ? strategy
+                      : (sigId != null && sigId.Contains(":") ? sigId.Split(':')[0] : null);
             try
             {
-                var sb = new System.Text.StringBuilder(320);
+                var sb = new System.Text.StringBuilder(340);
                 sb.Append('{');
                 F(sb, "ts", tsMs); sb.Append(',');
                 F(sb, "event", ev); sb.Append(',');
+                F(sb, "strategy", strat); sb.Append(',');
                 F(sb, "signal_id", sigId); sb.Append(',');
                 F(sb, "position_id", posId); sb.Append(',');
                 F(sb, "pair", sigId != null && sigId.Contains(":") ? sigId.Split(':')[1] : symbol.ToLowerInvariant()); sb.Append(',');

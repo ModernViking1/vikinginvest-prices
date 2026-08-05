@@ -1555,7 +1555,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // execution gap: demo closed matched to a resolved shadow signal
         var gapM=[], gapD=[], byStratD={};
         closed.forEach(function(e){
-          var id=e.signal_id||''; var st=id.split(':')[0]; (byStratD[st]=byStratD[st]||[]).push(e.realized_r);
+          var id=e.signal_id||''; var st=e.strategy||id.split(':')[0]||'?'; (byStratD[st]=byStratD[st]||[]).push(e.realized_r);
           var sh=sigs[id]; if(sh && sh.status==='resolved' && typeof sh.r==='number'){ gapM.push(sh.r); gapD.push(e.realized_r); }
         });
         // per pair (demo closed)
@@ -1641,12 +1641,13 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
           if(note) t+='<div style="color:'+C.mut+';margin-top:2px;font-size:8px;">'+note+'</div>';
           return t;
         }
+        h+='<div style="color:'+C.mut+';margin:9px 0 0;font-size:8px;line-height:1.4;">The two confluence splits below are a <b>cross-cutting entry-quality read spanning ALL strategies — live + observing combined</b> (not a per-category or per-strategy breakdown). They test whether structural alignment at entry lifts expectancy across the whole population.</div>';
         h+=_confTable('BOS-aligned confluence · structure agrees at entry (ICT):','bos_aligned','Read-only tag (changes nothing that fires). Backtest: alignment lifts the continuation edges (s5_rsi/tl_nowick/ob).');
         h+=_confTable('No-wick-aligned confluence · decisive momentum candle at entry:','nowick_aligned','Read-only tag. Backtest: alignment lifts s5_rsi / s5_rsi_wide; demo split fills in as trades close.');
         // per pair (demo)
         // demo closed · per pair AND strategy (so it's clear which edge each fill belonged to)
         var byPairStrat={};
-        closed.forEach(function(e){ var p=(e.pair||'?').toUpperCase(); var st=(e.signal_id||'').split(':')[0]||'?'; var key=p+'|'+st; (byPairStrat[key]=byPairStrat[key]||[]).push(e.realized_r); });
+        closed.forEach(function(e){ var p=(e.pair||'?').toUpperCase(); var st=e.strategy||(e.signal_id||'').split(':')[0]||'?'; var key=p+'|'+st; (byPairStrat[key]=byPairStrat[key]||[]).push(e.realized_r); });
         var pks=Object.keys(byPairStrat);
         if(pks.length){
           h+='<div style="color:'+C.mut+';margin:6px 0 2px;">demo closed · per pair &amp; strategy:</div><table style="width:100%;border-collapse:collapse;font-size:8.5px;"><tr style="color:'+C.mut+';text-align:left;"><th>pair</th><th>strategy</th><th>n</th><th>WR</th><th>R</th></tr>';
@@ -21105,8 +21106,9 @@ function _renderCCIVariantPanel(host, commodityKeys){
         var dCol = d >= 0 ? '#0d5a36' : '#c0281a';
         deltaTxt = ' <span style="color:' + dCol + ';font-weight:700;">' + (d>=0?'+':'') + d.toFixed(0) + 'pp</span>';
       }
+      var _liveP = (typeof MKTS !== 'undefined' && MKTS[k] && MKTS[k].t === 'crypto');
       return '<tr>'
-           + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;">' + (k.toUpperCase()) + '</td>'
+           + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;">' + (k.toUpperCase()) + (_liveP ? ' <span style="font-size:6.5px;color:#0d5a36;font-weight:700;letter-spacing:0.3px;">●LIVE</span>' : ' <span style="font-size:6.5px;color:var(--inkd);font-weight:700;letter-spacing:0.3px;">○obs</span>') + '</td>'
            + '<td style="padding:5px 8px;text-align:right;">' + p.trades + '</td>'
            + '<td style="padding:5px 8px;text-align:right;color:' + pctColor(wr) + ';font-weight:700;">' + liveWrTxt + deltaTxt + '</td>'
            + '<td style="padding:5px 8px;text-align:right;color:' + (p.R>=0?'#0d5a36':'#c0281a') + ';">' + fmtR(p.R) + '</td>'
@@ -21146,7 +21148,10 @@ function _renderCCIVariantPanel(host, commodityKeys){
       }
     }
 
-    host.innerHTML = headerHtml + statsRow + tableHtml + hint + _liveLossesList(execs)
+    var frameNote = '<div style="background:rgba(200,134,10,0.06);border:1px solid rgba(200,134,10,0.28);border-radius:3px;padding:6px 9px;margin-bottom:9px;font-family:Mukta,sans-serif;font-size:10px;line-height:1.5;color:#7a5c0a;letter-spacing:0;">'
+      + '<b>Diagnostic surface — this shows where the intraday feed is FAILING, by design, so it can be pruned.</b> After realised-fill review the <b style="color:#0d5a36;">● LIVE</b> intraday feed is <b>crypto-only</b>; commodities, indices, majors &amp; minors are <b>○ observed</b> (shadow-tracked, not traded). Intraday targets are ~1:1, so — unlike the 2:1 swing edges — a sub-50% win rate here is a losing cohort, which is exactly why the live feed is being narrowed to what survives. A research panel, not a performance headline.'
+      + '</div>';
+    host.innerHTML = headerHtml + frameNote + statsRow + tableHtml + hint + _liveLossesList(execs)
                    + _h11ForwardTracker()
                    + _renderExecCostReport(all, anchor, winLabel);
   }
