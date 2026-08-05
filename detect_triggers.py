@@ -2059,6 +2059,16 @@ EW_DISAGREE_VETO = True
 H4_TOD_FILTER = True
 H4_SKIP_HOURS_UTC = {7, 8, 9, 21}
 
+# 2026-08-05 — FAYTTERRO HARD-GATE. Only fire macd-primary LIVE when a Wyckoff
+# spring (→ bull) / UTAD (→ bear) event is present at entry (h11_event_aligned).
+# Backtest (intraday_faytterro_research.py, m15, realistic market fills, 1:1):
+# the event-aligned cohort clears cost (+0.041R, WR 54.8%, BOTH OOS halves +)
+# while the no-event cohort — 86% of signals — loses (-0.186R, WR 44.6%). The
+# cBot previously only HALF-SIZED non-aligned trades; this gates them out of the
+# live feed entirely (a non-aligned live signal is demoted to shadow, still
+# logged). False to revert to the half-size behaviour.
+MACDP_FAYTTERRO_GATE = True
+
 # 2026-06-29 — DEGENERATE-STOP FLOOR, hoisted to a module constant.
 # In a tight 15m range the structural stop can collapse to ~1 pip (the
 # AUDNZD 1.22030/1.22020 case), which is untradeable after a 2-4 pip spread
@@ -2667,10 +2677,18 @@ def scan_pairs(intraday_data, historical_data):
                 _h1_rsi_mp = calc_rsi(_h1_closes, 14) if len(_h1_closes) >= 15 else None
                 macdp_sig = detect_macd_primary(
                     m15, ew, tl, nw, cl, _h1_rsi_mp, macdp_pair_class)
-                # H11 faytterro spring/UTAD alignment at entry (for cBot
-                # size-weighting: full when aligned, half when not).
+                # H11 faytterro spring/UTAD alignment at entry.
                 if macdp_sig and macdp_sig.get('dir'):
                     macdp_sig['event_aligned'] = h11_event_aligned(_h1_closes, macdp_sig.get('dir'))
+                    # HARD-GATE (2026-08-05): a LIVE ('triggered') macd-primary signal without
+                    # the faytterro event is demoted to shadow — logged, not traded. See
+                    # MACDP_FAYTTERRO_GATE / intraday_faytterro_research.py. event_aligned may be
+                    # True / False / None (not computable); only True keeps the trade live.
+                    if MACDP_FAYTTERRO_GATE and macdp_sig.get('state') == 'triggered' \
+                            and macdp_sig.get('event_aligned') is not True:
+                        macdp_sig['state'] = 'shadow-triggered'
+                        macdp_sig['shadow'] = True
+                        macdp_sig['gated_no_event'] = True
             except Exception as e:
                 print(f'  ⚠ MACD-primary detector failed for {pair}: {e}')
 
@@ -2736,6 +2754,7 @@ def scan_pairs(intraday_data, historical_data):
             'sig_macdp_confluence':  macdp_sig.get('confluence') if macdp_sig else None,
             'sig_macdp_shadow':      bool(macdp_sig.get('shadow')) if macdp_sig else False,
             'sig_macdp_event_aligned': (macdp_sig.get('event_aligned') if macdp_sig else None),
+            'sig_macdp_gated_no_event': (macdp_sig.get('gated_no_event') if macdp_sig else None),
             # MACD-divergence parallel trigger (2026-06-17). INDEX only.
             'sig_divg_state':        divg_sig.get('state') if divg_sig else None,
             'sig_divg_dir':          divg_sig.get('dir') if divg_sig else None,
@@ -2870,6 +2889,12 @@ def _append_shadow_signal(pair, info, trigger_ts):
         'trigger_ts': trigger_ts,
         'logged_at': datetime.now(timezone.utc).isoformat(),
         'confluence': info.get('sig_macdp_confluence'),
+        # Faytterro spring/UTAD alignment at entry — lets the offline analyser split the
+        # shadow index/minor macdp cohort by event, forward-confirming the +0.18R/+0.04R
+        # aligned cells (intraday_faytterro_research.py) before any promotion to live.
+        # 'gated_no_event' marks a signal that WOULD have fired live but for the hard-gate.
+        'event_aligned': info.get('sig_macdp_event_aligned'),
+        'gated_no_event': bool(info.get('sig_macdp_gated_no_event')),
     })
     # Cap the log at the most recent 1000 entries to keep file size
     # manageable. At ~30 entries/week per minor pair that's ~6 months
