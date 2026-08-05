@@ -1465,14 +1465,16 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
           +'<td style="padding:5px 8px;color:'+C.mut+';font-size:8.5px;">last '+ltTxt+'</td>'
           +'<td style="padding:5px 8px;text-align:right;"><button onclick="window.__swDiagnosePair(\''+esc(p)+'\')" style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.5px;padding:3px 9px;background:rgba(30,64,140,0.08);color:'+C.blue+';border:1px solid rgba(30,64,140,0.35);border-radius:3px;cursor:pointer;">'+lbl+'</button></td></tr>';
       }).join('');
+      var _lbC; try{ var _lv=localStorage.getItem('vit_swloss_collapsed'); _lbC=(_lv===null?true:_lv==='1'); }catch(e){ _lbC=true; }
+      if(typeof window.__swLossToggle!=='function'){ window.__swLossToggle=function(){ try{ var v=localStorage.getItem('vit_swloss_collapsed'); localStorage.setItem('vit_swloss_collapsed',(v==='0')?'1':'0'); }catch(e){} var b=document.getElementById('swLossBody'), a=document.getElementById('swLossArrow'); if(b){ var hid=b.style.display==='none'; b.style.display=hid?'block':'none'; if(a) a.textContent=hid?'▾':'▸'; } }; }
       return '<div style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(30,64,140,0.25);">'
-        +'<div style="font-weight:700;letter-spacing:0.6px;color:'+C.blue+';margin-bottom:6px;display:flex;justify-content:space-between;align-items:baseline;">'
-        +  '<span>📒 Losses by pair</span>'
-        +  '<span style="font-weight:400;font-size:8px;color:'+C.mut+';">'+keys.length+' pair'+(keys.length===1?'':'s')+' · '+losses.length+' losses · click to diagnose</span>'
+        +'<div onclick="window.__swLossToggle()" style="cursor:pointer;user-select:none;font-weight:700;letter-spacing:0.6px;color:'+C.blue+';margin-bottom:6px;display:flex;justify-content:space-between;align-items:baseline;">'
+        +  '<span><span id="swLossArrow">'+(_lbC?'▸':'▾')+'</span> 📒 Losses by pair</span>'
+        +  '<span style="font-weight:400;font-size:8px;color:'+C.mut+';">'+keys.length+' pair'+(keys.length===1?'':'s')+' · '+losses.length+' losses · tap to '+(_lbC?'expand':'collapse')+'</span>'
         +'</div>'
-        +'<div style="background:#fff;border:1px solid rgba(30,64,140,0.15);border-radius:3px;overflow:hidden;"><table style="width:100%;border-collapse:collapse;font-size:8.5px;">'
+        +'<div id="swLossBody" style="display:'+(_lbC?'none':'block')+';"><div style="background:#fff;border:1px solid rgba(30,64,140,0.15);border-radius:3px;overflow:hidden;"><table style="width:100%;border-collapse:collapse;font-size:8.5px;">'
         +'<thead><tr style="background:rgba(30,64,140,0.05);color:'+C.mut+';text-align:left;"><th style="padding:6px 8px;">Pair</th><th style="padding:6px 8px;text-align:right;">Losses</th><th style="padding:6px 8px;text-align:right;">Total R</th><th style="padding:6px 8px;">Latest</th><th style="padding:6px 8px;text-align:right;">Diagnose</th></tr></thead>'
-        +'<tbody>'+rows+'</tbody></table></div></div>';
+        +'<tbody>'+rows+'</tbody></table></div></div></div>';
     }
 
     // ── Consolidated per-pair diagnosis modal. Splits each loss into an
@@ -1673,7 +1675,13 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
     // Move the swing forward-test panel ABOVE the auto-EW + failure-mode boxes
     // (swing is the more important investor-facing surface). Reorder at runtime so
     // we don't have to relocate the large script block. (2026-08-04)
-    function _swReorder(){ try{ var sp=document.getElementById('swingTestPanel'), ae=document.getElementById('autoEWDiag'); if(sp&&ae&&sp.parentNode&&ae.parentNode===sp.parentNode&&sp.previousElementSibling!==null){ ae.parentNode.insertBefore(sp, ae); } }catch(e){} }
+    function _swReorder(){ try{
+      var sp=document.getElementById('swingTestPanel'), ae=document.getElementById('autoEWDiag'), fl=document.getElementById('failureModeAnalysisLive');
+      // 1) swing panel leads
+      if(sp&&ae&&sp.parentNode&&ae.parentNode===sp.parentNode&&sp.previousElementSibling!==null){ ae.parentNode.insertBefore(sp, ae); }
+      // 2) intraday failure-mode boxes above the auto-EW diagnostic (move auto-EW to after the LIVE failure-mode box)
+      if(ae&&fl&&ae.parentNode&&fl.parentNode===ae.parentNode&&fl.nextElementSibling!==ae){ fl.insertAdjacentElement('afterend', ae); }
+    }catch(e){} }
     function boot(){ _swReorder(); try{ load(); setInterval(load,60000);}catch(e){} }
     if(document.readyState!=='loading') boot(); else document.addEventListener('DOMContentLoaded', boot);
   })();
@@ -20877,13 +20885,15 @@ function _renderCCIVariantPanel(host, commodityKeys){
            + '<td style="padding:2px 6px;text-align:right;color:var(--inkd);">' + ref + '</td></tr>';
     };
     return '<div style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(13,90,54,0.25);">'
-         + '<div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:1.2px;color:#0d5a36;text-transform:uppercase;margin-bottom:5px;">🔬 H11 forward test · faytterro spring/UTAD</div>'
-         + '<div style="font-size:9.5px;color:var(--inkd);margin-bottom:6px;font-family:Mukta,sans-serif;">Live macdp closes split by the faytterro event at entry — <strong>' + oos + ' of ' + use.length + '</strong> out-of-sample (since 2026-07-03). The backtest was in-sample; watch the OOS count grow — need ~50+ per cohort before the gap is trustworthy.</div>'
+         + '<div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:1.2px;color:#0d5a36;text-transform:uppercase;margin-bottom:5px;">🔬 H11 forward test · faytterro spring/UTAD <span style="background:#0d5a36;color:#fff;border-radius:2px;padding:1px 5px;font-size:7px;letter-spacing:0.4px;margin-left:4px;vertical-align:middle;">● LIVE cTrader</span></div>'
+         + '<div style="font-size:9.5px;color:var(--inkd);margin-bottom:6px;font-family:Mukta,sans-serif;line-height:1.5;">These are <b style="color:#0d5a36;">actual live cTrader fills</b> from the macd-primary (macdp) intraday strategy — <b>not backtest or observer</b> numbers. Each closed live trade is split by whether a Wyckoff <b>spring / UTAD</b> event was present at entry — <strong>' + oos + ' of ' + use.length + '</strong> out-of-sample (since 2026-07-03). The backtest column is the in-sample reference; watch the OOS count grow — need ~50+ per cohort before the gap is trustworthy.</div>'
          + '<table style="width:100%;border-collapse:collapse;font-family:Orbitron,monospace;font-size:9px;"><thead><tr style="color:var(--inkd);text-align:left;"><th style="padding:2px 6px;">cohort</th><th style="padding:2px 6px;text-align:right;">n</th><th style="padding:2px 6px;text-align:right;">live WR</th><th style="padding:2px 6px;text-align:right;">backtest</th></tr></thead><tbody>'
          + row('aligned (spring→BUY / UTAD→SELL)', b.aligned, '82–84%')
          + row('fought a fresh event', b.fought, 'worst')
          + row('no event', b.none, '~74%')
-         + '</tbody></table></div>';
+         + '</tbody></table>'
+         + '<div style="font-size:8.5px;color:var(--inkd);margin-top:5px;line-height:1.5;font-family:Mukta,sans-serif;"><b>aligned</b> — the live trade agreed with a fresh spring (→ buy) or UTAD (→ sell) event; this is where the edge concentrates. <b>fought a fresh event</b> — the trade went against a fresh event (the worst cohort). <b>no event</b> — <b>no</b> spring/UTAD event was present at entry, so the live trade ran on the base macdp signal alone. These are the majority of live trades and the clear underperformers (live win rate well below the ~74% in-sample backtest) — the exact gap a spring/UTAD entry filter is meant to close, if it earns promotion to a live gate.</div>'
+         + '</div>';
   }
 
   function _renderLiveFailureMode(){
