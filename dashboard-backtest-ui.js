@@ -761,6 +761,11 @@ function renderFailureModeAnalysis(){
              + '" style="font-size:7.5px;padding:1px 5px;border-radius:2px;background:rgba(77,162,255,0.10);color:#4da2ff;letter-spacing:0.5px;font-weight:700;cursor:help;">RULES ' + RULES_VERSION + '</span>';
   var headerLabel = report.dataSource === 'deep' ? 'Failure mode analysis' : 'Failure mode analysis (simulated)';
   var tradesLabel = report.dataSource === 'deep' ? 'backtested trades' : 'simulated trades';
+  // Explicit simulated-vs-live badge + subtitle. The 365d/15m pills above are subtle;
+  // this makes unmistakable that these numbers are a historical replay, NOT live cTrader
+  // fills — live forward results live in the green "Intraday Forward Testing" box above.
+  var simTag = '<span title="These trades are simulated on historical price data — the engine is replayed bar-by-bar over the past year. No real orders were placed. Live forward results are in the Intraday Forward Testing box." style="font-size:7.5px;padding:1px 5px;border-radius:2px;background:rgba(192,40,26,0.10);color:var(--bear);letter-spacing:0.5px;font-weight:700;cursor:help;">&#9879; SIMULATED &middot; NOT LIVE</span>';
+  var simSubtitle = '<div style="font-size:8px;color:var(--inkd);font-style:italic;line-height:1.4;margin-top:3px;">Historical backtest replay — <b>not</b> live cTrader fills. For live forward results see the green <b>Intraday Forward Testing</b> box above.</div>';
   var filterTag = '<span style="font-size:7.5px;color:var(--gold);font-style:italic;">'
                 + 'filtered to ' + pc.alignedPairs + ' currently 4/4-aligned pair' + (pc.alignedPairs===1?'':'s')
                 + ' (of ' + pc.totalPairs + ')</span>';
@@ -790,10 +795,11 @@ function renderFailureModeAnalysis(){
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">'
       + '  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
       + '    <div style="font-family:Orbitron,monospace;font-size:11px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:var(--bear);">&#9656; ' + headerLabel + '</div>'
-      +      srcTag + verTag
+      +      srcTag + simTag + verTag
       + '  </div>'
       + '  <button onclick="window._failureModeExpanded=true;renderFailureModeAnalysis();" style="font-family:Orbitron,monospace;font-size:8px;padding:4px 10px;border:1px solid var(--bear);background:transparent;color:var(--bear);border-radius:3px;cursor:pointer;letter-spacing:0.7px;font-weight:700;">EXPAND &#9662;</button>'
       + '</div>'
+      + simSubtitle
       + '<div style="margin-top:5px;font-size:8.5px;color:var(--inkd);line-height:1.6;">'
       +   t.all + ' ' + tradesLabel + ' &middot; '
       +   '<span style="color:var(--ink);font-weight:700;">' + t.wins + 'W/' + t.losses + 'L</span> resolved &middot; '
@@ -807,13 +813,14 @@ function renderFailureModeAnalysis(){
   }
   var collapseBtn = '<button onclick="window._failureModeExpanded=false;renderFailureModeAnalysis();" title="Hide details" style="font-family:Orbitron,monospace;font-size:8px;padding:4px 10px;border:1px solid var(--inkd);background:transparent;color:var(--inkd);border-radius:3px;cursor:pointer;letter-spacing:0.7px;font-weight:700;margin-left:6px;">COLLAPSE &#9652;</button>';
   var aggHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:6px;">'
-    + '<div style="display:flex;align-items:center;gap:8px;"><div style="font-family:Orbitron,monospace;font-size:11px;font-weight:900;letter-spacing:1.2px;color:var(--bear);text-transform:uppercase;">▸ ' + headerLabel + '</div>' + srcTag + verTag + collapseBtn + '</div>'
+    + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><div style="font-family:Orbitron,monospace;font-size:11px;font-weight:900;letter-spacing:1.2px;color:var(--bear);text-transform:uppercase;">▸ ' + headerLabel + '</div>' + srcTag + simTag + verTag + collapseBtn + '</div>'
     + '<div style="font-size:8.5px;color:var(--inkd);">'+t.all+' ' + tradesLabel + ' &middot; '
     +   '<span title="Win rate of trades that resolved as W/L (excludes the ' + (t.expired||0) + ' that expired before retest and the ' + (t.invalidated||0) + ' invalidated pre-trigger). Of all ' + t.all + ' simulated trades, ' + t.wins + ' were wins (' + (t.all > 0 ? Math.round(t.wins/t.all*100) : 0) + '% raw).">'
     +     t.wins + 'W/' + t.losses + 'L resolved · ' + Math.round(stdRate) + '% win rate'
     +   '</span> · current rule</div>'
     + '</div>'
-    + '<div style="margin-bottom:8px;">' + filterTag + '</div>';
+    + simSubtitle
+    + '<div style="margin-bottom:8px;margin-top:4px;">' + filterTag + '</div>';
 
   // Classification breakdown bar chart (text-based for compactness)
   var classBars = classEntries.map(function(e){
@@ -1131,7 +1138,8 @@ function renderAutoEWDiagnostic(){
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">'
       + '  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
       + '    <div style="font-size:11px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:#4da2ff;">&#9656; Auto-EW Diagnostic</div>'
-      + '    <div style="font-size:8px;color:var(--inkd);font-style:italic;letter-spacing:0.3px;">engine health across all pairs &mdash; per-pair pattern now shown on each Macro card</div>'
+      + '    <span title="Structural pattern-detection QA — the Elliott-Wave engine is run over historical daily data and its read is compared to the manual Wickator seed. It places no trades and tracks no live fills; it is a read-only health check, not forward performance." style="font-size:7.5px;padding:1px 5px;border-radius:2px;background:rgba(192,40,26,0.10);color:var(--bear);letter-spacing:0.5px;font-weight:700;cursor:help;">&#9879; SIMULATED &middot; NOT LIVE</span>'
+      + '    <div style="font-size:8px;color:var(--inkd);font-style:italic;letter-spacing:0.3px;">engine health across all pairs &mdash; structural QA, not live trades &middot; per-pair pattern shown on each Macro card</div>'
       + '  </div>'
       + '  <button onclick="window._autoEWExpanded=true;renderAutoEWDiagnostic();" style="font-family:Orbitron,monospace;font-size:8px;padding:4px 10px;border:1px solid #4da2ff;background:transparent;color:#4da2ff;border-radius:3px;cursor:pointer;letter-spacing:0.7px;font-weight:700;">EXPAND &#9662;</button>'
       + '</div>'
@@ -1163,7 +1171,7 @@ function renderAutoEWDiagnostic(){
   var k_label = MKTS[k] ? MKTS[k].sym : k;
   var headerHTML =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">'
-    + '  <div style="font-size:11px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:#4da2ff;">▸ Auto-EW Diagnostic — '+k_label+' (Track A, read-only)</div>'
+    + '  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><div style="font-size:11px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:#4da2ff;">▸ Auto-EW Diagnostic — '+k_label+' (Track A, read-only)</div><span title="Structural pattern-detection QA over historical daily data — no trades, no live fills." style="font-size:7.5px;padding:1px 5px;border-radius:2px;background:rgba(192,40,26,0.10);color:var(--bear);letter-spacing:0.5px;font-weight:700;cursor:help;">&#9879; SIMULATED &middot; NOT LIVE</span></div>'
     + '  <div style="display:flex;gap:6px;align-items:center;">'
     +     selectorHTML
     + '    <button onclick="if(typeof fetchVikingHistory===\'function\'){fetchVikingHistory().then(function(){renderAutoEWDiagnostic();});}" style="font-family:Orbitron,monospace;font-size:8px;padding:4px 10px;border:1px solid #4da2ff;background:transparent;color:#4da2ff;border-radius:3px;cursor:pointer;letter-spacing:0.5px;">↻ REFRESH</button>'

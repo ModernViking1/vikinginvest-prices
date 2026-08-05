@@ -1561,7 +1561,16 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         var openList=Object.keys(_swOpenMap).map(function(k){return _swOpenMap[k];});
         var openN=openList.length;
         var _opSeen={}, openPairs=[]; openList.forEach(function(e){ var p=(e.pair||e.symbol||'?').toUpperCase(); if(!_opSeen[p]){ _opSeen[p]=1; openPairs.push(p); } }); openPairs.sort();
-        var demoAll = agg(closed.map(function(e){return e.realized_r;}));
+        // Currently-demoted swing strategies (mirror swing_signals.py DEMOTED). Their fills were
+        // live when they filled but the strategy is now observer-only, so they are excluded from
+        // the headline LIVE win-rate and shown separately under ○ OBSERVING.
+        var DEMOTED_SWING={tl_nowick:1,fib_gz:1,wm:1};
+        var _swStratOf=function(e){ return e.strategy||(e.signal_id||'').split(':')[0]||'?'; };
+        var closedLive=closed.filter(function(e){ return !DEMOTED_SWING[_swStratOf(e)]; });
+        var closedDem =closed.filter(function(e){ return  DEMOTED_SWING[_swStratOf(e)]; });
+        var placedLive=placed.filter(function(e){ return !DEMOTED_SWING[_swStratOf(e)]; });
+        var demoAll = agg(closedLive.map(function(e){return e.realized_r;}));   // LIVE cohort only
+        var demoDem = agg(closedDem.map(function(e){return e.realized_r;}));
         // model (shadow resolved)
         var res = [], byStratM = {};
         Object.keys(sigs).forEach(function(k){ var s=sigs[k]; if(s.status==='resolved' && typeof s.r==='number'){ res.push(s.r); var st=k.split(':')[0]; (byStratM[st]=byStratM[st]||[]).push(s.r); } });
@@ -1578,7 +1587,8 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;">'
           +'<span style="color:'+C.blue+';font-weight:700;letter-spacing:0.5px;">🏹 SWING FORWARD-TEST · demo vs model <span style="color:'+C.mut+';font-weight:400;">(separate from intraday · '+winLabel+')</span></span>'
           +_swToggle(mode)+'</div>';
-        h+='<div style="color:'+C.ink+';margin-bottom:4px;">DEMO: <b>'+placed.length+'</b> placed · <b>'+closed.length+'</b> closed · <b>'+openN+'</b> open'+(openPairs.length?' <span style="color:'+C.mut+';">('+openPairs.join(', ')+')</span>':'')+' · realised <b style="color:'+(demoAll.tot>=0?C.g:C.r)+'">'+(demoAll.tot>=0?'+':'')+demoAll.tot.toFixed(2)+'R</b>'+(closed.length?' · WR '+demoAll.wr.toFixed(0)+'%':'')+'</div>';
+        h+='<div style="color:'+C.ink+';margin-bottom:4px;">DEMO (LIVE strategies): <b>'+placedLive.length+'</b> placed · <b>'+closedLive.length+'</b> closed · <b>'+openN+'</b> open'+(openPairs.length?' <span style="color:'+C.mut+';">('+openPairs.join(', ')+')</span>':'')+' · realised <b style="color:'+(demoAll.tot>=0?C.g:C.r)+'">'+(demoAll.tot>=0?'+':'')+demoAll.tot.toFixed(2)+'R</b>'+(closedLive.length?' · WR '+demoAll.wr.toFixed(0)+'%':'')+'</div>';
+        if(closedDem.length){ h+='<div style="color:'+C.mut+';margin:-2px 0 6px;font-size:8px;">Excludes <b>'+closedDem.length+'</b> closed trade'+(closedDem.length===1?'':'s')+' from demoted strategies ('+Object.keys(DEMOTED_SWING).join(', ')+') → <b style="color:'+(demoDem.tot>=0?C.g:C.r)+';">'+(demoDem.tot>=0?'+':'')+demoDem.tot.toFixed(2)+'R</b> lifted off the live win-rate. These are shown under ○ OBSERVING below.</div>'; }
         if(openN){ h+='<div style="color:'+C.mut+';margin:-2px 0 6px;font-size:8px;">Open trades count toward stats only when they close (target/stop). A winning position in profit is still "open" until it fills — it appears above, not in the closed table below.</div>'; }
         // Feed-freshness indicator — a stalled cBot auto-publish (PAT expired / setting off after a
         // rebuild) silently stops new fills reaching the repo, so closed winners never show up.
@@ -1625,7 +1635,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         };
         // LIVE (executing on cTrader) vs OBSERVING (shadow-only, not yet qualified for
         // live capital). Mirrors swing_signals.py PRIORITY minus DEMOTED.
-        var LIVE_SWING={hs:1,s5_rsi:1,s5_rsi_wide:1,ob:1,w5_pullback:1,fred_tl:1,threepush:1,engulf_manip:1,asianglitch:1,wm:1,obfvg:1,gbreak:1,gtrend:1};
+        var LIVE_SWING={hs:1,s5_rsi:1,s5_rsi_wide:1,ob:1,w5_pullback:1,fred_tl:1,threepush:1,engulf_manip:1,asianglitch:1,obfvg:1,gbreak:1,gtrend:1};
         var _hdr='<tr style="color:'+C.mut+';text-align:left;"><th>strategy</th><th>tracked</th><th>demo n</th><th>demo WR</th><th>demo R</th><th>model WR</th><th>model exp</th></tr>';
         function _swRow(st){
           var d=byStratD[st]?agg(byStratD[st]):null, m=byStratM[st]?agg(byStratM[st]):null;
@@ -21142,7 +21152,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
       if(pb.trades!==pa.trades) return pb.trades-pa.trades;
       return pb.R-pa.R;
     });
-    var rows = pairKeys.map(function(k){
+    // Per-pair row builder (shared by the LIVE and OBSERVING tables below).
+    var rowFor = function(k){
       var p = byPair[k];
       var wr = pct(p.wins, p.wins + p.losses);
       // Dominant bucket.
@@ -21167,35 +21178,62 @@ function _renderCCIVariantPanel(host, commodityKeys){
         var dCol = d >= 0 ? '#0d5a36' : '#c0281a';
         deltaTxt = ' <span style="color:' + dCol + ';font-weight:700;">' + (d>=0?'+':'') + d.toFixed(0) + 'pp</span>';
       }
-      var _liveP = (typeof MKTS !== 'undefined' && MKTS[k] && MKTS[k].t === 'crypto');
+      var _liveP = _isLiveClass(k);
       // Winning-strategy breakdown — which intraday method(s) produced this pair's wins.
       var _mLbl = { macdp:'MACD cross', fib:'Fibonacci', wick:'Wick reversal', divg:'MACD divergence', '?':'unlabelled' };
       var _wk = Object.keys(p.winStrats || {}).sort(function(x,y){ return p.winStrats[y] - p.winStrats[x]; });
       var wonBy = _wk.length
         ? '<div style="font-size:8px;color:#0d5a36;margin-top:2px;">won by: ' + _wk.map(function(m){ return (_mLbl[m]||m) + ' (' + p.winStrats[m] + ')'; }).join(', ') + '</div>'
         : '<div style="font-size:8px;color:var(--inkd);margin-top:2px;">no wins in window</div>';
-      return '<tr>'
+      return '<tr' + (_liveP ? '' : ' style="opacity:0.82;"') + '>'
            + '<td style="padding:5px 8px;font-weight:700;text-transform:uppercase;">' + (k.toUpperCase()) + (_liveP ? ' <span style="font-size:6.5px;color:#0d5a36;font-weight:700;letter-spacing:0.3px;">●LIVE</span>' : ' <span style="font-size:6.5px;color:var(--inkd);font-weight:700;letter-spacing:0.3px;">○obs</span>') + '</td>'
            + '<td style="padding:5px 8px;text-align:right;">' + p.trades + '</td>'
            + '<td style="padding:5px 8px;text-align:right;color:' + pctColor(wr) + ';font-weight:700;">' + liveWrTxt + deltaTxt + '</td>'
            + '<td style="padding:5px 8px;text-align:right;color:' + (p.R>=0?'#0d5a36':'#c0281a') + ';">' + fmtR(p.R) + '</td>'
            + '<td style="padding:5px 8px;font-size:8.5px;letter-spacing:0.2px;color:var(--inkm);">' + domLabel + ' <span style="opacity:0.6;">(' + domN + '/' + p.trades + ')</span> &middot; ' + simShown + wonBy + '</td>'
            + '</tr>';
-    }).join('');
+    };
+    // Split the pairs into LIVE (crypto, executing on cTrader) and OBSERVING
+    // (everything else — demoted / shadow, still logging real fills so we can
+    // judge re-promotion). Mirrors the swing panel's ● LIVE / ○ OBSERVING split
+    // so the whole forward-test surface reads the same way.
+    var liveKeys = pairKeys.filter(function(k){ return _isLiveClass(k); });
+    var obsKeys  = pairKeys.filter(function(k){ return !_isLiveClass(k); });
+    var _fmHead = '<thead><tr style="background:rgba(13,90,54,0.06);color:#0d5a36;font-weight:700;letter-spacing:0.5px;text-align:left;">'
+                +   '<th style="padding:6px 8px;">Pair</th>'
+                +   '<th style="padding:6px 8px;text-align:right;">N</th>'
+                +   '<th style="padding:6px 8px;text-align:right;">Live WR</th>'
+                +   '<th style="padding:6px 8px;text-align:right;">Realised R</th>'
+                +   '<th style="padding:6px 8px;">Dominant close · sim WR</th>'
+                + '</tr></thead>';
+    var _fmWrap = function(bodyRows){
+      return '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:6px;">'
+           + '<table style="width:100%;border-collapse:collapse;font-size:9.5px;font-family:Orbitron,monospace;">'
+           + _fmHead + '<tbody>' + bodyRows + '</tbody></table></div>';
+    };
+    // ── Promotion / demotion reading — the quick "should this observer go live,
+    //    or this live pair come off?" overview the split is for. Needs a credible
+    //    sample (n≥8 resolved) before flagging either way.
+    var promoteC = [], demoteC = [];
+    obsKeys.forEach(function(k){ var p=byPair[k]; var n=p.wins+p.losses; if(n>=8){ var w=pct(p.wins,n); if(w>=60 && p.R>0) promoteC.push(k.toUpperCase()+' ('+w.toFixed(0)+'% · '+fmtR(p.R)+', n='+n+')'); } });
+    liveKeys.forEach(function(k){ var p=byPair[k]; var n=p.wins+p.losses; if(n>=8){ var w=pct(p.wins,n); if(w<45 || p.R<0) demoteC.push(k.toUpperCase()+' ('+w.toFixed(0)+'% · '+fmtR(p.R)+', n='+n+')'); } });
+    var promoteNote = '';
+    if(promoteC.length || demoteC.length){
+      promoteNote = '<div style="margin-top:2px;margin-bottom:8px;padding:7px 9px;background:rgba(13,90,54,0.05);border-left:3px solid #0d5a36;border-radius:2px;font-size:8.5px;line-height:1.5;color:var(--inkm);font-family:Mukta,sans-serif;">'
+        + (promoteC.length ? '<div><b style="color:#0d5a36;">↑ Promotion candidates</b> (observer, WR≥60% &amp; +R on n≥8): ' + promoteC.join('; ') + '.</div>' : '')
+        + (demoteC.length ? '<div><b style="color:#c0281a;">↓ Review for demotion</b> (live, WR&lt;45% or −R on n≥8): ' + demoteC.join('; ') + '.</div>' : '')
+        + '<div style="color:var(--inkd);font-style:italic;margin-top:2px;">Signal only — confirm the OOS split (both halves +, n≥40) before any live change.</div>'
+        + '</div>';
+    } else {
+      promoteNote = '<div style="margin-top:2px;margin-bottom:8px;font-size:8px;color:var(--inkd);font-style:italic;">Promotion / demotion: no pair has a strong enough live sample (n≥8 resolved) to flag yet — the observer rows accrue real fills until one clears the bar.</div>';
+    }
 
-    var tableHtml = '<div style="font-size:8.5px;color:var(--inkd);margin-bottom:4px;letter-spacing:0.4px;">' + sampleNote
-                  + 'Per-pair breakdown · live close reasons aggregated from cTrader fills · "Δ vs sim" shows live WR minus simulated WR (where sample ≥ 5 / sim ≥ 20)'
+    var tableHtml = '<div style="font-size:8.5px;color:var(--inkd);margin-bottom:6px;letter-spacing:0.4px;">' + sampleNote
+                  + 'Per-pair breakdown split by <b style="color:#0d5a36;">● LIVE</b> (crypto — executing on cTrader) vs <b>○ OBSERVING</b> (demoted / shadow — real fills kept for a re-promotion read). "Δ vs sim" = live WR minus simulated WR (sample ≥ 5 / sim ≥ 20).'
                   + '</div>'
-                  + '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;">'
-                  + '<table style="width:100%;border-collapse:collapse;font-size:9.5px;font-family:Orbitron,monospace;">'
-                  + '<thead><tr style="background:rgba(13,90,54,0.06);color:#0d5a36;font-weight:700;letter-spacing:0.5px;text-align:left;">'
-                  +   '<th style="padding:6px 8px;">Pair</th>'
-                  +   '<th style="padding:6px 8px;text-align:right;">N</th>'
-                  +   '<th style="padding:6px 8px;text-align:right;">Live WR</th>'
-                  +   '<th style="padding:6px 8px;text-align:right;">Realised R</th>'
-                  +   '<th style="padding:6px 8px;">Dominant close · sim WR</th>'
-                  + '</tr></thead>'
-                  + '<tbody>' + rows + '</tbody></table></div>';
+                  + (liveKeys.length ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:#0d5a36;margin:2px 0 3px;">● LIVE · executing on cTrader</div>' + _fmWrap(liveKeys.map(rowFor).join('')) : '')
+                  + (obsKeys.length ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:var(--inkd);margin:8px 0 3px;">○ OBSERVING · demoted / shadow · not live &middot; promotion candidates</div>' + _fmWrap(obsKeys.map(rowFor).join('')) : '')
+                  + promoteNote;
 
     // ── Interpretation hint when one bucket dominates ──
     var hint = '';
