@@ -49,7 +49,12 @@ FIB_CLASSES = {"comm", "index"}
 # the same policy to the structural wick/fib signals so nothing outside
 # comm/crypto reaches the broker while we forward-confirm the cohort live. The
 # other classes still appear in directions.json / the dashboard for tracking.
-LIVE_CLASSES = {"comm", "crypto"}
+# 2026-08-04 — COMMODITIES DEMOTED to shadow. Realised live intraday fills were
+# negative on comm across every method (fib/comm -0.34R, wick/comm -0.78R,
+# macdp/comm -0.47R post-gate, n~64); crypto is the only net-positive live cell
+# (wick/crypto +0.10R). Only crypto now reaches the cBot; comm reverts to
+# observer/tracking (directions.json + dashboard), same as index/major/minor.
+LIVE_CLASSES = {"crypto"}
 
 # Per-pair classification mirrors MKTS[k].t in the dashboard. Extracted
 # from Viking_Invest_Trading_v69.html so the EA's risk sizing matches

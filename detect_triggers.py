@@ -2212,15 +2212,19 @@ def detect_macd_primary(bars, ew_dir, tl_dir, nw_dir, cl_dir,
     # FULL-4/4 cohort clears cost under a realistic fill (+0.05R gross), and
     # only on comm + crypto; index/major 4/4 stay net-negative even in the
     # honest backtest and the minor 4/4 sample is too thin to trust. So:
-    # require full 4/4 confluence, route comm + crypto LIVE, and send
-    # index/major/minor to the shadow log for forward-confirmation before
-    # risking size. (Prior per-class notes preserved in git history.)
+    # require full 4/4 confluence, route CRYPTO LIVE, and send everything else to
+    # the shadow log for forward-confirmation before risking size.
+    # 2026-08-04 — COMMODITIES DEMOTED to shadow: realised live intraday fills were
+    # negative on comm across every method (macdp/comm -0.47R, fib/comm -0.34R,
+    # wick/comm -0.78R over the post-gate sample); crypto is the only net-positive
+    # live cell (wick/crypto +0.10R). See executions.json. (Prior per-class notes
+    # preserved in git history.)
     if confluence != 4:
         return None
-    if pair_class in ('comm', 'crypto'):
+    if pair_class == 'crypto':
         state = 'triggered'
         shadow = False
-    elif pair_class in ('index', 'major', 'minor'):
+    elif pair_class in ('comm', 'index', 'major', 'minor'):
         state = 'shadow-triggered'
         shadow = True
     else:
