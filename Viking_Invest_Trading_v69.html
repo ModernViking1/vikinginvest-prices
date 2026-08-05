@@ -1548,7 +1548,16 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // demo
         var closed = execs.filter(function(e){return e.event==='closed' && typeof e.realized_r==='number' && inWin(e);});
         var placed = execs.filter(function(e){return e.event==='placed' && inWin(e);});
-        var openN = Math.max(0, placed.length - closed.length);
+        // OPEN = a 'placed' with no matching 'closed' anywhere in the log (a position stays open
+        // regardless of the display window). Keyed by signal_id, else position_id. This is why a
+        // winning-but-not-yet-closed trade (e.g. a running EURUSD/USDCHF) shows here as OPEN and
+        // only enters the closed stats below once it actually hits target or stop.
+        var _swKey=function(e){ var pid=e.position_id; return (pid!=null&&pid!==''&&pid!==0)?('#'+pid):(e.signal_id||''); };  // position_id links placed↔closed even if signal_id was lost on a restart
+        var _swClosedKeys={}; (execs||[]).forEach(function(e){ if(e.event==='closed') _swClosedKeys[_swKey(e)]=1; });
+        var _swOpenMap={}; (execs||[]).forEach(function(e){ if(e.event==='placed' && !_swClosedKeys[_swKey(e)]) _swOpenMap[_swKey(e)]=e; });
+        var openList=Object.keys(_swOpenMap).map(function(k){return _swOpenMap[k];});
+        var openN=openList.length;
+        var _opSeen={}, openPairs=[]; openList.forEach(function(e){ var p=(e.pair||e.symbol||'?').toUpperCase(); if(!_opSeen[p]){ _opSeen[p]=1; openPairs.push(p); } }); openPairs.sort();
         var demoAll = agg(closed.map(function(e){return e.realized_r;}));
         // model (shadow resolved)
         var res = [], byStratM = {};
@@ -1566,7 +1575,8 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;">'
           +'<span style="color:'+C.blue+';font-weight:700;letter-spacing:0.5px;">🏹 SWING FORWARD-TEST · demo vs model <span style="color:'+C.mut+';font-weight:400;">(separate from intraday · '+winLabel+')</span></span>'
           +_swToggle(mode)+'</div>';
-        h+='<div style="color:'+C.ink+';margin-bottom:4px;">DEMO: <b>'+placed.length+'</b> placed · <b>'+closed.length+'</b> closed · '+openN+' open · realised <b style="color:'+(demoAll.tot>=0?C.g:C.r)+'">'+(demoAll.tot>=0?'+':'')+demoAll.tot.toFixed(2)+'R</b>'+(closed.length?' · WR '+demoAll.wr.toFixed(0)+'%':'')+'</div>';
+        h+='<div style="color:'+C.ink+';margin-bottom:4px;">DEMO: <b>'+placed.length+'</b> placed · <b>'+closed.length+'</b> closed · <b>'+openN+'</b> open'+(openPairs.length?' <span style="color:'+C.mut+';">('+openPairs.join(', ')+')</span>':'')+' · realised <b style="color:'+(demoAll.tot>=0?C.g:C.r)+'">'+(demoAll.tot>=0?'+':'')+demoAll.tot.toFixed(2)+'R</b>'+(closed.length?' · WR '+demoAll.wr.toFixed(0)+'%':'')+'</div>';
+        if(openN){ h+='<div style="color:'+C.mut+';margin:-2px 0 6px;font-size:8px;">Open trades count toward stats only when they close (target/stop). A winning position in profit is still "open" until it fills — it appears above, not in the closed table below.</div>'; }
         h+='<div style="color:'+C.ink+';margin-bottom:6px;">MODEL (shadow): <b>'+modelAll.n+'</b> resolved · WR '+modelAll.wr.toFixed(0)+'% · exp '+(modelAll.exp>=0?'+':'')+modelAll.exp.toFixed(3)+'R</div>';
         if(gapD.length){
           var mm=agg(gapM), dd=agg(gapD), gap=mm.exp-dd.exp;
