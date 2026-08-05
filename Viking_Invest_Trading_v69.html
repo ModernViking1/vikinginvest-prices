@@ -21065,8 +21065,16 @@ function _renderCCIVariantPanel(host, commodityKeys){
       ? ''
       : '<span style="margin-left:8px;padding:2px 7px;border-radius:3px;background:' + deltaColor + ';color:#fff;font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.6px;">Live ' + fmtPct(liveWR) + ' / Sim ' + fmtPct(blendedSimWR) + ' &middot; &Delta; ' + (deltaPp >= 0 ? '+' : '') + deltaPp.toFixed(0) + 'pp</span>';
 
-    var headerHtml = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:8px;">'
-                   + '<span style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;">▸ Intraday failure mode &middot; LIVE <span style="font-weight:400;opacity:0.7;">· ' + winLabel + '</span>' + deltaPill + '</span>'
+    // Collapsed by default (investor-facing): the swing performance leads; this intraday
+    // diagnostic sits below and expands on tap. State persists in localStorage.
+    var _fmCollapsed; try{ var _fv=localStorage.getItem('vit_fmlive_collapsed'); _fmCollapsed=(_fv===null?true:_fv==='1'); }catch(e){ _fmCollapsed=true; }
+    if(typeof window.__fmLiveToggle!=='function'){ window.__fmLiveToggle=function(){ try{ var v=localStorage.getItem('vit_fmlive_collapsed'); localStorage.setItem('vit_fmlive_collapsed',(v==='0')?'1':'0'); }catch(e){} var b=document.getElementById('fmLiveBody'), a=document.getElementById('fmLiveArrow'); if(b){ var hid=b.style.display==='none'; b.style.display=hid?'block':'none'; if(a) a.textContent=hid?'▾':'▸'; } }; }
+    var headerHtml = '<div onclick="window.__fmLiveToggle()" title="Intraday diagnostic — tap to expand / collapse" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;cursor:pointer;user-select:none;">'
+                   + '<span style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;"><span id="fmLiveArrow">'+(_fmCollapsed?'▸':'▾')+'</span> Intraday failure mode &middot; LIVE</span>'
+                   + '<span style="font-family:Orbitron,monospace;font-size:8px;color:var(--inkd);font-weight:400;letter-spacing:0.5px;">crypto-only live &middot; diagnostic &middot; tap to '+(_fmCollapsed?'expand':'collapse')+'</span>'
+                   + '</div>';
+    var summaryRow = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin:8px 0 6px;">'
+                   + '<span style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);letter-spacing:0.5px;">' + winLabel + ' ' + deltaPill + '</span>'
                    + _viLiveWindowToggle(mode)
                    + '</div>'
                    + '<div style="text-align:right;font-size:8.5px;color:var(--inkd);letter-spacing:0.6px;font-weight:400;margin-bottom:8px;">' + execs.length + ' closed' + (openCount > 0 ? ' &middot; ' + openCount + ' still open' : '') + ' &middot; ' + fmtR(totalR) + ' realised &middot; ' + fmtPct(liveWR) + ' WR</div>';
@@ -21151,9 +21159,12 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var frameNote = '<div style="background:rgba(200,134,10,0.06);border:1px solid rgba(200,134,10,0.28);border-radius:3px;padding:6px 9px;margin-bottom:9px;font-family:Mukta,sans-serif;font-size:10px;line-height:1.5;color:#7a5c0a;letter-spacing:0;">'
       + '<b>Diagnostic surface — this shows where the intraday feed is FAILING, by design, so it can be pruned.</b> After realised-fill review the <b style="color:#0d5a36;">● LIVE</b> intraday feed is <b>crypto-only</b>; commodities, indices, majors &amp; minors are <b>○ observed</b> (shadow-tracked, not traded). Intraday targets are ~1:1, so — unlike the 2:1 swing edges — a sub-50% win rate here is a losing cohort, which is exactly why the live feed is being narrowed to what survives. A research panel, not a performance headline.'
       + '</div>';
-    host.innerHTML = headerHtml + frameNote + statsRow + tableHtml + hint + _liveLossesList(execs)
+    host.innerHTML = headerHtml
+                   + '<div id="fmLiveBody" style="display:' + (_fmCollapsed ? 'none' : 'block') + ';">'
+                   + summaryRow + frameNote + statsRow + tableHtml + hint + _liveLossesList(execs)
                    + _h11ForwardTracker()
-                   + _renderExecCostReport(all, anchor, winLabel);
+                   + _renderExecCostReport(all, anchor, winLabel)
+                   + '</div>';
   }
 
   // 2026-06-30 — Per-pair execution-cost report. Quantifies how much
