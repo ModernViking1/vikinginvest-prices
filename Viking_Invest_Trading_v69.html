@@ -1577,6 +1577,10 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
           +_swToggle(mode)+'</div>';
         h+='<div style="color:'+C.ink+';margin-bottom:4px;">DEMO: <b>'+placed.length+'</b> placed · <b>'+closed.length+'</b> closed · <b>'+openN+'</b> open'+(openPairs.length?' <span style="color:'+C.mut+';">('+openPairs.join(', ')+')</span>':'')+' · realised <b style="color:'+(demoAll.tot>=0?C.g:C.r)+'">'+(demoAll.tot>=0?'+':'')+demoAll.tot.toFixed(2)+'R</b>'+(closed.length?' · WR '+demoAll.wr.toFixed(0)+'%':'')+'</div>';
         if(openN){ h+='<div style="color:'+C.mut+';margin:-2px 0 6px;font-size:8px;">Open trades count toward stats only when they close (target/stop). A winning position in profit is still "open" until it fills — it appears above, not in the closed table below.</div>'; }
+        // Feed-freshness indicator — a stalled cBot auto-publish (PAT expired / setting off after a
+        // rebuild) silently stops new fills reaching the repo, so closed winners never show up.
+        var _lastTs=0; (execs||[]).forEach(function(e){ if(typeof e.ts==='number'&&e.ts>_lastTs)_lastTs=e.ts; });
+        if(_lastTs){ var _ageH=(Date.now()-_lastTs)/3600000, _d=new Date(_lastTs), _hh=('0'+_d.getUTCHours()).slice(-2)+':'+('0'+_d.getUTCMinutes()).slice(-2)+'Z'; h+='<div style="font-size:8px;margin:-2px 0 6px;color:'+(_ageH>=6?C.r:C.mut)+';">last cBot fill published: '+_hh+' ('+(_ageH<1?'<1':_ageH.toFixed(0))+'h ago)'+(_ageH>=6?' — ⚠ feed looks stale: newly closed trades will not appear until the cBot resumes auto-publish (check its GitHub PAT and the Auto-publish-executions setting)':'')+'</div>'; }
         h+='<div style="color:'+C.ink+';margin-bottom:6px;">MODEL (shadow): <b>'+modelAll.n+'</b> resolved · WR '+modelAll.wr.toFixed(0)+'% · exp '+(modelAll.exp>=0?'+':'')+modelAll.exp.toFixed(3)+'R</div>';
         if(gapD.length){
           var mm=agg(gapM), dd=agg(gapD), gap=mm.exp-dd.exp;
