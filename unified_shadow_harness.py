@@ -1451,6 +1451,13 @@ def detect_ema920v_m15(pk, m15):
     return out
 
 
+# NB: a volume-gated DAILY volatility breakout looked like a strong pass in the
+# sweep (+0.121R), but that was a scoping bug — the sweep ran it over all 40 pairs,
+# not its intended 18-pair futures universe. Re-scoped correctly and bracket-scored,
+# it fails at every gate level (first OOS half negative). NOT wired. (Second
+# false-positive caught this session by cross-checking against harness scoring.)
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
