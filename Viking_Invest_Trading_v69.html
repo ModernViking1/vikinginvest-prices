@@ -21240,6 +21240,52 @@ function _renderCCIVariantPanel(host, commodityKeys){
                   + (obsKeys.length ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:var(--inkd);margin:8px 0 3px;">○ OBSERVING · demoted / shadow · not live &middot; promotion candidates</div>' + _fmWrap(obsKeys.map(rowFor).join('')) : '')
                   + promoteNote;
 
+    // ── BY STRATEGY (method) — mirrors the swing panel's LIVE / OBSERVING
+    //    per-strategy tables. Aggregates the same closed live fills by the
+    //    method that produced them, so you can see which intraday edge is
+    //    pulling weight and whether an observer method deserves promotion. ──
+    var _mLbl2 = { macdp:'MACD cross', fib:'Fibonacci', wick:'Wick reversal', divg:'MACD divergence', '?':'unlabelled' };
+    var byStrat = {};
+    execs.forEach(function(r){
+      var st = (r.signal_id||'').split(':')[2] || r.strategy || '?';
+      var o = byStrat[st] || (byStrat[st]={n:0,wins:0,losses:0,R:0,liveN:0,pairs:{}});
+      o.n++;
+      if(r.realized_r>0) o.wins++; else if(r.realized_r<0) o.losses++;
+      if(typeof r.realized_r==='number') o.R+=r.realized_r;
+      if(_isLiveClass(r.pair)) o.liveN++;
+      var pk=(r.pair||'?').toUpperCase(); o.pairs[pk]=(o.pairs[pk]||0)+1;
+    });
+    var stratKeys = Object.keys(byStrat);
+    // A method is LIVE if it produced any fills on the live (crypto) feed in this window.
+    var _stratLive = function(st){ return byStrat[st].liveN>0; };
+    var _stSort = function(a,b){ var A=byStrat[a],B=byStrat[b]; var na=A.wins+A.losses,nb=B.wins+B.losses; var wa=na?A.wins/na:-1,wb=nb?B.wins/nb:-1; if(wb!==wa)return wb-wa; return B.R-A.R; };
+    var stratRowFor = function(st){
+      var o=byStrat[st]; var rr=o.wins+o.losses; var wr=rr?pct(o.wins,rr):0; var live=_stratLive(st);
+      var topPairs = Object.keys(o.pairs).sort(function(a,b){return o.pairs[b]-o.pairs[a];}).slice(0,5).join(', ');
+      var badge = live
+        ? ' <span style="font-size:6.5px;color:#0d5a36;font-weight:700;letter-spacing:0.3px;">●LIVE</span>'
+        : ' <span style="font-size:6.5px;color:var(--inkd);font-weight:700;letter-spacing:0.3px;">○obs</span>';
+      return '<tr'+(live?'':' style="opacity:0.82;"')+'>'
+        + '<td style="padding:5px 8px;font-weight:700;">'+(_mLbl2[st]||st)+badge+'</td>'
+        + '<td style="padding:5px 8px;text-align:right;">'+o.n+'</td>'
+        + '<td style="padding:5px 8px;text-align:right;color:'+pctColor(wr)+';font-weight:700;">'+(rr?fmtPct(wr):'—')+'</td>'
+        + '<td style="padding:5px 8px;text-align:right;color:'+(o.R>=0?'#0d5a36':'#c0281a')+';">'+fmtR(o.R)+'</td>'
+        + '<td style="padding:5px 8px;font-size:8.5px;letter-spacing:0.2px;color:var(--inkm);">'+topPairs+'</td>'
+        + '</tr>';
+    };
+    var _stHead = '<thead><tr style="background:rgba(13,90,54,0.06);color:#0d5a36;font-weight:700;letter-spacing:0.5px;text-align:left;">'
+      + '<th style="padding:6px 8px;">Method</th><th style="padding:6px 8px;text-align:right;">N</th>'
+      + '<th style="padding:6px 8px;text-align:right;">Live WR</th><th style="padding:6px 8px;text-align:right;">Realised R</th>'
+      + '<th style="padding:6px 8px;">Pairs</th></tr></thead>';
+    var _stWrap = function(rowsHtml){ return '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:9.5px;font-family:Orbitron,monospace;">'+_stHead+'<tbody>'+rowsHtml+'</tbody></table></div>'; };
+    var liveStrats = stratKeys.filter(_stratLive).sort(_stSort);
+    var obsStrats  = stratKeys.filter(function(st){return !_stratLive(st);}).sort(_stSort);
+    var stratHtml = '<div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:1px;color:#0d5a36;text-transform:uppercase;margin:12px 0 4px;border-top:1px dashed rgba(13,90,54,0.25);padding-top:9px;">By strategy (method)</div>'
+      + '<div style="font-size:8.5px;color:var(--inkd);margin-bottom:5px;line-height:1.5;">Same live fills as above, grouped by the intraday method that produced them — the swing panel\'s per-strategy view, applied here. A method is <b style="color:#0d5a36;">●LIVE</b> if it fired on the live (crypto) feed in this window, <b>○obs</b> if it only fired on demoted classes. The Pairs column shows where each method traded.</div>'
+      + (liveStrats.length ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:#0d5a36;margin:2px 0 3px;">● LIVE methods · executing on cTrader</div>' + _stWrap(liveStrats.map(stratRowFor).join('')) : '')
+      + (obsStrats.length ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:var(--inkd);margin:8px 0 3px;">○ OBSERVING methods · demoted classes only</div>' + _stWrap(obsStrats.map(stratRowFor).join('')) : '')
+      + (stratKeys.length ? '' : '<div style="font-size:8px;color:var(--inkd);font-style:italic;">No closed fills to break down by method in this window.</div>');
+
     // ── Interpretation hint when one bucket dominates ──
     var hint = '';
     if(execs.length >= 10){
@@ -21263,7 +21309,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       + '</div>';
     host.innerHTML = headerHtml
                    + '<div id="fmLiveBody" style="display:' + (_fmCollapsed ? 'none' : 'block') + ';">'
-                   + summaryRow + frameNote + statsRow + tableHtml + hint + _liveLossesList(execs)
+                   + summaryRow + frameNote + statsRow + tableHtml + stratHtml + hint + _liveLossesList(execs)
                    + _h11ForwardTracker()
                    + _renderExecCostReport(all, anchor, winLabel)
                    + '</div>';
