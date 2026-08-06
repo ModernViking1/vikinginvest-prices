@@ -1402,6 +1402,55 @@ def detect_mmove_m15(pk, m15):
     return _mmove_signals(m15, pk, 'mmove_m15', 'm15')
 
 
+# ── Volume observer (m15, CRYPTO only — real Coinbase volume) ─────────────────────
+# EMA9/20 pullback GATED to high relative-volume bars. volume_gate_research.py
+# (2026-08-06): the relvol gate rescued this from -0.016R to a PASS on crypto, and
+# it survives strict bracket scoring (+0.022R, both OOS halves +) — the same
+# discipline the cBot trades under. Thin → MONITOR-ONLY, never fed to the cBot.
+#
+# NB: VWAP mean-reversion was ALSO a research "pass", but only under a mark-to-
+# market timeout convention; under the harness's bracket scoring (target-or-stop,
+# timeouts excluded) it is -0.150R, so it was NOT wired — a robust edge must not
+# depend on the exit convention.
+EMA920V_REL = 1.5         # relative-volume gate that rescued EMA9/20 on crypto
+EMA920V_VOL_LB = 20
+EMA920V_RR = 1.5
+EMA920V_HOLD = 40
+VWVOL_COOLDOWN = 2
+
+
+def detect_ema920v_m15(pk, m15):
+    """9/20-EMA pullback-in-trend, gated to bars with relvol >= EMA920V_REL. RR1.5."""
+    if PAIR_CLASS.get(pk) != 'crypto' or len(m15) < 400:
+        return []
+    c = [x['c'] for x in m15]; e9 = ema(c, 9); e20 = ema(c, 20)
+    out = []; last = -1
+    for i in range(max(25, EMA920V_VOL_LB), len(m15) - 1):
+        if i <= last or e9[i] is None or e20[i] is None:
+            continue
+        a = atr(m15, 14, i)
+        if not a or a <= 0:
+            continue
+        seg = m15[i - EMA920V_VOL_LB:i]
+        avg = sum(x.get('v', 0) or 0 for x in seg) / EMA920V_VOL_LB
+        if avg <= 0 or (m15[i].get('v', 0) or 0) / avg < EMA920V_REL:   # participation gate
+            continue
+        b = m15[i]
+        if e9[i] > e20[i] and b['l'] <= e20[i] and b['c'] > e9[i]:
+            stop = e20[i] - a
+            if stop < b['c']:
+                out.append({'strategy': 'ema920v', 'tf': 'm15', 'pair': pk, 'dir': 'bull',
+                            'entry_ts': m15[i + 1]['_ts'], 'entry': b['c'], 'stop': stop})
+                last = i + VWVOL_COOLDOWN
+        elif e9[i] < e20[i] and b['h'] >= e20[i] and b['c'] < e9[i]:
+            stop = e20[i] + a
+            if stop > b['c']:
+                out.append({'strategy': 'ema920v', 'tf': 'm15', 'pair': pk, 'dir': 'bear',
+                            'entry_ts': m15[i + 1]['_ts'], 'entry': b['c'], 'stop': stop})
+                last = i + VWVOL_COOLDOWN
+    return out
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -1495,7 +1544,7 @@ def main():
                  + detect_gbreak(pk, h1, daily) + detect_gtrend(pk, h1, daily)
                  + detect_gfib(pk, h1, daily) + detect_e90break(pk, h1, daily)
                  + detect_mmove(pk, h1, daily) + detect_obfvg_fx4(pk, h1, daily)
-                 + detect_mmove_m15(pk, m15))
+                 + detect_mmove_m15(pk, m15) + detect_ema920v_m15(pk, m15))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -1548,6 +1597,8 @@ def main():
                 st, o = score(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], MMOVE_HOLD)
             elif rec['strategy'] == 'mmove_m15':
                 st, o = score(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], MMOVE_M15_HOLD)
+            elif rec['strategy'] == 'ema920v':
+                st, o = score_asianglitch(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], EMA920V_HOLD, EMA920V_RR)
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -1576,7 +1627,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
