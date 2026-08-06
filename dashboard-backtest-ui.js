@@ -245,6 +245,19 @@ function buildBacktest(){
   if(typeof renderAutoEWDiagnostic === 'function') renderAutoEWDiagnostic();
   if(typeof renderFailureModeAnalysis === 'function') renderFailureModeAnalysis();
   var mc=document.getElementById('mktCards');
+  // ── SIMULATED-WIN-RATE BANNER ──────────────────────────────────────
+  // The big per-card "% win rate" numbers are 365-day historical backtests,
+  // NOT live results — but the green "LIVE" source badge sits right beside
+  // the pair name and reads as if the percentage were live. Make the
+  // distinction unmistakable at the top of the grid and point to where the
+  // actual live forward-testing lives (further down the page).
+  var simBanner = document.createElement('div');
+  simBanner.style.cssText = 'grid-column:1/-1;background:rgba(192,40,26,0.05);border:1px solid rgba(192,40,26,0.25);border-radius:4px;padding:9px 12px;margin-bottom:10px;font-family:Mukta,sans-serif;font-size:10px;line-height:1.5;color:var(--inkm);letter-spacing:0;';
+  simBanner.innerHTML = '<span style="font-family:Orbitron,monospace;font-size:8px;font-weight:700;letter-spacing:0.5px;color:var(--bear);background:rgba(192,40,26,0.10);padding:1px 5px;border-radius:2px;">&#9879; SIMULATED &middot; NOT LIVE</span> '
+    + '<b>The win rates on the cards below are 365-day historical backtests</b> — the engine replayed bar-by-bar over the past year, not live trading results. '
+    + 'The small green <b style="color:#0d5a36;">LIVE</b> badge beside a pair refers to its <i>real-time price feed</i>, <b>not</b> live trading — the percentage shown is still the backtest number. '
+    + '<b>Actual live forward-testing results are further down this page</b> — see <b style="color:var(--blue,#1e408c);">🏹 Swing Forward-Test</b> and <b style="color:#0d5a36;">Intraday Forward Testing &middot; LIVE</b>.';
+  mc.appendChild(simBanner);
   // Group pairs into the same 5 categories the user thinks in
   // (FX Majors / FX Minors / Commodities / Indices / Crypto), each
   // sorted alphabetically by display symbol. DXY lives under Indices.
