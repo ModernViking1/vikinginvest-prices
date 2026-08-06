@@ -1703,7 +1703,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         _lastExec=exec;
         var now=Date.now();
         if(_shadow && (now-_shadowAt)<600000){ render(exec,_shadow); return; }
-        fetch(BASE+'swing-shadow-log.json?t='+Date.now()).then(function(r){return r.json();}).then(function(sh){ _shadow=sh; _shadowAt=now; render(exec,sh); }).catch(function(){ render(exec,_shadow||{signals:{}}); });
+        fetch(BASE+'swing-shadow-log.json?t='+Date.now()).then(function(r){return r.json();}).then(function(sh){ _shadow=sh; _shadowAt=now; window._swingShadow=sh; render(exec,sh); try{ if(typeof window._renderLiveFailureMode==='function') window._renderLiveFailureMode(); }catch(_){} }).catch(function(){ render(exec,_shadow||{signals:{}}); });
       }).catch(function(){});
     }
     // Move the swing forward-test panel ABOVE the auto-EW + failure-mode boxes
@@ -21296,11 +21296,45 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var _stWrap = function(rowsHtml){ return '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:9.5px;font-family:Orbitron,monospace;">'+_stHead+'<tbody>'+rowsHtml+'</tbody></table></div>'; };
     var liveStrats = stratKeys.filter(_stratLive).sort(_stSort);
     var obsStrats  = stratKeys.filter(function(st){return !_stratLive(st);}).sort(_stSort);
+    // ── m15 SHADOW MONITORS (mmove_m15, ema920v, …) — intraday m15 strategies that
+    //    live in the shadow model (never sent to the cBot). Pulled from the swing
+    //    shadow log and shown here (they ARE intraday), styled like the swing panel. ──
+    var _shadowM15 = (function(){
+      var sh = window._swingShadow;
+      if(!sh || !sh.signals) return { loading:true, html:'' };
+      var _og = { mmove_m15:'imbalance / FVG retrace continuation · m15 scoped pockets XRP / gold / silver / FRA40',
+                  ema920v:'9/20-EMA pullback + relative-volume gate · m15 crypto' };
+      var by = {};
+      Object.keys(sh.signals).forEach(function(k){ var s=sh.signals[k]; if(!s || s.tf!=='m15') return;
+        var st=s.strategy||k.split(':')[0]; var o=by[st]||(by[st]={res:0,wins:0,r:0});
+        if(s.status==='resolved' && typeof s.r==='number'){ o.res++; if(s.r>0)o.wins++; o.r+=s.r; } });
+      var keys=Object.keys(by); if(!keys.length) return { loading:false, html:'' };
+      var trk=sh.tracking||{}, end=sh.last_run_data_end||sh.data_end_ts||0;
+      var rows=keys.sort(function(a,b){ var A=by[a],B=by[b]; var wa=A.res?A.wins/A.res:-1,wb=B.res?B.wins/B.res:-1; return wb-wa; }).map(function(st){
+        var o=by[st]; var wr=o.res?100*o.wins/o.res:0; var exp=o.res?o.r/o.res:0;
+        var td=(trk[st]&&end)?Math.max(0,Math.round((end-trk[st])/86400)):null; var og=_og[st]||'';
+        return '<tr style="opacity:0.9;vertical-align:top;">'
+          +'<td style="padding:5px 8px;font-weight:700;">'+esc(st)+' <span style="font-size:6.5px;color:var(--inkd);font-weight:700;letter-spacing:0.3px;">○obs</span>'+(og?'<div style="font-size:7px;color:var(--inkd);font-weight:400;line-height:1.15;margin-top:1px;">'+og+'</div>':'')+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;color:var(--inkd);">'+(td!=null?td+'d':'–')+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;">'+o.res+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;color:'+pctColor(wr)+';font-weight:700;">'+(o.res?fmtPct(wr):'—')+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;color:'+(exp>=0?'#0d5a36':'#c0281a')+';">'+(o.res?(exp>=0?'+':'')+exp.toFixed(3)+'R':'—')+'</td></tr>';
+      }).join('');
+      return { loading:false, html:
+        '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:var(--inkd);margin:10px 0 3px;">○ OBSERVING · m15 shadow monitors · not live</div>'
+        +'<div style="font-size:8px;color:var(--inkd);margin-bottom:4px;line-height:1.4;">Monitor-only m15 strategies tracked in the shadow model (never sent to the cBot) — model = idealised simulation. They accrue forward evidence before any promotion call.</div>'
+        +'<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:9.5px;font-family:Orbitron,monospace;">'
+        +'<thead><tr style="background:rgba(13,90,54,0.06);color:#0d5a36;font-weight:700;letter-spacing:0.5px;text-align:left;"><th style="padding:6px 8px;">Strategy</th><th style="padding:6px 8px;text-align:right;">tracked</th><th style="padding:6px 8px;text-align:right;">model n</th><th style="padding:6px 8px;text-align:right;">model WR</th><th style="padding:6px 8px;text-align:right;">model exp</th></tr></thead>'
+        +'<tbody>'+rows+'</tbody></table></div>' };
+    })();
+    var shadowBlock = _shadowM15.html
+      || (_shadowM15.loading ? '<div style="font-size:8px;color:var(--inkd);font-style:italic;margin:10px 0 6px;">○ m15 shadow monitors (mmove_m15, ema920v) — loading from the shadow model…</div>' : '');
     var stratHtml = '<div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:1px;color:#0d5a36;text-transform:uppercase;margin:12px 0 4px;border-top:1px dashed rgba(13,90,54,0.25);padding-top:9px;">By strategy (method)</div>'
-      + '<div style="font-size:8.5px;color:var(--inkd);margin-bottom:5px;line-height:1.5;">Same live fills as above, grouped by the intraday method that produced them — the swing panel\'s per-strategy view, applied here. A method is <b style="color:#0d5a36;">●LIVE</b> if it fired on the live (crypto) feed in this window, <b>○obs</b> if it only fired on demoted classes. The Pairs column shows where each method traded.</div>'
+      + '<div style="font-size:8.5px;color:var(--inkd);margin-bottom:5px;line-height:1.5;">Grouped by the intraday method — the swing panel\'s per-strategy view, applied here. <b style="color:#0d5a36;">●LIVE</b> methods fired on the live (crypto) feed; <b>○obs</b> only on demoted classes. Below them, the <b>m15 shadow monitors</b> (never sent to the cBot) are tracked in the shadow model.</div>'
       + (liveStrats.length ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:#0d5a36;margin:2px 0 3px;">● LIVE methods · executing on cTrader</div>' + _stWrap(liveStrats.map(stratRowFor).join('')) : '')
       + (obsStrats.length ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:var(--inkd);margin:8px 0 3px;">○ OBSERVING methods · demoted classes only</div>' + _stWrap(obsStrats.map(stratRowFor).join('')) : '')
-      + (stratKeys.length ? '' : '<div style="font-size:8px;color:var(--inkd);font-style:italic;">No closed fills to break down by method in this window.</div>');
+      + (stratKeys.length ? '' : '<div style="font-size:8px;color:var(--inkd);font-style:italic;">No closed fills to break down by method in this window.</div>')
+      + shadowBlock;
 
     // ── Interpretation hint when one bucket dominates ──
     var hint = '';
