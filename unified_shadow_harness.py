@@ -743,7 +743,14 @@ def detect_sweeprev(pk, h1, daily):
     class fails walk-forward and majors are negative (the sweep gets run over)."""
     if PAIR_CLASS.get(pk) != 'minor':
         return []
-    bars = agg4h(h1); n = len(bars); k = SWEEPREV_K
+    return _sweeprev_signals(agg4h(h1), pk, 'sweeprev', '4h')
+
+
+def _sweeprev_signals(bars, pk, tag, tf):
+    """Bar-agnostic sweeprev core (extracted 2026-08-06 so the same swept-extreme
+    reversal can be run on any timeframe, e.g. m15). Identical logic to the live 4H
+    version — only the bars/tag/tf come from the caller."""
+    n = len(bars); k = SWEEPREV_K
     if n < 2*k + 30:
         return []
     ph, pl = _pivots_hl(bars, k)
@@ -777,7 +784,7 @@ def detect_sweeprev(pk, h1, daily):
         stop = bars[idxB]['h'] + SWEEPREV_BUF*a
         if stop <= entry or tgt_low >= entry:
             continue
-        out.append({'strategy': 'sweeprev', 'tf': '4h', 'pair': pk, 'dir': 'bear',
+        out.append({'strategy': tag, 'tf': tf, 'pair': pk, 'dir': 'bear',
                     'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop, 'target': tgt_low})
         last = ei + SWEEPREV_COOLDOWN
     # LONGS: sweep below prior swing low, break the fall's last lower-high.
@@ -808,7 +815,7 @@ def detect_sweeprev(pk, h1, daily):
         stop = bars[idxB]['l'] - SWEEPREV_BUF*a
         if stop >= entry or tgt_high <= entry:
             continue
-        out.append({'strategy': 'sweeprev', 'tf': '4h', 'pair': pk, 'dir': 'bull',
+        out.append({'strategy': tag, 'tf': tf, 'pair': pk, 'dir': 'bull',
                     'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop, 'target': tgt_high})
         last = ei + SWEEPREV_COOLDOWN
     return out
