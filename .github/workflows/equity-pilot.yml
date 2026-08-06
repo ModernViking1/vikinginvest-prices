@@ -1,0 +1,50 @@
+name: Equity Pilot (fetch + backtest)
+
+# Manual only. Fetches US-equity OHLC (daily + h1 + m15, with real volume) via
+# Twelve Data, commits equity-ohlc.json + equity-earnings.json, then runs the
+# swing and ORB backtests and prints their PASS/fail to the job log.
+#
+# Requires repo secret TWELVEDATA_API_KEY. If it's unset the fetch step fails
+# with a clear message (fetch_equity_ohlc.py exits loudly) — add the secret and
+# re-run. Free tier (8 req/min) → ~3 min for 5 symbols x 3 timeframes + earnings.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: pip install requests
+
+      - name: Fetch equity OHLC (daily + h1 + m15, real volume)
+        env:
+          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python fetch_equity_ohlc.py --output equity-ohlc.json --earnings-output equity-earnings.json
+
+      - name: Commit pilot data
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add equity-ohlc.json equity-earnings.json || true
+          git commit -m "data: equity pilot OHLC (fetch) [skip ci]" || echo "nothing to commit"
+          for i in 1 2 3; do git push && break || { git fetch origin main && git rebase origin/main; sleep 3; }; done
+
+      - name: Swing backtest (gbreak + gtrend, gap-aware)
+        run: python equity_swing_research.py
+
+      - name: Opening-Range Breakout backtest (m15, RTH)
+        run: python equity_orb_research.py
