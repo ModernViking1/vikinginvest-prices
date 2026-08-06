@@ -1559,13 +1559,18 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         var _swClosedKeys={}; (execs||[]).forEach(function(e){ if(e.event==='closed') _swClosedKeys[_swKey(e)]=1; });
         var _swOpenMap={}; (execs||[]).forEach(function(e){ if(e.event==='placed' && !_swClosedKeys[_swKey(e)]) _swOpenMap[_swKey(e)]=e; });
         var openList=Object.keys(_swOpenMap).map(function(k){return _swOpenMap[k];});
-        var openN=openList.length;
-        var _opSeen={}, openPairs=[]; openList.forEach(function(e){ var p=(e.pair||e.symbol||'?').toUpperCase(); if(!_opSeen[p]){ _opSeen[p]=1; openPairs.push(p); } }); openPairs.sort();
         // Currently-demoted swing strategies (mirror swing_signals.py DEMOTED). Their fills were
         // live when they filled but the strategy is now observer-only, so they are excluded from
         // the headline LIVE win-rate and shown separately under ○ OBSERVING.
         var DEMOTED_SWING={tl_nowick:1,fib_gz:1,wm:1};
         var _swStratOf=function(e){ return e.strategy||(e.signal_id||'').split(':')[0]||'?'; };
+        // Keep the "(LIVE strategies)" headline internally consistent: open must be the
+        // live-cohort open, not all-strategy open, or placed/closed/open won't tie out.
+        // Legacy open positions from now-demoted strategies are counted separately.
+        var _liveOpenList=openList.filter(function(e){ return !DEMOTED_SWING[_swStratOf(e)]; });
+        var liveOpenN=_liveOpenList.length;
+        var demOpenN=openList.length-liveOpenN;
+        var _lop={}, liveOpenPairs=[]; _liveOpenList.forEach(function(e){ var p=(e.pair||e.symbol||'?').toUpperCase(); if(!_lop[p]){_lop[p]=1;liveOpenPairs.push(p);} }); liveOpenPairs.sort();
         var closedLive=closed.filter(function(e){ return !DEMOTED_SWING[_swStratOf(e)]; });
         var closedDem =closed.filter(function(e){ return  DEMOTED_SWING[_swStratOf(e)]; });
         var placedLive=placed.filter(function(e){ return !DEMOTED_SWING[_swStratOf(e)]; });
@@ -1587,9 +1592,9 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;">'
           +'<span style="color:'+C.blue+';font-weight:700;letter-spacing:0.5px;">🏹 SWING FORWARD-TEST · demo vs model <span style="color:'+C.mut+';font-weight:400;">(separate from intraday · '+winLabel+')</span></span>'
           +_swToggle(mode)+'</div>';
-        h+='<div style="color:'+C.ink+';margin-bottom:4px;">DEMO (LIVE strategies): <b>'+placedLive.length+'</b> placed · <b>'+closedLive.length+'</b> closed · <b>'+openN+'</b> open'+(openPairs.length?' <span style="color:'+C.mut+';">('+openPairs.join(', ')+')</span>':'')+' · realised <b style="color:'+(demoAll.tot>=0?C.g:C.r)+'">'+(demoAll.tot>=0?'+':'')+demoAll.tot.toFixed(2)+'R</b>'+(closedLive.length?' · WR '+demoAll.wr.toFixed(0)+'%':'')+'</div>';
-        if(closedDem.length){ h+='<div style="color:'+C.mut+';margin:-2px 0 6px;font-size:8px;">Excludes <b>'+closedDem.length+'</b> closed trade'+(closedDem.length===1?'':'s')+' from demoted strategies ('+Object.keys(DEMOTED_SWING).join(', ')+') → <b style="color:'+(demoDem.tot>=0?C.g:C.r)+';">'+(demoDem.tot>=0?'+':'')+demoDem.tot.toFixed(2)+'R</b> lifted off the live win-rate. These are shown under ○ OBSERVING below.</div>'; }
-        if(openN){ h+='<div style="color:'+C.mut+';margin:-2px 0 6px;font-size:8px;">Open trades count toward stats only when they close (target/stop). A winning position in profit is still "open" until it fills — it appears above, not in the closed table below.</div>'; }
+        h+='<div style="color:'+C.ink+';margin-bottom:4px;">DEMO (LIVE strategies): <b>'+placedLive.length+'</b> placed · <b>'+closedLive.length+'</b> closed · <b>'+liveOpenN+'</b> open'+(liveOpenPairs.length?' <span style="color:'+C.mut+';">('+liveOpenPairs.join(', ')+')</span>':'')+' · realised <b style="color:'+(demoAll.tot>=0?C.g:C.r)+'">'+(demoAll.tot>=0?'+':'')+demoAll.tot.toFixed(2)+'R</b>'+(closedLive.length?' · WR '+demoAll.wr.toFixed(0)+'%':'')+'</div>';
+        if(closedDem.length||demOpenN){ h+='<div style="color:'+C.mut+';margin:-2px 0 6px;font-size:8px;">Excludes <b>'+closedDem.length+'</b> closed trade'+(closedDem.length===1?'':'s')+' from demoted strategies ('+Object.keys(DEMOTED_SWING).join(', ')+') → <b style="color:'+(demoDem.tot>=0?C.g:C.r)+';">'+(demoDem.tot>=0?'+':'')+demoDem.tot.toFixed(2)+'R</b> lifted off the live win-rate'+(demOpenN?' (plus '+demOpenN+' legacy open position'+(demOpenN===1?'':'s')+' still running)':'')+'. These are shown under ○ OBSERVING below.</div>'; }
+        if(liveOpenN){ h+='<div style="color:'+C.mut+';margin:-2px 0 6px;font-size:8px;">Open trades count toward stats only when they close (target/stop). A winning position in profit is still "open" until it fills — it appears above, not in the closed table below.</div>'; }
         // Feed-freshness indicator — a stalled cBot auto-publish (PAT expired / setting off after a
         // rebuild) silently stops new fills reaching the repo, so closed winners never show up.
         var _lastTs=0; (execs||[]).forEach(function(e){ if(typeof e.ts==='number'&&e.ts>_lastTs)_lastTs=e.ts; });
