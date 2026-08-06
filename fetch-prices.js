@@ -164,7 +164,8 @@ async function fetchOANDACandles(pairKey, instrument, granularity, count){
         o: parseFloat(c.mid.o),
         h: parseFloat(c.mid.h),
         l: parseFloat(c.mid.l),
-        c: parseFloat(c.mid.c)
+        c: parseFloat(c.mid.c),
+        v: parseFloat(c.volume) || 0   // OANDA tick volume (activity proxy for FX/indices)
       }))
       .filter(c => isFinite(c.o) && isFinite(c.h) && isFinite(c.l) && isFinite(c.c));
     if(candles.length === 0) return null;
@@ -236,7 +237,8 @@ async function fetchCoinbaseCandles(pairKey, product, granularitySec, candleCoun
       t: granularitySec >= 86400
         ? new Date(c[0] * 1000).toISOString().slice(0,10)
         : new Date(c[0] * 1000).toISOString().slice(0,16),
-      o: c[3], h: c[2], l: c[1], c: c[4]
+      o: c[3], h: c[2], l: c[1], c: c[4],
+      v: parseFloat(c[5]) || 0   // real base-asset traded volume (crypto)
     })).filter(c => isFinite(c.o) && isFinite(c.h) && isFinite(c.l) && isFinite(c.c));
     if(candles.length === 0) return null;
     return candles;

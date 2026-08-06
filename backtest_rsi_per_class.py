@@ -109,6 +109,7 @@ def _bars_norm(arr):
         out.append({
             'o': b.get('o', c), 'c': c,
             'h': b.get('h', c), 'l': b.get('l', c),
+            'v': b.get('v', 0) or 0,          # traded/tick volume (0 on legacy bars fetched pre-volume)
             't': b.get('t', ''), '_ts': _ts(b),
         })
     return out

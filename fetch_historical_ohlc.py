@@ -237,6 +237,9 @@ def fetch_oanda_candles(token: str, instrument: str, granularity: str,
                     "h": float(mid["h"]),
                     "l": float(mid["l"]),
                     "c": float(mid["c"]),
+                    # OANDA candles carry tick volume (tick count) — no central FX
+                    # exchange exists, so this is the industry-standard activity proxy.
+                    "v": float(c.get("volume", 0) or 0),
                 })
             except (KeyError, ValueError, TypeError) as e:
                 continue
@@ -289,6 +292,8 @@ def fetch_coinbase_candles(product: str, granularity_seconds: int,
                             "h": float(row[2]),
                             "l": float(row[1]),
                             "c": float(row[4]),
+                            # row[5] = base-asset traded volume (REAL volume for crypto).
+                            "v": float(row[5]) if len(row) >= 6 else 0.0,
                         })
         except (ValueError, KeyError, TypeError):
             pass

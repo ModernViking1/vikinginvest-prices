@@ -177,6 +177,7 @@ def fetch_oanda_candles(instrument: str, api_key: str) -> list | None:
                 bars.append({
                     "t": _parse_oanda_time(c.get("time", "")),
                     "o": o, "h": h, "l": lo, "c": cl, "p": cl,
+                    "v": float(c.get("volume", 0) or 0),   # OANDA tick volume (activity proxy)
                 })
             return bars
         except OandaAuthError:
@@ -217,12 +218,14 @@ def fetch_coinbase_candles(product: str) -> list | None:
                     ts = int(row[0])
                     lo, hi = float(row[1]), float(row[2])
                     op, cl = float(row[3]), float(row[4])
+                    vol = float(row[5]) if len(row) >= 6 else 0.0
                 except (IndexError, ValueError, TypeError):
                     continue
                 dt = datetime.fromtimestamp(ts, tz=timezone.utc)
                 bars.append({
                     "t": _iso(dt),
                     "o": op, "h": hi, "l": lo, "c": cl, "p": cl,
+                    "v": vol,   # real base-asset traded volume (crypto)
                 })
             return bars
         except (requests.Timeout, requests.ConnectionError) as exc:
