@@ -300,6 +300,55 @@ namespace cAlgo.Robots
             if (string.IsNullOrEmpty(comment) || !comment.StartsWith(pfx, StringComparison.Ordinal)) return null;
             return comment.Substring(pfx.Length);
         }
+        // The method is the 3rd segment of the intraday signal id (pair:armed_ms:method).
+        // Returns null when the id is missing or malformed so the row stays honestly blank
+        // rather than mislabelled.
+        private static string StrategyFromSignalId(string sigId)
+        {
+            if (string.IsNullOrEmpty(sigId)) return null;
+            var seg = sigId.Split(':');
+            return seg.Length >= 3 && seg[2].Length > 0 ? seg[2] : null;
+        }
+        // 2026-08-06 — durable position→signal_id map. The broker does not reliably preserve a
+        // position Comment across a cBot restart on this venue, so a close firing after a restart
+        // lost BOTH the in-memory map and the Comment fallback → the row logged a null signal_id
+        // and the dashboard rendered it as an "unlabelled" strategy. Persisting the map to disk
+        // (rewritten on every open/close, pruned to live positions on load) closes that gap: the
+        // close handler resolves the method even when Comment is gone.
+        private string _pidMapPath;
+        private void LoadPositionSignalMap()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(_pidMapPath) || !IOFile.Exists(_pidMapPath)) return;
+                foreach (var raw in IOFile.ReadAllLines(_pidMapPath))
+                {
+                    var t = raw.Split('\t');
+                    if (t.Length >= 2 && long.TryParse(t[0], out var pid) && !string.IsNullOrEmpty(t[1]))
+                        _positionIdToSignalId[pid] = t[1];
+                }
+                // Drop entries whose position is no longer open (closes we missed while down),
+                // so the file can't grow without bound.
+                var open = new HashSet<long>(Positions.Where(x => x.Label == OrderLabel).Select(x => x.Id));
+                foreach (var k in _positionIdToSignalId.Keys.ToList())
+                    if (!open.Contains(k)) _positionIdToSignalId.Remove(k);
+                PersistPositionSignalMap();
+                Print($"🔁 [VikingInvest] restored {_positionIdToSignalId.Count} position→signal mapping(s) from disk");
+            }
+            catch (Exception ex) { Print($"⚠️ [VikingInvest] pid-map load failed: {ex.Message}"); }
+        }
+        private void PersistPositionSignalMap()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(_pidMapPath)) return;
+                var sb = new StringBuilder(256);
+                foreach (var kv in _positionIdToSignalId)
+                    sb.Append(kv.Key).Append('\t').Append(kv.Value).Append('\n');
+                IOFile.WriteAllText(_pidMapPath, sb.ToString());
+            }
+            catch (Exception ex) { Print($"⚠️ [VikingInvest] pid-map persist failed: {ex.Message}"); }
+        }
         // 2026-06-24 — Phase 1 failed-trade inspector hooks.
         // _positionMaxFavR     : running MFE in R per open position, sampled
         //                        once per poll tick (≥5s). Coarse but ample
@@ -343,8 +392,10 @@ namespace cAlgo.Robots
             _seenIdsPath     = System.IO.Path.Combine(_vikingDir, "seen_ids.txt");
             _executionsPath  = System.IO.Path.Combine(_vikingDir, "executions.jsonl");
             _dailyLossPath   = System.IO.Path.Combine(_vikingDir, "daily_loss.txt");
+            _pidMapPath      = System.IO.Path.Combine(_vikingDir, "position_signal_map.tsv");
             LoadSeenIds();
             LoadDailyLossState();
+            LoadPositionSignalMap();   // restore method linkage for positions opened before a restart
 
             // Phase 4 — preflight gate. On a live account, refuse to start
             // unless every check passes. On demo, run the same checks but
@@ -1229,6 +1280,7 @@ namespace cAlgo.Robots
                 // execution row. The dictionary stays small (≤ open
                 // position count) so we don't bother capping it.
                 _positionIdToSignalId[result.Position.Id] = sig.Id;
+                PersistPositionSignalMap();   // durable so a restart-orphaned close keeps its method
                 WriteExecution(new ExecutionRow
                 {
                     Event       = "placed",
@@ -1307,6 +1359,7 @@ namespace cAlgo.Robots
             }
 
             _positionIdToSignalId[p.Id] = sigId;
+            PersistPositionSignalMap();   // durable so a restart-orphaned close keeps its method
             _ordersPlaced++;
             Print($"✅ [VikingInvest] LIMIT FILLED {p.TradeType} {p.SymbolName} {p.VolumeInUnits:F0} @ {p.EntryPrice:F5} · id={sigId} PID={p.Id}");
             TelegramSend($"📤 {p.TradeType} {p.SymbolName} {p.VolumeInUnits:F0} units (limit) · " +
@@ -1395,6 +1448,7 @@ namespace cAlgo.Robots
                 Account     = Account.Number,
             });
             if (sigId != null) _positionIdToSignalId.Remove(p.Id);
+            PersistPositionSignalMap();   // keep the on-disk map in step with the live open set
             _positionMaxFavR.Remove(p.Id);
             _positionCloseSource.Remove(p.Id);
             Print($"📒 [VikingInvest] Position closed {p.SymbolName} {p.TradeType} · " +
@@ -1676,6 +1730,8 @@ namespace cAlgo.Robots
         {
             public string Event;            // "placed" | "rejected" | "closed"
             public string SignalId;         // from the feed — links to dashboard log
+            public string Strategy;         // method (wick/fib/macdp/divg) — travels on EVERY row so
+                                            // a restart-orphaned close is never rendered "unlabelled"
             public long?  PositionId;
             public string Pair;
             public string Symbol;
@@ -1786,6 +1842,7 @@ namespace cAlgo.Robots
                 F(sb, "ts",            tsMs);                                            sb.Append(',');
                 F(sb, "event",         r.Event);                                         sb.Append(',');
                 F(sb, "signal_id",     r.SignalId);                                      sb.Append(',');
+                F(sb, "strategy",      r.Strategy ?? StrategyFromSignalId(r.SignalId));  sb.Append(',');
                 F(sb, "position_id",   r.PositionId);                                    sb.Append(',');
                 F(sb, "pair",          r.Pair);                                          sb.Append(',');
                 F(sb, "symbol",        r.Symbol);                                        sb.Append(',');
