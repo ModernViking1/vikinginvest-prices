@@ -46,8 +46,8 @@ BASE = "https://api.twelvedata.com"
 # Twelve Data interval codes → our timeframe keys. Daily + 1h only for the
 # swing pilot (swing edges live on h1/daily; intraday m15 comes later once
 # session logic is built).
-INTERVALS = {"daily": "1day", "h1": "1h"}
-OUTPUTSIZE = {"daily": 400, "h1": 5000}   # ~365d daily, ~200d of RTH hours
+INTERVALS = {"daily": "1day", "h1": "1h", "m15": "15min"}
+OUTPUTSIZE = {"daily": 400, "h1": 5000, "m15": 5000}   # ~365d daily; ~200d h1; ~50d m15 RTH
 
 
 def _require_key() -> str:
@@ -106,6 +106,7 @@ def fetch_series(symbol: str, tf: str, key: str) -> List[Dict]:
                 "h": float(row["high"]),
                 "l": float(row["low"]),
                 "c": float(row["close"]),
+                "v": float(row.get("volume", 0) or 0),   # REAL share volume (Twelve Data)
             })
         except (KeyError, ValueError):
             continue
@@ -136,7 +137,7 @@ def main():
 
     for pk, sym in US_TOP5.items():
         pairs[pk] = {}
-        for tf in ("daily", "h1"):
+        for tf in ("daily", "h1", "m15"):   # m15 added for the intraday ORB test
             print(f"  {sym:<5} {tf} …", flush=True)
             pairs[pk][tf] = fetch_series(sym, tf, key)
             time.sleep(8.0)   # free-tier rate limit: 8 req/min → 1 req / 7.5s
@@ -145,7 +146,7 @@ def main():
             time.sleep(8.0)
 
     with open(args.output, "w") as f:
-        json.dump({"granularities": ["h1", "daily"], "pairs": pairs}, f)
+        json.dump({"granularities": ["m15", "h1", "daily"], "pairs": pairs}, f)
     print(f"wrote {args.output} ({len(pairs)} symbols)")
 
     if not args.no_earnings and any(earnings.values()):
