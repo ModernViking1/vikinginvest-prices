@@ -1494,6 +1494,93 @@ def score_orb(bars, entry_ts, entry, stop, target, d, session_end_ts):
     return ('resolved', ((cl - entry) if d == 'bull' else (entry - cl)) / R)
 
 
+# ── Value-area failed-breakout reversal (fabervaale) — the REAL volume version
+# (value_area_volume_research.py, 2026-08-06). Now that we carry volume, the profile is
+# VOLUME-at-price and the filter is real declining volume. Universe-wide it fails, but two
+# index pockets pass both OOS halves on RR2: DJ30 (+0.395R) and FRA40 (+0.166R). Uses
+# OANDA tick volume (index proxy). MONITOR-ONLY observer, scoped to those two pockets.
+VAREV_IX = {'dj30', 'fra40'}
+VAREV_L = 96; VAREV_BINS = 40; VAREV_VA_PCT = 0.70; VAREV_STEP = 2
+VAREV_DECL_VOL = 0.90; VAREV_VOL_LB = 20; VAREV_RECLAIM = 24; VAREV_BUF = 0.10; VAREV_HOLD = 120
+
+
+def _va_profile(win):
+    lo = min(b['l'] for b in win); hi = max(b['h'] for b in win)
+    if hi <= lo:
+        return None
+    w = (hi - lo) / VAREV_BINS; counts = [0.0] * VAREV_BINS
+    for b in win:
+        v = b.get('v', 0) or 0.0
+        if v <= 0:
+            continue
+        b0 = int((b['l'] - lo) / w); b1 = int((b['h'] - lo) / w)
+        b0 = 0 if b0 < 0 else (VAREV_BINS - 1 if b0 > VAREV_BINS - 1 else b0)
+        b1 = 0 if b1 < 0 else (VAREV_BINS - 1 if b1 > VAREV_BINS - 1 else b1)
+        share = v / (b1 - b0 + 1)
+        for k in range(b0, b1 + 1):
+            counts[k] += share
+    total = sum(counts)
+    if total <= 0:
+        return None
+    poc = max(range(VAREV_BINS), key=lambda k: counts[k])
+    acc = counts[poc]; lo_i = hi_i = poc; tgt = VAREV_VA_PCT * total
+    while acc < tgt and (lo_i > 0 or hi_i < VAREV_BINS - 1):
+        left = counts[lo_i - 1] if lo_i > 0 else -1
+        right = counts[hi_i + 1] if hi_i < VAREV_BINS - 1 else -1
+        if right >= left:
+            hi_i += 1; acc += counts[hi_i]
+        else:
+            lo_i -= 1; acc += counts[lo_i]
+    return lo + lo_i * w, lo + (hi_i + 1) * w
+
+
+def _varev_signals(bars, pk, tag):
+    n = len(bars); out = []; last = -1; va = None
+    for i in range(VAREV_L, n - 1):
+        if i <= last:
+            continue
+        if (i % VAREV_STEP) == 0 or va is None:
+            va = _va_profile(bars[i - VAREV_L:i])
+        if va is None:
+            continue
+        val, vah = va; c = bars[i]['c']; a = atr(bars, 14, i) or 0.0
+        if a <= 0 or not (val < c < vah):
+            continue
+        for j in range(i + 1, min(i + 1 + VAREV_RECLAIM, n - 1)):
+            bj = bars[j]; up = bj['c'] > vah; dn = bj['c'] < val
+            if not (up or dn):
+                continue
+            if j < VAREV_VOL_LB:
+                last = j; break
+            avgv = sum((bars[x].get('v', 0) or 0) for x in range(j - VAREV_VOL_LB, j)) / VAREV_VOL_LB
+            weak = avgv > 0 and (bj.get('v', 0) or 0) <= VAREV_DECL_VOL * avgv
+            if not weak:
+                last = j; break
+            side = 'up' if up else 'dn'; ext = bj['h'] if up else bj['l']
+            for k in range(j + 1, min(j + 1 + VAREV_RECLAIM, n - 1)):
+                bk = bars[k]
+                ext = max(ext, bk['h']) if side == 'up' else min(ext, bk['l'])
+                reclaim = (bk['c'] < vah) if side == 'up' else (bk['c'] > val)
+                if reclaim:
+                    d = 'bear' if side == 'up' else 'bull'; entry = bk['c']
+                    stop = ext + VAREV_BUF * a if d == 'bear' else ext - VAREV_BUF * a
+                    if (d == 'bear' and stop <= entry) or (d == 'bull' and stop >= entry):
+                        break
+                    if k + 1 < n:
+                        out.append({'strategy': tag, 'tf': 'h1', 'pair': pk, 'dir': d,
+                                    'entry_ts': bars[k + 1]['_ts'], 'entry': entry, 'stop': stop})
+                    last = k + 6; break
+            break
+    return out
+
+
+def detect_varev_ix(pk, h1):
+    """Value-area failed-breakout reversal, scoped to the two passing index pockets. Observer-only."""
+    if pk not in VAREV_IX or len(h1) < VAREV_L + 300:
+        return []
+    return _varev_signals(h1, pk, 'varev_ix')
+
+
 # ── Volume observer (m15, CRYPTO only — real Coinbase volume) ─────────────────────
 # EMA9/20 pullback GATED to high relative-volume bars. volume_gate_research.py
 # (2026-08-06): the relvol gate rescued this from -0.016R to a PASS on crypto, and
@@ -1644,7 +1731,7 @@ def main():
                  + detect_gfib(pk, h1, daily) + detect_e90break(pk, h1, daily)
                  + detect_mmove(pk, h1, daily) + detect_obfvg_fx4(pk, h1, daily)
                  + detect_mmove_m15(pk, m15) + detect_ema920v_m15(pk, m15)
-                 + detect_obfvg_m15(pk, m15, daily))
+                 + detect_obfvg_m15(pk, m15, daily) + detect_varev_ix(pk, h1))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -1701,6 +1788,8 @@ def main():
                 st, o = score_asianglitch(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], EMA920V_HOLD, EMA920V_RR)
             elif rec['strategy'] == 'obfvg_m15':
                 st, o = score(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], OBFVG_M15_HOLD)
+            elif rec['strategy'] == 'varev_ix':
+                st, o = score(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], VAREV_HOLD)
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -1756,7 +1845,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)

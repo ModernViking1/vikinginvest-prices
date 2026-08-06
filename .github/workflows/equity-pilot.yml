@@ -10,6 +10,10 @@ name: Equity Pilot (fetch + backtest)
 
 on:
   workflow_dispatch:
+  schedule:
+    # Weekly — Saturday 07:13 UTC, after the US trading week closes, so orb_eq
+    # keeps accruing forward evidence on fresh m15 data (free tier is fine weekly).
+    - cron: '13 7 * * 6'
 
 permissions:
   contents: write
