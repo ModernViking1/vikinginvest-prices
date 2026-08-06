@@ -42,9 +42,15 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add equity-ohlc.json equity-earnings.json || true
-          git commit -m "data: equity pilot OHLC (fetch) [skip ci]" || echo "nothing to commit"
-          for i in 1 2 3; do git push && break || { git fetch origin main && git rebase origin/main; sleep 3; }; done
+          # Stage each file INDIVIDUALLY — a missing earnings file (we run --no-earnings)
+          # must not abort the whole `git add` and leave equity-ohlc.json unstaged.
+          git add equity-ohlc.json
+          [ -f equity-earnings.json ] && git add equity-earnings.json || true
+          git commit -m "data: equity pilot OHLC (fetch) [skip ci]" || { echo "nothing to commit"; exit 0; }
+          for i in 1 2 3 4; do
+            git push && { echo "pushed"; exit 0; } || { git fetch origin main && git rebase origin/main && sleep 3; }
+          done
+          echo "::error::push failed after retries"; exit 1
 
       - name: Swing backtest (gbreak + gtrend, gap-aware)
         run: python equity_swing_research.py

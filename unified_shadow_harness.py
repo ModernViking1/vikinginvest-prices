@@ -1423,6 +1423,77 @@ def detect_obfvg_m15(pk, m15, daily):
     return _obfvg_signals(pk, m15, 'obfvg_m15', 'm15', daily)
 
 
+# ── Equity Opening-Range Breakout (equity_orb_research.py, 2026-08-06) — the first
+# EQUITY intraday edge. On real US-equity m15 with REAL share volume, ORB gated to
+# high relative-volume breakouts passes both OOS halves (relvol>=1.5, +0.018R ALL;
+# TSLA/AMZN per-pair). Reads equity-ohlc.json when the equity-pilot workflow has
+# committed it. Observer-only; ORB is a day-trade so it's scored to SESSION CLOSE.
+EQUITY_HIST = os.path.join(_HERE, 'equity-ohlc.json')
+EQUITY_SYMBOLS = ['aapl', 'nvda', 'tsla', 'msft', 'amzn']
+ORB_OR_BARS = 2          # opening range = first 30 min (RTH-only bars → first-of-day = the open)
+ORB_REL = 1.5            # relative-volume gate on the breakout bar (the passing variant)
+ORB_VOL_LB = 20
+
+
+def _orb_eq_signals(pk, m15):
+    if len(m15) < 200:
+        return []
+    by_day = {}
+    for i, b in enumerate(m15):
+        by_day.setdefault(int(b['_ts'] // 86400) if b['_ts'] else 0, []).append(i)
+    out = []
+    for day in sorted(by_day):
+        idxs = by_day[day]
+        if len(idxs) < ORB_OR_BARS + 3:
+            continue
+        seg = idxs[:ORB_OR_BARS]
+        hi = max(m15[j]['h'] for j in seg); lo = min(m15[j]['l'] for j in seg)
+        if hi <= lo:
+            continue
+        h = hi - lo; last_idx = idxs[-1]
+        for j in idxs[ORB_OR_BARS:]:
+            b = m15[j]
+            d = 'bull' if b['c'] > hi else ('bear' if b['c'] < lo else None)
+            if not d:
+                continue
+            if j < ORB_VOL_LB or j + 1 >= len(m15):
+                break
+            avg = sum((m15[x].get('v', 0) or 0) for x in range(j - ORB_VOL_LB, j)) / ORB_VOL_LB
+            if avg <= 0 or (m15[j].get('v', 0) or 0) / avg < ORB_REL:     # participation gate
+                break
+            entry = b['c']; stop = lo if d == 'bull' else hi
+            if abs(entry - stop) <= 0:
+                break
+            tgt = entry + h if d == 'bull' else entry - h                 # target = 1x opening range
+            out.append({'strategy': 'orb_eq', 'tf': 'm15', 'pair': pk, 'dir': d,
+                        'entry_ts': m15[j + 1]['_ts'], 'entry': entry, 'stop': stop,
+                        'target': tgt, 'session_end_ts': m15[last_idx]['_ts']})
+            break                                                         # one ORB trade per session
+    return out
+
+
+def score_orb(bars, entry_ts, entry, stop, target, d, session_end_ts):
+    """Target-or-stop first-touch, else mark-to-market at SESSION CLOSE (ORB is a
+    day-trade — the close exit IS the strategy, not a hold-timeout to exclude)."""
+    ts = [b['_ts'] for b in bars]; i0 = bisect.bisect_left(ts, entry_ts)
+    R = abs(entry - stop)
+    if R <= 0 or i0 >= len(bars):
+        return ('pending', None)
+    se = bisect.bisect_left(ts, session_end_ts)
+    if se >= len(bars):
+        return ('pending', None)                       # session not complete in data yet
+    for j in range(i0, se + 1):
+        b = bars[j]
+        if d == 'bull':
+            if b['l'] <= stop: return ('resolved', -1.0)
+            if b['h'] >= target: return ('resolved', (target - entry) / R)
+        else:
+            if b['h'] >= stop: return ('resolved', -1.0)
+            if b['l'] <= target: return ('resolved', (entry - target) / R)
+    cl = bars[se]['c']
+    return ('resolved', ((cl - entry) if d == 'bull' else (entry - cl)) / R)
+
+
 # ── Volume observer (m15, CRYPTO only — real Coinbase volume) ─────────────────────
 # EMA9/20 pullback GATED to high relative-volume bars. volume_gate_research.py
 # (2026-08-06): the relvol gate rescued this from -0.016R to a PASS on crypto, and
@@ -1637,6 +1708,33 @@ def main():
                 rec['r'] = o - cost(o, rec['entry'], abs(rec['entry']-rec['stop']))
             else:
                 rec.pop('r', None)
+
+    # ── Equity ORB observer — separate data source (equity-ohlc.json, committed by the
+    #    equity-pilot workflow). Processed here, outside the FX/crypto pair loop. ──
+    if os.path.exists(EQUITY_HIST):
+        try:
+            eqp = json.load(open(EQUITY_HIST)).get('pairs', {})
+            for pk in EQUITY_SYMBOLS:
+                em15 = _bars_norm(eqp.get(pk, {}).get('m15', []))
+                if len(em15) < 200:
+                    continue
+                data_end = max(data_end, em15[-1]['_ts'])
+                for s in _orb_eq_signals(pk, em15):
+                    detected += 1
+                    k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
+                    if k not in sigs:
+                        s['first_seen'] = data_end; s['status'] = 'pending'; sigs[k] = s
+                    rec = sigs[k]
+                    st, o = score_orb(em15, rec['entry_ts'], rec['entry'], rec['stop'],
+                                      rec['target'], rec['dir'], rec['session_end_ts'])
+                    rec['status'] = st
+                    if st == 'resolved':
+                        rec['r'] = o - cost(o, rec['entry'], abs(rec['entry'] - rec['stop']))
+                    else:
+                        rec.pop('r', None)
+        except Exception as e:
+            print(f"equity ORB observer skipped: {e}")
+
     if log['baseline_data_end'] is None:
         log['baseline_data_end'] = data_end
     log['last_run_data_end'] = data_end
@@ -1658,7 +1756,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
