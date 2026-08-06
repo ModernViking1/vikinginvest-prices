@@ -21028,6 +21028,20 @@ function _renderCCIVariantPanel(host, commodityKeys){
       return 'manual';
     }
 
+    // Strategy resolver. The cBot's CLOSE row often loses its signal_id on a
+    // restart (signal_id=null → the old code bucketed these as "unlabelled",
+    // which looked like a separate high-WR strategy but is really ~72% macdp).
+    // Recover it from the matching PLACED row via position_id before giving up.
+    var _placedByPid = {};
+    (all || []).forEach(function(r){ if(r && r.event === 'placed' && r.position_id != null && !(r.position_id in _placedByPid)) _placedByPid[r.position_id] = r; });
+    var _rawStrat = function(x){ return (x && ((x.signal_id || '').split(':')[2] || x.strategy)) || ''; };
+    var _stratOf = function(r){
+      var s = _rawStrat(r);
+      if(s) return s;
+      var p = (r && r.position_id != null) ? _placedByPid[r.position_id] : null;
+      return (p ? _rawStrat(p) : '') || '?';
+    };
+
     // Aggregate per-pair.
     var byPair = {};
     var aggC = {'target-hit':0,'stop-clean':0,'stop-after-progress':0,'cbot-invalidation':0,'manual':0};
@@ -21044,7 +21058,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
         buckets:{'target-hit':0,'stop-clean':0,'stop-after-progress':0,'cbot-invalidation':0,'manual':0}
       });
       p.trades++;
-      if(r.realized_r > 0){ p.wins++; var _wm=(r.signal_id||'').split(':')[2]||r.strategy||'?'; p.winStrats[_wm]=(p.winStrats[_wm]||0)+1; }
+      if(r.realized_r > 0){ p.wins++; var _wm=_stratOf(r); p.winStrats[_wm]=(p.winStrats[_wm]||0)+1; }
       else if(r.realized_r < 0) p.losses++;
       if(typeof r.realized_r === 'number') p.R += r.realized_r;
       if(typeof r.net_profit === 'number') p.net += r.net_profit;
@@ -21247,7 +21261,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var _mLbl2 = { macdp:'MACD cross', fib:'Fibonacci', wick:'Wick reversal', divg:'MACD divergence', '?':'unlabelled' };
     var byStrat = {};
     execs.forEach(function(r){
-      var st = (r.signal_id||'').split(':')[2] || r.strategy || '?';
+      var st = _stratOf(r);
       var o = byStrat[st] || (byStrat[st]={n:0,wins:0,losses:0,R:0,liveN:0,pairs:{}});
       o.n++;
       if(r.realized_r>0) o.wins++; else if(r.realized_r<0) o.losses++;
@@ -22174,12 +22188,16 @@ function _renderCCIVariantPanel(host, commodityKeys){
            + '<td style="padding:5px 8px;text-align:right;"><button onclick="window.__viReplayPair(\'' + p + '\')" style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.5px;padding:3px 9px;background:rgba(13,90,54,0.08);color:#0d5a36;border:1px solid rgba(13,90,54,0.35);border-radius:3px;cursor:pointer;">' + btnLabel + '</button></td>'
            + '</tr>';
     }).join('');
+    // Collapsed by default (mirrors the swing Losses-by-pair panel) — the intraday
+    // box is already dense, so this diagnostic sits folded until tapped.
+    var _flC; try{ var _flv=localStorage.getItem('vit_fmloss_collapsed'); _flC=(_flv===null?true:_flv==='1'); }catch(e){ _flC=true; }
+    if(typeof window.__fmLossToggle!=='function'){ window.__fmLossToggle=function(){ try{ var v=localStorage.getItem('vit_fmloss_collapsed'); localStorage.setItem('vit_fmloss_collapsed',(v==='0')?'1':'0'); }catch(e){} var b=document.getElementById('fmLossBody'), a=document.getElementById('fmLossArrow'); if(b){ var hid=b.style.display==='none'; b.style.display=hid?'block':'none'; if(a) a.textContent=hid?'▾':'▸'; } }; }
     return '<div style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(13,90,54,0.25);">'
-         + '<div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:1.2px;color:#0d5a36;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;align-items:baseline;">'
-         +   '<span>📒 Losses by pair</span>'
-         +   '<span style="font-weight:400;font-size:8.5px;color:var(--inkd);letter-spacing:0.4px;">' + pairKeys.length + ' pair' + (pairKeys.length === 1 ? '' : 's') + ' · ' + losses.length + ' losses · click to diagnose</span>'
+         + '<div onclick="window.__fmLossToggle()" style="cursor:pointer;user-select:none;font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:1.2px;color:#0d5a36;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;align-items:baseline;">'
+         +   '<span><span id="fmLossArrow">' + (_flC?'▸':'▾') + '</span> 📒 Losses by pair</span>'
+         +   '<span style="font-weight:400;font-size:8.5px;color:var(--inkd);letter-spacing:0.4px;">' + pairKeys.length + ' pair' + (pairKeys.length === 1 ? '' : 's') + ' · ' + losses.length + ' losses · tap to ' + (_flC?'expand':'collapse') + '</span>'
          + '</div>'
-         + '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;">'
+         + '<div id="fmLossBody" style="display:' + (_flC?'none':'block') + ';"><div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;">'
          +   '<table style="width:100%;border-collapse:collapse;font-family:Orbitron,monospace;font-size:9.5px;">'
          +     '<thead><tr style="background:rgba(13,90,54,0.05);color:var(--inkd);text-align:left;letter-spacing:0.4px;">'
          +       '<th style="padding:6px 8px;font-weight:700;">Pair</th>'
@@ -22190,7 +22208,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
          +     '</tr></thead>'
          +     '<tbody>' + rows + '</tbody>'
          +   '</table>'
-         + '</div>'
+         + '</div></div>'
          + '</div>';
   }
 
