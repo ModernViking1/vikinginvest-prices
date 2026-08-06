@@ -42,7 +42,10 @@ on:
 
 concurrency:
   group: fetch-data
-  cancel-in-progress: false
+  # 2026-08-06: true (was false) — the ~5-min external pinger + slow runner
+  # queueing caused a self-cancelling backlog that stalled the feed; let the
+  # freshest request win instead. Cancelling mid-run leaves no partial commit.
+  cancel-in-progress: true
 
 jobs:
   fetch:
