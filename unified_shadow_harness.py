@@ -1335,6 +1335,13 @@ MMOVE_HOLD = 80
 MMOVE_IX1 = {'de40', 'jp225'}
 MMOVE_IX4 = {'ftse100', 'dj30', 'nas100', 'jp225'}
 MMOVE_C4 = {'xagusd', 'wtiusd', 'natgas'}
+# m15 port (mmove_m15_research.py, 2026-08-06). Universe-wide the FVG edge has no
+# edge at 15m, but four per-pair pockets pass BOTH OOS halves at every tested hold
+# (20/48/96h): XRPUSD, XAUUSD, XAGUSD, FRA40. MONITOR-ONLY observers — thin
+# (+0.02..0.09R), never fed to the cBot; logged here to build genuine forward
+# evidence before any promotion call.
+MMOVE_M15 = {'xrpusd', 'xauusd', 'xagusd', 'fra40'}
+MMOVE_M15_HOLD = 192   # 48h on m15 (edge stable across the swept holds in research)
 
 
 def _mmove_signals(bars, pk, tag, tf):
@@ -1386,6 +1393,13 @@ def detect_mmove(pk, h1, daily):
         if pk in MMOVE_C4:
             out += _mmove_signals(b4, pk, 'mmove_c4', '4h')
     return out
+
+
+def detect_mmove_m15(pk, m15):
+    """m15 FVG retrace-continuation, scoped to the four passing pockets. Observer-only."""
+    if pk not in MMOVE_M15 or len(m15) < 400:
+        return []
+    return _mmove_signals(m15, pk, 'mmove_m15', 'm15')
 
 
 def score(bars, entry_ts, entry, stop, d, hold):
@@ -1462,6 +1476,7 @@ def main():
     sigs = log['signals']; data_end = 0; detected = 0
     for pk in [x for x in PAIR_CLASS if x in pairs]:
         h1 = _bars_norm(pairs[pk].get('h1', [])); daily = _bars_norm(pairs[pk].get('daily', []))
+        m15 = _bars_norm(pairs[pk].get('m15', []))   # for the scoped mmove_m15 observer only
         draw = pairs[pk].get('daily', [])
         if len(h1) < 400 or len(daily) < 80: continue
         b4 = agg4h(h1); data_end = max(data_end, h1[-1]['_ts'])
@@ -1479,7 +1494,8 @@ def main():
                  + detect_obfvg(pk, h1, daily) + detect_obfvg_watch(pk, h1, daily)
                  + detect_gbreak(pk, h1, daily) + detect_gtrend(pk, h1, daily)
                  + detect_gfib(pk, h1, daily) + detect_e90break(pk, h1, daily)
-                 + detect_mmove(pk, h1, daily) + detect_obfvg_fx4(pk, h1, daily))
+                 + detect_mmove(pk, h1, daily) + detect_obfvg_fx4(pk, h1, daily)
+                 + detect_mmove_m15(pk, m15))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -1530,6 +1546,8 @@ def main():
                 st, o = score(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], MMOVE_HOLD)
             elif rec['strategy'] in ('mmove_ix4', 'mmove_c4'):
                 st, o = score(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], MMOVE_HOLD)
+            elif rec['strategy'] == 'mmove_m15':
+                st, o = score(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], MMOVE_M15_HOLD)
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -1558,7 +1576,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
