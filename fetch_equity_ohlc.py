@@ -63,23 +63,38 @@ def _require_key() -> str:
 
 
 def _get(path: str, params: Dict) -> Dict:
-    """GET with a clear message if the sandbox egress policy blocks the host."""
+    """GET with free-tier-aware handling.
+
+    - 429 (rate limit, 8 req/min on the free tier): wait out the minute and retry.
+    - 403: usually the endpoint isn't in the free plan (e.g. /earnings) or credits
+      are exhausted — raise RuntimeError so the CALLER decides (earnings is optional).
+      Inside the agent sandbox a 403 is the egress policy; the message covers both.
+    - connection error: the true sandbox-blocked case → exit with guidance.
+    """
     import requests  # imported lazily so --help works without the dep
-    try:
-        r = requests.get(BASE + path, params=params, timeout=30)
-    except requests.exceptions.RequestException as e:
-        sys.exit(
-            f"ERROR: request to {BASE}{path} failed: {e}\n"
-            "  If you are inside the agent sandbox, outbound data hosts are\n"
-            "  blocked by the egress policy — run this in CI or locally instead."
-        )
-    if r.status_code == 403:
-        sys.exit(
-            "ERROR: 403 from the network egress policy (host not allowlisted).\n"
-            "  Run this in CI / on your machine, not in the agent sandbox."
-        )
-    r.raise_for_status()
-    return r.json()
+    for attempt in range(4):
+        try:
+            r = requests.get(BASE + path, params=params, timeout=30)
+        except requests.exceptions.RequestException as e:
+            if attempt < 3:
+                time.sleep(15); continue
+            sys.exit(
+                f"ERROR: request to {BASE}{path} failed: {e}\n"
+                "  If you are inside the agent sandbox, outbound data hosts are\n"
+                "  blocked by the egress policy — run this in CI or locally instead."
+            )
+        if r.status_code == 429:                 # rate limit — wait for the minute window
+            if attempt < 3:
+                time.sleep(61); continue
+            raise RuntimeError(f"429 rate-limited on {path} after retries")
+        if r.status_code == 403:
+            raise RuntimeError(
+                f"403 on {path} — endpoint not in the free plan, credits exhausted, "
+                "or (in the agent sandbox) a blocked host. Skipping if optional."
+            )
+        r.raise_for_status()
+        return r.json()
+    raise RuntimeError(f"{path}: exhausted retries")
 
 
 def fetch_series(symbol: str, tf: str, key: str) -> List[Dict]:
@@ -140,7 +155,7 @@ def main():
         for tf in ("daily", "h1", "m15"):   # m15 added for the intraday ORB test
             print(f"  {sym:<5} {tf} …", flush=True)
             pairs[pk][tf] = fetch_series(sym, tf, key)
-            time.sleep(8.0)   # free-tier rate limit: 8 req/min → 1 req / 7.5s
+            time.sleep(9.0)   # free-tier rate limit: 8 req/min → keep ~7/min for margin
         if not args.no_earnings:
             earnings[pk] = fetch_earnings_dates(sym, key)
             time.sleep(8.0)
