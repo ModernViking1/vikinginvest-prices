@@ -1402,6 +1402,20 @@ def detect_mmove_m15(pk, m15):
     return _mmove_signals(m15, pk, 'mmove_m15', 'm15')
 
 
+# OB+FVG retrace ported to m15 (obfvg_m15_research.py, 2026-08-06). Crypto passes
+# (+0.10R, both OOS halves +); BTCUSD + XRPUSD pass individually at 24h and 48h holds.
+# MONITOR-ONLY observer, scoped to those two pockets. RR2, 24h hold.
+OBFVG_M15 = {'btcusd', 'xrpusd'}
+OBFVG_M15_HOLD = 96
+
+
+def detect_obfvg_m15(pk, m15, daily):
+    """m15 OB+FVG retrace, scoped to the two passing crypto pockets. Observer-only."""
+    if pk not in OBFVG_M15 or len(m15) < 400:
+        return []
+    return _obfvg_signals(pk, m15, 'obfvg_m15', 'm15', daily)
+
+
 # ── Volume observer (m15, CRYPTO only — real Coinbase volume) ─────────────────────
 # EMA9/20 pullback GATED to high relative-volume bars. volume_gate_research.py
 # (2026-08-06): the relvol gate rescued this from -0.016R to a PASS on crypto, and
@@ -1551,7 +1565,8 @@ def main():
                  + detect_gbreak(pk, h1, daily) + detect_gtrend(pk, h1, daily)
                  + detect_gfib(pk, h1, daily) + detect_e90break(pk, h1, daily)
                  + detect_mmove(pk, h1, daily) + detect_obfvg_fx4(pk, h1, daily)
-                 + detect_mmove_m15(pk, m15) + detect_ema920v_m15(pk, m15))
+                 + detect_mmove_m15(pk, m15) + detect_ema920v_m15(pk, m15)
+                 + detect_obfvg_m15(pk, m15, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -1606,6 +1621,8 @@ def main():
                 st, o = score(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], MMOVE_M15_HOLD)
             elif rec['strategy'] == 'ema920v':
                 st, o = score_asianglitch(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], EMA920V_HOLD, EMA920V_RR)
+            elif rec['strategy'] == 'obfvg_m15':
+                st, o = score(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], OBFVG_M15_HOLD)
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -1634,7 +1651,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)

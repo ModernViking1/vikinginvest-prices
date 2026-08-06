@@ -1607,7 +1607,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
           h+='<div style="color:'+C.mut+';margin-bottom:6px;">Execution gap pending — needs demo trades to CLOSE (they resolve on target/stop over hours–days).</div>';
         }
         // per strategy
-        var strats=['hs','s5_rsi','s5_engulf','ob','tl_nowick','w5_pullback','s5_rsi_wide','rsimr','fib_gz','fred_tl','threepush','engulf_manip','sweeprev','asianglitch','wm','sid','obfvg','obfvg_w','gbreak','gtrend','gfib','e90break','mmove','mmove_ix','mmove_ix4','mmove_c4','mmove_m15','ema920v'];
+        var strats=['hs','s5_rsi','s5_engulf','ob','tl_nowick','w5_pullback','s5_rsi_wide','rsimr','fib_gz','fred_tl','threepush','engulf_manip','sweeprev','asianglitch','wm','sid','obfvg','obfvg_w','gbreak','gtrend','gfib','e90break','mmove','mmove_ix','mmove_ix4','mmove_c4','mmove_m15','ema920v','obfvg_m15'];
         // tracking-start per strategy (harness backfills earliest first_seen) → "how long tracked"
         var _track=(shadow&&shadow.tracking)||{}, _trackEnd=(shadow&&(shadow.last_run_data_end||shadow.data_end_ts))||0;
         var _trackedDays=function(st){ var t=_track[st]; return (t&&_trackEnd)?Math.max(0,Math.round((_trackEnd-t)/86400)):null; };
@@ -1635,6 +1635,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
           mmove_c4:'imbalance / FVG retrace continuation · commodities H4 (monitor)',
           mmove_m15:'imbalance / FVG retrace continuation · m15 scoped pockets XRP/gold/silver/FRA40 (monitor)',
           ema920v:'9/20-EMA pullback + relative-volume gate · m15 crypto (monitor)',
+          obfvg_m15:'order-block + fair-value-gap retrace · m15 scoped pockets BTC / XRP (monitor)',
           hs:'Viking Edge · proprietary', s5_rsi:'Viking Edge · proprietary',
           s5_engulf:'Viking Edge · proprietary', ob:'Viking Edge · proprietary',
           tl_nowick:'Viking Edge · proprietary', s5_rsi_wide:'Viking Edge · proprietary',
@@ -21303,7 +21304,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
       var sh = window._swingShadow;
       if(!sh || !sh.signals) return { loading:true, html:'' };
       var _og = { mmove_m15:'imbalance / FVG retrace continuation · m15 scoped pockets XRP / gold / silver / FRA40',
-                  ema920v:'9/20-EMA pullback + relative-volume gate · m15 crypto' };
+                  ema920v:'9/20-EMA pullback + relative-volume gate · m15 crypto',
+                  obfvg_m15:'order-block + fair-value-gap retrace · m15 scoped pockets BTC / XRP' };
       var by = {};
       Object.keys(sh.signals).forEach(function(k){ var s=sh.signals[k]; if(!s || s.tf!=='m15') return;
         var st=s.strategy||k.split(':')[0]; var o=by[st]||(by[st]={res:0,wins:0,r:0});
