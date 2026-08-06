@@ -329,7 +329,7 @@ namespace cAlgo.Robots
                 }
                 // Drop entries whose position is no longer open (closes we missed while down),
                 // so the file can't grow without bound.
-                var open = new HashSet<long>(Positions.Where(x => x.Label == OrderLabel).Select(x => x.Id));
+                var open = new HashSet<long>(Positions.Where(x => x.Label == OrderLabel).Select(x => (long)x.Id));
                 foreach (var k in _positionIdToSignalId.Keys.ToList())
                     if (!open.Contains(k)) _positionIdToSignalId.Remove(k);
                 PersistPositionSignalMap();
@@ -1730,8 +1730,6 @@ namespace cAlgo.Robots
         {
             public string Event;            // "placed" | "rejected" | "closed"
             public string SignalId;         // from the feed — links to dashboard log
-            public string Strategy;         // method (wick/fib/macdp/divg) — travels on EVERY row so
-                                            // a restart-orphaned close is never rendered "unlabelled"
             public long?  PositionId;
             public string Pair;
             public string Symbol;
@@ -1842,7 +1840,7 @@ namespace cAlgo.Robots
                 F(sb, "ts",            tsMs);                                            sb.Append(',');
                 F(sb, "event",         r.Event);                                         sb.Append(',');
                 F(sb, "signal_id",     r.SignalId);                                      sb.Append(',');
-                F(sb, "strategy",      r.Strategy ?? StrategyFromSignalId(r.SignalId));  sb.Append(',');
+                F(sb, "strategy",      StrategyFromSignalId(r.SignalId));                sb.Append(',');
                 F(sb, "position_id",   r.PositionId);                                    sb.Append(',');
                 F(sb, "pair",          r.Pair);                                          sb.Append(',');
                 F(sb, "symbol",        r.Symbol);                                        sb.Append(',');

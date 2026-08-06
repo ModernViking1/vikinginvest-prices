@@ -32,7 +32,8 @@ jobs:
 
       - name: Fetch equity OHLC (daily + h1 + m15, real volume)
         env:
-          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+          # Map the repo secret (named TD_API_KEY) to the env var the fetcher reads.
+          TWELVEDATA_API_KEY: ${{ secrets.TD_API_KEY }}
         run: python fetch_equity_ohlc.py --output equity-ohlc.json --earnings-output equity-earnings.json
 
       - name: Commit pilot data
