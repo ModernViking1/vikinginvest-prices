@@ -152,13 +152,29 @@ namespace cAlgo.Robots
                 bool armed = isBuy ? (peak >= p.EntryPrice + R) : (peak <= p.EntryPrice - R);
                 if (!armed) continue;                                   // not yet +1R in profit
                 double desired = isBuy ? peak - R : peak + R;           // first arm => entry (break-even)
-                double? cur = p.StopLoss;
-                bool tighter = isBuy ? (!cur.HasValue || desired > cur.Value)
-                                     : (!cur.HasValue || desired < cur.Value);
-                if (!tighter) continue;                                 // only ratchet forward
-                try { p.ModifyStopLossPrice(desired); }
-                catch (Exception ex) { Print($"[VikingSwing] trail modify pid={p.Id} failed: {ex.Message}"); }
+                RatchetStop(p, desired, isBuy);                          // tick-guarded; skips no-op modifies
             }
+        }
+
+        // Ratchet a position's stop toward `desired`, but ONLY when the normalised move
+        // clears one full tick in the favourable direction. cTrader pops "Order execution
+        // error / Nothing to change" whenever a modify resolves to the stop already set —
+        // a sub-tick move that survived a raw-price comparison would do exactly that on
+        // every timer tick. Normalising to the symbol's precision and requiring a >= 1-tick
+        // move removes the no-op calls (and therefore the notifications) while still
+        // ratcheting on real moves.
+        private void RatchetStop(Position p, double desired, bool isBuy)
+        {
+            if (p == null || p.Symbol == null) return;
+            int digits = p.Symbol.Digits;
+            double tick = p.Symbol.TickSize > 0 ? p.Symbol.TickSize : Math.Pow(10, -digits);
+            desired = Math.Round(desired, digits);
+            double? cur = p.StopLoss;
+            bool ok = isBuy ? (!cur.HasValue || desired >= Math.Round(cur.Value, digits) + tick)
+                            : (!cur.HasValue || desired <= Math.Round(cur.Value, digits) - tick);
+            if (!ok) return;                                            // sub-tick / backward → skip
+            try { p.ModifyStopLossPrice(desired); }
+            catch (Exception ex) { Print($"[VikingSwing] trail modify pid={p.Id} failed: {ex.Message}"); }
         }
 
         private async Task PollAsync()
