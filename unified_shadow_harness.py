@@ -1637,6 +1637,50 @@ def detect_ema920v_m15(pk, m15):
 # false-positive caught this session by cross-checking against harness scoring.)
 
 
+# ── Market Wizards continuation setups — crypto observers, TRAILING-runner exit ──
+# Raschke's 'Holy Grail' (ADX>25 strong trend + a pullback that tags the 20-EMA and
+# closes back through it) and the volume-breakout 'breakthrough' (break the 20-bar
+# range by a margin on >=1.5x average volume, stop below the breakout bar). Both are
+# momentum/continuation entries: at a fixed RR2 target they die (WR too low to pay
+# the target), but with a trailing RUNNER exit — arm at +1R, trail 1R behind the best
+# price, mark-to-market at the horizon — crypto passes BOTH OOS halves on h1
+# (holy_grail +0.10R, volbreak +0.03R). The per-class study (market_wizards_breakdown
+# .py) shows equity/index/comm also pass for several of these; only FX majors/minors
+# fail everywhere (spread is a big fraction of ATR and their ranges mean-revert
+# through the trail). Scoped to crypto here as MONITOR-ONLY observers — the live
+# intraday class. On m15 holy_grail's crypto edge decays (second OOS half negative),
+# so it stays an h1 observer only. Detectors reuse the researched signal generators.
+from market_wizards_research import holy_grail as _holygrail_sig, volbreak as _volbreak_sig
+TRAIL_ARM = 1.0            # arm the trail at +1R
+TRAIL_DIST = 1.0          # ride 1R behind the best price
+HOLYGRAIL_HOLD = 200      # runner horizon (h1 bars) — matches the breakdown study
+VOLBREAK_HOLD = 200
+
+
+def detect_holygrail(pk, h1):
+    if PAIR_CLASS.get(pk) != 'crypto' or len(h1) < 400:
+        return []
+    out = []
+    for (ei, entry, stop, d) in _holygrail_sig(h1):
+        if ei >= len(h1):
+            continue
+        out.append({'strategy': 'holygrail', 'tf': 'h1', 'pair': pk, 'dir': d,
+                    'entry_ts': h1[ei]['_ts'], 'entry': entry, 'stop': stop})
+    return out
+
+
+def detect_volbreak(pk, h1):
+    if PAIR_CLASS.get(pk) != 'crypto' or len(h1) < 400:
+        return []
+    out = []
+    for (ei, entry, stop, d) in _volbreak_sig(h1):
+        if ei >= len(h1):
+            continue
+        out.append({'strategy': 'volbreak', 'tf': 'h1', 'pair': pk, 'dir': d,
+                    'entry_ts': h1[ei]['_ts'], 'entry': entry, 'stop': stop})
+    return out
+
+
 def score(bars, entry_ts, entry, stop, d, hold):
     """Return ('resolved', r) | ('pending', None) | ('expired', None).
     Matches the research walk(): unresolved within the hold is EXCLUDED (not a
@@ -1661,6 +1705,35 @@ def score(bars, entry_ts, entry, stop, d, hold):
 def cost(o, entry, R):
     frac = R/abs(entry) if entry else 0
     return 0 if frac <= 0 else (WIN_COST_PCT if o > 0 else LOSS_COST_PCT)/frac
+
+
+def score_trail_open(bars, entry_ts, entry, stop, d, hold, arm, trail):
+    """Trailing-runner scorer for the continuation setups (holygrail / volbreak).
+    Unlike the bracket score(), there is no fixed target: arm the trail at +arm*R,
+    then ride the best price with the stop trail*R behind it; mark-to-market at the
+    hold horizon (a runner is still an OPEN position at timeout, not a time-stop to
+    exclude). 'resolved' once stopped out OR the horizon is reached with data in
+    hand; 'pending' only while we lack enough bars past entry to reach the horizon."""
+    ts = [b['_ts'] for b in bars]; i0 = bisect.bisect_left(ts, entry_ts)
+    R = abs(entry - stop)
+    if R <= 0 or i0 >= len(bars): return ('pending', None)
+    es = stop; armed = False; peak = entry; end = i0 + hold
+    for j in range(i0, min(end, len(bars))):
+        b = bars[j]
+        if d == 'bull':
+            if b['l'] <= es: return ('resolved', (es - entry) / R)
+            peak = max(peak, b['h'])
+            if not armed and b['h'] >= entry + arm * R: armed = True
+            if armed: es = max(es, peak - trail * R)
+        else:
+            if b['h'] >= es: return ('resolved', (entry - es) / R)
+            peak = min(peak, b['l'])
+            if not armed and b['l'] <= entry - arm * R: armed = True
+            if armed: es = min(es, peak + trail * R)
+    if end <= len(bars):                                   # horizon reached, data in hand
+        lc = bars[end - 1]['c']
+        return ('resolved', ((lc - entry) if d == 'bull' else (entry - lc)) / R)
+    return ('pending', None)                               # ran out of data before horizon
 
 
 def _bos_dir(bars, prd=3):
@@ -1731,7 +1804,8 @@ def main():
                  + detect_gfib(pk, h1, daily) + detect_e90break(pk, h1, daily)
                  + detect_mmove(pk, h1, daily) + detect_obfvg_fx4(pk, h1, daily)
                  + detect_mmove_m15(pk, m15) + detect_ema920v_m15(pk, m15)
-                 + detect_obfvg_m15(pk, m15, daily) + detect_varev_ix(pk, h1))
+                 + detect_obfvg_m15(pk, m15, daily) + detect_varev_ix(pk, h1)
+                 + detect_holygrail(pk, h1) + detect_volbreak(pk, h1))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -1790,6 +1864,10 @@ def main():
                 st, o = score(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], OBFVG_M15_HOLD)
             elif rec['strategy'] == 'varev_ix':
                 st, o = score(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], VAREV_HOLD)
+            elif rec['strategy'] == 'holygrail':
+                st, o = score_trail_open(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], HOLYGRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
+            elif rec['strategy'] == 'volbreak':
+                st, o = score_trail_open(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], VOLBREAK_HOLD, TRAIL_ARM, TRAIL_DIST)
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -1845,7 +1923,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'volbreak'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
