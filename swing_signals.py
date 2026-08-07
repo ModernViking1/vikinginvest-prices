@@ -114,12 +114,12 @@ DEMO_ONLY = {'fma_gold'}
 #   wm         (2026-08-05)  live demo WR 13%  -6.5R  — crypto-only 1:1 mean-reversion that
 #              has decayed hard on the live account (mostly straight stop-outs). Held back
 #              from the cBot; harness keeps logging it as an observer to see if it recovers.
-#
-# w5_pullback (fwd n=50, WR 24.0%, -0.314R, OOS 2nd half -0.678R; majors 0%/n14, only
-# comm +0.632R) is left LIVE a few more weeks by decision (2026-08-03) to fatten the
-# sample before a keep/kill call — its first OOS half was positive and comm still
-# holds an edge. Re-review once n climbs; demote then if the decay persists.
-DEMOTED = {'tl_nowick', 'fib_gz', 'wm'}
+#   w5_pullback(2026-08-07)  fwd n=52  WR 13%  -0.638R  BOTH OOS halves - (-0.576/-0.701).
+#              Kept LIVE on 2026-08-03 to fatten the sample before a keep/kill call; the
+#              sample has now climbed and the decay persisted / worsened (was -0.314R),
+#              with the first OOS half now also negative. The weekly observer review
+#              flagged it a DROP → demote. Harness keeps logging it as an observer.
+DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback'}
 
 # Scaled exit for the 2:1 gold signals (2026-08-01) — bank profit progressively instead of a
 # single far TP. gbreak/gtrend are emitted as THREE legs (1/3 risk each, SHARED stop) with

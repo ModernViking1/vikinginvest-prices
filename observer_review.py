@@ -27,7 +27,7 @@ DROP_EXP = -0.05
 
 # Strategies executing on the cBot (live/demo feed) — mirrors swing_signals PRIORITY minus
 # DEMOTED, plus the demo pilot. Everything else in the log is an observer.
-LIVE = {'hs', 's5_rsi', 's5_rsi_wide', 'ob', 'w5_pullback', 'fred_tl', 'threepush',
+LIVE = {'hs', 's5_rsi', 's5_rsi_wide', 'ob', 'fred_tl', 'threepush',
         'engulf_manip', 'asianglitch', 'obfvg', 'gbreak', 'gtrend', 'fma_gold'}
 
 
