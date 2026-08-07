@@ -21351,6 +21351,10 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var _shadowM15 = (function(){
       var sh = window._swingShadow;
       if(!sh || !sh.signals) return { loading:true, html:'' };
+      // Local escaper — the global `esc` lives in a different scope than this panel, so
+      // calling it here threw a ReferenceError that blanked the whole intraday box once
+      // real m15/m5 shadow rows started populating. Self-contained avoids the scope trap.
+      var esc = function(s){ return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); };
       var _og = { mmove_m15:'imbalance / FVG retrace continuation · m15 scoped pockets XRP / gold / silver / FRA40',
                   ema920v:'9/20-EMA pullback + relative-volume gate · m15 crypto',
                   obfvg_m15:'order-block + fair-value-gap retrace · m15 scoped pockets BTC / XRP',
