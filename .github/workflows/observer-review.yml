@@ -1,0 +1,37 @@
+name: Observer Review (weekly)
+
+# Weekly digest of the shadow observer strategies' GENUINE FORWARD evidence
+# (entry after each strategy's own tracking start). Classifies each PROMOTE /
+# DROP / WATCH against the desk's gate (n>=40 + both OOS halves + = promotion-
+# ready; n>=25 & exp<-0.05R = drop candidate) and sends a short Telegram summary.
+# Read-only — reads the daily-updated swing-shadow-log.json, writes nothing.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Sunday 08:00 UTC — after the week's demo fills and the daily swing-shadow runs.
+    - cron: '0 8 * * 0'
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run observer review + Telegram digest
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python observer_review.py
