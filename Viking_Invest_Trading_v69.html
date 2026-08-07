@@ -1586,6 +1586,31 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
             + tile('⚖️','Break even', b.be, '#5a5550')
             + '</div>';
         }; }
+        // Promotion-watch banner (shared, guarded). For each OBSERVING strategy matching the
+        // timeframe filter, computes its GENUINE FORWARD record (entries after that strategy's
+        // own tracking start — same gate as observer_review.py) and flags which have cleared
+        // the promotion bar (n>=40, both chronological OOS halves +) vs are close (n>=20, +ve).
+        if(typeof window._viPromotionBanner!=='function'){ window._viPromotionBanner=function(sh,wantTf,liveSet){
+          if(!sh||!sh.signals) return '';
+          var trk=sh.tracking||{}, base=sh.baseline_data_end||0, by={};
+          Object.keys(sh.signals).forEach(function(k){ var s=sh.signals[k]; if(!s||!wantTf(s.tf)) return;
+            var st=s.strategy||k.split(':')[0]; if(liveSet&&liveSet[st]) return;
+            var cut=trk[st]||base; if((s.entry_ts||0)<=cut||s.status!=='resolved'||typeof s.r!=='number') return;
+            (by[st]=by[st]||[]).push([s.entry_ts,s.r]); });
+          var ready=[],close=[], sum=function(a){return a.reduce(function(x,y){return x+y;},0);};
+          Object.keys(by).forEach(function(st){ var rec=by[st].sort(function(a,b){return a[0]-b[0];}).map(function(x){return x[1];});
+            var n=rec.length; if(n<20) return; var m=Math.floor(n/2);
+            var exp=sum(rec)/n, eh=sum(rec.slice(0,m))/(m||1), es=sum(rec.slice(m))/((n-m)||1);
+            if(exp>0&&eh>0&&es>0){ (n>=40?ready:close).push({st:st,n:n,exp:exp}); } });
+          ready.sort(function(a,b){return b.exp-a.exp;}); close.sort(function(a,b){return b.exp-a.exp;});
+          var chip=function(o,c){return '<span style="display:inline-block;background:'+c+';color:#fff;border-radius:3px;padding:1px 6px;margin:2px 3px 0 0;font-family:Orbitron,monospace;font-size:8px;font-weight:700;">'+o.st+' '+(o.exp>=0?'+':'')+o.exp.toFixed(2)+'R·n'+o.n+'</span>';};
+          var h='<div style="background:rgba(13,90,54,0.06);border:1px solid rgba(13,90,54,0.28);border-radius:4px;padding:7px 9px;margin:6px 0;">'
+            +'<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.6px;color:#0d5a36;text-transform:uppercase;margin-bottom:3px;">🎯 Promotion watch · forward evidence</div>';
+          if(ready.length) h+='<div style="font-size:8px;color:var(--inkd);margin-bottom:2px;"><b style="color:#0d5a36;">Ready</b> (n≥40, both OOS halves +): '+ready.map(function(o){return chip(o,'#0d5a36');}).join('')+'</div>';
+          if(close.length) h+='<div style="font-size:8px;color:var(--inkd);"><b style="color:#c8860a;">Close</b> (n≥20, +ve — keep accruing): '+close.map(function(o){return chip(o,'#c8860a');}).join('')+'</div>';
+          if(!ready.length&&!close.length) h+='<div style="font-size:8px;color:var(--inkd);">No observer positive on both forward halves yet — candidates still accruing evidence.</div>';
+          return h+'</div>';
+        }; }
         var _swStratOf=function(e){ return e.strategy||(e.signal_id||'').split(':')[0]||'?'; };
         // Keep the "(LIVE strategies)" headline internally consistent: open must be the
         // live-cohort open, not all-strategy open, or placed/closed/open won't tie out.
@@ -1633,7 +1658,10 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
           h+='<div style="color:'+C.mut+';margin-bottom:6px;">Execution gap pending — needs demo trades to CLOSE (they resolve on target/stop over hours–days).</div>';
         }
         // per strategy
-        var strats=['hs','s5_rsi','s5_engulf','ob','tl_nowick','w5_pullback','s5_rsi_wide','rsimr','fib_gz','fred_tl','threepush','engulf_manip','sweeprev','asianglitch','wm','sid','obfvg','obfvg_w','gbreak','gtrend','gfib','e90break','mmove','mmove_ix','mmove_ix4','mmove_c4','mmove_m15','ema920v','obfvg_m15','orb_eq','varev_ix','holygrail','holygrail_cm','holygrail_eq','volbreak','volbreak_ix','volbreak_eq','twob','twob_ix','twob_cm','twob_eq','holygrail_cm_m15','holygrail_eq_m15'];
+        // Swing (H1/H4/daily) strategies only. The m15 / m5 intraday monitors
+        // (mmove_m15, ema920v, obfvg_m15, orb_eq, holygrail_*_m15, gold_us2h, po3_cm,
+        // fma_*) live in the intraday box's shadow-monitor table — not here.
+        var strats=['hs','s5_rsi','s5_engulf','ob','tl_nowick','w5_pullback','s5_rsi_wide','rsimr','fib_gz','fred_tl','threepush','engulf_manip','sweeprev','asianglitch','wm','sid','obfvg','obfvg_w','gbreak','gtrend','gfib','e90break','mmove','mmove_ix','mmove_ix4','mmove_c4','varev_ix','holygrail','holygrail_cm','holygrail_eq','volbreak','volbreak_ix','volbreak_eq','twob','twob_ix','twob_cm','twob_eq'];
         // tracking-start per strategy (harness backfills earliest first_seen) → "how long tracked"
         var _track=(shadow&&shadow.tracking)||{}, _trackEnd=(shadow&&(shadow.last_run_data_end||shadow.data_end_ts))||0;
         var _trackedDays=function(st){ var t=_track[st]; return (t&&_trackEnd)?Math.max(0,Math.round((_trackEnd-t)/86400)):null; };
@@ -1699,7 +1727,9 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         var obsRows=strats.filter(function(st){return !LIVE_SWING[st] && (byStratD[st]||byStratM[st]);}).map(_swRow).join('');
         h+='<div style="background:rgba(200,134,10,0.06);border:1px solid rgba(200,134,10,0.28);border-radius:3px;padding:5px 8px;margin:4px 0 6px;color:#7a5c0a;font-size:8px;line-height:1.45;">These edges target ~2:1 reward:risk — so a win rate near 40% is <b>profitable</b>. <b>Expectancy (R per trade)</b> is what matters here, not win rate alone. Only <b style="color:'+C.g+';">● LIVE</b> rows execute on cTrader; <b>○ OBSERVING</b> rows are shadow-tracked candidates that have not yet qualified for live capital.</div>';
         if(liveRows){ h+='<div style="color:'+C.g+';font-weight:700;letter-spacing:0.5px;margin:2px 0 2px;">● LIVE · executing on cTrader</div><table style="width:100%;border-collapse:collapse;font-size:8.5px;">'+_hdr+liveRows+'</table>'; }
-        if(obsRows){ h+='<div style="color:'+C.mut+';font-weight:700;letter-spacing:0.5px;margin:9px 0 2px;">○ OBSERVING · shadow-only · not yet qualified for live</div><table style="width:100%;border-collapse:collapse;font-size:8.5px;">'+_hdr+obsRows+'</table>'; }
+        if(obsRows){ h+='<div style="color:'+C.mut+';font-weight:700;letter-spacing:0.5px;margin:9px 0 2px;">○ OBSERVING · shadow-only · not yet qualified for live</div>'
+          + window._viPromotionBanner(shadow, function(tf){return tf!=='m15'&&tf!=='m5';}, LIVE_SWING)
+          + '<table style="width:100%;border-collapse:collapse;font-size:8.5px;">'+_hdr+obsRows+'</table>'; }
         h+='<div style="color:'+C.mut+';margin-top:3px;font-size:8px;">Rows tagged by technique track independent / publicly-marketed methods we stress-tested (anonymized); model WR is our idealised simulation. Proprietary Viking edges carry no method detail.</div>';
         // ── Confluence splits (read-only shadow tags) — BOS + no-wick ──
         function _confSplit(tagKey){
@@ -21239,6 +21269,29 @@ function _renderCCIVariantPanel(host, commodityKeys){
         + tile('⚖️','Break even', b.be, '#5a5550')
         + '</div>';
     }; }
+    // Promotion-watch banner — mirrored from the swing panel (guarded, so whichever panel
+    // renders first defines it). Genuine-forward gate identical to observer_review.py.
+    if(typeof window._viPromotionBanner!=='function'){ window._viPromotionBanner=function(sh,wantTf,liveSet){
+      if(!sh||!sh.signals) return '';
+      var trk=sh.tracking||{}, base=sh.baseline_data_end||0, by={};
+      Object.keys(sh.signals).forEach(function(k){ var s=sh.signals[k]; if(!s||!wantTf(s.tf)) return;
+        var st=s.strategy||k.split(':')[0]; if(liveSet&&liveSet[st]) return;
+        var cut=trk[st]||base; if((s.entry_ts||0)<=cut||s.status!=='resolved'||typeof s.r!=='number') return;
+        (by[st]=by[st]||[]).push([s.entry_ts,s.r]); });
+      var ready=[],close=[], sum=function(a){return a.reduce(function(x,y){return x+y;},0);};
+      Object.keys(by).forEach(function(st){ var rec=by[st].sort(function(a,b){return a[0]-b[0];}).map(function(x){return x[1];});
+        var n=rec.length; if(n<20) return; var m=Math.floor(n/2);
+        var exp=sum(rec)/n, eh=sum(rec.slice(0,m))/(m||1), es=sum(rec.slice(m))/((n-m)||1);
+        if(exp>0&&eh>0&&es>0){ (n>=40?ready:close).push({st:st,n:n,exp:exp}); } });
+      ready.sort(function(a,b){return b.exp-a.exp;}); close.sort(function(a,b){return b.exp-a.exp;});
+      var chip=function(o,c){return '<span style="display:inline-block;background:'+c+';color:#fff;border-radius:3px;padding:1px 6px;margin:2px 3px 0 0;font-family:Orbitron,monospace;font-size:8px;font-weight:700;">'+o.st+' '+(o.exp>=0?'+':'')+o.exp.toFixed(2)+'R·n'+o.n+'</span>';};
+      var h='<div style="background:rgba(13,90,54,0.06);border:1px solid rgba(13,90,54,0.28);border-radius:4px;padding:7px 9px;margin:6px 0;">'
+        +'<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.6px;color:#0d5a36;text-transform:uppercase;margin-bottom:3px;">🎯 Promotion watch · forward evidence</div>';
+      if(ready.length) h+='<div style="font-size:8px;color:var(--inkd);margin-bottom:2px;"><b style="color:#0d5a36;">Ready</b> (n≥40, both OOS halves +): '+ready.map(function(o){return chip(o,'#0d5a36');}).join('')+'</div>';
+      if(close.length) h+='<div style="font-size:8px;color:var(--inkd);"><b style="color:#c8860a;">Close</b> (n≥20, +ve — keep accruing): '+close.map(function(o){return chip(o,'#c8860a');}).join('')+'</div>';
+      if(!ready.length&&!close.length) h+='<div style="font-size:8px;color:var(--inkd);">No observer positive on both forward halves yet — candidates still accruing evidence.</div>';
+      return h+'</div>';
+    }; }
     // Header stays ALWAYS visible (collapsible title on the left, window toggle on the
     // right). The Today/Week/All toggle must NOT live inside the collapsible body —
     // switching to a window with data would otherwise hide the toggle behind the
@@ -21325,7 +21378,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
                 + '</tr></thead>';
     var _fmWrap = function(bodyRows){
       return '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:6px;">'
-           + '<table style="width:100%;border-collapse:collapse;font-size:9.5px;font-family:Orbitron,monospace;">'
+           + '<table style="width:100%;border-collapse:collapse;font-size:8.5px;font-family:Orbitron,monospace;">'
            + _fmHead + '<tbody>' + bodyRows + '</tbody></table></div>';
     };
     // ── Promotion / demotion reading — the quick "should this observer go live,
@@ -21375,8 +21428,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
       var o=byStrat[st]; var rr=o.wins+o.losses; var wr=rr?pct(o.wins,rr):0; var live=_stratLive(st);
       var topPairs = Object.keys(o.pairs).sort(function(a,b){return o.pairs[b]-o.pairs[a];}).slice(0,5).join(', ');
       var badge = live
-        ? ' <span style="font-size:6.5px;color:#0d5a36;font-weight:700;letter-spacing:0.3px;">●LIVE</span>'
-        : ' <span style="font-size:6.5px;color:#c8860a;font-weight:700;letter-spacing:0.3px;">○ DEMOTED</span>';
+        ? ' <span style="display:inline-block;font-size:6.5px;font-weight:700;letter-spacing:0.3px;color:#fff;background:#0d5a36;border-radius:2px;padding:1px 4px;margin-left:4px;vertical-align:middle;">● LIVE</span>'
+        : ' <span style="display:inline-block;font-size:6.5px;font-weight:700;letter-spacing:0.3px;color:#c8860a;background:rgba(200,134,10,0.16);border-radius:2px;padding:1px 4px;margin-left:4px;vertical-align:middle;">○ DEMOTED</span>';
       return '<tr'+(live?'':' style="opacity:0.82;"')+'>'
         + '<td style="padding:5px 8px;font-weight:700;">'+(_mLbl2[st]||st)+badge+'</td>'
         + '<td style="padding:5px 8px;text-align:right;">'+o.n+'</td>'
@@ -21389,7 +21442,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       + '<th style="padding:6px 8px;">Method</th><th style="padding:6px 8px;text-align:right;">N</th>'
       + '<th style="padding:6px 8px;text-align:right;">Live WR</th><th style="padding:6px 8px;text-align:right;">Realised R</th>'
       + '<th style="padding:6px 8px;">Pairs</th></tr></thead>';
-    var _stWrap = function(rowsHtml){ return '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:9.5px;font-family:Orbitron,monospace;">'+_stHead+'<tbody>'+rowsHtml+'</tbody></table></div>'; };
+    var _stWrap = function(rowsHtml){ return '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:8.5px;font-family:Orbitron,monospace;">'+_stHead+'<tbody>'+rowsHtml+'</tbody></table></div>'; };
     var liveStrats = stratKeys.filter(_stratLive).sort(_stSort);
     var obsStrats  = stratKeys.filter(function(st){return !_stratLive(st);}).sort(_stSort);
     // ── m15 SHADOW MONITORS (mmove_m15, ema920v, …) — intraday m15 strategies that
@@ -21421,7 +21474,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
         var o=by[st]; var wr=o.res?100*o.wins/o.res:0; var exp=o.res?o.r/o.res:0;
         var td=(trk[st]&&end)?Math.max(0,Math.round((end-trk[st])/86400)):null; var og=_og[st]||'';
         return '<tr style="opacity:0.9;vertical-align:top;">'
-          +'<td style="padding:5px 8px;font-weight:700;">'+esc(st)+' <span style="font-size:6.5px;color:var(--inkd);font-weight:700;letter-spacing:0.3px;">○obs</span>'+(og?'<div style="font-size:7px;color:var(--inkd);font-weight:400;line-height:1.15;margin-top:1px;">'+og+'</div>':'')+'</td>'
+          +'<td style="padding:5px 8px;font-weight:700;">'+esc(st)+' <span style="display:inline-block;font-size:6.5px;font-weight:700;letter-spacing:0.3px;color:var(--inkd);background:rgba(120,120,130,0.14);border-radius:2px;padding:1px 4px;margin-left:4px;vertical-align:middle;">○ OBSERVING</span>'+(og?'<div style="font-size:7px;color:var(--inkd);font-weight:400;line-height:1.15;margin-top:1px;">'+og+'</div>':'')+'</td>'
           +'<td style="padding:5px 8px;text-align:right;color:var(--inkd);">'+(td!=null?td+'d':'–')+'</td>'
           +'<td style="padding:5px 8px;text-align:right;">'+o.res+'</td>'
           +'<td style="padding:5px 8px;text-align:right;color:'+pctColor(wr)+';font-weight:700;">'+(o.res?fmtPct(wr):'—')+'</td>'
@@ -21430,7 +21483,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       return { loading:false, html:
         '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:var(--inkd);margin:10px 0 3px;">○ OBSERVING · intraday shadow monitors (m15 / m5) · not live</div>'
         +'<div style="font-size:8px;color:var(--inkd);margin-bottom:4px;line-height:1.4;">Monitor-only intraday strategies tracked in the shadow model (never sent to the cBot) — model = idealised simulation. They accrue forward evidence before any promotion call.</div>'
-        +'<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:9.5px;font-family:Orbitron,monospace;">'
+        +'<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:8.5px;font-family:Orbitron,monospace;">'
         +'<thead><tr style="background:rgba(13,90,54,0.06);color:#0d5a36;font-weight:700;letter-spacing:0.5px;text-align:left;"><th style="padding:6px 8px;">Strategy</th><th style="padding:6px 8px;text-align:right;">tracked</th><th style="padding:6px 8px;text-align:right;">model n</th><th style="padding:6px 8px;text-align:right;">model WR</th><th style="padding:6px 8px;text-align:right;">model exp</th></tr></thead>'
         +'<tbody>'+rows+'</tbody></table></div>' };
     })();
@@ -21441,6 +21494,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       + (liveStrats.length ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:#0d5a36;margin:2px 0 3px;">● LIVE methods · executing on cTrader</div>' + _stWrap(liveStrats.map(stratRowFor).join('')) : '')
       + (obsStrats.length ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:var(--inkd);margin:8px 0 3px;">○ OBSERVING · demoted methods &middot; real fills</div>' + _stWrap(obsStrats.map(stratRowFor).join('')) : '')
       + (stratKeys.length ? '' : '<div style="font-size:8px;color:var(--inkd);font-style:italic;">No closed fills to break down by method in this window.</div>')
+      + (typeof window._viPromotionBanner==='function' ? window._viPromotionBanner(window._swingShadow, function(tf){return tf==='m15'||tf==='m5';}, null) : '')
       + shadowBlock;
 
     // ── Interpretation hint when one bucket dominates ──
