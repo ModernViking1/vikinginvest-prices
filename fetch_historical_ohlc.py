@@ -140,6 +140,7 @@ PAIRS: Dict[str, Dict[str, str]] = {
 
 # OANDA granularity codes
 OANDA_GRANULARITY = {
+    "m5": "M5",
     "m15": "M15",
     "h1": "H1",
     "daily": "D",
@@ -147,6 +148,7 @@ OANDA_GRANULARITY = {
 
 # Approximate bar count per day (helps chunk planning)
 BARS_PER_DAY = {
+    "m5": 288,   # 24 hours × 12
     "m15": 96,   # 24 hours × 4
     "h1": 24,
     "daily": 1,
@@ -206,7 +208,7 @@ def fetch_oanda_candles(token: str, instrument: str, granularity: str,
     # For h1:  4000 bars = ~166 days per chunk (whole period fits)
     # For D:   4000 bars covers years
     bars_per_day = BARS_PER_DAY[
-        {"M15": "m15", "H1": "h1", "D": "daily"}[granularity]
+        {"M5": "m5", "M15": "m15", "H1": "h1", "D": "daily"}[granularity]
     ]
     chunk_days = max(1, (max_bars - 200) // max(1, bars_per_day))
 

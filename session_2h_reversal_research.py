@@ -43,7 +43,9 @@ RRS = [1.0, 1.5, 2.0, 3.0]
 # per-timeframe reversal/hold geometry (bars). h1 = full-year sample (coarse reversal);
 # m15 = the ~3-month '5min proxy' fidelity check.
 GEO = {'h1': dict(SWING=1, REV_WIN=6, HOLD=48, PERHR=1),
-       'm15': dict(SWING=2, REV_WIN=24, HOLD=96, PERHR=4)}
+       'm15': dict(SWING=2, REV_WIN=24, HOLD=96, PERHR=4),
+       'm5': dict(SWING=3, REV_WIN=36, HOLD=288, PERHR=12)}
+GOLD_M5 = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gold-m5-ohlc.json')
 
 
 def walk_bracket(bars, i0, entry, stop, target, td, hold):
@@ -167,6 +169,12 @@ def main():
     print("displacement = expansion + rising volume + directional | reversal = structure break against it")
     run_tf(_bars_norm(g['h1']), 'h1', 'full year — larger sample, coarse reversal')
     run_tf(_bars_norm(g['m15']), 'm15', '~3 months — 5min proxy, fidelity check')
+    # True 5-minute gold, when the targeted backfill (gold-m5-fetch.yml) has run.
+    if os.path.exists(GOLD_M5):
+        m5 = _bars_norm(json.load(open(GOLD_M5))['pairs']['xauusd']['m5'])
+        run_tf(m5, 'm5', 'TRUE 5-minute — the faithful test')
+    else:
+        print("\n(no gold-m5-ohlc.json yet — run the gold-m5-fetch workflow for the faithful m5 test)")
 
 
 if __name__ == '__main__':
