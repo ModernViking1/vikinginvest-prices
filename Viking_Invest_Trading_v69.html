@@ -20997,10 +20997,26 @@ function _renderCCIVariantPanel(host, commodityKeys){
           && typeof r.ts === 'number' && r.ts >= anchor;
     });
     if(!execs.length){
-      var awaitMsg = openCount > 0
-        ? ('Watching ' + openCount + ' open position' + (openCount === 1 ? '' : 's') + ' in this window (' + winLabel + '). '
-           + 'This panel fills in with the actual cTrader outcome (target / stop / invalidation) as each trade closes. Auto-refreshes on every CDN poll (60s).')
-        : 'No closed broker executions in this window (' + winLabel + '). This panel mirrors the simulated breakdown above using actual cTrader fills. Switch the window above, or wait for the next close. Auto-refreshes on every CDN poll (60s).';
+      // Diagnostic empty-state: distinguish "feed not loaded" from "no closes in THIS
+      // window" so an empty Today/Week doesn't read as a broken tab. The Today/Week/All
+      // toggle works regardless (verified) — it just has nothing to render here.
+      var _allClosed = all.filter(function(r){ return r && r.event === 'closed' && typeof r.ts === 'number'; });
+      var _totalN = _allClosed.length;
+      var _lastTs = _totalN ? _allClosed.reduce(function(m,r){ return r.ts > m ? r.ts : m; }, 0) : 0;
+      var _lastStr = _lastTs ? new Date(_lastTs).toISOString().slice(0,16).replace('T',' ') + 'Z' : '';
+      var awaitMsg;
+      if(openCount > 0){
+        awaitMsg = 'Watching ' + openCount + ' open position' + (openCount === 1 ? '' : 's') + ' in this window (' + winLabel + '). '
+                 + 'This panel fills in with the actual cTrader outcome (target / stop / invalidation) as each trade closes. Auto-refreshes on every CDN poll (60s).';
+      } else if(_totalN === 0){
+        awaitMsg = 'No intraday cBot executions have loaded yet — the intraday (crypto) cBot publishes closed trades to executions.json. If this stays empty, the feed hasn’t updated (cBot idle or laptop offline). Auto-refreshes every 60s.';
+      } else if(mode !== 'all'){
+        awaitMsg = 'No intraday closes in the <b>' + winLabel + '</b> window. Across <b>all time</b> there '
+                 + (_totalN === 1 ? 'is 1 close' : 'are ' + _totalN + ' closes') + ' (last: ' + _lastStr + ') — tap <b>All</b> above to see the full breakdown. '
+                 + 'The tab switched correctly; there is simply nothing in this window yet.';
+      } else {
+        awaitMsg = 'No closed intraday executions on record yet. Auto-refreshes every 60s.';
+      }
       host.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;">'
                      +   '<div style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;">▸ Intraday Forward Testing &middot; LIVE <span style="font-weight:400;opacity:0.7;">· ' + winLabel + '</span></div>'
                      +   _viLiveWindowToggle(mode)
