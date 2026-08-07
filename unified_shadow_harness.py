@@ -17,6 +17,7 @@ from backtest_rsi_per_class import _bars_norm, precompute_rsi
 from hs_swing_research import scan as hs_scan, MAX_HOLD as HS_HOLD
 from five_strategies_research import ema, atr, adx, agg4h, weekly, is_engulf, HOLD
 from session_2h_reversal_research import find_signals as _sess_signals, GEO as _SESS_GEO, SESSIONS as _SESS_HOURS
+from fma_sweep_reversal_research import fma_signals as _fma_signals
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -1787,6 +1788,34 @@ def _gold_us2h_signals(m5):
     return out
 
 
+# ── FMA ($100->$1M Millionaire Trading Academy) sweep + 50-EMA-reclaim reversal ──
+# m15: sweep a 20-bar swing extreme that closes back inside (liquidity grab), then a
+# 50-EMA reclaim confirms the reversal; stop beyond the sweep, fixed RR2 target. The
+# research (fma_sweep_reversal_research.py) found it passes BOTH OOS halves on gold
+# (cross-validated on native m15 AND 12-month m5->m15), commodities and index at RR2;
+# FX majors/minors fail. Wired to comm (incl. gold) + index per the scoping decision,
+# gold on its own tag for visibility. MONITOR-ONLY m15 observers.
+FMA_CLASSES = {'comm', 'index'}
+FMA_RR = 2.0
+FMA_HOLD = 192          # m15 bars (~2 days) bracket horizon
+
+
+def detect_fma(pk, m15):
+    cls = PAIR_CLASS.get(pk)
+    if cls not in FMA_CLASSES or len(m15) < 400:
+        return []
+    tag = 'fma_gold' if pk == 'xauusd' else ('fma_sweep_ix' if cls == 'index' else 'fma_sweep_cm')
+    out = []
+    for (ei, entry, stop, d, _opp) in _fma_signals(m15):
+        if ei >= len(m15):
+            continue
+        R = abs(entry - stop)
+        target = entry + FMA_RR * R if d == 'bull' else entry - FMA_RR * R
+        out.append({'strategy': tag, 'tf': 'm15', 'pair': pk, 'dir': d,
+                    'entry_ts': m15[ei]['_ts'], 'entry': entry, 'stop': stop, 'target': target})
+    return out
+
+
 def score_sess(bars, entry_ts, entry, stop, target, d, hold):
     """Target-bracket scorer (explicit target, not RR-derived). Bracket-honest:
     unresolved within the hold is EXCLUDED, mirroring score()."""
@@ -1875,7 +1904,8 @@ def main():
                  + detect_mmove_m15(pk, m15) + detect_ema920v_m15(pk, m15)
                  + detect_obfvg_m15(pk, m15, daily) + detect_varev_ix(pk, h1)
                  + detect_holygrail(pk, h1) + detect_volbreak(pk, h1)
-                 + detect_twob(pk, h1) + detect_holygrail_m15(pk, m15))
+                 + detect_twob(pk, h1) + detect_holygrail_m15(pk, m15)
+                 + detect_fma(pk, m15))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -1938,6 +1968,8 @@ def main():
                 st, o = score_trail_open(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
             elif rec['strategy'] == 'holygrail_cm_m15':
                 st, o = score_trail_open(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
+            elif rec['strategy'] in ('fma_gold', 'fma_sweep_cm', 'fma_sweep_ix'):
+                st, o = score_sess(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], FMA_HOLD)
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -2033,7 +2065,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
