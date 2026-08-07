@@ -49,6 +49,14 @@ namespace cAlgo.Robots
         [Parameter("Min stop (pips)", DefaultValue = 5.0, MinValue = 0.0, Group = "Risk")]
         public double MinStopPips { get; set; }
 
+        // 2026-08-07 — 1R trailing stop. Backtest (trail_partial_research.py): once a trade is
+        // +1R in profit, trail the stop 1R behind the best price. Big win on indices
+        // (-0.137R -> -0.048R) + comm + minors; neutral on majors, marginally negative on crypto,
+        // so those two classes are left unmanaged (ShouldTrail). First trail lands at break-even,
+        // then ratchets — so a deep-profit reversal banks a gain instead of a full stop-out.
+        [Parameter("1R trailing stop", DefaultValue = true, Group = "Risk")]
+        public bool TrailingStop { get; set; }
+
         [Parameter("Order label", DefaultValue = "VikingSwing", Group = "Execution")]
         public string OrderLabel { get; set; }
 
@@ -68,6 +76,23 @@ namespace cAlgo.Robots
         private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         private readonly HashSet<string> _seenIds = new HashSet<string>();
         private readonly Dictionary<long, string> _positionIdToSignalId = new Dictionary<long, string>();
+        // Trailing-stop state (per open position): original risk unit R, the pair (for scope),
+        // and the best favourable price seen so far.
+        private readonly Dictionary<long, double> _posR = new Dictionary<long, double>();
+        private readonly Dictionary<long, string> _posPair = new Dictionary<long, string>();
+        private readonly Dictionary<long, double> _posPeak = new Dictionary<long, double>();
+        // Trailing is applied to indices, commodities and FX minors (where it helps). Crypto and
+        // FX majors showed no benefit in the backtest, so they are excluded. Unknown pair (e.g. a
+        // restart-orphaned position) defaults to trailing, since it is net-positive overall.
+        private static readonly HashSet<string> _noTrailPairs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "btcusd","ethusd","solusd","xrpusd","suiusd","taousd","nearusd","adausd","dogeusd","ltcusd",  // crypto
+            "eurusd","gbpusd","usdjpy","usdcad","usdchf","audusd","nzdusd"                                 // FX majors
+        };
+        private static bool ShouldTrail(string pair)
+        {
+            return string.IsNullOrEmpty(pair) || !_noTrailPairs.Contains(pair);
+        }
         private string _seenIdsPath;
         private string _executionsPath;
         private bool _busy;
@@ -91,9 +116,49 @@ namespace cAlgo.Robots
 
         protected override void OnTimer()
         {
+            // Trailing runs on the bot thread every poll, independent of the (async) signal fetch.
+            try { ManageTrailingStops(); } catch (Exception ex) { Print($"[VikingSwing] trail error: {ex.Message}"); }
             if (_busy) return;
             _busy = true;
             PollAsync().ContinueWith(_ => _busy = false);
+        }
+
+        // 1R trailing stop — once a position is +1R in profit, ratchet the stop to (best price − 1R),
+        // so the first move lands at break-even and rising profit is progressively locked in. Only
+        // moves the stop in the favourable direction; the take-profit is never touched.
+        private void ManageTrailingStops()
+        {
+            if (!TrailingStop) return;
+            foreach (var p in Positions)
+            {
+                if (p.Label != OrderLabel || p.Symbol == null) continue;
+                string pair; _posPair.TryGetValue(p.Id, out pair);
+                if (!ShouldTrail(pair)) continue;                       // scope: skip crypto & FX majors
+                double R;
+                if (!_posR.TryGetValue(p.Id, out R) || R <= 0)
+                {
+                    // Restart fallback: derive R from the take-profit (scoped classes trade RR2).
+                    if (p.TakeProfit.HasValue && p.TakeProfit.Value > 0)
+                    { R = Math.Abs(p.EntryPrice - p.TakeProfit.Value) / 2.0; _posR[p.Id] = R; }
+                    else continue;
+                }
+                if (R <= 0) continue;
+                bool isBuy = p.TradeType == TradeType.Buy;
+                double price = isBuy ? p.Symbol.Bid : p.Symbol.Ask;
+                double peak;
+                if (!_posPeak.TryGetValue(p.Id, out peak)) peak = p.EntryPrice;
+                peak = isBuy ? Math.Max(peak, price) : Math.Min(peak, price);
+                _posPeak[p.Id] = peak;
+                bool armed = isBuy ? (peak >= p.EntryPrice + R) : (peak <= p.EntryPrice - R);
+                if (!armed) continue;                                   // not yet +1R in profit
+                double desired = isBuy ? peak - R : peak + R;           // first arm => entry (break-even)
+                double? cur = p.StopLoss;
+                bool tighter = isBuy ? (!cur.HasValue || desired > cur.Value)
+                                     : (!cur.HasValue || desired < cur.Value);
+                if (!tighter) continue;                                 // only ratchet forward
+                try { p.ModifyStopLossPrice(desired); }
+                catch (Exception ex) { Print($"[VikingSwing] trail modify pid={p.Id} failed: {ex.Message}"); }
+            }
         }
 
         private async Task PollAsync()
@@ -202,6 +267,10 @@ namespace cAlgo.Robots
                 Print($"✅ [VikingSwing] {direction} {symbol.Name} {volume:F0}u @~{pos.EntryPrice:F5} " +
                       $"SL={pos.StopLoss:F5} TPpips={tpPips:F1} strat={s.Strategy} id={s.Id} pid={pos.Id}");
                 _positionIdToSignalId[pos.Id] = s.Id;
+                // Trailing-stop bookkeeping: capture the original risk unit + pair + starting peak.
+                _posR[pos.Id] = Math.Abs(pos.EntryPrice - (pos.StopLoss ?? s.Stop));
+                _posPair[pos.Id] = s.Pair;
+                _posPeak[pos.Id] = pos.EntryPrice;
                 WriteExec("placed", s.Id, pos.Id, symbol.Name, s.Dir, pos.VolumeInUnits,
                           pos.EntryPrice, 0, pos.StopLoss ?? s.Stop, pos.TakeProfit ?? 0, 0, 0, 0, 0, "placed", s.Strategy);
             }
@@ -328,6 +397,7 @@ namespace cAlgo.Robots
                       p.VolumeInUnits, p.EntryPrice, p.Symbol?.Bid ?? 0, p.StopLoss ?? 0, p.TakeProfit ?? 0,
                       p.NetProfit, p.Commissions, p.Swap, realizedR, reason, StrategyOf(p));
             if (sigId != null) _positionIdToSignalId.Remove(p.Id);
+            _posR.Remove(p.Id); _posPair.Remove(p.Id); _posPeak.Remove(p.Id);   // trailing-state cleanup
             Print($"📒 [VikingSwing] closed {p.SymbolName} {p.TradeType} net={p.NetProfit:F2} R={realizedR:F2} reason={reason} id={sigId ?? "(unlinked)"}");
         }
 
