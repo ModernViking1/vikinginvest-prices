@@ -207,6 +207,15 @@ namespace cAlgo.Robots
             if (s.State != "triggered") return;
             if (s.Dir != "bull" && s.Dir != "bear") return;
 
+            // Demo-first pilots (e.g. fma_gold): execute ONLY on a demo account. On a live
+            // account they are skipped (and marked seen) so an unproven candidate can never
+            // risk live capital until it's promoted (remove demo_only in swing_signals.py).
+            if (s.DemoOnly && Account.IsLive)
+            {
+                Print($"[VikingSwing] demo-only signal {s.Id} skipped on LIVE account");
+                MarkSeen(s.Id); return;
+            }
+
             // expiry (feed timestamps are epoch SECONDS)
             if (s.ExpiryTs > 0)
             {
@@ -526,6 +535,7 @@ namespace cAlgo.Robots
             public string Id, Pair, State, Dir, Strategy;
             public double Stop, Rr;
             public long ExpiryTs, TriggerTs;
+            public bool DemoOnly;
         }
 
         private List<Sig> ParseSignals(string body)
@@ -549,6 +559,7 @@ namespace cAlgo.Robots
                     Dir = JsonStr(o, "dir"), Strategy = JsonStr(o, "strategy"),
                     Stop = JsonNum(o, "stop"), Rr = JsonNum(o, "rr"),
                     ExpiryTs = (long)JsonNum(o, "expiry_ts"), TriggerTs = (long)JsonNum(o, "trigger_ts"),
+                    DemoOnly = JsonBool(o, "demo_only"),
                 });
                 pos = oe + 1;
             }
@@ -562,6 +573,12 @@ namespace cAlgo.Robots
             var q1 = obj.IndexOf('"', c); if (q1 < 0) return "";
             var q2 = obj.IndexOf('"', q1 + 1); if (q2 < 0) return "";
             return obj.Substring(q1 + 1, q2 - q1 - 1);
+        }
+        private static bool JsonBool(string obj, string key)
+        {
+            var p = obj.IndexOf("\"" + key + "\"", StringComparison.Ordinal); if (p < 0) return false;
+            var c = obj.IndexOf(':', p); if (c < 0) return false;
+            return obj.Substring(c + 1).TrimStart().StartsWith("true", StringComparison.OrdinalIgnoreCase);
         }
         private static double JsonNum(string obj, string key)
         {

@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -91,7 +91,15 @@ ENGULF_CLASSES = {'crypto'}
 #          (15/15 parameter cells pass both OOS halves); highest gold priority.
 # gtrend = #1 50/200 EMA trend pullback (H4, RR2, choppiness filter removed —
 #          it hurt in testing). Both self-gate to xauusd and are cBot-executable.
-PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14}
+PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14, 'fma_gold': 15}
+
+# Demo-only pilots — emitted to the swing feed but flagged so the cBot executes them
+# ONLY on a demo account (skips on live). Lets a candidate accrue REAL forward fills
+# on demo before risking live capital. Remove a tag to promote it to live.
+#   fma_gold (2026-08-07) — FMA liquidity-sweep + 50-EMA reclaim reversal, m15 gold, RR2.
+#     Cross-validated in-sample (native m15 + 12-month m5->m15), but zero forward evidence
+#     yet — demo-first per decision.
+DEMO_ONLY = {'fma_gold'}
 
 # Demoted to observer-only — genuine-forward decay on live data since tracking began
 # (see swing-shadow-log.json GENUINE FORWARD). The harness still runs each detector and
@@ -138,6 +146,7 @@ def main():
     rows = []
     for pk in [x for x in PAIR_CLASS if x in pairs]:
         h1 = _bars_norm(pairs[pk].get('h1', [])); daily = _bars_norm(pairs[pk].get('daily', []))
+        m15 = _bars_norm(pairs[pk].get('m15', []))   # for the m15 fma_gold demo pilot only
         draw = pairs[pk].get('daily', [])
         if len(h1) < 400 or len(daily) < 80:
             continue
@@ -163,6 +172,11 @@ def main():
         found += detect_obfvg(pk, h1, daily)         # self-gates to xrpusd/usdcad H1; OB+FVG retrace, RR2
         found += detect_gbreak(pk, h1, daily)        # self-gates to xauusd H1; range breakout + expanding ATR, RR2
         found += detect_gtrend(pk, h1, daily)        # self-gates to xauusd H4; 50/200 EMA trend pullback (no choppiness filter), RR2
+        # FMA ($100->$1M) liquidity-sweep + 50-EMA reclaim reversal — GOLD only, m15, RR2.
+        # DEMO-FIRST PILOT: emitted to the (demo) swing feed with demo_only=True so the cBot
+        # skips it on any live account until it earns forward evidence. detect_fma also emits
+        # commodities/index tags — those stay observer-only, so filter to fma_gold here.
+        found += [s for s in detect_fma(pk, m15) if s['strategy'] == 'fma_gold']
         if cls in THREEPUSH_CLASSES:
             found += detect_threepush(pk, h1, daily)
         if cls in ENGULF_CLASSES:
@@ -185,6 +199,7 @@ def main():
                 'rr': s.get('rr', RR),   # per-signal RR (asianglitch=3.0); others default to RR (2.0)
                 'r_pct': R_PCT,
                 'entry_mode': 'market',
+                'demo_only': s['strategy'] in DEMO_ONLY,   # cBot skips these on a live account
                 'trigger_ts': int(s['entry_ts']),
                 'created_ts': int(data_end),
                 'expiry_ts': int(s['entry_ts'] + EXPIRY_HOURS * 3600),
@@ -192,8 +207,14 @@ def main():
             })
 
     # ---- exposure dedup: one live position per pair (highest-conviction wins) ----
+    # Demo-only pilots bypass the cap — they run on a separate (demo) account and must be
+    # allowed to trade their pair independently to accrue forward evidence, rather than be
+    # suppressed by the higher-priority live signals on the same pair (e.g. fma_gold vs the
+    # live gold gbreak/gtrend).
+    demo_rows = [r for r in rows if r.get('demo_only')]
+    live_rows = [r for r in rows if not r.get('demo_only')]
     by_pair = {}
-    for r in rows:
+    for r in live_rows:
         by_pair.setdefault(r['pair'], []).append(r)
     total_raw = len(rows); deduped = []
     for pk, group in by_pair.items():
@@ -203,7 +224,7 @@ def main():
         primary['cofire_dirs'] = sorted({f"{g['strategy']}:{g['dir']}" for g in group})
         primary['suppressed'] = len(group) - 1
         deduped.append(primary)
-    rows = deduped
+    rows = deduped + demo_rows          # demo-only pilots bypass the per-pair cap
 
     # ---- scaled exit: split the 2:1 gold signals into 3 partial-TP legs (1R/2R/3R) ----
     scaled = []
