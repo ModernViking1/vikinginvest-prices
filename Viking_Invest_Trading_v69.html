@@ -1718,7 +1718,17 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         _lastExec=exec;
         var now=Date.now();
         if(_shadow && (now-_shadowAt)<600000){ render(exec,_shadow); return; }
-        fetch(BASE+'swing-shadow-log.json?t='+Date.now()).then(function(r){return r.json();}).then(function(sh){ _shadow=sh; _shadowAt=now; window._swingShadow=sh; render(exec,sh); try{ if(typeof window._renderLiveFailureMode==='function') window._renderLiveFailureMode(); }catch(_){} }).catch(function(){ render(exec,_shadow||{signals:{}}); });
+        // Freshness: load the shadow log from raw.githubusercontent.com FIRST (git
+        // HEAD, ~5min edge, honours the ?t= buster) — not jsDelivr @main, which caches
+        // for up to 12h AND ignores query strings, so a new observer's rows were
+        // invisible for hours after a deploy even on a fresh device. jsDelivr stays as
+        // the fallback (fast CDN) and the in-memory copy as the last resort. Mirrors
+        // the directions.json / prices.json fetch strategy already used elsewhere.
+        var _sslRaw='https://raw.githubusercontent.com/ModernViking1/vikinginvest-prices/main/swing-shadow-log.json?t='+Date.now();
+        var _sslCdn=BASE+'swing-shadow-log.json?t='+Date.now();
+        var _onSsl=function(sh){ _shadow=sh; _shadowAt=now; window._swingShadow=sh; render(exec,sh); try{ if(typeof window._renderLiveFailureMode==='function') window._renderLiveFailureMode(); }catch(_){} };
+        fetch(_sslRaw).then(function(r){ if(!r.ok) throw 0; return r.json(); }).then(_onSsl)
+          .catch(function(){ fetch(_sslCdn).then(function(r){return r.json();}).then(_onSsl).catch(function(){ render(exec,_shadow||{signals:{}}); }); });
       }).catch(function(){});
     }
     // Move the swing forward-test panel ABOVE the auto-EW + failure-mode boxes
