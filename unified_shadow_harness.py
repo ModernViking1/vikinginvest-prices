@@ -1637,48 +1637,69 @@ def detect_ema920v_m15(pk, m15):
 # false-positive caught this session by cross-checking against harness scoring.)
 
 
-# ── Market Wizards continuation setups — crypto observers, TRAILING-runner exit ──
+# ── Market Wizards continuation setups — TRAILING-runner observers, per class ──
 # Raschke's 'Holy Grail' (ADX>25 strong trend + a pullback that tags the 20-EMA and
-# closes back through it) and the volume-breakout 'breakthrough' (break the 20-bar
-# range by a margin on >=1.5x average volume, stop below the breakout bar). Both are
-# momentum/continuation entries: at a fixed RR2 target they die (WR too low to pay
-# the target), but with a trailing RUNNER exit — arm at +1R, trail 1R behind the best
-# price, mark-to-market at the horizon — crypto passes BOTH OOS halves on h1
-# (holy_grail +0.10R, volbreak +0.03R). The per-class study (market_wizards_breakdown
-# .py) shows equity/index/comm also pass for several of these; only FX majors/minors
-# fail everywhere (spread is a big fraction of ATR and their ranges mean-revert
-# through the trail). Scoped to crypto here as MONITOR-ONLY observers — the live
-# intraday class. On m15 holy_grail's crypto edge decays (second OOS half negative),
-# so it stays an h1 observer only. Detectors reuse the researched signal generators.
-from market_wizards_research import holy_grail as _holygrail_sig, volbreak as _volbreak_sig
+# closes back through it), the volume-breakout 'breakthrough' (break the 20-bar range
+# by a margin on >=1.5x average volume, stop below the breakout bar), and Sperandeo's
+# '2B' (a marginal new extreme that fails and closes back inside the prior swing).
+# All are momentum/continuation entries: at a fixed RR2 target they die (WR too low to
+# pay the target), but with a trailing RUNNER exit — arm +1R, trail 1R behind the best
+# price, mark-to-market at the horizon — several classes pass BOTH OOS halves.
+#
+# The per-class study (market_wizards_breakdown.py) is the scoping authority. Only the
+# (setup × class) combos that pass BOTH OOS halves + n>=40 are wired; the two that fail
+# the OOS split are deliberately held back:
+#   holy_grail  crypto ✓ equity ✓ comm ✓ | index ✗ (first half -0.015) — dropped
+#   volbreak    crypto ✓ equity ✓ index ✓ | comm ✗ (split +0.146/-0.018) — dropped
+#   2B          crypto ✓ equity ✓ index ✓ comm ✓
+# FX majors/minors fail everything (spread is a big fraction of ATR and their ranges
+# mean-revert through the trail) — never wired. On m15 holy_grail's CRYPTO edge decays
+# (second half -0.034) so crypto stays h1-only, but equity m15 (+0.215R) and commodity
+# m15 (+0.107R) pass and ARE wired as intraday observers. All MONITOR-ONLY; per-class
+# tags (mmove_ix convention) so each combo can be promoted independently on its own
+# forward evidence. Detectors reuse the researched signal generators.
+from market_wizards_research import (holy_grail as _holygrail_sig,
+                                     volbreak as _volbreak_sig, two_b as _twob_sig)
 TRAIL_ARM = 1.0            # arm the trail at +1R
 TRAIL_DIST = 1.0          # ride 1R behind the best price
-HOLYGRAIL_HOLD = 200      # runner horizon (h1 bars) — matches the breakdown study
-VOLBREAK_HOLD = 200
+TRAIL_HOLD = 200          # runner horizon (bars) — matches the breakdown study
+# H1 pair-loop scoping (crypto/index/comm live in historical-ohlc.json). Equity lives
+# in equity-ohlc.json and is wired in the equity block below.
+HOLYGRAIL_H1 = {'crypto': 'holygrail', 'comm': 'holygrail_cm'}
+VOLBREAK_H1 = {'crypto': 'volbreak', 'index': 'volbreak_ix'}
+TWOB_H1 = {'crypto': 'twob', 'index': 'twob_ix', 'comm': 'twob_cm'}
+HOLYGRAIL_M15 = {'comm': 'holygrail_cm_m15'}   # equity m15 wired in the equity block
+
+
+def _mw_signals(bars, pk, tag, tf, gen):
+    """Wrap a researched (ei, entry, stop, dir) generator into harness signal dicts."""
+    out = []
+    for (ei, entry, stop, d) in gen(bars):
+        if ei >= len(bars):
+            continue
+        out.append({'strategy': tag, 'tf': tf, 'pair': pk, 'dir': d,
+                    'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop})
+    return out
 
 
 def detect_holygrail(pk, h1):
-    if PAIR_CLASS.get(pk) != 'crypto' or len(h1) < 400:
-        return []
-    out = []
-    for (ei, entry, stop, d) in _holygrail_sig(h1):
-        if ei >= len(h1):
-            continue
-        out.append({'strategy': 'holygrail', 'tf': 'h1', 'pair': pk, 'dir': d,
-                    'entry_ts': h1[ei]['_ts'], 'entry': entry, 'stop': stop})
-    return out
+    tag = HOLYGRAIL_H1.get(PAIR_CLASS.get(pk))
+    return _mw_signals(h1, pk, tag, 'h1', _holygrail_sig) if tag and len(h1) >= 400 else []
 
 
 def detect_volbreak(pk, h1):
-    if PAIR_CLASS.get(pk) != 'crypto' or len(h1) < 400:
-        return []
-    out = []
-    for (ei, entry, stop, d) in _volbreak_sig(h1):
-        if ei >= len(h1):
-            continue
-        out.append({'strategy': 'volbreak', 'tf': 'h1', 'pair': pk, 'dir': d,
-                    'entry_ts': h1[ei]['_ts'], 'entry': entry, 'stop': stop})
-    return out
+    tag = VOLBREAK_H1.get(PAIR_CLASS.get(pk))
+    return _mw_signals(h1, pk, tag, 'h1', _volbreak_sig) if tag and len(h1) >= 400 else []
+
+
+def detect_twob(pk, h1):
+    tag = TWOB_H1.get(PAIR_CLASS.get(pk))
+    return _mw_signals(h1, pk, tag, 'h1', _twob_sig) if tag and len(h1) >= 400 else []
+
+
+def detect_holygrail_m15(pk, m15):
+    tag = HOLYGRAIL_M15.get(PAIR_CLASS.get(pk))
+    return _mw_signals(m15, pk, tag, 'm15', _holygrail_sig) if tag and len(m15) >= 400 else []
 
 
 def score(bars, entry_ts, entry, stop, d, hold):
@@ -1805,7 +1826,8 @@ def main():
                  + detect_mmove(pk, h1, daily) + detect_obfvg_fx4(pk, h1, daily)
                  + detect_mmove_m15(pk, m15) + detect_ema920v_m15(pk, m15)
                  + detect_obfvg_m15(pk, m15, daily) + detect_varev_ix(pk, h1)
-                 + detect_holygrail(pk, h1) + detect_volbreak(pk, h1))
+                 + detect_holygrail(pk, h1) + detect_volbreak(pk, h1)
+                 + detect_twob(pk, h1) + detect_holygrail_m15(pk, m15))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -1864,10 +1886,10 @@ def main():
                 st, o = score(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], OBFVG_M15_HOLD)
             elif rec['strategy'] == 'varev_ix':
                 st, o = score(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], VAREV_HOLD)
-            elif rec['strategy'] == 'holygrail':
-                st, o = score_trail_open(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], HOLYGRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
-            elif rec['strategy'] == 'volbreak':
-                st, o = score_trail_open(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], VOLBREAK_HOLD, TRAIL_ARM, TRAIL_DIST)
+            elif rec['strategy'] in ('holygrail', 'holygrail_cm', 'volbreak', 'volbreak_ix', 'twob', 'twob_ix', 'twob_cm'):
+                st, o = score_trail_open(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
+            elif rec['strategy'] == 'holygrail_cm_m15':
+                st, o = score_trail_open(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -1876,31 +1898,48 @@ def main():
             else:
                 rec.pop('r', None)
 
-    # ── Equity ORB observer — separate data source (equity-ohlc.json, committed by the
-    #    equity-pilot workflow). Processed here, outside the FX/crypto pair loop. ──
+    # ── Equity observers — separate data source (equity-ohlc.json, committed by the
+    #    equity-pilot workflow). Processed here, outside the FX/crypto pair loop.
+    #    orb_eq (m15 opening-range breakout, bracket-scored) + the Market Wizards
+    #    trailing-runner setups that pass on US equities: holy_grail / volbreak / 2B on
+    #    h1, and holy_grail on m15 (equity's intraday edge holds where crypto's decays).
+    #    All monitor-only, _eq-suffixed tags. ──
     if os.path.exists(EQUITY_HIST):
         try:
             eqp = json.load(open(EQUITY_HIST)).get('pairs', {})
             for pk in EQUITY_SYMBOLS:
                 em15 = _bars_norm(eqp.get(pk, {}).get('m15', []))
+                eh1 = _bars_norm(eqp.get(pk, {}).get('h1', []))
                 if len(em15) < 200:
                     continue
                 data_end = max(data_end, em15[-1]['_ts'])
-                for s in _orb_eq_signals(pk, em15):
+                eqsigs = list(_orb_eq_signals(pk, em15))
+                if len(eh1) >= 400:
+                    eqsigs += _mw_signals(eh1, pk, 'holygrail_eq', 'h1', _holygrail_sig)
+                    eqsigs += _mw_signals(eh1, pk, 'volbreak_eq', 'h1', _volbreak_sig)
+                    eqsigs += _mw_signals(eh1, pk, 'twob_eq', 'h1', _twob_sig)
+                if len(em15) >= 400:
+                    eqsigs += _mw_signals(em15, pk, 'holygrail_eq_m15', 'm15', _holygrail_sig)
+                for s in eqsigs:
                     detected += 1
                     k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
                     if k not in sigs:
                         s['first_seen'] = data_end; s['status'] = 'pending'; sigs[k] = s
                     rec = sigs[k]
-                    st, o = score_orb(em15, rec['entry_ts'], rec['entry'], rec['stop'],
-                                      rec['target'], rec['dir'], rec['session_end_ts'])
+                    if rec['strategy'] == 'orb_eq':
+                        st, o = score_orb(em15, rec['entry_ts'], rec['entry'], rec['stop'],
+                                          rec['target'], rec['dir'], rec['session_end_ts'])
+                    elif rec['strategy'] == 'holygrail_eq_m15':
+                        st, o = score_trail_open(em15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
+                    else:                       # holygrail_eq / volbreak_eq / twob_eq — h1 runner
+                        st, o = score_trail_open(eh1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
                     rec['status'] = st
                     if st == 'resolved':
                         rec['r'] = o - cost(o, rec['entry'], abs(rec['entry'] - rec['stop']))
                     else:
                         rec.pop('r', None)
         except Exception as e:
-            print(f"equity ORB observer skipped: {e}")
+            print(f"equity observers skipped: {e}")
 
     if log['baseline_data_end'] is None:
         log['baseline_data_end'] = data_end
@@ -1923,7 +1962,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'volbreak'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
