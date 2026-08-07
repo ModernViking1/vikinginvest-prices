@@ -20850,6 +20850,10 @@ function _renderCCIVariantPanel(host, commodityKeys){
   window.__viSetLiveWindow = function(w){
     window._viLiveWindow = (w === 'week' || w === 'all') ? w : 'today';
     try { localStorage.setItem('vit_live_window', window._viLiveWindow); } catch(e){}
+    // Actively switching the window is an explicit "show me this" — expand the
+    // (investor-collapsed) body so the result is visible instead of switching to
+    // a window whose data is hidden behind the collapsed header.
+    try { localStorage.setItem('vit_fmlive_collapsed', '0'); } catch(e){}
     try { _renderLiveFailureMode(); } catch(e){}
   };
   function _viLiveWindowToggle(active){
@@ -21159,13 +21163,17 @@ function _renderCCIVariantPanel(host, commodityKeys){
     // diagnostic sits below and expands on tap. State persists in localStorage.
     var _fmCollapsed; try{ var _fv=localStorage.getItem('vit_fmlive_collapsed'); _fmCollapsed=(_fv===null?true:_fv==='1'); }catch(e){ _fmCollapsed=true; }
     if(typeof window.__fmLiveToggle!=='function'){ window.__fmLiveToggle=function(){ try{ var v=localStorage.getItem('vit_fmlive_collapsed'); localStorage.setItem('vit_fmlive_collapsed',(v==='0')?'1':'0'); }catch(e){} var b=document.getElementById('fmLiveBody'), a=document.getElementById('fmLiveArrow'); if(b){ var hid=b.style.display==='none'; b.style.display=hid?'block':'none'; if(a) a.textContent=hid?'▾':'▸'; } }; }
-    var headerHtml = '<div onclick="window.__fmLiveToggle()" title="Intraday diagnostic — tap to expand / collapse" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;cursor:pointer;user-select:none;">'
-                   + '<span style="font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;"><span id="fmLiveArrow">'+(_fmCollapsed?'▸':'▾')+'</span> Intraday Forward Testing &middot; LIVE</span>'
-                   + '<span style="font-family:Orbitron,monospace;font-size:8px;color:var(--inkd);font-weight:400;letter-spacing:0.5px;">crypto-only live &middot; forward test &middot; tap to '+(_fmCollapsed?'expand':'collapse')+'</span>'
+    // Header stays ALWAYS visible (collapsible title on the left, window toggle on the
+    // right). The Today/Week/All toggle must NOT live inside the collapsible body —
+    // switching to a window with data would otherwise hide the toggle behind the
+    // collapsed header. The title span carries the collapse onclick; the toggle sits
+    // beside it as a sibling so its own onclick doesn't bubble into a collapse.
+    var headerHtml = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">'
+                   + '<span onclick="window.__fmLiveToggle()" title="Intraday diagnostic — tap to expand / collapse" style="cursor:pointer;user-select:none;font-family:Orbitron,monospace;font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#0d5a36;text-transform:uppercase;"><span id="fmLiveArrow">'+(_fmCollapsed?'▸':'▾')+'</span> Intraday Forward Testing &middot; LIVE <span style="font-weight:400;font-size:8px;opacity:0.7;">&middot; ' + winLabel + ' &middot; tap to '+(_fmCollapsed?'expand':'collapse')+'</span></span>'
+                   + _viLiveWindowToggle(mode)
                    + '</div>';
     var summaryRow = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin:8px 0 6px;">'
                    + '<span style="font-family:Orbitron,monospace;font-size:8.5px;color:var(--inkd);letter-spacing:0.5px;">' + winLabel + ' ' + deltaPill + '</span>'
-                   + _viLiveWindowToggle(mode)
                    + '</div>'
                    + '<div style="text-align:right;font-size:8.5px;color:var(--inkd);letter-spacing:0.6px;font-weight:400;margin-bottom:8px;">' + Ln + ' live closed' + (openCount > 0 ? ' &middot; ' + openCount + ' still open' : '') + (demotedN > 0 ? ' &middot; +' + demotedN + ' demoted' : '') + ' &middot; ' + fmtR(LR) + ' realised &middot; ' + fmtPct(liveWR) + ' WR</div>';
 
