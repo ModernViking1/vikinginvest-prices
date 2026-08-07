@@ -21342,7 +21342,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
                   gold_us2h:'2nd-hour US-session displacement + 5min reversal · true m5 gold (monitor)',
                   fma_gold:'liquidity-sweep + 50-EMA reclaim reversal · m15 gold (monitor)',
                   fma_sweep_cm:'liquidity-sweep + 50-EMA reclaim reversal · m15 commodities (monitor)',
-                  fma_sweep_ix:'liquidity-sweep + 50-EMA reclaim reversal · m15 indices (monitor)' };
+                  fma_sweep_ix:'liquidity-sweep + 50-EMA reclaim reversal · m15 indices (monitor)',
+                  po3_cm:'Power-of-Three London-open sweep-reversal · m15 non-gold commodities (monitor)' };
       var by = {};
       Object.keys(sh.signals).forEach(function(k){ var s=sh.signals[k]; if(!s || (s.tf!=='m15' && s.tf!=='m5')) return;
         var st=s.strategy||k.split(':')[0]; var o=by[st]||(by[st]={res:0,wins:0,r:0});
