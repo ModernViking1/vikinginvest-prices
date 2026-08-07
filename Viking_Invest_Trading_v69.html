@@ -21338,9 +21338,10 @@ function _renderCCIVariantPanel(host, commodityKeys){
       var _og = { mmove_m15:'imbalance / FVG retrace continuation · m15 scoped pockets XRP / gold / silver / FRA40',
                   ema920v:'9/20-EMA pullback + relative-volume gate · m15 crypto',
                   obfvg_m15:'order-block + fair-value-gap retrace · m15 scoped pockets BTC / XRP',
-                  orb_eq:'opening-range breakout + volume gate · m15 US equities (AAPL/NVDA/TSLA/MSFT/AMZN)' };
+                  orb_eq:'opening-range breakout + volume gate · m15 US equities (AAPL/NVDA/TSLA/MSFT/AMZN)',
+                  gold_us2h:'2nd-hour US-session displacement + 5min reversal · true m5 gold (monitor)' };
       var by = {};
-      Object.keys(sh.signals).forEach(function(k){ var s=sh.signals[k]; if(!s || s.tf!=='m15') return;
+      Object.keys(sh.signals).forEach(function(k){ var s=sh.signals[k]; if(!s || (s.tf!=='m15' && s.tf!=='m5')) return;
         var st=s.strategy||k.split(':')[0]; var o=by[st]||(by[st]={res:0,wins:0,r:0});
         if(s.status==='resolved' && typeof s.r==='number'){ o.res++; if(s.r>0)o.wins++; o.r+=s.r; } });
       var keys=Object.keys(by); if(!keys.length) return { loading:false, html:'' };
@@ -21356,8 +21357,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
           +'<td style="padding:5px 8px;text-align:right;color:'+(exp>=0?'#0d5a36':'#c0281a')+';">'+(o.res?(exp>=0?'+':'')+exp.toFixed(3)+'R':'—')+'</td></tr>';
       }).join('');
       return { loading:false, html:
-        '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:var(--inkd);margin:10px 0 3px;">○ OBSERVING · m15 shadow monitors · not live</div>'
-        +'<div style="font-size:8px;color:var(--inkd);margin-bottom:4px;line-height:1.4;">Monitor-only m15 strategies tracked in the shadow model (never sent to the cBot) — model = idealised simulation. They accrue forward evidence before any promotion call.</div>'
+        '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:var(--inkd);margin:10px 0 3px;">○ OBSERVING · intraday shadow monitors (m15 / m5) · not live</div>'
+        +'<div style="font-size:8px;color:var(--inkd);margin-bottom:4px;line-height:1.4;">Monitor-only intraday strategies tracked in the shadow model (never sent to the cBot) — model = idealised simulation. They accrue forward evidence before any promotion call.</div>'
         +'<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:9.5px;font-family:Orbitron,monospace;">'
         +'<thead><tr style="background:rgba(13,90,54,0.06);color:#0d5a36;font-weight:700;letter-spacing:0.5px;text-align:left;"><th style="padding:6px 8px;">Strategy</th><th style="padding:6px 8px;text-align:right;">tracked</th><th style="padding:6px 8px;text-align:right;">model n</th><th style="padding:6px 8px;text-align:right;">model WR</th><th style="padding:6px 8px;text-align:right;">model exp</th></tr></thead>'
         +'<tbody>'+rows+'</tbody></table></div>' };

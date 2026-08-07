@@ -16,6 +16,7 @@ from detect_triggers import (
 from backtest_rsi_per_class import _bars_norm, precompute_rsi
 from hs_swing_research import scan as hs_scan, MAX_HOLD as HS_HOLD
 from five_strategies_research import ema, atr, adx, agg4h, weekly, is_engulf, HOLD
+from session_2h_reversal_research import find_signals as _sess_signals, GEO as _SESS_GEO, SESSIONS as _SESS_HOURS
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -1757,6 +1758,53 @@ def score_trail_open(bars, entry_ts, entry, stop, d, hold, arm, trail):
     return ('pending', None)                               # ran out of data before horizon
 
 
+# ── Gold US-session 2nd-hour reversal — TRUE 5-minute observer ──────────────────
+# itstomtrades setup (session_2h_reversal_research.py): in the 2nd hour of a session,
+# an expansion + rising-volume directional move, then a structure-shift reversal
+# against it; stop beyond the swing, target the breakout range. The faithful m5 test
+# (12 months of real XAU_USD 5-minute candles in gold-m5-ohlc.json) found only the US
+# 2nd hour @ RR1.5 durable — BOTH OOS halves positive, and it was ALSO positive on the
+# independent full-year h1 sample. Asia loses and London's edge decays out-of-sample,
+# so only US is wired. Thin (n~30) — MONITOR-ONLY, accruing forward evidence toward the
+# n>=40 gate as the monthly m5 backfill grows the window.
+GOLD_M5_HIST = os.path.join(_HERE, 'gold-m5-ohlc.json')
+SESS_US_HOUR = _SESS_HOURS['us']            # 2nd US hour = 14:00 UTC
+SESS_RR = 1.5                               # the durable reward:risk from the m5 study
+SESS_HOLD = _SESS_GEO['m5']['HOLD']         # 288 m5 bars (~24h) bracket horizon
+
+
+def _gold_us2h_signals(m5):
+    """US 2nd-hour session-reversal signals on true m5, targeted at RR1.5."""
+    out = []
+    for (ei, entry, stop, td, _rng) in _sess_signals(m5, SESS_US_HOUR, _SESS_GEO['m5']):
+        if ei >= len(m5):
+            continue
+        R = abs(entry - stop)
+        d = 'bear' if td == 'short' else 'bull'
+        target = entry - SESS_RR * R if td == 'short' else entry + SESS_RR * R
+        out.append({'strategy': 'gold_us2h', 'tf': 'm5', 'pair': 'xauusd', 'dir': d,
+                    'entry_ts': m5[ei]['_ts'], 'entry': entry, 'stop': stop, 'target': target})
+    return out
+
+
+def score_sess(bars, entry_ts, entry, stop, target, d, hold):
+    """Target-bracket scorer (explicit target, not RR-derived). Bracket-honest:
+    unresolved within the hold is EXCLUDED, mirroring score()."""
+    ts = [b['_ts'] for b in bars]; i0 = bisect.bisect_left(ts, entry_ts)
+    R = abs(entry - stop)
+    if R <= 0 or i0 >= len(bars): return ('pending', None)
+    end = min(i0 + hold, len(bars))
+    for j in range(i0, end):
+        b = bars[j]
+        if d == 'bull':
+            if b['l'] <= stop: return ('resolved', -1.0)
+            if b['h'] >= target: return ('resolved', (target - entry) / R)
+        else:
+            if b['h'] >= stop: return ('resolved', -1.0)
+            if b['l'] <= target: return ('resolved', (entry - target) / R)
+    return ('pending', None) if end >= len(bars) else ('expired', None)
+
+
 def _bos_dir(bars, prd=3):
     """Most-recent break-of-structure direction as of each bar (swing pivots
     confirmed prd bars right, no lookahead). Used to tag signals bos_aligned."""
@@ -1941,6 +1989,29 @@ def main():
         except Exception as e:
             print(f"equity observers skipped: {e}")
 
+    # ── Gold m5 observer — separate data source (gold-m5-ohlc.json, committed by the
+    #    gold-m5-fetch workflow). True 5-minute US 2nd-hour session reversal. ──
+    if os.path.exists(GOLD_M5_HIST):
+        try:
+            gm5 = _bars_norm(json.load(open(GOLD_M5_HIST)).get('pairs', {}).get('xauusd', {}).get('m5', []))
+            if len(gm5) >= 400:
+                data_end = max(data_end, gm5[-1]['_ts'])
+                for s in _gold_us2h_signals(gm5):
+                    detected += 1
+                    k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
+                    if k not in sigs:
+                        s['first_seen'] = data_end; s['status'] = 'pending'; sigs[k] = s
+                    rec = sigs[k]
+                    st, o = score_sess(gm5, rec['entry_ts'], rec['entry'], rec['stop'],
+                                       rec['target'], rec['dir'], SESS_HOLD)
+                    rec['status'] = st
+                    if st == 'resolved':
+                        rec['r'] = o - cost(o, rec['entry'], abs(rec['entry'] - rec['stop']))
+                    else:
+                        rec.pop('r', None)
+        except Exception as e:
+            print(f"gold m5 observer skipped: {e}")
+
     if log['baseline_data_end'] is None:
         log['baseline_data_end'] = data_end
     log['last_run_data_end'] = data_end
@@ -1962,7 +2033,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
