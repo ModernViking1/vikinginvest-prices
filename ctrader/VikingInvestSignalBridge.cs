@@ -190,6 +190,14 @@ namespace cAlgo.Robots
         [Parameter("Order label", DefaultValue = "VikingInvest", Group = "Identity")]
         public string OrderLabel { get; set; }
 
+        // 2026-08-07 — trailing stop tuned for the intraday 1:1 population. intraday_trail_research.py
+        // + OOS: once a position is +0.5R in profit, trail the stop 0.25R behind the best price
+        // (first move locks +0.25R). On crypto (the live intraday class) this lifts +0.028R -> +0.102R,
+        // both OOS halves positive. NOT 75% — an earlier/tighter trail wins at 1:1. Take-profit is
+        // never touched. Toggle here.
+        [Parameter("Trailing stop (0.5R arm / 0.25R trail)", DefaultValue = true, Group = "Safety")]
+        public bool TrailingStop { get; set; }
+
         [Parameter("Allow LIVE account", DefaultValue = false, Group = "Safety")]
         public bool AllowLive { get; set; }
 
@@ -360,6 +368,10 @@ namespace cAlgo.Robots
         //                        back to "broker" if nothing stamped it.
         private Dictionary<long, double> _positionMaxFavR     = new Dictionary<long, double>();
         private Dictionary<long, string> _positionCloseSource = new Dictionary<long, string>();
+        // Trailing state: original risk unit R (from the take-profit, restart-safe at 1:1) and the
+        // best favourable price seen, per open position.
+        private Dictionary<long, double> _posOrigR   = new Dictionary<long, double>();
+        private Dictionary<long, double> _posPeakPx  = new Dictionary<long, double>();
         // Phase 4 — daily loss tracker. Realized R is summed per UTC day
         // (key = "yyyy-MM-dd") and persisted to disk so a cBot restart
         // mid-day doesn't reset the budget. When the day's negative R
@@ -527,18 +539,49 @@ namespace cAlgo.Robots
             {
                 foreach (var pos in Positions)
                 {
-                    if (pos.Label != OrderLabel) continue;
-                    if (!pos.StopLoss.HasValue || pos.EntryPrice <= 0) continue;
-                    var stopDistPx = Math.Abs(pos.EntryPrice - pos.StopLoss.Value);
-                    if (stopDistPx <= 0) continue;
-                    var nowPx = pos.TradeType == TradeType.Buy ? pos.Symbol.Bid : pos.Symbol.Ask;
-                    var favPx = pos.TradeType == TradeType.Buy
-                                ? (nowPx - pos.EntryPrice)
-                                : (pos.EntryPrice - nowPx);
-                    var favR = favPx / stopDistPx;
+                    if (pos.Label != OrderLabel || pos.Symbol == null || pos.EntryPrice <= 0) continue;
+                    // Original risk unit R: from the take-profit (intraday is 1:1, so |entry-TP| == R),
+                    // which is restart-safe and unaffected by trailing the stop. Fall back to the
+                    // current stop distance only if there's no take-profit.
+                    double origR;
+                    if (!_posOrigR.TryGetValue(pos.Id, out origR) || origR <= 0)
+                    {
+                        origR = (pos.TakeProfit.HasValue && pos.TakeProfit.Value > 0)
+                                ? Math.Abs(pos.EntryPrice - pos.TakeProfit.Value)
+                                : (pos.StopLoss.HasValue ? Math.Abs(pos.EntryPrice - pos.StopLoss.Value) : 0);
+                        if (origR <= 0) continue;
+                        _posOrigR[pos.Id] = origR;
+                    }
+                    bool isBuy = pos.TradeType == TradeType.Buy;
+                    var nowPx = isBuy ? pos.Symbol.Bid : pos.Symbol.Ask;
+                    var favPx = isBuy ? (nowPx - pos.EntryPrice) : (pos.EntryPrice - nowPx);
+                    var favR = favPx / origR;
                     double prev = 0;
                     _positionMaxFavR.TryGetValue(pos.Id, out prev);
                     if (favR > prev) _positionMaxFavR[pos.Id] = favR;
+
+                    // ── 0.5R-arm / 0.25R-trail (intraday 1:1) ──
+                    if (TrailingStop)
+                    {
+                        double peak;
+                        if (!_posPeakPx.TryGetValue(pos.Id, out peak) || peak == 0) peak = pos.EntryPrice;
+                        peak = isBuy ? Math.Max(peak, nowPx) : Math.Min(peak, nowPx);
+                        _posPeakPx[pos.Id] = peak;
+                        bool armed = isBuy ? (peak >= pos.EntryPrice + 0.5 * origR)
+                                           : (peak <= pos.EntryPrice - 0.5 * origR);
+                        if (armed)
+                        {
+                            double desired = isBuy ? peak - 0.25 * origR : peak + 0.25 * origR;
+                            double? cur = pos.StopLoss;
+                            bool tighter = isBuy ? (!cur.HasValue || desired > cur.Value)
+                                                 : (!cur.HasValue || desired < cur.Value);
+                            if (tighter)
+                            {
+                                try { pos.ModifyStopLossPrice(desired); }
+                                catch (Exception ex) { Print($"[VikingInvest] trail pid={pos.Id} failed: {ex.Message}"); }
+                            }
+                        }
+                    }
                 }
             }
             catch { /* defensive — never let the MFE trace crash the poll */ }
@@ -1451,6 +1494,7 @@ namespace cAlgo.Robots
             PersistPositionSignalMap();   // keep the on-disk map in step with the live open set
             _positionMaxFavR.Remove(p.Id);
             _positionCloseSource.Remove(p.Id);
+            _posOrigR.Remove(p.Id); _posPeakPx.Remove(p.Id);   // trailing-state cleanup
             Print($"📒 [VikingInvest] Position closed {p.SymbolName} {p.TradeType} · " +
                   $"net={p.NetProfit:F2} R={realizedR:F2} signal={sigId ?? "(unlinked)"}");
 
