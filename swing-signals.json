@@ -1,10 +1,85 @@
 {
  "schema_version": 1,
- "generated": "2026-08-08T02:00:00+00:00",
- "data_end_ts": 1786154400,
- "raw_signal_count": 7,
+ "generated": "2026-08-08T07:00:00+00:00",
+ "data_end_ts": 1786172400,
+ "raw_signal_count": 8,
  "count": 9,
  "signals": [
+  {
+   "id": "hs:ethusd:1786172400",
+   "strategy": "hs",
+   "pair": "ethusd",
+   "symbol": "ETHUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 1922.67,
+   "ref_entry": 1915.56,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1786172400,
+   "created_ts": 1786172400,
+   "expiry_ts": 1786215600,
+   "state": "triggered",
+   "cofire": [
+    "hs"
+   ],
+   "cofire_dirs": [
+    "hs:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "hs:taousd:1786161600",
+   "strategy": "hs",
+   "pair": "taousd",
+   "symbol": "TAOUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 190.63,
+   "ref_entry": 196.28,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1786161600,
+   "created_ts": 1786172400,
+   "expiry_ts": 1786204800,
+   "state": "triggered",
+   "cofire": [
+    "hs"
+   ],
+   "cofire_dirs": [
+    "hs:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "engulf_manip:suiusd:1786111200",
+   "strategy": "engulf_manip",
+   "pair": "suiusd",
+   "symbol": "SUIUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 0.67981,
+   "ref_entry": 0.6719,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1786111200,
+   "created_ts": 1786172400,
+   "expiry_ts": 1786154400,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "gbreak:xauusd:1786107600:t1",
    "strategy": "gbreak",
@@ -19,7 +94,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1786107600,
-   "created_ts": 1786154400,
+   "created_ts": 1786172400,
    "expiry_ts": 1786150800,
    "state": "triggered",
    "cofire": [
@@ -46,7 +121,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1786107600,
-   "created_ts": 1786154400,
+   "created_ts": 1786172400,
    "expiry_ts": 1786150800,
    "state": "triggered",
    "cofire": [
@@ -73,7 +148,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1786107600,
-   "created_ts": 1786154400,
+   "created_ts": 1786172400,
    "expiry_ts": 1786150800,
    "state": "triggered",
    "cofire": [
@@ -87,20 +162,47 @@
    "scaled_legs": 3
   },
   {
-   "id": "s5_rsi:usoil:1786096800",
-   "strategy": "s5_rsi",
+   "id": "s5_rsi_wide:usoil:1786100400",
+   "strategy": "s5_rsi_wide",
    "pair": "usoil",
    "symbol": "USOIL",
    "class": "comm",
    "dir": "bear",
    "stop": 87.67,
-   "ref_entry": 85.45,
+   "ref_entry": 85.002,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1786100400,
+   "created_ts": 1786172400,
+   "expiry_ts": 1786143600,
+   "state": "triggered",
+   "cofire": [
+    "s5_rsi",
+    "s5_rsi_wide"
+   ],
+   "cofire_dirs": [
+    "s5_rsi:bear",
+    "s5_rsi_wide:bear"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "s5_rsi:euraud:1786096800",
+   "strategy": "s5_rsi",
+   "pair": "euraud",
+   "symbol": "EURAUD",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 1.6406,
+   "ref_entry": 1.63746,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1786096800,
-   "created_ts": 1786154400,
+   "created_ts": 1786172400,
    "expiry_ts": 1786140000,
    "state": "triggered",
    "cofire": [
@@ -108,56 +210,6 @@
    ],
    "cofire_dirs": [
     "s5_rsi:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "engulf_manip:suiusd:1786093200",
-   "strategy": "engulf_manip",
-   "pair": "suiusd",
-   "symbol": "SUIUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 0.66809286,
-   "ref_entry": 0.6754,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1786093200,
-   "created_ts": 1786154400,
-   "expiry_ts": 1786136400,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "engulf_manip:taousd:1786093200",
-   "strategy": "engulf_manip",
-   "pair": "taousd",
-   "symbol": "TAOUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 189.70321429,
-   "ref_entry": 192.44,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1786093200,
-   "created_ts": 1786154400,
-   "expiry_ts": 1786136400,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bull"
    ],
    "suppressed": 0
   },
@@ -175,7 +227,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1786093200,
-   "created_ts": 1786154400,
+   "created_ts": 1786172400,
    "expiry_ts": 1786136400,
    "state": "triggered",
    "cofire": [
@@ -183,56 +235,6 @@
    ],
    "cofire_dirs": [
     "obfvg:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "s5_rsi:euraud:1786093200",
-   "strategy": "s5_rsi",
-   "pair": "euraud",
-   "symbol": "EURAUD",
-   "class": "minor",
-   "dir": "bear",
-   "stop": 1.6406,
-   "ref_entry": 1.63755,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1786093200,
-   "created_ts": 1786154400,
-   "expiry_ts": 1786136400,
-   "state": "triggered",
-   "cofire": [
-    "s5_rsi"
-   ],
-   "cofire_dirs": [
-    "s5_rsi:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "hs:ethusd:1786075200",
-   "strategy": "hs",
-   "pair": "ethusd",
-   "symbol": "ETHUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 1906.9,
-   "ref_entry": 1895.61,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1786075200,
-   "created_ts": 1786154400,
-   "expiry_ts": 1786118400,
-   "state": "triggered",
-   "cofire": [
-    "hs"
-   ],
-   "cofire_dirs": [
-    "hs:bear"
    ],
    "suppressed": 0
   }
