@@ -19,6 +19,7 @@ from five_strategies_research import ema, atr, adx, agg4h, weekly, is_engulf, HO
 from session_2h_reversal_research import find_signals as _sess_signals, GEO as _SESS_GEO, SESSIONS as _SESS_HOURS
 from fma_sweep_reversal_research import fma_signals as _fma_signals
 from astongill_orb_po3_research import po3_signals as _po3_signals, SESS as _PO3_SESS
+from crypto_delta_research import absorption_signals as _absorb_signals, _norm as _delta_norm
 from liquidity_sweep_fvg_research import variant_B as _sweepfvg_signals
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
@@ -1775,6 +1776,30 @@ SESS_US_HOUR = _SESS_HOURS['us']            # 2nd US hour = 14:00 UTC
 SESS_RR = 1.5                               # the durable reward:risk from the m5 study
 SESS_HOLD = _SESS_GEO['m5']['HOLD']         # 288 m5 bars (~24h) bracket horizon
 
+# ── BTC absorption (real-delta) observer — separate data source ──────────────────
+# The Whale-Pivot-Model absorption idea (fade aggressive one-sided delta that price
+# fails to follow), tested on Binance real delta. Only BTC 15m passed both OOS halves
+# (n~851); ETH marginal, XRP/SOL failed — so it's BTC-specific and MONITOR-ONLY, kept
+# here to accrue forward evidence before any conviction. Reads binance-crypto-ohlcv.json
+# (refreshed MONTHLY by the Binance fetch), so forward evidence grows in monthly steps
+# unless a live delta ingester / daily-dump fetch is added. Needs the delta key, which
+# _bars_norm strips — hence the delta-preserving _delta_norm.
+BINANCE_CRYPTO = os.path.join(_HERE, 'binance-crypto-ohlcv.json')
+ABSORB_RR = 2.0                             # the passing reward:risk on BTC 15m
+ABSORB_HOLD = 160                           # m15 bars bracket horizon
+
+
+def _absorb_btc_signals(m15):
+    out = []
+    for (ei, entry, stop, d) in _absorb_signals(m15):
+        if ei >= len(m15):
+            continue
+        R = abs(entry - stop)
+        target = entry + ABSORB_RR * R if d == 'bull' else entry - ABSORB_RR * R
+        out.append({'strategy': 'absorb_btc', 'tf': 'm15', 'pair': 'btcusd', 'dir': d,
+                    'entry_ts': m15[ei]['_ts'], 'entry': entry, 'stop': stop, 'target': target})
+    return out
+
 
 def _gold_us2h_signals(m5):
     """US 2nd-hour session-reversal signals on true m5, targeted at RR1.5."""
@@ -2100,6 +2125,29 @@ def main():
         except Exception as e:
             print(f"gold m5 observer skipped: {e}")
 
+    # ── BTC absorption observer — Binance real-delta (binance-crypto-ohlcv.json). ──
+    if os.path.exists(BINANCE_CRYPTO):
+        try:
+            bc = json.load(open(BINANCE_CRYPTO)); iv = bc.get('interval', '15m')
+            btc = _delta_norm(bc.get('pairs', {}).get('btcusd', {}).get(iv, []))
+            if iv == '15m' and len(btc) >= 400:
+                data_end = max(data_end, btc[-1]['_ts'])
+                for s in _absorb_btc_signals(btc):
+                    detected += 1
+                    k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
+                    if k not in sigs:
+                        s['first_seen'] = data_end; s['status'] = 'pending'; sigs[k] = s
+                    rec = sigs[k]
+                    st, o = score_sess(btc, rec['entry_ts'], rec['entry'], rec['stop'],
+                                       rec['target'], rec['dir'], ABSORB_HOLD)
+                    rec['status'] = st
+                    if st == 'resolved':
+                        rec['r'] = o - cost(o, rec['entry'], abs(rec['entry'] - rec['stop']))
+                    else:
+                        rec.pop('r', None)
+        except Exception as e:
+            print(f"absorb_btc observer skipped: {e}")
+
     if log['baseline_data_end'] is None:
         log['baseline_data_end'] = data_end
     log['last_run_data_end'] = data_end
@@ -2121,7 +2169,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'absorb_btc'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
