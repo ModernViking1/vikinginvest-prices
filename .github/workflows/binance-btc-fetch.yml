@@ -1,0 +1,48 @@
+name: Binance BTC Fetch (real-delta research)
+
+# Manual + monthly. Pulls ~9 months of BTCUSDT 5m klines (with real aggressor delta
+# = 2*taker_buy - volume) from data.binance.vision into a SEPARATE binance-btc-ohlcv
+# .json — the dashboard does NOT load it, so the main dashboard is unaffected. Then
+# runs the real-delta research (absorption / delta-flip / VWAP / ORB) to the job log.
+#
+# No API key needed. data.binance.vision is public and not geo-blocked, unlike
+# api.binance.com (451 from US runners).
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Monthly — 3rd at 06:23 UTC (after the prior month's dump is published).
+    - cron: '23 6 3 * *'
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Fetch BTC 5m klines (9 months, real delta)
+        run: python fetch_binance_btc.py --months 9 --interval 5m
+
+      - name: Commit binance-btc-ohlcv.json
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add binance-btc-ohlcv.json
+          git commit -m "data: Binance BTC 5m OHLCV + real delta (research) [skip ci]" || { echo "nothing to commit"; exit 0; }
+          for i in 1 2 3 4; do
+            git push && { echo "pushed"; exit 0; } || { git fetch origin main && git rebase origin/main && sleep 3; }
+          done
+          echo "::error::push failed after retries"; exit 1
+
+      - name: Real-delta research (absorption / delta-flip / VWAP / ORB)
+        run: python crypto_delta_research.py
