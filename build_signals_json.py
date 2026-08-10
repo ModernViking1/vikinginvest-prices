@@ -56,6 +56,12 @@ FIB_CLASSES = {"comm", "index"}
 # observer/tracking (directions.json + dashboard), same as index/major/minor.
 LIVE_CLASSES = {"crypto"}
 
+# 2026-08-08 — macdp (MACD-cross) and wick (wick-reversal) DEMOTED from the cBot feed:
+# live realised fills were clearly negative (macdp -44.4R / 45% WR, wick -18.0R / 31% WR
+# at ~1:1 RR). Held back here (detector still runs + drives the dashboard/alerts).
+# mmove_m15 promoted to the main live strategy in its place (see mmove_live.py).
+DEMOTED_METHODS = {"macdp", "wick"}
+
 # Per-pair classification mirrors MKTS[k].t in the dashboard. Extracted
 # from Viking_Invest_Trading_v69.html so the EA's risk sizing matches
 # what the backtest engine computes. Kept inline (not imported) so this
@@ -288,6 +294,8 @@ def build_signals(state: dict) -> dict:
         if not isinstance(info, dict):
             continue
         for kind in ("wick", "fib", "macdp", "divg"):
+            if kind in DEMOTED_METHODS:            # 2026-08-08 — held back from the cBot
+                continue
             row = _signal_row(pair, info, kind, now_ms)
             if row is None:
                 continue
@@ -296,6 +304,18 @@ def build_signals(state: dict) -> dict:
                 # rows on this pair continue to flow normally.
                 continue
             out.append(row)
+
+    # 2026-08-08 — mmove_m15 promoted to the MAIN live intraday strategy (demo). Emitted
+    # from its own detector on the m15 OHLC (fail-open), exempt from LIVE_CLASSES so it
+    # trades its full validated pocket set {xrpusd, xauusd, xagusd, fra40}, RR2.
+    try:
+        from mmove_live import build_mmove_rows
+        for row in build_mmove_rows(now_ms):
+            if row["pair"] in cooloff_pairs and row.get("state") == "triggered":
+                continue
+            out.append(row)
+    except Exception as e:
+        print(f"[build_signals_json] mmove_m15 emit skipped: {e}", file=sys.stderr)
 
     # Newest-first ordering so the EA can early-exit on the first
     # already-seen id without paging through stale rows.
