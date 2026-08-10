@@ -37,7 +37,7 @@ def _norm(raw):
                     'v': b['v'], 'delta': b.get('delta', 0.0)})
     return out
 
-SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "binance-btc-ohlcv.json")
+SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "binance-crypto-ohlcv.json")
 RRS = [1.5, 2.0]
 HOLD = 160
 BUF = 0.10
@@ -193,20 +193,26 @@ def run(bars, tf, name, fn):
 
 def main():
     if not os.path.exists(SRC):
-        print("no binance-btc-ohlcv.json — run the binance-btc-fetch workflow first"); return
-    d = json.load(open(SRC))
-    base = _norm(d['pairs']['btcusd'][d['interval']])
-    tfs = {d['interval']: base, '15m': resample(base, 3), '1h': resample(base, 12)}
-    print("=" * 92)
-    print(f"BTC real-delta research · {d['interval']} native ({len(base)} bars) + resampled · OOS")
-    print("=" * 92)
-    for tf, bars in tfs.items():
-        if len(bars) < 400:
+        print("no binance-crypto-ohlcv.json — run the binance-crypto-fetch workflow first"); return
+    d = json.load(open(SRC)); iv = d['interval']
+    # native interval -> the two passing timeframes: absorption on the native tf, and 1h
+    # (resampled). Factor to 1h depends on the base interval.
+    to1h = {'5m': 12, '15m': 4, '30m': 2}.get(iv, 4)
+    for pk in d['pairs']:
+        base = _norm(d['pairs'][pk][iv])
+        if len(base) < 400:
             continue
-        run(bars, tf, "ABSORPTION (delta-fade)", absorption_signals)
-        run(bars, tf, "DELTA-FLIP (go-with)", deltaflip_signals)
-        run(bars, tf, "VWAP mean-revert", vwap_revert_signals)
-        run(bars, tf, "ORB + delta confirm", orb_signals)
+        print("\n" + "#" * 92)
+        print(f"# {pk.upper()} · real-delta · {iv} native ({len(base)} bars) + 1h resampled")
+        print("#" * 92)
+        run(base, iv, "ABSORPTION (delta-fade)", absorption_signals)
+        run(base, iv, "DELTA-FLIP (go-with)", deltaflip_signals)
+        run(base, iv, "VWAP mean-revert", vwap_revert_signals)
+        run(base, iv, "ORB + delta confirm", orb_signals)
+        h1 = resample(base, to1h)
+        if len(h1) >= 400:
+            run(h1, '1h', "ABSORPTION (delta-fade)", absorption_signals)
+            run(h1, '1h', "DELTA-FLIP (go-with)", deltaflip_signals)
 
 
 if __name__ == '__main__':
