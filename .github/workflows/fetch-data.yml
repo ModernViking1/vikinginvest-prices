@@ -231,6 +231,12 @@ jobs:
           # fail the pipeline. We tolerate a non-zero exit code the same
           # way detect_triggers does so a quirky alert-state never blocks
           # the data push.
+          # 2026-08-08 — near-real-time BTC delta feed (data-api.binance.vision, ~10-min
+          # cadence) so the live absorb_btc signal fires within minutes of a 15m close.
+          # Non-fatal: a fetch miss just means no fresh absorption signal this cycle.
+          set +e
+          python fetch_binance_btc_live.py --interval 15m --limit 1000
+          set -e
           set +e
           python build_signals_json.py
           BS_EXIT=$?
@@ -242,7 +248,7 @@ jobs:
           # together so the broker-bridge view always matches what the
           # detector just published. Race-retry pattern matches the
           # data-files step.
-          git add alerts-state.json directions.json signals.json shadow-signals.json 2>/dev/null || true
+          git add alerts-state.json directions.json signals.json shadow-signals.json binance-btc-live.json 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "No alert-state changes to commit"
             exit 0
