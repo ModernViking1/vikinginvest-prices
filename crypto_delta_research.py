@@ -21,8 +21,21 @@ import os
 import datetime as dt
 from collections import defaultdict
 
-from backtest_rsi_per_class import _bars_norm
 from five_strategies_research import atr, agg, cost
+
+
+def _norm(raw):
+    """Normalize to _ts (seconds) while PRESERVING delta (which _bars_norm strips)."""
+    out = []
+    for b in raw:
+        t = b.get('t')
+        try:
+            ts = dt.datetime.fromisoformat(str(t).replace('Z', '+00:00')).timestamp()
+        except Exception:
+            continue
+        out.append({'_ts': ts, 'o': b['o'], 'h': b['h'], 'l': b['l'], 'c': b['c'],
+                    'v': b['v'], 'delta': b.get('delta', 0.0)})
+    return out
 
 SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "binance-btc-ohlcv.json")
 RRS = [1.5, 2.0]
@@ -182,7 +195,7 @@ def main():
     if not os.path.exists(SRC):
         print("no binance-btc-ohlcv.json — run the binance-btc-fetch workflow first"); return
     d = json.load(open(SRC))
-    base = _bars_norm(d['pairs']['btcusd'][d['interval']])
+    base = _norm(d['pairs']['btcusd'][d['interval']])
     tfs = {d['interval']: base, '15m': resample(base, 3), '1h': resample(base, 12)}
     print("=" * 92)
     print(f"BTC real-delta research · {d['interval']} native ({len(base)} bars) + resampled · OOS")
