@@ -43,6 +43,11 @@ def process_day(sym, d, bars):
                 price = float(parts[1]); qty = float(parts[2]); ts = int(parts[5])
             except ValueError:
                 continue                                   # header row
+            # Binance switched aggTrades timestamps to MICROSECONDS in recent data (16
+            # digits). Normalise to ms so the 15-min bucketing is correct (a µs value
+            # treated as ms bucketed into 0.9-second bars -> a 511 MB file).
+            if ts > 1_000_000_000_000_00:                  # >= 1e14 -> microseconds
+                ts //= 1000
             maker = parts[6].strip().lower() in ("true", "1")   # buyer is maker => seller aggressed
             bk = ts // M15_MS * M15_MS
             b = bars.get(bk)
@@ -77,6 +82,9 @@ def main():
                      "sellv": round(b["sellv"], 8), "delta": round(b["buyv"] - b["sellv"], 8)})
     if len(rows) < 200:
         print(f"ERROR: only {len(rows)} bars — not writing", file=sys.stderr); sys.exit(1)
+    if len(rows) > a.days * 96 * 3:
+        print(f"ERROR: {len(rows)} bars but expected ~{a.days * 96} — timestamp unit wrong?",
+              file=sys.stderr); sys.exit(1)
     json.dump({"generated": datetime.datetime.utcnow().isoformat() + "Z",
                "symbol": a.symbol, "granularity": "m15", "bars": rows}, open(OUT, "w"))
     print(f"wrote {OUT}: {len(rows)} m15 bars ({os.path.getsize(OUT) // 1024} KB)")
