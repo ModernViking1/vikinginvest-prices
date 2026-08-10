@@ -1,0 +1,49 @@
+name: Crypto Footprint Pilot (fetch + backtest)
+
+# Manual. Streams Binance aggTrades (free, carry the aggressor side) for BTCUSDT over a
+# window, aggregates to m15 bars with TRUE delta, commits crypto-footprint.json, then runs
+# the footprint backtest and prints PASS/fail. Proof-of-concept for order-flow strategies
+# before paying for futures data. No secrets needed (data.binance.vision is public).
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "days of aggTrades to fetch"
+        default: "45"
+
+permissions:
+  contents: write
+
+jobs:
+  pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: pip install requests
+
+      - name: Fetch BTCUSDT footprint (m15 delta)
+        run: python fetch_crypto_footprint.py --symbol BTCUSDT --days ${{ github.event.inputs.days }}
+
+      - name: Commit crypto-footprint.json
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add crypto-footprint.json
+          git commit -m "data: crypto footprint pilot (BTCUSDT m15 delta) [skip ci]" || { echo "nothing to commit"; exit 0; }
+          for i in 1 2 3 4; do
+            git push && { echo "pushed"; exit 0; } || { git fetch origin main && git rebase origin/main && sleep 3; }
+          done
+          echo "::error::push failed after retries"; exit 1
+
+      - name: Footprint backtest (real delta)
+        run: python crypto_footprint_research.py
