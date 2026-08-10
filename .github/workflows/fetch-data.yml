@@ -248,7 +248,7 @@ jobs:
           # together so the broker-bridge view always matches what the
           # detector just published. Race-retry pattern matches the
           # data-files step.
-          git add alerts-state.json directions.json signals.json shadow-signals.json binance-btc-live.json absorb-open.json 2>/dev/null || true
+          git add alerts-state.json directions.json signals.json shadow-signals.json binance-btc-live.json absorb-open.json mmove-open.json 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "No alert-state changes to commit"
             exit 0

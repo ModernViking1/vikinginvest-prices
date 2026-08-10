@@ -311,7 +311,9 @@ def build_signals(state: dict) -> dict:
     try:
         from mmove_live import build_mmove_rows
         for row in build_mmove_rows(now_ms):
-            if row["pair"] in cooloff_pairs and row.get("state") == "triggered":
+            # cooloff blocks NEW entries only — a held (already-open) position must keep
+            # flowing or the cBot would flatten it mid-trade (the bug we just fixed).
+            if row["pair"] in cooloff_pairs and row.get("state") == "triggered" and not row.get("held"):
                 continue
             out.append(row)
     except Exception as e:
@@ -323,7 +325,7 @@ def build_signals(state: dict) -> dict:
     try:
         from absorb_live import build_absorb_rows
         for row in build_absorb_rows(now_ms):
-            if row["pair"] in cooloff_pairs and row.get("state") == "triggered":
+            if row["pair"] in cooloff_pairs and row.get("state") == "triggered" and not row.get("held"):
                 continue
             out.append(row)
     except Exception as e:

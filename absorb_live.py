@@ -67,14 +67,14 @@ def _resolved(m15, armed_ts, stop, target, d):
     return False
 
 
-def _row(pos, now_ms):
+def _row(pos, now_ms, held):
     return {
         "id": pos["id"], "pair": "btcusd", "sym": "BTCUSD", "cls": "crypto",
         "method": "absorb_btc", "r_size": 1.0, "dir": pos["dir"], "state": "triggered",
         "entry": pos["entry"], "stop": pos["stop"], "target": pos["target"],
         "ew": None, "tl": None, "nw": None, "cl": None,
         "armedAt": pos["armedAt"], "triggeredAt": pos["armedAt"], "lastSeenAt": now_ms,
-        "source": "server-detector-absorb", "event_aligned": None,
+        "source": "server-detector-absorb", "event_aligned": None, "held": held,
     }
 
 
@@ -97,7 +97,7 @@ def build_absorb_rows(now_ms):
             if _resolved(m15, armed_ts, pos["stop"], pos["target"], pos["dir"]):
                 continue                    # target/stop hit — cBot closed it; stop emitting
             new_open[sid] = pos
-            rows.append(_row(pos, now_ms))
+            rows.append(_row(pos, now_ms, held=True))
 
         # 2) Admit NEW setups whose entry bar is still fresh (prevents late entries).
         fresh_after = end_ts - FRESH_MIN * 60
@@ -111,11 +111,15 @@ def build_absorb_rows(now_ms):
             sid = f"btcusd:{armed_ms}:absorb_btc"
             if sid in new_open:
                 continue                    # already tracked/emitted this cycle
+            target = round(entry + (RR * R if d == "bull" else -RR * R), 8)
+            # Don't (re-)admit a setup that already hit stop/target within its fresh window,
+            # or the cBot could re-enter a position that already closed.
+            if _resolved(m15, m15[ei]["_ts"], round(stop, 8), target, d):
+                continue
             pos = {"id": sid, "armedAt": armed_ms, "dir": d,
-                   "entry": round(entry, 8), "stop": round(stop, 8),
-                   "target": round(entry + (RR * R if d == "bull" else -RR * R), 8)}
+                   "entry": round(entry, 8), "stop": round(stop, 8), "target": target}
             new_open[sid] = pos
-            rows.append(_row(pos, now_ms))
+            rows.append(_row(pos, now_ms, held=False))
 
         try:
             json.dump({"open": new_open}, open(STATE, "w"))
