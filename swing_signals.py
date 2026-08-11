@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -91,7 +91,7 @@ ENGULF_CLASSES = {'crypto'}
 #          (15/15 parameter cells pass both OOS halves); highest gold priority.
 # gtrend = #1 50/200 EMA trend pullback (H4, RR2, choppiness filter removed —
 #          it hurt in testing). Both self-gate to xauusd and are cBot-executable.
-PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14, 'fma_gold': 15}
+PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14, 'fma_gold': 15, 'twob': 16}
 
 # Demo-only pilots — emitted to the swing feed but flagged so the cBot executes them
 # ONLY on a demo account (skips on live). Lets a candidate accrue REAL forward fills
@@ -172,6 +172,12 @@ def main():
         found += detect_obfvg(pk, h1, daily)         # self-gates to xrpusd/usdcad H1; OB+FVG retrace, RR2
         found += detect_gbreak(pk, h1, daily)        # self-gates to xauusd H1; range breakout + expanding ATR, RR2
         found += detect_gtrend(pk, h1, daily)        # self-gates to xauusd H4; 50/200 EMA trend pullback (no choppiness filter), RR2
+        # twob (2026-08-11) — 2B failed-breakout reversal, crypto H1. PROMOTED to live: genuine
+        # forward n=52 WR 52% +0.090R, BOTH OOS halves + (+0.048/+0.132). Validated with a
+        # trailing-runner exit, but the edge holds at a FIXED RR2 the cBot can execute (re-scored
+        # forward: n=50 +0.080R), so it emits at the default RR2. detect_twob also tags index/comm
+        # variants (twob_ix negative, twob_cm n<40) — those stay observer-only, so filter to crypto.
+        found += [s for s in detect_twob(pk, h1) if s['strategy'] == 'twob']
         # FMA ($100->$1M) liquidity-sweep + 50-EMA reclaim reversal — GOLD only, m15, RR2.
         # DEMO-FIRST PILOT: emitted to the (demo) swing feed with demo_only=True so the cBot
         # skips it on any live account until it earns forward evidence. detect_fma also emits
