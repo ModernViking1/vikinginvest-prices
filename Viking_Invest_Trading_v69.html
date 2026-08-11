@@ -1565,7 +1565,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         var DEMOTED_SWING={tl_nowick:1,fib_gz:1,wm:1,w5_pullback:1};
         // Outcome-tile overview (mirrors the intraday panel's window._viOutcomeTiles; guarded
         // so whichever panel renders first defines it, avoiding a cross-scope ordering trap).
-        if(typeof window._viOutcomeTiles!=='function'){ window._viOutcomeTiles=function(rows){
+        if(typeof window._viOutcomeTiles!=='function'){ window._viOutcomeTiles=function(rows, opts){
           var b={t1:0,t2:0,sl:0,be:0}, n=0;
           (rows||[]).forEach(function(r){
             if(!r || r.event!=='closed' || typeof r.realized_r!=='number') return;
@@ -1579,6 +1579,15 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
               +'<div style="font-family:Orbitron,monospace;font-size:15px;font-weight:700;color:'+color+';margin:2px 0;">'+cnt+'</div>'
               +'<div style="font-size:8px;color:var(--inkd);">'+share+'% of closed</div></div>';
           };
+          if(opts && opts.mergeTargets){
+            // Intraday edges are ~1:1, so a 2RR tile is always 0 — fold both target
+            // buckets into a single "Target hit" tile (still counts occasional 2R wins).
+            return '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">'
+              + tile('🎯','Target hit', b.t1+b.t2, '#0d5a36')
+              + tile('🛑','Stop loss', b.sl, '#c0281a')
+              + tile('⚖️','Break even', b.be, '#5a5550')
+              + '</div>';
+          }
           return '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">'
             + tile('🎯','Target hit 1RR', b.t1, '#0d5a36')
             + tile('🎯','Target hit 2RR', b.t2, '#0d5a36')
@@ -21145,11 +21154,19 @@ function _renderCCIVariantPanel(host, commodityKeys){
       return (p ? _rawStrat(p) : '') || '?';
     };
 
+    // Methods held back from the cBot (mirror build_signals_json DEMOTED_METHODS). Their
+    // historical live fills are excluded from the LIVE headline / per-pair / tiles and
+    // surface only in the by-method ○ OBSERVING box below — matching the stated intent
+    // ("demoted fills are shown in the OBSERVING table, not the live overview").
+    var INTRADAY_DEMOTED = { macdp:1, wick:1 };
+    var _isDemotedMethod = function(r){ return !!INTRADAY_DEMOTED[_stratOf(r)]; };
+
     // Aggregate per-pair.
     var byPair = {};
     var aggC = {'target-hit':0,'stop-clean':0,'stop-after-progress':0,'cbot-invalidation':0,'manual':0};
     var totalR = 0, totalNet = 0, totalW = 0, totalL = 0;
     execs.forEach(function(r){
+      if(_isDemotedMethod(r)) return;   // demoted methods live only in the by-method OBSERVING box
       var bucket = classify(r);
       aggC[bucket]++;
       if(typeof r.realized_r === 'number'){ totalR += r.realized_r; }
@@ -21212,7 +21229,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var sampleNote = (smallSample
       ? '<span style="color:#c0281a;font-weight:700;">⚠ small sample (' + Ln + ' live closed)</span> — figures stabilise around n≥30. '
       : '')
-      + (demotedN > 0 ? '<span style="color:var(--inkd);">Headline = <b>live cohort only</b> (' + Ln + ' crypto trades); ' + demotedN + ' now-demoted trades (commodities / indices / FX, since moved to observer) are shown below but excluded from the totals.</span> ' : '');
+      + (demotedN > 0 ? '<span style="color:var(--inkd);">Headline = <b>live cohort only</b> (' + Ln + ' crypto trades); ' + demotedN + ' trades from demoted methods (macdp / wick) or observed classes (commodities / indices / FX) are excluded from the totals and shown by method under ○ OBSERVING below.</span> ' : '');
 
     // ── Header + aggregate stats row ──
     // Trade-weighted simulated WR across the same pairs that traded
@@ -21248,7 +21265,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     // Shared outcome-tile overview (window-level so BOTH the intraday and swing panels —
     // which live in different scopes — render an identical traffic-light row). Buckets a
     // list of closed executions by realised R: Target hit 1RR / 2RR, Stop loss, Break even.
-    if(typeof window._viOutcomeTiles!=='function'){ window._viOutcomeTiles=function(rows){
+    if(typeof window._viOutcomeTiles!=='function'){ window._viOutcomeTiles=function(rows, opts){
       var b={t1:0,t2:0,sl:0,be:0}, n=0;
       (rows||[]).forEach(function(r){
         if(!r || r.event!=='closed' || typeof r.realized_r!=='number') return;
@@ -21262,6 +21279,15 @@ function _renderCCIVariantPanel(host, commodityKeys){
           +'<div style="font-family:Orbitron,monospace;font-size:15px;font-weight:700;color:'+color+';margin:2px 0;">'+cnt+'</div>'
           +'<div style="font-size:8px;color:var(--inkd);">'+share+'% of closed</div></div>';
       };
+      if(opts && opts.mergeTargets){
+        // Intraday edges are ~1:1, so a 2RR tile is always 0 — fold both target buckets
+        // into a single "Target hit" tile (still counts occasional 2R wins).
+        return '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">'
+          + tile('🎯','Target hit', b.t1+b.t2, '#0d5a36')
+          + tile('🛑','Stop loss', b.sl, '#c0281a')
+          + tile('⚖️','Break even', b.be, '#5a5550')
+          + '</div>';
+      }
       return '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">'
         + tile('🎯','Target hit 1RR', b.t1, '#0d5a36')
         + tile('🎯','Target hit 2RR', b.t2, '#0d5a36')
@@ -21310,8 +21336,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
     // window helper so both read identically). Scoped to the LIVE cohort so the tile
     // counts sum to the "N live closed" headline (demoted fills are shown in the
     // OBSERVING table, not the live overview) — i.e. the numbers add up.
-    var _liveClosed = execs.filter(function(r){ return _isLiveClass(r.pair); });
-    var statsRow = window._viOutcomeTiles(_liveClosed);
+    var _liveClosed = execs.filter(function(r){ return _isLiveClass(r.pair) && !_isDemotedMethod(r); });
+    var statsRow = window._viOutcomeTiles(_liveClosed, {mergeTargets:true});
 
     // ── Per-pair table ──
     // Sort by highest live win rate first (reads better for investors); tie-break by
@@ -21424,7 +21450,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     });
     var stratKeys = Object.keys(byStrat);
     // A method is LIVE if it produced any fills on the live (crypto) feed in this window.
-    var _stratLive = function(st){ return byStrat[st].liveN>0; };
+    var _stratLive = function(st){ return byStrat[st].liveN>0 && !INTRADAY_DEMOTED[st]; };
     var _stSort = function(a,b){ var A=byStrat[a],B=byStrat[b]; var na=A.wins+A.losses,nb=B.wins+B.losses; var wa=na?A.wins/na:-1,wb=nb?B.wins/nb:-1; if(wb!==wa)return wb-wa; return B.R-A.R; };
     var stratRowFor = function(st){
       var o=byStrat[st]; var rr=o.wins+o.losses; var wr=rr?pct(o.wins,rr):0; var live=_stratLive(st);
@@ -21465,7 +21491,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
                    fma_sweep_ix:'liquidity-sweep + 50-EMA reclaim reversal · m15 indices',
                    po3_cm:'Power-of-Three London-open sweep-reversal · m15 non-gold commodities',
                    sweepfvg_ix:'liquidity-sweep reversal + FVG + fib retrace · m15 indices · RR3',
-                   absorb_btc:'delta absorption (real Binance delta) · m15 BTC · RR2 (monitor)' };
+                   absorb_btc:'delta absorption (real Binance delta) · m15 BTC · RR2' };
     var _bDem2 = ' <span style="display:inline-block;font-size:6.5px;font-weight:700;letter-spacing:0.3px;color:#c8860a;background:rgba(200,134,10,0.16);border-radius:2px;padding:1px 4px;margin-left:4px;vertical-align:middle;">○ DEMOTED</span>';
     var _bObs2 = ' <span style="display:inline-block;font-size:6.5px;font-weight:700;letter-spacing:0.3px;color:var(--inkd);background:rgba(120,120,130,0.14);border-radius:2px;padding:1px 4px;margin-left:4px;vertical-align:middle;">○ OBSERVING</span>';
     var _obsRow = function(name, badge, og, tracked, dN, dWR, dR, mWR, mExp, mN){
@@ -21481,15 +21507,38 @@ function _renderCCIVariantPanel(host, commodityKeys){
         +'<td style="padding:5px 8px;text-align:right;color:'+(mExp==null?'var(--inkd)':(mExp>=0?'#0d5a36':'#c0281a'))+';">'+(mExp==null?'–':(mExp>=0?'+':'')+mExp.toFixed(3)+'R')+'</td>'
         +'</tr>';
     };
+    // Model (idealised backtest) stats per intraday strategy, from the shadow log — reused
+    // by the LIVE table (live-vs-model) and the shadow-monitor rows.
+    var _shadowModel = (function(){
+      var out={}, sh=window._swingShadow; if(!sh||!sh.signals) return out;
+      var trk=sh.tracking||{}, end=sh.last_run_data_end||sh.data_end_ts||0;
+      Object.keys(sh.signals).forEach(function(k){ var s=sh.signals[k]; if(!s||(s.tf!=='m15'&&s.tf!=='m5'))return;
+        var st=s.strategy||k.split(':')[0]; var o=out[st]||(out[st]={res:0,wins:0,r:0,td:null});
+        if(s.status==='resolved'&&typeof s.r==='number'){ o.res++; if(s.r>0)o.wins++; o.r+=s.r; } });
+      Object.keys(out).forEach(function(st){ var o=out[st]; o.wr=o.res?100*o.wins/o.res:null; o.exp=o.res?o.r/o.res:null;
+        o.td=(trk[st]&&end)?Math.max(0,Math.round((end-trk[st])/86400)):null; });
+      return out;
+    })();
+    var _liveSet={}; liveStrats.forEach(function(st){ _liveSet[st]=1; });
+    // LIVE methods table now mirrors the OBSERVING columns — real demo fills (demo cols)
+    // beside the idealised model (model cols), so live-vs-model reads at a glance.
+    var _bLive2 = ' <span style="display:inline-block;font-size:6.5px;font-weight:700;letter-spacing:0.3px;color:#fff;background:#0d5a36;border-radius:2px;padding:1px 4px;margin-left:4px;vertical-align:middle;">● LIVE</span>';
+    var liveRowFor = function(st){
+      var o=byStrat[st]; var rr=o.wins+o.losses; var dwr=rr?pct(o.wins,rr):null;
+      var m=_shadowModel[st]||{};
+      var topPairs = Object.keys(o.pairs).sort(function(a,b){return o.pairs[b]-o.pairs[a];}).slice(0,5).join(', ');
+      return _obsRow(_mLbl2[st]||st, _bLive2, _obsOg[st]||topPairs, (m.td!=null?m.td:null), o.n, dwr, o.R,
+                     (m.wr==null?null:m.wr), (m.exp==null?null:m.exp), (m.res||null));
+    };
     var _demRows = obsStrats.map(function(st){ var o=byStrat[st]; var rr=o.wins+o.losses; var wr=rr?pct(o.wins,rr):null;
-      return _obsRow(_mLbl2[st]||st, _bDem2, '', null, o.n, wr, o.R, null, null, null); }).join('');
+      return _obsRow(_mLbl2[st]||st, _bDem2, _obsOg[st]||'', null, o.n, wr, o.R, null, null, null); }).join('');
     var _monRows='', _monLoading=false;
     (function(){ var sh=window._swingShadow; if(!sh||!sh.signals){ _monLoading=true; return; }
       var by={}, trk=sh.tracking||{}, end=sh.last_run_data_end||sh.data_end_ts||0;
       Object.keys(sh.signals).forEach(function(k){ var s=sh.signals[k]; if(!s||(s.tf!=='m15'&&s.tf!=='m5'))return;
         var st=s.strategy||k.split(':')[0]; var o=by[st]||(by[st]={res:0,wins:0,r:0});
         if(s.status==='resolved'&&typeof s.r==='number'){ o.res++; if(s.r>0)o.wins++; o.r+=s.r; } });
-      _monRows=Object.keys(by).sort(function(a,b){ var A=by[a],B=by[b]; var wa=A.res?A.wins/A.res:-1,wb=B.res?B.wins/B.res:-1; return wb-wa; }).map(function(st){
+      _monRows=Object.keys(by).filter(function(st){ return !_liveSet[st] && !byStrat[st]; }).sort(function(a,b){ var A=by[a],B=by[b]; var wa=A.res?A.wins/A.res:-1,wb=B.res?B.wins/B.res:-1; return wb-wa; }).map(function(st){
         var o=by[st]; var wr=o.res?100*o.wins/o.res:null; var exp=o.res?o.r/o.res:null;
         var td=(trk[st]&&end)?Math.max(0,Math.round((end-trk[st])/86400)):null;
         return _obsRow(st, _bObs2, _obsOg[st]||'', td, null, null, null, wr, exp, o.res); }).join('');
@@ -21505,9 +21554,9 @@ function _renderCCIVariantPanel(host, commodityKeys){
       : (_monLoading ? '<div style="font-size:8px;color:var(--inkd);font-style:italic;margin:10px 0 6px;">○ shadow monitors — loading from the shadow model…</div>' : '');
     var stratHtml = '<div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:1px;color:#0d5a36;text-transform:uppercase;margin:12px 0 4px;border-top:1px dashed rgba(13,90,54,0.25);padding-top:9px;">By strategy (method)</div>'
       + '<div style="font-size:8.5px;color:var(--inkd);margin-bottom:5px;line-height:1.5;">Grouped by the intraday method — the swing panel\'s per-strategy view, applied here. <b style="color:#0d5a36;">● LIVE</b> methods fired on the live (crypto) feed. The single <b>○ OBSERVING</b> box below carries both the <b>demoted</b> methods (real demo fills) and the <b>m15 / m5 shadow monitors</b> (never sent to the cBot).</div>'
-      + (liveStrats.length ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:#0d5a36;margin:2px 0 3px;">● LIVE methods · executing on cTrader</div>' + _stWrap(liveStrats.map(stratRowFor).join('')) : '')
+      + (liveStrats.length ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:#0d5a36;margin:2px 0 3px;">● LIVE methods · executing on cTrader</div>' + '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow-x:auto;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:8.5px;font-family:Orbitron,monospace;">'+_obsHead+'<tbody>'+liveStrats.map(liveRowFor).join('')+'</tbody></table></div>' : '')
       + (stratKeys.length ? '' : '<div style="font-size:8px;color:var(--inkd);font-style:italic;">No closed fills to break down by method in this window.</div>')
-      + (typeof window._viPromotionBanner==='function' ? window._viPromotionBanner(window._swingShadow, function(tf){return tf==='m15'||tf==='m5';}, null) : '')
+      + (typeof window._viPromotionBanner==='function' ? window._viPromotionBanner(window._swingShadow, function(tf){return tf==='m15'||tf==='m5';}, _liveSet) : '')
       + shadowBlock;
 
     // ── Interpretation hint when one bucket dominates ──
