@@ -1662,8 +1662,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
           +'<span style="color:'+C.blue+';font-weight:700;letter-spacing:0.5px;">🏹 SWING FORWARD-TEST · demo vs model <span style="color:'+C.mut+';font-weight:400;">(separate from intraday · '+winLabel+')</span></span>'
           +_swToggle(mode)+'</div>';
         h+='<div style="color:'+C.ink+';margin-bottom:4px;">DEMO (LIVE strategies): <b>'+placedLive.length+'</b> placed · <b>'+closedLive.length+'</b> closed · <b>'+liveOpenN+'</b> open'+(liveOpenPairs.length?' <span style="color:'+C.mut+';">('+liveOpenPairs.join(', ')+')</span>':'')+' · realised <b style="color:'+(demoAll.tot>=0?C.g:C.r)+'">'+(demoAll.tot>=0?'+':'')+demoAll.tot.toFixed(2)+'R</b>'+(closedLive.length?' · WR '+demoAll.wr.toFixed(0)+'%':'')+'</div>';
-        if(closedDem.length||demOpenN){ h+='<div style="color:'+C.mut+';margin:-2px 0 6px;font-size:8px;">Excludes <b>'+closedDem.length+'</b> closed trade'+(closedDem.length===1?'':'s')+' from demoted strategies ('+Object.keys(DEMOTED_SWING).join(', ')+') → <b style="color:'+(demoDem.tot>=0?C.g:C.r)+';">'+(demoDem.tot>=0?'+':'')+demoDem.tot.toFixed(2)+'R</b> lifted off the live win-rate'+(demOpenN?' (plus '+demOpenN+' legacy open position'+(demOpenN===1?'':'s')+' still running)':'')+'. These are shown under ○ OBSERVING below.</div>'; }
-        if(liveOpenN){ h+='<div style="color:'+C.mut+';margin:-2px 0 6px;font-size:8px;">Open trades count toward stats only when they close (target/stop). A winning position in profit is still "open" until it fills — it appears above, not in the closed table below.</div>'; }
+        if(liveOpenN){ h+='<div style="color:'+C.mut+';margin:-2px 0 6px;font-size:8px;">Open trades count only once they close (target/stop) — a winner in profit still shows as open above, not in the closed stats.</div>'; }
         // Feed-freshness indicator — a stalled cBot auto-publish (PAT expired / setting off after a
         // rebuild) silently stops new fills reaching the repo, so closed winners never show up.
         var _lastTs=0; (execs||[]).forEach(function(e){ if(typeof e.ts==='number'&&e.ts>_lastTs)_lastTs=e.ts; });
@@ -21091,7 +21090,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
         awaitMsg = 'Watching ' + openCount + ' open position' + (openCount === 1 ? '' : 's') + ' in this window (' + winLabel + '). '
                  + 'This panel fills in with the actual cTrader outcome (target / stop / invalidation) as each trade closes. Auto-refreshes on every CDN poll (60s).';
       } else if(_totalN === 0){
-        awaitMsg = 'No intraday cBot executions have loaded yet — the intraday (crypto) cBot publishes closed trades to executions.json. If this stays empty, the feed hasn’t updated (cBot idle or laptop offline). Auto-refreshes every 60s.';
+        awaitMsg = 'No intraday cBot executions have loaded yet — the intraday cBot publishes closed trades to executions.json. If this stays empty, the feed hasn’t updated (cBot idle or laptop offline). Auto-refreshes every 60s.';
       } else if(mode !== 'all'){
         awaitMsg = 'No intraday closes in the <b>' + winLabel + '</b> window. Across <b>all time</b> there '
                  + (_totalN === 1 ? 'is 1 close' : 'are ' + _totalN + ' closes') + ' (last: ' + _lastStr + ') — tap <b>All</b> above to see the full breakdown. '
@@ -21226,10 +21225,11 @@ function _renderCCIVariantPanel(host, commodityKeys){
       return '#c0281a';
     };
 
-    // ── HEADLINE = currently-live cohort only (crypto). Demoted pairs (commodities,
-    //    indices, FX — now observed, no longer traded) stay in the per-pair table below
-    //    for transparency but are subtracted from the live totals. Fair: the headline
-    //    should reflect what the engine still trades, not strategies we've since pruned.
+    // ── HEADLINE = currently-live cohort. Approximated by pair CLASS = crypto: the live
+    //    intraday feed is crypto plus the mmove_m15 pockets (gold/silver/FRA40), and so far
+    //    all live fills are crypto, so this captures them. NOTE: when mmove_m15 fills on its
+    //    non-crypto pockets, extend this to include those (method-based) so they count live.
+    //    Demoted / observed fills stay in the per-pair table but are subtracted from totals.
     var _isLiveClass = function(pr){ return (typeof MKTS !== 'undefined' && MKTS[pr] && MKTS[pr].t === 'crypto'); };
     var Lw=0, Ll=0, LR=0, Ln=0, aggCL={'target-hit':0,'stop-clean':0,'stop-after-progress':0,'cbot-invalidation':0,'manual':0};
     Object.keys(byPair).forEach(function(k){ if(!_isLiveClass(k)) return; var p=byPair[k]; Lw+=p.wins; Ll+=p.losses; LR+=p.R; Ln+=p.trades; Object.keys(aggCL).forEach(function(bb){ aggCL[bb]+=(p.buckets[bb]||0); }); });
@@ -21246,7 +21246,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var sampleNote = (smallSample
       ? '<span style="color:#c0281a;font-weight:700;">⚠ small sample (' + Ln + ' live closed)</span> — figures stabilise around n≥30. '
       : '')
-      + (demotedN > 0 ? '<span style="color:var(--inkd);">Headline = <b>live cohort only</b> (' + Ln + ' crypto trades); ' + demotedN + ' trades from demoted methods (macdp / wick) or observed classes (commodities / indices / FX) are excluded from the totals and shown by method under ○ OBSERVING below.</span> ' : '');
+      + (demotedN > 0 ? '<span style="color:var(--inkd);">Headline = <b>live cohort only</b> (' + Ln + ' trades); ' + demotedN + ' demoted-method and observed fills are excluded and shown by method under ○ OBSERVING below.</span> ' : '');
 
     // ── Header + aggregate stats row ──
     // Trade-weighted simulated WR across the same pairs that traded
@@ -21472,7 +21472,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       var pk=(r.pair||'?').toUpperCase(); o.pairs[pk]=(o.pairs[pk]||0)+1;
     });
     var stratKeys = Object.keys(byStrat);
-    // A method is LIVE if it produced any fills on the live (crypto) feed in this window.
+    // A method is LIVE if it produced any live-cohort fills this window and isn't demoted.
     var _stratLive = function(st){ return byStrat[st].liveN>0 && !INTRADAY_DEMOTED[st]; };
     var _stSort = function(a,b){ var A=byStrat[a],B=byStrat[b]; var na=A.wins+A.losses,nb=B.wins+B.losses; var wa=na?A.wins/na:-1,wb=nb?B.wins/nb:-1; if(wb!==wa)return wb-wa; return B.R-A.R; };
     var stratRowFor = function(st){
@@ -21576,7 +21576,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
         +'<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow-x:auto;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:8.5px;font-family:Orbitron,monospace;">'+_obsHead+'<tbody>'+_demRows+_monRows+'</tbody></table></div>'
       : (_monLoading ? '<div style="font-size:8px;color:var(--inkd);font-style:italic;margin:10px 0 6px;">○ shadow monitors — loading from the shadow model…</div>' : '');
     var stratHtml = '<div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:1px;color:#0d5a36;text-transform:uppercase;margin:12px 0 4px;border-top:1px dashed rgba(13,90,54,0.25);padding-top:9px;">By strategy (method)</div>'
-      + '<div style="font-size:8.5px;color:var(--inkd);margin-bottom:5px;line-height:1.5;">Grouped by the intraday method — the swing panel\'s per-strategy view, applied here. <b style="color:#0d5a36;">● LIVE</b> methods fired on the live (crypto) feed. The single <b>○ OBSERVING</b> box below carries both the <b>demoted</b> methods (real demo fills) and the <b>m15 / m5 shadow monitors</b> (never sent to the cBot).</div>'
+      + '<div style="font-size:8.5px;color:var(--inkd);margin-bottom:5px;line-height:1.5;">Grouped by the intraday method. <b style="color:#0d5a36;">● LIVE</b> methods execute on cTrader; the <b>○ OBSERVING</b> box below carries the <b>demoted</b> methods (real demo fills) and the <b>m15 / m5 shadow monitors</b> (never sent to the cBot).</div>'
       + (liveStrats.length ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:#0d5a36;margin:2px 0 3px;">● LIVE methods · executing on cTrader</div>' + '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow-x:auto;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:8.5px;font-family:Orbitron,monospace;">'+_obsHead+'<tbody>'+liveStrats.map(liveRowFor).join('')+'</tbody></table></div>' : '')
       + (stratKeys.length ? '' : '<div style="font-size:8px;color:var(--inkd);font-style:italic;">No closed fills to break down by method in this window.</div>')
       + (typeof window._viPromotionBanner==='function' ? window._viPromotionBanner(window._swingShadow, function(tf){return tf==='m15'||tf==='m5';}, _liveSet) : '')
@@ -21601,7 +21601,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     }
 
     var frameNote = '<div style="background:rgba(200,134,10,0.06);border:1px solid rgba(200,134,10,0.28);border-radius:3px;padding:6px 9px;margin-bottom:9px;font-family:Mukta,sans-serif;font-size:10px;line-height:1.5;color:#7a5c0a;letter-spacing:0;">'
-      + '<b>Forward-test surface — this tracks the live intraday feed as it is pruned to what survives.</b> After realised-fill review the <b style="color:#0d5a36;">● LIVE</b> intraday feed is <b>crypto-only</b>; commodities, indices, majors &amp; minors are <b>○ observed</b> (shadow-tracked, not traded). Intraday targets are ~1:1, so — unlike the 2:1 swing edges — a sub-50% win rate here is a losing cohort, which is exactly why the live feed is being narrowed to what survives. A research panel, not a performance headline.'
+      + '<b>Forward-test surface — the live intraday feed, pruned to what survives.</b> The <b style="color:#0d5a36;">● LIVE</b> feed is a small set of promoted methods (BTC delta absorption + the mmove_m15 pockets: XRP / gold / silver / FRA40); everything else is <b>○ observed</b>, not traded. Intraday targets are ~1:1, so a sub-50% win rate is a losing cohort — a research panel, not a performance headline.'
       + '</div>';
     host.innerHTML = headerHtml
                    + '<div id="fmLiveBody" style="display:' + (_fmCollapsed ? 'none' : 'block') + ';">'
