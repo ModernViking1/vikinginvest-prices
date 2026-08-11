@@ -1550,6 +1550,12 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // Defensive dedup: the cBot's OnPositionClosed can fire twice (~0.5s apart), writing the
         // same close row twice. A position closes once, so key by position_id and keep one.
         (function(){ var _s={}, _o=[]; closed.forEach(function(e){ var k=(e.position_id!=null&&e.position_id!==''&&e.position_id!==0)?('#'+e.position_id):((e.signal_id||'')+':'+e.ts); if(!_s[k]){ _s[k]=1; _o.push(e); } }); closed=_o; })();
+        // Collapse cBot DOUBLE-ENTRIES: the cBot occasionally places the same signal twice —
+        // two distinct positions (different ids/sizes) on the same pair that hit the same exit
+        // price within a few seconds. Count distinct trade DECISIONS, not raw positions, so the
+        // stop-loss / WR / R stats reflect setups (a cBot idempotency bug — see CBOT_DOUBLE_ENTRY.md).
+        closed = (function(rows){ var g={}, o=[]; rows.forEach(function(e){ if(e.exit_price==null){ o.push(e); return; } var k=(e.pair||'?')+'|'+e.exit_price; (g[k]=g[k]||[]).push(e); });
+          Object.keys(g).forEach(function(k){ var arr=g[k].sort(function(a,b){return (a.ts||0)-(b.ts||0);}), last=-1e18; arr.forEach(function(e){ if((e.ts||0)-last<=5000) return; o.push(e); last=(e.ts||0); }); }); return o; })(closed);
         var placed = execs.filter(function(e){return e.event==='placed' && inWin(e);});
         // OPEN = a 'placed' with no matching 'closed' anywhere in the log (a position stays open
         // regardless of the display window). Keyed by signal_id, else position_id. This is why a
@@ -21067,6 +21073,11 @@ function _renderCCIVariantPanel(host, commodityKeys){
       return r && r.event === 'closed' && r.pair
           && typeof r.ts === 'number' && r.ts >= anchor;
     });
+    // Collapse cBot DOUBLE-ENTRIES (same pair + exit price closed within ~5s = one setup) so the
+    // tiles / WR / R count distinct trade decisions, not the cBot's occasional duplicate placement
+    // of a single signal. See CBOT_DOUBLE_ENTRY.md.
+    execs = (function(rows){ var g={}, o=[]; rows.forEach(function(e){ if(e.exit_price==null){ o.push(e); return; } var k=(e.pair||'?')+'|'+e.exit_price; (g[k]=g[k]||[]).push(e); });
+      Object.keys(g).forEach(function(k){ var arr=g[k].sort(function(a,b){return (a.ts||0)-(b.ts||0);}), last=-1e18; arr.forEach(function(e){ if((e.ts||0)-last<=5000) return; o.push(e); last=(e.ts||0); }); }); return o; })(execs);
     if(!execs.length){
       // Diagnostic empty-state: distinguish "feed not loaded" from "no closes in THIS
       // window" so an empty Today/Week doesn't read as a broken tab. The Today/Week/All
