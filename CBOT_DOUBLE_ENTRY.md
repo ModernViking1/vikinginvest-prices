@@ -1,7 +1,33 @@
 # cBot double-entry (idempotency) bug
 
-**Status:** open — cBot-side fix needed. Dashboard mitigated (see below).
+**Status:** FIXED in `VikingSwingBridge.cs` (2026-08-11). The intraday bridge
+(`VikingInvestSignalBridge.cs`) was already protected. Dashboard also de-dups for
+display. **Requires recompiling + redeploying the swing cBot in cTrader to take effect.**
 **Found:** 2026-08-11, while rechecking the swing stop-loss count.
+
+## Fix applied (swing bridge)
+
+Root cause: `_seenIds` (the place-once set) is marked only *after* the order fills,
+and `_positionIdToSignalId` was in-memory only — so a bot restart, or a failed
+seen-file append, in the window between placing and marking let the same signal
+re-enter. The open broker position survived the restart but the bot no longer knew
+it belonged to that signal.
+
+- **`SignalIdOf(Position)`** — new helper: recovers a position's signal id from the
+  in-memory map, falling back to the position `Comment` (`"SwingTrade | {strategy} |
+  {id}"`), so it works after a restart.
+- **Anti-double-entry guard in `Consider`** (before the order): refuse to open if we
+  already hold (a) a position with the **exact same signal id**, or (b) a position of
+  the **same (pair, strategy, direction)** — except intentional scaled gold legs
+  (`…:tN`, 1/3 risk each), which are allowed to stack. Because it reads live
+  `Positions` (which survive a restart) it closes the mark-after-fill window.
+- **`OnPositionClosed`** now uses `SignalIdOf(p)` so a position opened before a
+  restart still logs its real `signal_id` (not `null`) on close — the source of the
+  `signal_id: null` rows in the duplicates below.
+
+The intraday bridge already does the equivalent (restores the position→signal map
+from disk on restart, guards by signal-id-from-comment, and caps one position per
+symbol), so no change was needed there.
 
 ## Symptom
 
@@ -44,24 +70,6 @@ Two distinct sub-causes are visible:
    `signal_id: null`. This looks like the cBot **re-placing a signal it already
    acted on** on a later poll (e.g. after a restart, or when the signal_id wasn't
    recorded against the open position), i.e. an **idempotency** gap.
-
-## Likely fix (cBot side)
-
-The cBot should treat each `signal.id` as **place-once**:
-
-- Maintain a persisted set of `signal_id`s it has already placed (survives
-  restarts). On each poll, skip any signal whose id is already in that set **or**
-  for which it already holds an open position on that pair from this strategy.
-- Guard against the "lost signal_id" case: when opening, stamp the position's
-  label/comment with the `signal_id` so a restart can reconcile open positions to
-  signals and not re-enter.
-- Optionally enforce the one-position-per-(pair,strategy) rule broker-side as a
-  belt-and-braces cap (the emitter already enforces one live row per pair).
-
-This mirrors the guard we added on the signal-emitter side for the intraday
-strategies (`absorb_live` / `mmove_live` persist a state file and never re-emit a
-resolved/duplicate id) — the swing cBot needs the equivalent on the placement
-side.
 
 ## Dashboard mitigation (already shipped)
 

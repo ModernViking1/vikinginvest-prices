@@ -236,6 +236,28 @@ namespace cAlgo.Robots
             // frees its own slot rather than being blocked by MaxConcurrent.
             CloseOppositeSameStrategy(symbol, s.Strategy, isBuy);
 
+            // ── Idempotency / anti-double-entry guard ──────────────────────────────────────
+            // _seenIds is marked only AFTER the order fills (see end of this method), so a bot
+            // restart — or a failed seen-file append — in that window can let the SAME signal
+            // re-enter. Observed in the live log as two positions on one setup (doubled risk).
+            // Open broker positions survive a restart and carry the signal id + strategy in their
+            // Comment, so we re-derive them and refuse to stack:
+            //   • exact same signal id already open      -> always a duplicate.
+            //   • same (pair, strategy, direction) open  -> duplicate too, EXCEPT intentional
+            //     scaled gold legs (ids "…:tN", 1/3 risk each) which are meant to stack.
+            bool isScaledLeg = System.Text.RegularExpressions.Regex.IsMatch(s.Id ?? "", ":t[0-9]+$");
+            foreach (var p in Positions)
+            {
+                if (p.Label != OrderLabel) continue;
+                if (SignalIdOf(p) == s.Id) { MarkSeen(s.Id); return; }
+                if (!isScaledLeg && p.Symbol != null && p.Symbol.Name == symbol.Name
+                    && StrategyOf(p) == s.Strategy && ((p.TradeType == TradeType.Buy) == isBuy))
+                {
+                    Print($"[VikingSwing] duplicate {s.Strategy} {symbol.Name} {(isBuy ? "buy" : "sell")} already open — skipping {s.Id}");
+                    MarkSeen(s.Id); return;
+                }
+            }
+
             var concurrent = Positions.Count(p => p.Label == OrderLabel);
             if (concurrent >= MaxConcurrent)
             {
@@ -361,6 +383,23 @@ namespace cAlgo.Robots
             return null;
         }
 
+        // Full signal id for one of our open positions — in-memory map first, else parse the
+        // position Comment ("SwingTrade | {strategy} | {id}"), so it survives a bot restart when
+        // the in-memory map is empty but the open position still carries the comment.
+        private string SignalIdOf(Position p)
+        {
+            string sigId;
+            if (_positionIdToSignalId.TryGetValue(p.Id, out sigId) && !string.IsNullOrEmpty(sigId))
+                return sigId;
+            var c = p.Comment;
+            if (!string.IsNullOrEmpty(c))
+            {
+                var seg = c.Split('|');
+                if (seg.Length >= 3) return seg[2].Trim();
+            }
+            return null;
+        }
+
         private Symbol ResolveSymbol(string pair)
         {
             if (string.IsNullOrEmpty(pair)) return null;
@@ -391,8 +430,9 @@ namespace cAlgo.Robots
         {
             var p = args.Position;
             if (p == null || p.Label != OrderLabel) return;   // not one of ours
-            string sigId = null;
-            _positionIdToSignalId.TryGetValue(p.Id, out sigId);
+            // Prefer the in-memory map; fall back to the position Comment so a position opened
+            // before a bot restart still logs its real signal_id (not null) on close.
+            string sigId = SignalIdOf(p);
 
             double realizedR = 0;
             try
