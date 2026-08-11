@@ -1566,34 +1566,40 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // Outcome-tile overview (mirrors the intraday panel's window._viOutcomeTiles; guarded
         // so whichever panel renders first defines it, avoiding a cross-scope ordering trap).
         if(typeof window._viOutcomeTiles!=='function'){ window._viOutcomeTiles=function(rows, opts){
-          var b={t1:0,t2:0,sl:0,be:0}, n=0;
+          opts=opts||{};
+          var b={t1:0,t2:0,sl:0,be:0}, n=0, R=0, wins=0, losses=0;
           (rows||[]).forEach(function(r){
             if(!r || r.event!=='closed' || typeof r.realized_r!=='number') return;
-            n++; var x=r.realized_r;
+            n++; var x=r.realized_r; R+=x;
+            if(x>0) wins++; else if(x<0) losses++;
             if(x>=1.85) b.t2++; else if(x>=0.85) b.t1++; else if(x<=-0.85) b.sl++; else b.be++;
           });
-          var tile=function(emoji,label,cnt,color){
-            var share=n?Math.round(100*cnt/n):0;
+          var wr=(wins+losses)?Math.round(100*wins/(wins+losses)):0;
+          var wrCol=(wins+losses)?(wr>=50?'#0d5a36':wr>=40?'#c8860a':'#c0281a'):'#5a5550';
+          var tile=function(emoji,label,val,color,sub){
             return '<div style="background:var(--sf,#fff);border:1px solid var(--rule,#ddd);border-radius:4px;padding:7px 6px;text-align:center;">'
               +'<div style="font-size:9px;color:var(--inkd);font-family:Mukta,sans-serif;line-height:1.2;">'+emoji+' '+label+'</div>'
-              +'<div style="font-family:Orbitron,monospace;font-size:15px;font-weight:700;color:'+color+';margin:2px 0;">'+cnt+'</div>'
-              +'<div style="font-size:8px;color:var(--inkd);">'+share+'% of closed</div></div>';
+              +'<div style="font-family:Orbitron,monospace;font-size:15px;font-weight:700;color:'+color+';margin:2px 0;">'+val+'</div>'
+              +'<div style="font-size:8px;color:var(--inkd);">'+(sub==null?'':sub)+'</div></div>';
           };
-          if(opts && opts.mergeTargets){
-            // Intraday edges are ~1:1, so a 2RR tile is always 0 — fold both target
-            // buckets into a single "Target hit" tile (still counts occasional 2R wins).
-            return '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">'
-              + tile('🎯','Target hit', b.t1+b.t2, '#0d5a36')
-              + tile('🛑','Stop loss', b.sl, '#c0281a')
-              + tile('⚖️','Break even', b.be, '#5a5550')
-              + '</div>';
+          var pctOf=function(c){ return (n?Math.round(100*c/n):0)+'% of closed'; };
+          var t=[];
+          // Realised R + Win rate as lead tiles (the headline stats, promoted from the text).
+          if(opts.leadStats){
+            t.push(tile('📈','Realised R', (R>=0?'+':'')+R.toFixed(2)+'R', R>=0?'#0d5a36':'#c0281a', 'n='+n));
+            t.push(tile('🏆','Win rate', wr+'%', wrCol, wins+'W / '+losses+'L'));
           }
-          return '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">'
-            + tile('🎯','Target hit 1RR', b.t1, '#0d5a36')
-            + tile('🎯','Target hit 2RR', b.t2, '#0d5a36')
-            + tile('🛑','Stop loss', b.sl, '#c0281a')
-            + tile('⚖️','Break even', b.be, '#5a5550')
-            + '</div>';
+          if(opts.mergeTargets){
+            // Intraday edges are ~1:1 — one "Target hit" tile (still counts occasional 2R wins).
+            t.push(tile('🎯','Target hit', b.t1+b.t2, '#0d5a36', pctOf(b.t1+b.t2)));
+          } else {
+            // Swing edges are 2:1 — keep the 2RR tile; drop the 1RR tile when asked.
+            if(!opts.dropT1) t.push(tile('🎯','Target hit 1RR', b.t1, '#0d5a36', pctOf(b.t1)));
+            t.push(tile('🎯','Target hit 2RR', b.t2, '#0d5a36', pctOf(b.t2)));
+          }
+          t.push(tile('🛑','Stop loss', b.sl, '#c0281a', pctOf(b.sl)));
+          t.push(tile('⚖️','Break even', b.be, '#5a5550', pctOf(b.be)));
+          return '<div style="display:grid;grid-template-columns:repeat('+t.length+',1fr);gap:6px;margin-bottom:10px;">'+t.join('')+'</div>';
         }; }
         // Promotion-watch banner (shared, guarded). For each OBSERVING strategy matching the
         // timeframe filter, computes its GENUINE FORWARD record (entries after that strategy's
@@ -1659,7 +1665,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         h+='<div style="color:'+C.ink+';margin-bottom:6px;">MODEL (shadow): <b>'+modelAll.n+'</b> resolved · WR '+modelAll.wr.toFixed(0)+'% · exp '+(modelAll.exp>=0?'+':'')+modelAll.exp.toFixed(3)+'R</div>';
         // Outcome overview — same traffic-light tiles as the intraday panel, over the LIVE
         // cohort's closed demo fills (2:1 edges, so Target hit 2RR is the primary win here).
-        h+=window._viOutcomeTiles(closedLive);
+        h+=window._viOutcomeTiles(closedLive, {leadStats:true, dropT1:true});
         if(gapD.length){
           var mm=agg(gapM), dd=agg(gapD), gap=mm.exp-dd.exp;
           h+='<div style="background:rgba(30,64,140,0.06);border-radius:3px;padding:6px 8px;margin-bottom:6px;">EXECUTION GAP (matched n='+gapD.length+'): model <b>'+(mm.exp>=0?'+':'')+mm.exp.toFixed(3)+'R</b> vs demo <b style="color:'+(dd.exp>=0?C.g:C.r)+'">'+(dd.exp>=0?'+':'')+dd.exp.toFixed(3)+'R</b> → gap <b style="color:'+(gap<=0.1?C.g:C.r)+'">'+(gap>=0?'+':'')+gap.toFixed(3)+'R</b>/trade</div>';
@@ -21266,34 +21272,40 @@ function _renderCCIVariantPanel(host, commodityKeys){
     // which live in different scopes — render an identical traffic-light row). Buckets a
     // list of closed executions by realised R: Target hit 1RR / 2RR, Stop loss, Break even.
     if(typeof window._viOutcomeTiles!=='function'){ window._viOutcomeTiles=function(rows, opts){
-      var b={t1:0,t2:0,sl:0,be:0}, n=0;
+      opts=opts||{};
+      var b={t1:0,t2:0,sl:0,be:0}, n=0, R=0, wins=0, losses=0;
       (rows||[]).forEach(function(r){
         if(!r || r.event!=='closed' || typeof r.realized_r!=='number') return;
-        n++; var x=r.realized_r;
+        n++; var x=r.realized_r; R+=x;
+        if(x>0) wins++; else if(x<0) losses++;
         if(x>=1.85) b.t2++; else if(x>=0.85) b.t1++; else if(x<=-0.85) b.sl++; else b.be++;
       });
-      var tile=function(emoji,label,cnt,color){
-        var share=n?Math.round(100*cnt/n):0;
+      var wr=(wins+losses)?Math.round(100*wins/(wins+losses)):0;
+      var wrCol=(wins+losses)?(wr>=50?'#0d5a36':wr>=40?'#c8860a':'#c0281a'):'#5a5550';
+      var tile=function(emoji,label,val,color,sub){
         return '<div style="background:var(--sf,#fff);border:1px solid var(--rule,#ddd);border-radius:4px;padding:7px 6px;text-align:center;">'
           +'<div style="font-size:9px;color:var(--inkd);font-family:Mukta,sans-serif;line-height:1.2;">'+emoji+' '+label+'</div>'
-          +'<div style="font-family:Orbitron,monospace;font-size:15px;font-weight:700;color:'+color+';margin:2px 0;">'+cnt+'</div>'
-          +'<div style="font-size:8px;color:var(--inkd);">'+share+'% of closed</div></div>';
+          +'<div style="font-family:Orbitron,monospace;font-size:15px;font-weight:700;color:'+color+';margin:2px 0;">'+val+'</div>'
+          +'<div style="font-size:8px;color:var(--inkd);">'+(sub==null?'':sub)+'</div></div>';
       };
-      if(opts && opts.mergeTargets){
-        // Intraday edges are ~1:1, so a 2RR tile is always 0 — fold both target buckets
-        // into a single "Target hit" tile (still counts occasional 2R wins).
-        return '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">'
-          + tile('🎯','Target hit', b.t1+b.t2, '#0d5a36')
-          + tile('🛑','Stop loss', b.sl, '#c0281a')
-          + tile('⚖️','Break even', b.be, '#5a5550')
-          + '</div>';
+      var pctOf=function(c){ return (n?Math.round(100*c/n):0)+'% of closed'; };
+      var t=[];
+      // Realised R + Win rate as lead tiles (the headline stats, promoted from the text).
+      if(opts.leadStats){
+        t.push(tile('📈','Realised R', (R>=0?'+':'')+R.toFixed(2)+'R', R>=0?'#0d5a36':'#c0281a', 'n='+n));
+        t.push(tile('🏆','Win rate', wr+'%', wrCol, wins+'W / '+losses+'L'));
       }
-      return '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">'
-        + tile('🎯','Target hit 1RR', b.t1, '#0d5a36')
-        + tile('🎯','Target hit 2RR', b.t2, '#0d5a36')
-        + tile('🛑','Stop loss', b.sl, '#c0281a')
-        + tile('⚖️','Break even', b.be, '#5a5550')
-        + '</div>';
+      if(opts.mergeTargets){
+        // Intraday edges are ~1:1 — one "Target hit" tile (still counts occasional 2R wins).
+        t.push(tile('🎯','Target hit', b.t1+b.t2, '#0d5a36', pctOf(b.t1+b.t2)));
+      } else {
+        // Swing edges are 2:1 — keep the 2RR tile; drop the 1RR tile when asked.
+        if(!opts.dropT1) t.push(tile('🎯','Target hit 1RR', b.t1, '#0d5a36', pctOf(b.t1)));
+        t.push(tile('🎯','Target hit 2RR', b.t2, '#0d5a36', pctOf(b.t2)));
+      }
+      t.push(tile('🛑','Stop loss', b.sl, '#c0281a', pctOf(b.sl)));
+      t.push(tile('⚖️','Break even', b.be, '#5a5550', pctOf(b.be)));
+      return '<div style="display:grid;grid-template-columns:repeat('+t.length+',1fr);gap:6px;margin-bottom:10px;">'+t.join('')+'</div>';
     }; }
     // Promotion-watch banner — mirrored from the swing panel (guarded, so whichever panel
     // renders first defines it). Genuine-forward gate identical to observer_review.py.
@@ -21337,7 +21349,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     // counts sum to the "N live closed" headline (demoted fills are shown in the
     // OBSERVING table, not the live overview) — i.e. the numbers add up.
     var _liveClosed = execs.filter(function(r){ return _isLiveClass(r.pair) && !_isDemotedMethod(r); });
-    var statsRow = window._viOutcomeTiles(_liveClosed, {mergeTargets:true});
+    var statsRow = window._viOutcomeTiles(_liveClosed, {leadStats:true, mergeTargets:true});
 
     // ── Per-pair table ──
     // Sort by highest live win rate first (reads better for investors); tie-break by
