@@ -21225,14 +21225,21 @@ function _renderCCIVariantPanel(host, commodityKeys){
       return '#c0281a';
     };
 
-    // ── HEADLINE = currently-live cohort. Approximated by pair CLASS = crypto: the live
-    //    intraday feed is crypto plus the mmove_m15 pockets (gold/silver/FRA40), and so far
-    //    all live fills are crypto, so this captures them. NOTE: when mmove_m15 fills on its
-    //    non-crypto pockets, extend this to include those (method-based) so they count live.
-    //    Demoted / observed fills stay in the per-pair table but are subtracted from totals.
+    // ── HEADLINE = currently-live cohort = fills from LIVE methods. A fill is live if its
+    //    method isn't demoted AND (it's a crypto pair OR its method trades live non-crypto
+    //    pockets — mmove_m15 on gold/silver/FRA40). Method-based, so mmove's non-crypto
+    //    pocket fills count live; demoted methods and observed non-crypto classes don't.
     var _isLiveClass = function(pr){ return (typeof MKTS !== 'undefined' && MKTS[pr] && MKTS[pr].t === 'crypto'); };
+    var _LIVE_NONCRYPTO = { mmove_m15:1 };   // live methods whose pockets include non-crypto (gold/silver/FRA40)
+    var _isLiveFill = function(r){ return !_isDemotedMethod(r) && (_isLiveClass(r.pair) || !!_LIVE_NONCRYPTO[_stratOf(r)]); };
     var Lw=0, Ll=0, LR=0, Ln=0, aggCL={'target-hit':0,'stop-clean':0,'stop-after-progress':0,'cbot-invalidation':0,'manual':0};
-    Object.keys(byPair).forEach(function(k){ if(!_isLiveClass(k)) return; var p=byPair[k]; Lw+=p.wins; Ll+=p.losses; LR+=p.R; Ln+=p.trades; Object.keys(aggCL).forEach(function(bb){ aggCL[bb]+=(p.buckets[bb]||0); }); });
+    execs.forEach(function(r){
+      if(!_isLiveFill(r)) return;
+      var _bkt = classify(r); if(aggCL.hasOwnProperty(_bkt)) aggCL[_bkt]++;
+      Ln++;
+      if(r.realized_r > 0) Lw++; else if(r.realized_r < 0) Ll++;
+      if(typeof r.realized_r === 'number') LR += r.realized_r;
+    });
     var demotedN = execs.length - Ln;
 
     var liveWR = pct(Lw, Lw + Ll);
@@ -21359,7 +21366,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     // window helper so both read identically). Scoped to the LIVE cohort so the tile
     // counts sum to the "N live closed" headline (demoted fills are shown in the
     // OBSERVING table, not the live overview) — i.e. the numbers add up.
-    var _liveClosed = execs.filter(function(r){ return _isLiveClass(r.pair) && !_isDemotedMethod(r); });
+    var _liveClosed = execs.filter(_isLiveFill);
     var statsRow = window._viOutcomeTiles(_liveClosed, {leadStats:true, mergeTargets:true});
 
     // ── Per-pair table ──
@@ -21468,7 +21475,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       o.n++;
       if(r.realized_r>0) o.wins++; else if(r.realized_r<0) o.losses++;
       if(typeof r.realized_r==='number') o.R+=r.realized_r;
-      if(_isLiveClass(r.pair)) o.liveN++;
+      if(_isLiveFill(r)) o.liveN++;   // live if crypto OR a live non-crypto pocket (mmove_m15 gold/silver/FRA40)
       var pk=(r.pair||'?').toUpperCase(); o.pairs[pk]=(o.pairs[pk]||0)+1;
     });
     var stratKeys = Object.keys(byStrat);
