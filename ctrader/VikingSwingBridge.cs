@@ -453,7 +453,10 @@ namespace cAlgo.Robots
                 var exit = p.Symbol?.Bid ?? p.EntryPrice; var tol = (p.Symbol?.PipSize ?? 0) * 2;
                 bool buy = p.TradeType == TradeType.Buy;
                 if (p.TakeProfit.HasValue && ((buy && exit >= p.TakeProfit.Value - tol) || (!buy && exit <= p.TakeProfit.Value + tol))) reason = "target-hit";
-                else if (p.StopLoss.HasValue && ((buy && exit <= p.StopLoss.Value + tol) || (!buy && exit >= p.StopLoss.Value - tol))) reason = "stop-hit";
+                // A hit on the STOP that closes IN PROFIT is the 1R trailing stop banking a
+                // gain (the stop was ratcheted past break-even), not a loss — label it
+                // "trail-hit" so it isn't mistaken for a stop-out. A hit at a loss stays "stop-hit".
+                else if (p.StopLoss.HasValue && ((buy && exit <= p.StopLoss.Value + tol) || (!buy && exit >= p.StopLoss.Value - tol))) reason = p.NetProfit > 0 ? "trail-hit" : "stop-hit";
                 else reason = "manual-or-broker";
             }
             catch { reason = "manual-or-broker"; }

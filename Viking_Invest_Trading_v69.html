@@ -1439,7 +1439,10 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
       var rs=(e.reason||'').toLowerCase().replace(/_/g,'-');
       if(rs.indexOf('invalid')>=0) return 'invalidation';
       var rr=(typeof e.realized_r==='number')?e.realized_r:null;
-      if(rs.indexOf('target')>=0 || (rr!=null&&rr>=0.85)) return 'target-hit';
+      // realized_r sign is authoritative: a trailing stop that closed IN PROFIT is a win,
+      // even though the broker reason string still says "stop" — so it's never a stop-out.
+      if(rr!=null && rr>0) return 'target-hit';
+      if(rs.indexOf('target')>=0 || rs.indexOf('trail')>=0 || (rr!=null&&rr>=0.85)) return 'target-hit';
       if(rs.indexOf('stop')>=0 || (rr!=null&&rr<=-0.85)) return 'stop-hit';
       return 'other';
     }
@@ -21147,7 +21150,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
         else if(rr <= -0.85) derived = 'stop-hit';
       }
       var eff = derived || reason;
-      if(eff === 'target-hit') return 'target-hit';
+      // "trail-hit" = a trailing stop that closed in profit — a win, bucket it with target-hit.
+      if(eff === 'target-hit' || eff === 'trail-hit') return 'target-hit';
       var mfeR = (typeof r.mfe_r === 'number') ? r.mfe_r : null;
       if(eff === 'stop-hit'){
         return (mfeR != null && mfeR >= 0.5) ? 'stop-after-progress' : 'stop-clean';

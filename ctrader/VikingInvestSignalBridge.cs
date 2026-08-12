@@ -1562,7 +1562,9 @@ namespace cAlgo.Robots
                 {
                     var sl = p.StopLoss.Value;
                     bool slReached = isBuy ? (exit <= sl + tol) : (exit >= sl - tol);
-                    if (slReached) return "stop-hit";
+                    // A stop hit that closes IN PROFIT is the trailing stop banking a gain
+                    // (stop ratcheted past break-even), not a stop-out — label it "trail-hit".
+                    if (slReached) return p.NetProfit > 0 ? "trail-hit" : "stop-hit";
                 }
             }
             catch { }
