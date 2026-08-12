@@ -218,6 +218,13 @@ def main():
     # suppressed by the higher-priority live signals on the same pair (e.g. fma_gold vs the
     # live gold gbreak/gtrend).
     demo_rows = [r for r in rows if r.get('demo_only')]
+    # Demo-only pilots skip the dedup loop below, so give them the same cofire/suppressed
+    # shape the deduped rows carry (single-strategy, nothing suppressed) — otherwise the
+    # summary print and any consumer that reads these keys hits a KeyError.
+    for r in demo_rows:
+        r.setdefault('cofire', [r['strategy']])
+        r.setdefault('cofire_dirs', [f"{r['strategy']}:{r['dir']}"])
+        r.setdefault('suppressed', 0)
     live_rows = [r for r in rows if not r.get('demo_only')]
     by_pair = {}
     for r in live_rows:
@@ -265,7 +272,7 @@ def main():
     print(f"swing-signals.json: {len(rows)} live position(s) after dedup from {total_raw} raw signal(s) "
           f"(data_end {int(data_end)}, fresh window {FRESH_HOURS}h)")
     for r in rows[:20]:
-        extra = f"  cofire={r['cofire']}" if r['suppressed'] else ""
+        extra = f"  cofire={r['cofire']}" if r.get('suppressed') else ""
         print(f"  {r['id']:<40} {r['dir']:<4} stop={r['stop']} rr={r['rr']}{extra}")
 
 
