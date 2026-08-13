@@ -1247,6 +1247,21 @@ def detect_gtrend(pk, h1, daily):
     return out
 
 
+def detect_gtrend_inv(pk, h1, daily):
+    """OBSERVER — inverted gtrend: buy<->sell, stop mirrored to the opposite side (same R
+    distance), same entry/time, scored at the same RR/hold. 2026-08-12: gtrend collapsed
+    forward (fwd -0.92R, 3% WR) while +ve in-sample — it's fighting the current gold regime.
+    Track its mirror to judge whether the inverse is a durable edge or just curve-fit to the
+    recent trend. NEVER sent to the cBot (observer only)."""
+    out = []
+    for s in detect_gtrend(pk, h1, daily):
+        e = s['entry']
+        out.append({'strategy': 'gtrend_inv', 'tf': '4h', 'pair': pk,
+                    'dir': 'bear' if s['dir'] == 'bull' else 'bull',
+                    'entry_ts': s['entry_ts'], 'entry': e, 'stop': 2 * e - s['stop']})
+    return out
+
+
 def detect_gfib(pk, h1, daily):
     """#7 Fibonacci pullback (XAUUSD H1) — MONITOR ONLY (not fed to the cBot yet).
     After a clear leg, continuation entry on a retrace into the 38.2-61.8 zone; the leg
@@ -1976,6 +1991,7 @@ def main():
                  + detect_wm(pk, h1, daily) + detect_sid(pk, h1, daily)
                  + detect_obfvg(pk, h1, daily) + detect_obfvg_watch(pk, h1, daily)
                  + detect_gbreak(pk, h1, daily) + detect_gtrend(pk, h1, daily)
+                 + detect_gtrend_inv(pk, h1, daily)
                  + detect_gfib(pk, h1, daily) + detect_e90break(pk, h1, daily)
                  + detect_mmove(pk, h1, daily) + detect_obfvg_fx4(pk, h1, daily)
                  + detect_mmove_m15(pk, m15) + detect_ema920v_m15(pk, m15)
@@ -2025,7 +2041,7 @@ def main():
                 st, o = score(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], OBFVG_FX4_HOLD)
             elif rec['strategy'] in ('gbreak', 'gfib'):
                 st, o = score(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], GBREAK_HOLD)
-            elif rec['strategy'] == 'gtrend':
+            elif rec['strategy'] in ('gtrend', 'gtrend_inv'):
                 st, o = score(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], GTREND_HOLD)
             elif rec['strategy'] == 'e90break':
                 st, o = score_asianglitch(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], E90_HOLD, rec.get('rr', E90_RR))
@@ -2169,7 +2185,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'absorb_btc'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'absorb_btc'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)

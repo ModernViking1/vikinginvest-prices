@@ -119,7 +119,13 @@ DEMO_ONLY = {'fma_gold'}
 #              sample has now climbed and the decay persisted / worsened (was -0.314R),
 #              with the first OOS half now also negative. The weekly observer review
 #              flagged it a DROP → demote. Harness keeps logging it as an observer.
-DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback'}
+#   gtrend     (2026-08-12)  fwd n=33  WR 3%  -0.924R  — 50/200 EMA trend-pullback on gold
+#              H4. Strongly +ve in-sample (+0.341R) but has collapsed forward: the recent
+#              gold regime doesn't suit pullback entries (it keeps fading the trend and
+#              getting stopped). Meets the DROP gate (n>=25, exp<-0.05R). Held back from the
+#              cBot; harness keeps logging it — and its INVERTED mirror (gtrend_inv) — as
+#              observers to see whether the decay is regime-transient or structural.
+DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback', 'gtrend'}
 
 # Scaled exit for the 2:1 gold signals (2026-08-01) — bank profit progressively instead of a
 # single far TP. gbreak/gtrend are emitted as THREE legs (1/3 risk each, SHARED stop) with

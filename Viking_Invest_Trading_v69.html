@@ -1571,7 +1571,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // Currently-demoted swing strategies (mirror swing_signals.py DEMOTED). Their fills were
         // live when they filled but the strategy is now observer-only, so they are excluded from
         // the headline LIVE win-rate and shown separately under ○ OBSERVING.
-        var DEMOTED_SWING={tl_nowick:1,fib_gz:1,wm:1,w5_pullback:1};
+        var DEMOTED_SWING={tl_nowick:1,fib_gz:1,wm:1,w5_pullback:1,gtrend:1};
         // Outcome-tile overview (mirrors the intraday panel's window._viOutcomeTiles; guarded
         // so whichever panel renders first defines it, avoiding a cross-scope ordering trap).
         if(typeof window._viOutcomeTiles!=='function'){ window._viOutcomeTiles=function(rows, opts){
@@ -1684,7 +1684,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // Swing (H1/H4/daily) strategies only. The m15 / m5 intraday monitors
         // (mmove_m15, ema920v, obfvg_m15, orb_eq, holygrail_*_m15, gold_us2h, po3_cm,
         // fma_*) live in the intraday box's shadow-monitor table — not here.
-        var strats=['hs','s5_rsi','s5_engulf','ob','tl_nowick','w5_pullback','s5_rsi_wide','rsimr','fib_gz','fred_tl','threepush','engulf_manip','sweeprev','asianglitch','wm','sid','obfvg','obfvg_w','gbreak','gtrend','gfib','e90break','mmove','mmove_ix','mmove_ix4','mmove_c4','varev_ix','holygrail','holygrail_cm','holygrail_eq','volbreak','volbreak_ix','volbreak_eq','twob','twob_ix','twob_cm','twob_eq'];
+        var strats=['hs','s5_rsi','s5_engulf','ob','tl_nowick','w5_pullback','s5_rsi_wide','rsimr','fib_gz','fred_tl','threepush','engulf_manip','sweeprev','asianglitch','wm','sid','obfvg','obfvg_w','gbreak','gtrend','gtrend_inv','gfib','e90break','mmove','mmove_ix','mmove_ix4','mmove_c4','varev_ix','holygrail','holygrail_cm','holygrail_eq','volbreak','volbreak_ix','volbreak_eq','twob','twob_ix','twob_cm','twob_eq'];
         // tracking-start per strategy (harness backfills earliest first_seen) → "how long tracked"
         var _track=(shadow&&shadow.tracking)||{}, _trackEnd=(shadow&&(shadow.last_run_data_end||shadow.data_end_ts))||0;
         var _trackedDays=function(st){ var t=_track[st]; return (t&&_trackEnd)?Math.max(0,Math.round((_trackEnd-t)/86400)):null; };
@@ -1704,6 +1704,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
           obfvg_w:'order-block + FVG retrace · ICT day-range family (watch)',
           gbreak:'volatility-confirmed range breakout · gold H1 (published gold playbook)',
           gtrend:'50/200 EMA trend pullback · gold H4 (published gold playbook)',
+          gtrend_inv:'INVERTED gtrend (buy↔sell) · gold H4 · regime-decay probe (observer)',
           gfib:'Fibonacci pullback continuation · gold H1 (monitor)',
           e90break:'90-EMA range breakout · crypto H1 1.5:1 (monitor)',
           mmove:'imbalance / fair-value-gap retrace continuation · crypto H1 (monitor)',
@@ -1734,7 +1735,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         };
         // LIVE (executing on cTrader) vs OBSERVING (shadow-only, not yet qualified for
         // live capital). Mirrors swing_signals.py PRIORITY minus DEMOTED.
-        var LIVE_SWING={hs:1,s5_rsi:1,s5_rsi_wide:1,ob:1,fred_tl:1,threepush:1,engulf_manip:1,asianglitch:1,obfvg:1,gbreak:1,gtrend:1,twob:1};
+        var LIVE_SWING={hs:1,s5_rsi:1,s5_rsi_wide:1,ob:1,fred_tl:1,threepush:1,engulf_manip:1,asianglitch:1,obfvg:1,gbreak:1,twob:1};
         var _hdr='<tr style="color:'+C.mut+';text-align:left;"><th>strategy</th><th>tracked</th><th>demo n</th><th>demo WR</th><th>demo R</th><th>model WR</th><th>model exp</th></tr>';
         function _swRow(st){
           var d=byStratD[st]?agg(byStratD[st]):null, m=byStratM[st]?agg(byStratM[st]):null;
