@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-08-16T10:10:58.517026+00:00",
-  "generated_ms": 1786875057526,
-  "detector_last_check": "2026-08-16T10:10:56.588213+00:00",
+  "generated": "2026-08-16T10:15:56.852697+00:00",
+  "generated_ms": 1786875355983,
+  "detector_last_check": "2026-08-16T10:15:55.043466+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
-    "armed": 1,
-    "triggered": 0,
-    "invalidated": 1
+    "total": 3,
+    "armed": 2,
+    "triggered": 1,
+    "invalidated": 0
   },
   "signals": [
+    {
+      "id": "btcusd:1786874400000:absorb_btc",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "absorb_btc",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 62992.69,
+      "stop": 63010.14564286,
+      "target": 62957.77871429,
+      "ew": null,
+      "tl": null,
+      "nw": null,
+      "cl": null,
+      "armedAt": 1786874400000,
+      "triggeredAt": 1786874400000,
+      "lastSeenAt": 1786875355983,
+      "source": "server-detector-absorb",
+      "event_aligned": null,
+      "held": false
+    },
     {
       "id": "btcusd:1780440300000:fib",
       "pair": "btcusd",
@@ -34,7 +57,7 @@
       "cl": "bear",
       "armedAt": 1780440300000,
       "triggeredAt": null,
-      "lastSeenAt": 1786875057526,
+      "lastSeenAt": 1786875355983,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -46,17 +69,17 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bear",
-      "state": "invalidated",
-      "entry": null,
+      "state": "armed",
+      "entry": 0.9973674,
       "stop": 1.001,
-      "target": null,
+      "target": 0.9937348000000001,
       "ew": "bear",
       "tl": "bear",
       "nw": "bear",
       "cl": "bear",
       "armedAt": 1780326900000,
       "triggeredAt": null,
-      "lastSeenAt": 1786875057526,
+      "lastSeenAt": 1786875355983,
       "source": "server-detector",
       "event_aligned": null
     }
