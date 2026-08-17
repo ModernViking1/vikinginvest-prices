@@ -125,7 +125,12 @@ DEMO_ONLY = {'fma_gold'}
 #              getting stopped). Meets the DROP gate (n>=25, exp<-0.05R). Held back from the
 #              cBot; harness keeps logging it — and its INVERTED mirror (gtrend_inv) — as
 #              observers to see whether the decay is regime-transient or structural.
-DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback', 'gtrend'}
+#   engulf_manip(2026-08-12) fwd n=62  WR 31%  -0.087R  — meets the DROP gate; 2nd OOS half
+#              decaying (-0.330R).
+#   threepush  (2026-08-12)  fwd n=13  WR 0%   -1.006R  — thin but a 0% WR that long is a
+#              broken-in-regime signal (P~0.1%), not variance. Early cut vs bleeding to n=25.
+#   ob         (2026-08-12)  fwd n=15  WR 13%  -0.611R  — thin, both OOS halves negative.
+DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback', 'gtrend', 'engulf_manip', 'threepush', 'ob'}
 
 # Scaled exit for the 2:1 gold signals (2026-08-01) — bank profit progressively instead of a
 # single far TP. gbreak/gtrend are emitted as THREE legs (1/3 risk each, SHARED stop) with

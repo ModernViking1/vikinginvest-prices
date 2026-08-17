@@ -37,9 +37,8 @@ GAP_TOL = 0.15       # live this far below model expectancy -> flag
 # the demo pilot, plus the promoted intraday emitters (mmove_m15, absorb_btc). Everything
 # else in the log is an observer. Keep in sync when promoting/demoting, or a live strategy
 # wrongly shows as "promotion-ready" (and a demoted one lingers as live).
-LIVE = {'hs', 's5_rsi', 's5_rsi_wide', 'ob', 'fred_tl', 'threepush',
-        'engulf_manip', 'asianglitch', 'obfvg', 'gbreak', 'fma_gold',
-        'twob', 'twob_cm', 'mmove_m15', 'absorb_btc'}
+LIVE = {'hs', 's5_rsi', 's5_rsi_wide', 'fred_tl', 'asianglitch', 'obfvg',
+        'gbreak', 'fma_gold', 'twob', 'twob_cm', 'mmove_m15', 'absorb_btc'}
 
 
 def agg(seq):

@@ -1571,7 +1571,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // Currently-demoted swing strategies (mirror swing_signals.py DEMOTED). Their fills were
         // live when they filled but the strategy is now observer-only, so they are excluded from
         // the headline LIVE win-rate and shown separately under ○ OBSERVING.
-        var DEMOTED_SWING={tl_nowick:1,fib_gz:1,wm:1,w5_pullback:1,gtrend:1};
+        var DEMOTED_SWING={tl_nowick:1,fib_gz:1,wm:1,w5_pullback:1,gtrend:1,engulf_manip:1,threepush:1,ob:1};
         // Outcome-tile overview (mirrors the intraday panel's window._viOutcomeTiles; guarded
         // so whichever panel renders first defines it, avoiding a cross-scope ordering trap).
         if(typeof window._viOutcomeTiles!=='function'){ window._viOutcomeTiles=function(rows, opts){
@@ -1735,7 +1735,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         };
         // LIVE (executing on cTrader) vs OBSERVING (shadow-only, not yet qualified for
         // live capital). Mirrors swing_signals.py PRIORITY minus DEMOTED.
-        var LIVE_SWING={hs:1,s5_rsi:1,s5_rsi_wide:1,ob:1,fred_tl:1,threepush:1,engulf_manip:1,asianglitch:1,obfvg:1,gbreak:1,twob:1,twob_cm:1};
+        var LIVE_SWING={hs:1,s5_rsi:1,s5_rsi_wide:1,fred_tl:1,asianglitch:1,obfvg:1,gbreak:1,twob:1,twob_cm:1};
         var _hdr='<tr style="color:'+C.mut+';text-align:left;"><th>strategy</th><th>tracked</th><th>demo n</th><th>demo WR</th><th>demo R</th><th>model WR</th><th>model exp</th></tr>';
         function _swRow(st){
           var d=byStratD[st]?agg(byStratD[st]):null, m=byStratM[st]?agg(byStratM[st]):null;
