@@ -33,10 +33,13 @@ DROP_EXP = -0.05
 GAP_N = 15            # min closed live fills before the gap is meaningful
 GAP_TOL = 0.15       # live this far below model expectancy -> flag
 
-# Strategies executing on the cBot (live/demo feed) — mirrors swing_signals PRIORITY minus
-# DEMOTED, plus the demo pilot. Everything else in the log is an observer.
+# Strategies executing on the cBot (live/demo feed) — swing_signals PRIORITY minus DEMOTED,
+# the demo pilot, plus the promoted intraday emitters (mmove_m15, absorb_btc). Everything
+# else in the log is an observer. Keep in sync when promoting/demoting, or a live strategy
+# wrongly shows as "promotion-ready" (and a demoted one lingers as live).
 LIVE = {'hs', 's5_rsi', 's5_rsi_wide', 'ob', 'fred_tl', 'threepush',
-        'engulf_manip', 'asianglitch', 'obfvg', 'gbreak', 'gtrend', 'fma_gold'}
+        'engulf_manip', 'asianglitch', 'obfvg', 'gbreak', 'fma_gold',
+        'twob', 'mmove_m15', 'absorb_btc'}
 
 
 def agg(seq):
