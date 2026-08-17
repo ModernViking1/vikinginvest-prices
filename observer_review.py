@@ -39,7 +39,7 @@ GAP_TOL = 0.15       # live this far below model expectancy -> flag
 # wrongly shows as "promotion-ready" (and a demoted one lingers as live).
 LIVE = {'hs', 's5_rsi', 's5_rsi_wide', 'ob', 'fred_tl', 'threepush',
         'engulf_manip', 'asianglitch', 'obfvg', 'gbreak', 'fma_gold',
-        'twob', 'mmove_m15', 'absorb_btc'}
+        'twob', 'twob_cm', 'mmove_m15', 'absorb_btc'}
 
 
 def agg(seq):

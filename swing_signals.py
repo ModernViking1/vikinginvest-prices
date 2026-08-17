@@ -91,7 +91,7 @@ ENGULF_CLASSES = {'crypto'}
 #          (15/15 parameter cells pass both OOS halves); highest gold priority.
 # gtrend = #1 50/200 EMA trend pullback (H4, RR2, choppiness filter removed —
 #          it hurt in testing). Both self-gate to xauusd and are cBot-executable.
-PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14, 'fma_gold': 15, 'twob': 16}
+PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14, 'fma_gold': 15, 'twob': 16, 'twob_cm': 17}
 
 # Demo-only pilots — emitted to the swing feed but flagged so the cBot executes them
 # ONLY on a demo account (skips on live). Lets a candidate accrue REAL forward fills
@@ -179,11 +179,12 @@ def main():
         found += detect_gbreak(pk, h1, daily)        # self-gates to xauusd H1; range breakout + expanding ATR, RR2
         found += detect_gtrend(pk, h1, daily)        # self-gates to xauusd H4; 50/200 EMA trend pullback (no choppiness filter), RR2
         # twob (2026-08-11) — 2B failed-breakout reversal, crypto H1. PROMOTED to live: genuine
-        # forward n=52 WR 52% +0.090R, BOTH OOS halves + (+0.048/+0.132). Validated with a
-        # trailing-runner exit, but the edge holds at a FIXED RR2 the cBot can execute (re-scored
-        # forward: n=50 +0.080R), so it emits at the default RR2. detect_twob also tags index/comm
-        # variants (twob_ix negative, twob_cm n<40) — those stay observer-only, so filter to crypto.
-        found += [s for s in detect_twob(pk, h1) if s['strategy'] == 'twob']
+        # forward n=52 WR 52% +0.090R, BOTH OOS halves +. Validated at a FIXED RR2 (re-scored
+        # forward +0.080R), so it emits at the default RR2.
+        # twob_cm (2026-08-12) — commodities H1 sibling PROMOTED: fwd n=74 +0.449R both OOS halves
+        # +, and the edge SURVIVES fixed RR2 (re-scored fwd n=61 +0.328R, and forward > in-sample
+        # so not a decay artifact). twob_ix (indices) stays observer-only — still negative.
+        found += [s for s in detect_twob(pk, h1) if s['strategy'] in ('twob', 'twob_cm')]
         # FMA ($100->$1M) liquidity-sweep + 50-EMA reclaim reversal — GOLD only, m15, RR2.
         # DEMO-FIRST PILOT: emitted to the (demo) swing feed with demo_only=True so the cBot
         # skips it on any live account until it earns forward evidence. detect_fma also emits
