@@ -75,6 +75,13 @@ namespace cAlgo.Robots
 
         private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         private readonly HashSet<string> _seenIds = new HashSet<string>();
+        // In-flight guard: a signal id is added here the instant we COMMIT to placing (before
+        // ExecuteMarketOrder), and removed when it becomes _seenIds. _seenIds is only stamped
+        // AFTER the order returns, and PollAsync's _busy flag clears once the Consider loop is
+        // scheduled (not after it runs) — so two closely-spaced Consider passes for the same id
+        // could both clear the top check and double-place (observed: gbreak :t1 twice, 32ms
+        // apart). Checking _inFlight at the top closes that window.
+        private readonly HashSet<string> _inFlight = new HashSet<string>();
         private readonly Dictionary<long, string> _positionIdToSignalId = new Dictionary<long, string>();
         // Trailing-stop state (per open position): original risk unit R, the pair (for scope),
         // and the best favourable price seen so far.
@@ -203,7 +210,7 @@ namespace cAlgo.Robots
 
         private void Consider(Sig s)
         {
-            if (string.IsNullOrEmpty(s.Id) || _seenIds.Contains(s.Id)) return;
+            if (string.IsNullOrEmpty(s.Id) || _seenIds.Contains(s.Id) || _inFlight.Contains(s.Id)) return;
             if (s.State != "triggered") return;
             if (s.Dir != "bull" && s.Dir != "bear") return;
 
@@ -295,6 +302,7 @@ namespace cAlgo.Robots
             // Comment marks the position clearly as a SwingTrade + which edge fired,
             // shown in cTrader's Comment column (Label is already "VikingSwing").
             var comment = $"SwingTrade | {s.Strategy} | {s.Id}";
+            _inFlight.Add(s.Id);   // commit BEFORE the order — blocks a concurrent Consider from re-placing
             var result = ExecuteMarketOrder(direction, symbol.Name, volume, OrderLabel,
                                             slPips, tpPips, comment);
             if (result.IsSuccessful)
@@ -559,6 +567,7 @@ namespace cAlgo.Robots
         }
         private void MarkSeen(string id)
         {
+            _inFlight.Remove(id);   // now permanently in _seenIds; free the transient in-flight slot
             if (_seenIds.Add(id))
                 try { IOFile.AppendAllText(_seenIdsPath, id + Environment.NewLine); } catch { }
         }
