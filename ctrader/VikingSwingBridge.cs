@@ -445,7 +445,14 @@ namespace cAlgo.Robots
             double realizedR = 0;
             try
             {
-                double stopDistPx = (p.StopLoss.HasValue && p.EntryPrice > 0) ? Math.Abs(p.EntryPrice - p.StopLoss.Value) : 0;
+                // R must be measured against the ORIGINAL 1R risk (entry -> INITIAL stop),
+                // captured in _posR at placement. Using the CURRENT stop is wrong once the trail
+                // has ratcheted it toward break-even: the shrinking distance drives riskAmt -> ~0
+                // and realizedR explodes (a break-even trailing scratch logged -60R). Fall back to
+                // the current stop only when _posR is unknown (e.g. a pre-restart position).
+                double stopDistPx;
+                if (!_posR.TryGetValue(p.Id, out stopDistPx) || stopDistPx <= 0)
+                    stopDistPx = (p.StopLoss.HasValue && p.EntryPrice > 0) ? Math.Abs(p.EntryPrice - p.StopLoss.Value) : 0;
                 if (stopDistPx > 0 && p.Symbol.PipSize > 0 && p.Symbol.PipValue > 0)
                 {
                     var stopPips = stopDistPx / p.Symbol.PipSize;

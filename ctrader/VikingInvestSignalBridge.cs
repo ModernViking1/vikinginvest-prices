@@ -1460,8 +1460,13 @@ namespace cAlgo.Robots
             double realizedR = 0;
             try
             {
-                // Risk in account ccy implied by stop distance at fill.
-                double stopDistPx = (p.StopLoss.HasValue && p.EntryPrice > 0)
+                // Risk = the ORIGINAL 1R distance (_posOrigR), NOT the current stop. Once the
+                // trail ratchets the stop toward break-even, |entry - current stop| -> ~0, which
+                // blows up realizedR (a break-even trailing scratch would log tens of R). Fall
+                // back to the live stop only when _posOrigR is unknown (pre-restart position).
+                double stopDistPx;
+                if (!_posOrigR.TryGetValue(p.Id, out stopDistPx) || stopDistPx <= 0)
+                    stopDistPx = (p.StopLoss.HasValue && p.EntryPrice > 0)
                                     ? Math.Abs(p.EntryPrice - p.StopLoss.Value)
                                     : 0;
                 if (stopDistPx > 0 && p.Symbol.PipSize > 0 && p.Symbol.PipValue > 0)

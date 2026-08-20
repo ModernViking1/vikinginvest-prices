@@ -1559,6 +1559,16 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // stop-loss / WR / R stats reflect setups (a cBot idempotency bug — see CBOT_DOUBLE_ENTRY.md).
         closed = (function(rows){ var g={}, o=[]; rows.forEach(function(e){ if(e.exit_price==null){ o.push(e); return; } var k=(e.pair||'?')+'|'+e.exit_price; (g[k]=g[k]||[]).push(e); });
           Object.keys(g).forEach(function(k){ var arr=g[k].sort(function(a,b){return (a.ts||0)-(b.ts||0);}), last=-1e18; arr.forEach(function(e){ if((e.ts||0)-last<=5000) return; o.push(e); last=(e.ts||0); }); }); return o; })(closed);
+        // Repair realized_r corrupted by the PRE-FIX trailed-stop R calc: once the trail ratcheted
+        // the stop to ~break-even, the cBot divided net by a near-zero risk and logged tens of R
+        // for a near-scratch (e.g. gbreak XAUUSD −60R on a −£560 close). Recompute any |r|>4 row
+        // from net_profit vs the median GBP-per-R of the clean rows. (cBot now uses the ORIGINAL
+        // 1R, so this only touches legacy rows.)
+        (function(){ var gpr=[]; closed.forEach(function(e){ var r=e.realized_r, n=e.net_profit;
+            if(typeof r==='number' && typeof n==='number' && Math.abs(r)>=0.2 && Math.abs(r)<=4 && n!==0) gpr.push(Math.abs(n/r)); });
+          if(!gpr.length) return; gpr.sort(function(a,b){return a-b;}); var med=gpr[Math.floor(gpr.length/2)];
+          if(!(med>0)) return;
+          closed.forEach(function(e){ if(typeof e.realized_r==='number' && Math.abs(e.realized_r)>4 && typeof e.net_profit==='number') e.realized_r=e.net_profit/med; }); })();
         var placed = execs.filter(function(e){return e.event==='placed' && inWin(e);});
         // OPEN = a 'placed' with no matching 'closed' anywhere in the log (a position stays open
         // regardless of the display window). Keyed by signal_id, else position_id. This is why a
