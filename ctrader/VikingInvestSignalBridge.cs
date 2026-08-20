@@ -198,6 +198,16 @@ namespace cAlgo.Robots
         [Parameter("Trailing stop (0.5R arm / 0.25R trail)", DefaultValue = true, Group = "Safety")]
         public bool TrailingStop { get; set; }
 
+        // 2026-08-20 — naked-position sweep. Re-applies a protective stop to any of OUR positions
+        // that has none (restart lost the in-memory state, a manual SL removal, or a legacy
+        // orphan), so a position can never sit stopless. Original 1R when known (_posOrigR / TP),
+        // else a % fallback; flattens one already beyond that stop. Only our-label positions.
+        [Parameter("Protect naked positions", DefaultValue = true, Group = "Safety")]
+        public bool ProtectNakedPositions { get; set; }
+
+        [Parameter("Naked-stop fallback %", DefaultValue = 1.0, MinValue = 0.1, Group = "Safety")]
+        public double NakedStopPct { get; set; }
+
         [Parameter("Allow LIVE account", DefaultValue = false, Group = "Safety")]
         public bool AllowLive { get; set; }
 
@@ -523,7 +533,41 @@ namespace cAlgo.Robots
             // (cheap, synchronous, main-thread) so even if PollAndProcess
             // does nothing this tick we keep the MFE trace fresh.
             SampleOpenPositionMfe();
+            try { SweepNakedStops(); } catch (Exception ex) { Print($"[VikingInvest] naked-sweep error: {ex.Message}"); }
             _ = PollAndProcess();
+        }
+
+        // Ensure none of OUR positions ever sits without a stop. Re-applies a protective SL at the
+        // original 1R when known (_posOrigR, else derived from the take-profit — intraday is 1:1),
+        // else a % fallback off entry; flattens a position already beyond that stop. Only touches
+        // positions carrying OUR OrderLabel (manual / other positions are left untouched).
+        private void SweepNakedStops()
+        {
+            if (!ProtectNakedPositions) return;
+            foreach (var p in Positions)
+            {
+                if (p.Label != OrderLabel || p.Symbol == null || p.EntryPrice <= 0 || p.StopLoss.HasValue) continue;
+                bool isBuy = p.TradeType == TradeType.Buy;
+                double distPx, origR;
+                if (_posOrigR.TryGetValue(p.Id, out origR) && origR > 0) distPx = origR;         // known 1R
+                else if (p.TakeProfit.HasValue && p.TakeProfit.Value > 0)                         // 1:1 -> |entry-TP| == R
+                    distPx = Math.Abs(p.EntryPrice - p.TakeProfit.Value);
+                else distPx = p.EntryPrice * (NakedStopPct / 100.0);                             // last-resort % fallback
+                if (!(distPx > 0)) continue;
+
+                double sl = isBuy ? p.EntryPrice - distPx : p.EntryPrice + distPx;
+                double price = isBuy ? p.Symbol.Bid : p.Symbol.Ask;
+                if (isBuy ? (price <= sl) : (price >= sl))
+                {
+                    Print($"🛑 [VikingInvest] naked position {p.SymbolName} pid={p.Id} already beyond protective stop {sl:F5} (price {price:F5}) — closing.");
+                    try { ClosePosition(p); } catch (Exception ex) { Print($"   naked-sweep close pid={p.Id} failed: {ex.Message}"); }
+                    continue;
+                }
+                double slN = Math.Round(sl, p.Symbol.Digits);
+                Print($"🩹 [VikingInvest] naked position {p.SymbolName} pid={p.Id} — applying protective SL {slN}.");
+                try { p.ModifyStopLossPrice(slN); if (!_posOrigR.ContainsKey(p.Id)) _posOrigR[p.Id] = distPx; }
+                catch (Exception ex) { Print($"   naked-sweep SL pid={p.Id} failed: {ex.Message}"); }
+            }
         }
 
         // 2026-06-24 — Phase 1 inspector. Walk open positions and record the

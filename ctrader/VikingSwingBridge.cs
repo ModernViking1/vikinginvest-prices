@@ -57,6 +57,17 @@ namespace cAlgo.Robots
         [Parameter("1R trailing stop", DefaultValue = true, Group = "Risk")]
         public bool TrailingStop { get; set; }
 
+        // 2026-08-20 — naked-position sweep. The placement guard only checks for a missing stop
+        // at open; a position can still end up stopless later (bot restart losing in-memory
+        // state, a manual SL removal, or a legacy orphan). This periodic sweep re-applies a
+        // protective stop to any of OUR positions that has none — restoring the original 1R when
+        // known, else a % fallback — and flattens one already beyond that stop.
+        [Parameter("Protect naked positions", DefaultValue = true, Group = "Risk")]
+        public bool ProtectNakedPositions { get; set; }
+
+        [Parameter("Naked-stop fallback %", DefaultValue = 1.5, MinValue = 0.1, Group = "Risk")]
+        public double NakedStopPct { get; set; }
+
         [Parameter("Order label", DefaultValue = "VikingSwing", Group = "Execution")]
         public string OrderLabel { get; set; }
 
@@ -125,6 +136,7 @@ namespace cAlgo.Robots
         {
             // Trailing runs on the bot thread every poll, independent of the (async) signal fetch.
             try { ManageTrailingStops(); } catch (Exception ex) { Print($"[VikingSwing] trail error: {ex.Message}"); }
+            try { SweepNakedStops(); } catch (Exception ex) { Print($"[VikingSwing] naked-sweep error: {ex.Message}"); }
             if (_busy) return;
             _busy = true;
             PollAsync().ContinueWith(_ => _busy = false);
@@ -182,6 +194,41 @@ namespace cAlgo.Robots
             if (!ok) return;                                            // sub-tick / backward → skip
             try { p.ModifyStopLossPrice(desired); }
             catch (Exception ex) { Print($"[VikingSwing] trail modify pid={p.Id} failed: {ex.Message}"); }
+        }
+
+        // Ensure none of OUR positions ever sits without a stop. Runs every poll: for a naked
+        // position, re-apply a protective SL at the ORIGINAL 1R when known (_posR), else derive
+        // it from the take-profit (scoped classes trade RR2), else a % fallback off entry. If the
+        // market is already beyond that stop, the position is past its risk budget — flatten it.
+        // Only touches positions carrying OUR OrderLabel; manual / other-bot positions are left be.
+        private void SweepNakedStops()
+        {
+            if (!ProtectNakedPositions) return;
+            foreach (var p in Positions)
+            {
+                if (p.Label != OrderLabel || p.Symbol == null || p.StopLoss.HasValue) continue;
+                bool isBuy = p.TradeType == TradeType.Buy;
+                double distPx, R;
+                if (_posR.TryGetValue(p.Id, out R) && R > 0) distPx = R;                       // known original 1R
+                else if (p.TakeProfit.HasValue && p.TakeProfit.Value > 0)                       // derive from TP (RR2)
+                    distPx = Math.Abs(p.EntryPrice - p.TakeProfit.Value) / 2.0;
+                else distPx = p.EntryPrice * (NakedStopPct / 100.0);                            // last-resort % fallback
+                if (!(distPx > 0)) continue;
+
+                double sl = isBuy ? p.EntryPrice - distPx : p.EntryPrice + distPx;
+                double price = isBuy ? p.Symbol.Bid : p.Symbol.Ask;
+                bool breached = isBuy ? (price <= sl) : (price >= sl);
+                if (breached)
+                {
+                    Print($"🛑 [VikingSwing] naked position {p.SymbolName} pid={p.Id} already beyond protective stop {sl:F5} (price {price:F5}) — closing.");
+                    try { ClosePosition(p); } catch (Exception ex) { Print($"   naked-sweep close pid={p.Id} failed: {ex.Message}"); }
+                    continue;
+                }
+                double slN = Math.Round(sl, p.Symbol.Digits);
+                Print($"🩹 [VikingSwing] naked position {p.SymbolName} pid={p.Id} — applying protective SL {slN}.");
+                try { p.ModifyStopLossPrice(slN); if (!_posR.ContainsKey(p.Id)) _posR[p.Id] = distPx; }
+                catch (Exception ex) { Print($"   naked-sweep SL pid={p.Id} failed: {ex.Message}"); }
+            }
         }
 
         private async Task PollAsync()
