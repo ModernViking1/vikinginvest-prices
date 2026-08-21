@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-08-21T13:05:59.963445+00:00",
-  "generated_ms": 1787317559292,
-  "detector_last_check": "2026-08-21T13:05:58.027493+00:00",
+  "generated": "2026-08-21T13:57:28.289811+00:00",
+  "generated_ms": 1787320647617,
+  "detector_last_check": "2026-08-21T13:57:25.980384+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,57 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 1,
-    "armed": 0,
-    "triggered": 0,
+    "total": 3,
+    "armed": 1,
+    "triggered": 1,
     "invalidated": 1
   },
   "signals": [
+    {
+      "id": "xauusd:1787316300000:mmove_m15",
+      "pair": "xauusd",
+      "sym": "XAUUSD",
+      "cls": "comm",
+      "method": "mmove_m15",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 4573.62,
+      "stop": 4567.08021429,
+      "target": 4586.69957143,
+      "ew": null,
+      "tl": null,
+      "nw": null,
+      "cl": null,
+      "armedAt": 1787316300000,
+      "triggeredAt": 1787316300000,
+      "lastSeenAt": 1787320647617,
+      "source": "server-detector-mmove",
+      "event_aligned": null,
+      "held": false
+    },
+    {
+      "id": "xrpusd:1780326900000:fib",
+      "pair": "xrpusd",
+      "sym": "XRPUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 1.3999154,
+      "stop": 1.3464,
+      "target": 1.4534308,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780326900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1787320647617,
+      "source": "server-detector",
+      "event_aligned": null
+    },
     {
       "id": "taousd:1780254900000:fib",
       "pair": "taousd",
@@ -34,7 +79,7 @@
       "cl": "bull",
       "armedAt": 1780254900000,
       "triggeredAt": null,
-      "lastSeenAt": 1787317559292,
+      "lastSeenAt": 1787320647617,
       "source": "server-detector",
       "event_aligned": null
     }
