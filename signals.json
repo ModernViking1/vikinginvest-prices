@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-08-23T09:47:48.682672+00:00",
-  "generated_ms": 1787478467771,
-  "detector_last_check": "2026-08-23T09:47:46.393289+00:00",
+  "generated": "2026-08-23T10:08:43.401687+00:00",
+  "generated_ms": 1787479722489,
+  "detector_last_check": "2026-08-23T10:08:41.225701+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,34 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 1,
-    "armed": 1,
-    "triggered": 0,
+    "total": 3,
+    "armed": 2,
+    "triggered": 1,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "nearusd:1780433100000:fib",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 1.912124,
+      "stop": 1.8457,
+      "target": 1.978548,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780433100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1787479722489,
+      "source": "server-detector",
+      "event_aligned": null
+    },
     {
       "id": "solusd:1780326900000:fib",
       "pair": "solusd",
@@ -34,7 +56,29 @@
       "cl": "bull",
       "armedAt": 1780326900000,
       "triggeredAt": null,
-      "lastSeenAt": 1787478467771,
+      "lastSeenAt": 1787479722489,
+      "source": "server-detector",
+      "event_aligned": null
+    },
+    {
+      "id": "xrpusd:1780326900000:fib",
+      "pair": "xrpusd",
+      "sym": "XRPUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 1.4771452,
+      "stop": 1.4382,
+      "target": 1.5160904000000002,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780326900000,
+      "triggeredAt": 1787474700000,
+      "lastSeenAt": 1787479722489,
       "source": "server-detector",
       "event_aligned": null
     }
