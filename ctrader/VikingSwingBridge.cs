@@ -124,6 +124,7 @@ namespace cAlgo.Robots
             _executionsPath = System.IO.Path.Combine(dir, "swing-executions.jsonl");
             LoadSeenIds();
             Positions.Closed += OnPositionClosed;
+            try { RecoverTrailingOnStart(); } catch (Exception ex) { Print($"[VikingSwing] trailing-recovery error: {ex.Message}"); }
             Print($"[VikingSwing] started. acct={Account.Number} live={Account.IsLive} seen={_seenIds.Count} risk={RiskPct}% publish={AutoPublishToRepo}");
             if (Account.IsLive)
                 Print("⚠️ [VikingSwing] LIVE account detected — this bot is intended for DEMO forward-testing.");
@@ -194,6 +195,44 @@ namespace cAlgo.Robots
             if (!ok) return;                                            // sub-tick / backward → skip
             try { p.ModifyStopLossPrice(desired); }
             catch (Exception ex) { Print($"[VikingSwing] trail modify pid={p.Id} failed: {ex.Message}"); }
+        }
+
+        // Restart recovery for the trailing stop. The peak/R state is in-memory only, so a redeploy
+        // mid-trade would lose it and let an in-profit position ride back to its ORIGINAL stop
+        // (observed: gold gbreak gave back ~+£9k to a -1R stop across a recompile). On start we:
+        //   - rebuild R from the take-profit + the scaled-leg multiple in the id [t1/t2/t3 = 1/2/3R;
+        //     default RR2] and the pair from the id, so trailing resumes sensibly; and
+        //   - GUARANTEE break-even: any position already in profit has its stop moved to entry now,
+        //     so a restart can never turn a winner into a loser. Normal trailing continues from here.
+        private void RecoverTrailingOnStart()
+        {
+            foreach (var p in Positions)
+            {
+                if (p.Label != OrderLabel || p.Symbol == null || p.EntryPrice <= 0) continue;
+                bool isBuy = p.TradeType == TradeType.Buy;
+                var sig = SignalIdOf(p);
+                int legN = 2;
+                if (!string.IsNullOrEmpty(sig))
+                {
+                    var m = System.Text.RegularExpressions.Regex.Match(sig, ":t([0-9]+)$");
+                    if (m.Success) int.TryParse(m.Groups[1].Value, out legN);
+                    var seg = sig.Split(':');
+                    if (seg.Length >= 2) _posPair[p.Id] = seg[1];
+                }
+                if (legN < 1) legN = 1;
+                if (p.TakeProfit.HasValue && p.TakeProfit.Value > 0)
+                {
+                    double R = Math.Abs(p.EntryPrice - p.TakeProfit.Value) / legN;
+                    if (R > 0) _posR[p.Id] = R;
+                }
+                double price = isBuy ? p.Symbol.Bid : p.Symbol.Ask;
+                _posPeak[p.Id] = price;                                   // best-effort high-water reset
+                if (isBuy ? (price > p.EntryPrice) : (price < p.EntryPrice))
+                {
+                    Print($"🔁 [VikingSwing] restart recovery: {p.SymbolName} pid={p.Id} in profit — locking break-even.");
+                    RatchetStop(p, p.EntryPrice, isBuy);                  // only moves the stop favourably
+                }
+            }
         }
 
         // Ensure none of OUR positions ever sits without a stop. Runs every poll: for a naked

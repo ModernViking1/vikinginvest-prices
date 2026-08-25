@@ -440,6 +440,7 @@ namespace cAlgo.Robots
             // closures that happened across a restart.
             Positions.Closed += OnPositionClosed;
             Positions.Opened += OnPositionOpened;   // records LIMIT fills (async)
+            try { RecoverTrailingOnStart(); } catch (Exception ex) { Print($"[VikingInvest] trailing-recovery error: {ex.Message}"); }
 
             _http.DefaultRequestHeaders.UserAgent.ParseAdd("VikingInvest-cTrader-Bot/1.0");
             // 2026-06-23 — force CDN revalidation on every poll. The
@@ -631,6 +632,27 @@ namespace cAlgo.Robots
         // every MFE sample. Normalising to the symbol's precision and requiring a >= 1-tick
         // move removes the no-op calls (and therefore the notifications) while still
         // ratcheting on real moves.
+        // Restart recovery: the trailing peak is in-memory only, so a redeploy mid-trade could let
+        // an in-profit position ride back to its original stop. On start, GUARANTEE break-even for
+        // any position already in profit (move the stop to entry now — only ever favourably), so a
+        // restart can never turn a winner into a loser. _posOrigR is rebuilt each tick by the MFE
+        // sampler, and trailing resumes from here.
+        private void RecoverTrailingOnStart()
+        {
+            foreach (var p in Positions)
+            {
+                if (p.Label != OrderLabel || p.Symbol == null || p.EntryPrice <= 0) continue;
+                bool isBuy = p.TradeType == TradeType.Buy;
+                double price = isBuy ? p.Symbol.Bid : p.Symbol.Ask;
+                _posPeakPx[p.Id] = price;
+                if (isBuy ? (price > p.EntryPrice) : (price < p.EntryPrice))
+                {
+                    Print($"🔁 [VikingInvest] restart recovery: {p.SymbolName} pid={p.Id} in profit — locking break-even.");
+                    RatchetStop(p, p.EntryPrice, isBuy);
+                }
+            }
+        }
+
         private void RatchetStop(Position p, double desired, bool isBuy)
         {
             if (p == null || p.Symbol == null) return;
