@@ -1694,7 +1694,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // Swing (H1/H4/daily) strategies only. The m15 / m5 intraday monitors
         // (mmove_m15, ema920v, obfvg_m15, orb_eq, holygrail_*_m15, gold_us2h, po3_cm,
         // fma_*) live in the intraday box's shadow-monitor table — not here.
-        var strats=['hs','s5_rsi','s5_engulf','ob','tl_nowick','w5_pullback','s5_rsi_wide','rsimr','fib_gz','fred_tl','threepush','engulf_manip','sweeprev','asianglitch','wm','sid','obfvg','obfvg_w','gbreak','gtrend','gtrend_inv','gfib','e90break','mmove','mmove_ix','mmove_ix4','mmove_c4','varev_ix','holygrail','holygrail_cm','holygrail_eq','volbreak','volbreak_ix','volbreak_eq','twob','twob_ix','twob_cm','twob_eq'];
+        var strats=['hs','s5_rsi','s5_engulf','ob','tl_nowick','w5_pullback','s5_rsi_wide','rsimr','fib_gz','fred_tl','threepush','engulf_manip','sweeprev','asianglitch','wm','sid','obfvg','obfvg_w','gbreak','gtrend','gtrend_inv','gfib','e90break','mmove','mmove_ix','mmove_ix4','mmove_c4','varev_ix','holygrail','holygrail_cm','holygrail_eq','volbreak','volbreak_ix','volbreak_eq','zbreak_crypto','zbreak_ix','zbreak_gold','twob','twob_ix','twob_cm','twob_eq'];
         // tracking-start per strategy (harness backfills earliest first_seen) → "how long tracked"
         var _track=(shadow&&shadow.tracking)||{}, _trackEnd=(shadow&&(shadow.last_run_data_end||shadow.data_end_ts))||0;
         var _trackedDays=function(st){ var t=_track[st]; return (t&&_trackEnd)?Math.max(0,Math.round((_trackEnd-t)/86400)):null; };
@@ -1731,9 +1731,12 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
           holygrail_eq:'ADX-trend pullback to the 20-EMA · trailing-runner exit · US equities H1 (monitor)',
           holygrail_cm_m15:'ADX-trend pullback to the 20-EMA · trailing-runner exit · commodities m15 (monitor)',
           holygrail_eq_m15:'ADX-trend pullback to the 20-EMA · trailing-runner exit · US equities m15 (monitor)',
-          volbreak:'volume-confirmed range breakout · trailing-runner exit · crypto H1 (monitor)',
-          volbreak_ix:'volume-confirmed range breakout · trailing-runner exit · index H1 (monitor)',
-          volbreak_eq:'volume-confirmed range breakout · trailing-runner exit · US equities H1 (monitor)',
+          volbreak:'volatility breakout (open±K·range) · trailing-runner exit · crypto H1 (monitor)',
+          volbreak_ix:'volatility breakout (open±K·range) · trailing-runner exit · index H1 (monitor)',
+          volbreak_eq:'volatility breakout (open±K·range) · trailing-runner exit · US equities H1 (monitor)',
+          zbreak_crypto:'Zanger VOLUME-gated breakout (relvol≥1.5×) · trailing exit · crypto H1 (monitor)',
+          zbreak_ix:'Zanger VOLUME-gated breakout (relvol≥1.5×) · trailing exit · index H1 (monitor)',
+          zbreak_gold:'Zanger VOLUME-gated breakout (relvol≥1.5×) · gbreak base · gold H1 (monitor)',
           twob:'2B failed-breakout reversal · crypto H1 · RR2',
           twob_ix:'2B failed-breakout reversal · index H1 · RR2',
           twob_cm:'2B failed-breakout reversal · commodities H1 · RR2',

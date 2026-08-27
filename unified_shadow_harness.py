@@ -1712,6 +1712,45 @@ def detect_volbreak(pk, h1):
     return _mw_signals(h1, pk, tag, 'h1', _volbreak_sig) if tag and len(h1) >= 400 else []
 
 
+# Dan Zanger's core rule: a breakout is only valid on a VOLUME SURGE — low-volume breakouts
+# fail. Our breakout detectors (volbreak / gbreak) used volatility confirmation, never volume.
+# Split-testing our own breakout signals confirmed it on crypto (forward: high-vol +0.383R vs
+# low-vol -0.229R) and indices, negligible on gold. zbreak gates the class breakout by the
+# "Zanger volume ratio" — entry-bar volume >= ZBREAK_RVOL x its 20-bar median. OBSERVER ONLY.
+ZBREAK_RVOL = 1.5
+
+def _relvol_at(bars, entry_ts, lookback=20):
+    """entry/breakout-bar volume / median of the prior `lookback` bars (bars are _bars_norm)."""
+    ts = [b['_ts'] for b in bars]
+    i = bisect.bisect_right(ts, entry_ts) - 1
+    if i < lookback + 1:
+        return None
+    prior = sorted(b['v'] for b in bars[i - lookback:i])
+    med = prior[len(prior) // 2]
+    return (bars[i]['v'] / med) if med > 0 else None
+
+
+def detect_zbreak(pk, h1, daily):
+    """OBSERVER — Zanger-style VOLUME-gated breakout. Takes the class breakout (volbreak for
+    crypto / index, gbreak for gold) and keeps only entries whose breakout bar cleared the
+    Zanger volume ratio. Tagged zbreak_crypto / zbreak_ix / zbreak_gold; NEVER sent to the cBot."""
+    cls = PAIR_CLASS.get(pk)
+    if cls == 'crypto':
+        base = _mw_signals(h1, pk, 'zbreak_crypto', 'h1', _volbreak_sig) if len(h1) >= 400 else []
+    elif cls == 'index':
+        base = _mw_signals(h1, pk, 'zbreak_ix', 'h1', _volbreak_sig) if len(h1) >= 400 else []
+    elif pk == GOLD:
+        base = [dict(s, strategy='zbreak_gold') for s in detect_gbreak(pk, h1, daily)]
+    else:
+        return []
+    out = []
+    for s in base:
+        rv = _relvol_at(h1, s['entry_ts'])
+        if rv is not None and rv >= ZBREAK_RVOL:
+            out.append(s)
+    return out
+
+
 def detect_twob(pk, h1):
     tag = TWOB_H1.get(PAIR_CLASS.get(pk))
     return _mw_signals(h1, pk, tag, 'h1', _twob_sig) if tag and len(h1) >= 400 else []
@@ -1997,6 +2036,7 @@ def main():
                  + detect_mmove_m15(pk, m15) + detect_ema920v_m15(pk, m15)
                  + detect_obfvg_m15(pk, m15, daily) + detect_varev_ix(pk, h1)
                  + detect_holygrail(pk, h1) + detect_volbreak(pk, h1)
+                 + detect_zbreak(pk, h1, daily)
                  + detect_twob(pk, h1) + detect_holygrail_m15(pk, m15)
                  + detect_fma(pk, m15) + detect_po3(pk, m15) + detect_sweepfvg(pk, m15))
         for s in found:
@@ -2039,7 +2079,7 @@ def main():
                 st, o = score(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], OBFVG_HOLD)
             elif rec['strategy'] == 'obfvg_fx4':
                 st, o = score(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], OBFVG_FX4_HOLD)
-            elif rec['strategy'] in ('gbreak', 'gfib'):
+            elif rec['strategy'] in ('gbreak', 'gfib', 'zbreak_gold'):
                 st, o = score(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], GBREAK_HOLD)
             elif rec['strategy'] in ('gtrend', 'gtrend_inv'):
                 st, o = score(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], GTREND_HOLD)
@@ -2057,7 +2097,7 @@ def main():
                 st, o = score(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], OBFVG_M15_HOLD)
             elif rec['strategy'] == 'varev_ix':
                 st, o = score(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], VAREV_HOLD)
-            elif rec['strategy'] in ('holygrail', 'holygrail_cm', 'volbreak', 'volbreak_ix', 'twob', 'twob_ix', 'twob_cm'):
+            elif rec['strategy'] in ('holygrail', 'holygrail_cm', 'volbreak', 'volbreak_ix', 'twob', 'twob_ix', 'twob_cm', 'zbreak_crypto', 'zbreak_ix'):
                 st, o = score_trail_open(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
             elif rec['strategy'] == 'holygrail_cm_m15':
                 st, o = score_trail_open(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
@@ -2185,7 +2225,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'absorb_btc'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'absorb_btc'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
