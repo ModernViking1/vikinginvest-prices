@@ -331,6 +331,18 @@ def build_signals(state: dict) -> dict:
     except Exception as e:
         print(f"[build_signals_json] absorb_btc emit skipped: {e}", file=sys.stderr)
 
+    # 2026-08-24 — sweepfvg_ix (liquidity-sweep + FVG reversal, m15 indices) PROMOTED at RR2.
+    # Its trailing/RR3 model read negative forward, but at the fixed RR2 the cBot executes the
+    # edge is robust (fwd n=188 +0.165R, both OOS halves +, forward = in-sample). Fail-open.
+    try:
+        from sweepfvg_live import build_sweepfvg_rows
+        for row in build_sweepfvg_rows(now_ms):
+            if row["pair"] in cooloff_pairs and row.get("state") == "triggered" and not row.get("held"):
+                continue
+            out.append(row)
+    except Exception as e:
+        print(f"[build_signals_json] sweepfvg_ix emit skipped: {e}", file=sys.stderr)
+
     # Newest-first ordering so the EA can early-exit on the first
     # already-seen id without paging through stale rows.
     out.sort(key=lambda r: r.get("armedAt") or 0, reverse=True)

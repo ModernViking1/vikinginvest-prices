@@ -21248,7 +21248,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     //    pockets — mmove_m15 on gold/silver/FRA40). Method-based, so mmove's non-crypto
     //    pocket fills count live; demoted methods and observed non-crypto classes don't.
     var _isLiveClass = function(pr){ return (typeof MKTS !== 'undefined' && MKTS[pr] && MKTS[pr].t === 'crypto'); };
-    var _LIVE_NONCRYPTO = { mmove_m15:1 };   // live methods whose pockets include non-crypto (gold/silver/FRA40)
+    var _LIVE_NONCRYPTO = { mmove_m15:1, sweepfvg_ix:1 };   // live methods whose pockets include non-crypto (gold/silver/FRA40/indices)
     var _isLiveFill = function(r){ return !_isDemotedMethod(r) && (_isLiveClass(r.pair) || !!_LIVE_NONCRYPTO[_stratOf(r)]); };
     var Lw=0, Ll=0, LR=0, Ln=0, aggCL={'target-hit':0,'stop-clean':0,'stop-after-progress':0,'cbot-invalidation':0,'manual':0};
     execs.forEach(function(r){
@@ -21538,7 +21538,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
                    fma_sweep_cm:'liquidity-sweep + 50-EMA reclaim reversal · m15 commodities',
                    fma_sweep_ix:'liquidity-sweep + 50-EMA reclaim reversal · m15 indices',
                    po3_cm:'Power-of-Three London-open sweep-reversal · m15 non-gold commodities',
-                   sweepfvg_ix:'liquidity-sweep reversal + FVG + fib retrace · m15 indices · RR3',
+                   sweepfvg_ix:'liquidity-sweep reversal + FVG + fib retrace · m15 indices · RR2 (live)',
                    absorb_btc:'delta absorption (real Binance delta) · m15 BTC · RR2' };
     var _bDem2 = ' <span style="display:inline-block;font-size:6.5px;font-weight:700;letter-spacing:0.3px;color:#c8860a;background:rgba(200,134,10,0.16);border-radius:2px;padding:1px 4px;margin-left:4px;vertical-align:middle;">○ DEMOTED</span>';
     var _bObs2 = ' <span style="display:inline-block;font-size:6.5px;font-weight:700;letter-spacing:0.3px;color:var(--inkd);background:rgba(120,120,130,0.14);border-radius:2px;padding:1px 4px;margin-left:4px;vertical-align:middle;">○ OBSERVING</span>';
