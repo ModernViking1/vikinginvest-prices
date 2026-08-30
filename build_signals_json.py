@@ -343,6 +343,19 @@ def build_signals(state: dict) -> dict:
     except Exception as e:
         print(f"[build_signals_json] sweepfvg_ix emit skipped: {e}", file=sys.stderr)
 
+    # 2026-08-30 — crt_ix (filtered Candle-Range-Theory reversal, m15 indices) wired live at
+    # fixed RR2. Raw CRT is noise, but sweep of a CONFIRMED multi-day swing extreme by a
+    # DISPLACEMENT candle is robust on indices (n=44 +0.568R, both OOS halves +, positive
+    # across the whole parameter grid, ~9% overlap with sweepfvg). Fail-open. See crt_live.py.
+    try:
+        from crt_live import build_crt_rows
+        for row in build_crt_rows(now_ms):
+            if row["pair"] in cooloff_pairs and row.get("state") == "triggered" and not row.get("held"):
+                continue
+            out.append(row)
+    except Exception as e:
+        print(f"[build_signals_json] crt_ix emit skipped: {e}", file=sys.stderr)
+
     # Newest-first ordering so the EA can early-exit on the first
     # already-seen id without paging through stale rows.
     out.sort(key=lambda r: r.get("armedAt") or 0, reverse=True)
