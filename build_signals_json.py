@@ -356,6 +356,20 @@ def build_signals(state: dict) -> dict:
     except Exception as e:
         print(f"[build_signals_json] crt_ix emit skipped: {e}", file=sys.stderr)
 
+    # 2026-08-30 — fma_sweep_cm (liquidity-sweep + 50-EMA-reclaim reversal, m15 non-gold
+    # commodities) wired live at fixed RR2. Observer model was already RR2, so the edge is
+    # not a trailing artifact — it survives fixed-RR re-validation (full n=554 +0.083R, both
+    # OOS halves +; forward +0.115R). SCOPED to the four carrying pockets (silver/WTI/oil/
+    # natgas), platinum dropped as a net drag: n=426 +0.134R, halves +0.127/+0.141. Fail-open.
+    try:
+        from fma_live import build_fma_rows
+        for row in build_fma_rows(now_ms):
+            if row["pair"] in cooloff_pairs and row.get("state") == "triggered" and not row.get("held"):
+                continue
+            out.append(row)
+    except Exception as e:
+        print(f"[build_signals_json] fma_sweep_cm emit skipped: {e}", file=sys.stderr)
+
     # Newest-first ordering so the EA can early-exit on the first
     # already-seen id without paging through stale rows.
     out.sort(key=lambda r: r.get("armedAt") or 0, reverse=True)

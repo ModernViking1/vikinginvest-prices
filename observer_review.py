@@ -38,8 +38,8 @@ GAP_TOL = 0.15       # live this far below model expectancy -> flag
 # else in the log is an observer. Keep in sync when promoting/demoting, or a live strategy
 # wrongly shows as "promotion-ready" (and a demoted one lingers as live).
 LIVE = {'hs', 's5_rsi', 'engulf_manip', 'fred_tl', 'asianglitch', 'obfvg',
-        'gbreak', 'fma_gold', 'twob', 'twob_cm', 'twob_ix', 'mmove_m15', 'absorb_btc',
-        'sweepfvg_ix', 'crt_ix'}
+        'gbreak', 'fma_gold', 'fma_sweep_cm', 'twob', 'twob_cm', 'twob_ix', 'mmove_m15',
+        'absorb_btc', 'sweepfvg_ix', 'crt_ix'}
 
 
 def agg(seq):

@@ -21248,7 +21248,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     //    pockets — mmove_m15 on gold/silver/FRA40). Method-based, so mmove's non-crypto
     //    pocket fills count live; demoted methods and observed non-crypto classes don't.
     var _isLiveClass = function(pr){ return (typeof MKTS !== 'undefined' && MKTS[pr] && MKTS[pr].t === 'crypto'); };
-    var _LIVE_NONCRYPTO = { mmove_m15:1, sweepfvg_ix:1, crt_ix:1 };   // live methods whose pockets include non-crypto (gold/silver/FRA40/indices)
+    var _LIVE_NONCRYPTO = { mmove_m15:1, sweepfvg_ix:1, crt_ix:1, fma_sweep_cm:1 };   // live methods whose pockets include non-crypto (gold/silver/FRA40/indices/commodities)
     var _isLiveFill = function(r){ return !_isDemotedMethod(r) && (_isLiveClass(r.pair) || !!_LIVE_NONCRYPTO[_stratOf(r)]); };
     var Lw=0, Ll=0, LR=0, Ln=0, aggCL={'target-hit':0,'stop-clean':0,'stop-after-progress':0,'cbot-invalidation':0,'manual':0};
     execs.forEach(function(r){
@@ -21535,7 +21535,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
                    orb_eq:'opening-range breakout + volume gate · m15 US equities',
                    gold_us2h:'2nd-hour US-session displacement + 5min reversal · true m5 gold',
                    fma_gold:'liquidity-sweep + 50-EMA reclaim reversal · m15 gold',
-                   fma_sweep_cm:'liquidity-sweep + 50-EMA reclaim reversal · m15 commodities',
+                   fma_sweep_cm:'liquidity-sweep + 50-EMA reclaim reversal · m15 commodities (silver/WTI/oil/natgas) · RR2 (live)',
                    fma_sweep_ix:'liquidity-sweep + 50-EMA reclaim reversal · m15 indices',
                    po3_cm:'Power-of-Three London-open sweep-reversal · m15 non-gold commodities',
                    sweepfvg_ix:'liquidity-sweep reversal + FVG + fib retrace · m15 indices · RR2 (live)',
