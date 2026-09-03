@@ -1948,24 +1948,31 @@ def detect_sweepfvg(pk, m15):
     return out
 
 
-# ── Elliott Wave 5th-wave breakout (Bratby 'Trade the Fifth') — 4H, all pairs ──────
+# ── Elliott Wave 5th-wave breakout (Bratby 'Trade the Fifth') — 4H, comm+crypto ────
 # Faithful to elliott_research.detect_wave5: zigzag pivots 0-1-2-3-4 form a valid impulse
 # (w2 doesn't fully retrace w1; w3 makes a new extreme with w3>=w1; w4 doesn't overlap
 # w1), enter on the breakout beyond the wave-3 extreme (wave 5 igniting), stop at the
 # wave-4 low. Wave 3 fails on every timeframe, and the DAILY timeframe from the source
-# chart is too data-starved to test (~1yr of daily bars => n=10-79 across all 40 pairs);
-# the only gate-passing EW entry is wave 5 on 4H (n=155-186, both OOS halves +). Emitted
-# at fixed RR2 (the cBot's execution model). MONITOR-ONLY observer, all classes.
+# chart is too data-starved to test (~1yr of daily bars => n=10-79 across all 40 pairs).
+# The per-class study found the wave-5 4H edge lives in COMM+CRYPTO (RR2 +0.414R, both OOS
+# halves +); FX is -0.350R and index flat, so those are excluded. A textbook Fibonacci
+# wave-2 retracement filter (0.382-0.618) further lifts it to ~57% WR / +0.696R with
+# balanced halves. Emitted at fixed RR2 (the cBot's execution model). MONITOR-ONLY observer.
 EW_WAVE5_PRD = 5
 EW_WAVE5_BREAK_WIN = 40
 EW_WAVE5_COOLDOWN = 6
 EW_WAVE5_ATR_BUF = 0.25
 EW_WAVE5_RR = 2.0
 EW_WAVE5_HOLD = 60          # 4h bars (matches HOLD['4h'])
+EW_WAVE5_CLASSES = {'comm', 'crypto'}   # per-class study: the edge is comm+crypto; FX destroys it, index flat
+EW_WAVE5_W2_MIN, EW_WAVE5_W2_MAX = 0.382, 0.618   # textbook Fibonacci wave-2 retracement (quality filter)
 
 
 def detect_ew_wave5(pk, h1):
-    if len(h1) < 400:
+    # Per-class breakdown: wave-5 4H RR2 is +0.414R on comm+crypto (both OOS halves +) but
+    # -0.350R on FX and flat on index — so scope to comm+crypto. The wave-2 Fibonacci
+    # retracement filter (0.382-0.618) lifts it to ~57% WR / +0.696R with balanced halves.
+    if PAIR_CLASS.get(pk) not in EW_WAVE5_CLASSES or len(h1) < 400:
         return []
     bars = agg4h(h1); n = len(bars)
     piv = _ew_zigzag(bars, EW_WAVE5_PRD); out = []; last = -1
@@ -1982,6 +1989,9 @@ def detect_ew_wave5(pk, h1):
                 ok = p2 < p0 and p3 < p1 and p4 < p1 and p4 > p3 and w3 >= w1
             if not ok or w1 <= 0:
                 continue
+            w2ret = abs(p2 - p1) / w1                    # wave-2 retracement of wave 1
+            if not (EW_WAVE5_W2_MIN <= w2ret <= EW_WAVE5_W2_MAX):
+                continue                                  # keep only textbook Fib-zone wave 2s
             start = pv[4][0] + EW_WAVE5_PRD + 1
             entry_i = None; invalid = False
             for j in range(start, min(start + EW_WAVE5_BREAK_WIN, n - 1)):
