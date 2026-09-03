@@ -1968,10 +1968,9 @@ EW_WAVE5_CLASSES = {'comm', 'crypto'}   # per-class study: the edge is comm+cryp
 EW_WAVE5_W2_MIN, EW_WAVE5_W2_MAX = 0.382, 0.618   # textbook Fibonacci wave-2 retracement (quality filter)
 
 
-def detect_ew_wave5(pk, h1):
-    # Per-class breakdown: wave-5 4H RR2 is +0.414R on comm+crypto (both OOS halves +) but
-    # -0.350R on FX and flat on index — so scope to comm+crypto. The wave-2 Fibonacci
-    # retracement filter (0.382-0.618) lifts it to ~57% WR / +0.696R with balanced halves.
+def _ew_wave5_core(pk, h1, tag, w2_filter):
+    """Wave-5 breakout signals on comm+crypto 4H. w2_filter=True keeps only wave-2
+    retracements in the textbook Fibonacci zone (the higher-WR quality overlay)."""
     if PAIR_CLASS.get(pk) not in EW_WAVE5_CLASSES or len(h1) < 400:
         return []
     bars = agg4h(h1); n = len(bars)
@@ -1989,9 +1988,10 @@ def detect_ew_wave5(pk, h1):
                 ok = p2 < p0 and p3 < p1 and p4 < p1 and p4 > p3 and w3 >= w1
             if not ok or w1 <= 0:
                 continue
-            w2ret = abs(p2 - p1) / w1                    # wave-2 retracement of wave 1
-            if not (EW_WAVE5_W2_MIN <= w2ret <= EW_WAVE5_W2_MAX):
-                continue                                  # keep only textbook Fib-zone wave 2s
+            if w2_filter:
+                w2ret = abs(p2 - p1) / w1                # wave-2 retracement of wave 1
+                if not (EW_WAVE5_W2_MIN <= w2ret <= EW_WAVE5_W2_MAX):
+                    continue                              # keep only textbook Fib-zone wave 2s
             start = pv[4][0] + EW_WAVE5_PRD + 1
             entry_i = None; invalid = False
             for j in range(start, min(start + EW_WAVE5_BREAK_WIN, n - 1)):
@@ -2014,11 +2014,22 @@ def detect_ew_wave5(pk, h1):
             if R <= 0:
                 continue
             target = entry + EW_WAVE5_RR * R if d == 'bull' else entry - EW_WAVE5_RR * R
-            out.append({'strategy': 'ew_wave5_4h', 'tf': '4h', 'pair': pk, 'dir': d,
+            out.append({'strategy': tag, 'tf': '4h', 'pair': pk, 'dir': d,
                         'entry_ts': bars[entry_i]['_ts'], 'entry': entry, 'stop': stop,
                         'target': target})
             last = entry_i + EW_WAVE5_COOLDOWN
     return out
+
+
+def detect_ew_wave5(pk, h1):
+    # Broad comm+crypto wave-5 (no wave-2 filter) — more samples: n=70, RR2 +0.414R.
+    return _ew_wave5_core(pk, h1, 'ew_wave5_4h', w2_filter=False)
+
+
+def detect_ew_wave5_fib(pk, h1):
+    # Same, plus the textbook Fibonacci wave-2 retracement overlay — higher WR, fewer
+    # samples: n=23, ~57% WR, +0.696R. Kept SEPARATE so both accrue forward evidence.
+    return _ew_wave5_core(pk, h1, 'ew_wave5_fib_4h', w2_filter=True)
 
 
 def score_sess(bars, entry_ts, entry, stop, target, d, hold):
@@ -2113,7 +2124,7 @@ def main():
                  + detect_zbreak(pk, h1, daily)
                  + detect_twob(pk, h1) + detect_holygrail_m15(pk, m15)
                  + detect_fma(pk, m15) + detect_po3(pk, m15) + detect_sweepfvg(pk, m15)
-                 + detect_ew_wave5(pk, h1))
+                 + detect_ew_wave5(pk, h1) + detect_ew_wave5_fib(pk, h1))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -2182,7 +2193,7 @@ def main():
                 st, o = score_sess(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], PO3_HOLD)
             elif rec['strategy'] == 'sweepfvg_ix':
                 st, o = score_sess(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], SWEEPFVG_HOLD)
-            elif rec['strategy'] == 'ew_wave5_4h':
+            elif rec['strategy'] in ('ew_wave5_4h', 'ew_wave5_fib_4h'):
                 st, o = score_sess(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], EW_WAVE5_HOLD)
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
@@ -2302,7 +2313,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'absorb_btc'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'absorb_btc'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
