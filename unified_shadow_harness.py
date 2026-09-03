@@ -19,6 +19,7 @@ from five_strategies_research import ema, atr, adx, agg4h, weekly, is_engulf, HO
 from session_2h_reversal_research import find_signals as _sess_signals, GEO as _SESS_GEO, SESSIONS as _SESS_HOURS
 from fma_sweep_reversal_research import fma_signals as _fma_signals
 from astongill_orb_po3_research import po3_signals as _po3_signals, SESS as _PO3_SESS
+from elliott_research import zigzag as _ew_zigzag
 from crypto_delta_research import absorption_signals as _absorb_signals, _norm as _delta_norm
 from liquidity_sweep_fvg_research import variant_B as _sweepfvg_signals
 
@@ -1947,6 +1948,69 @@ def detect_sweepfvg(pk, m15):
     return out
 
 
+# ── Elliott Wave 5th-wave breakout (Bratby 'Trade the Fifth') — 4H, all pairs ──────
+# Faithful to elliott_research.detect_wave5: zigzag pivots 0-1-2-3-4 form a valid impulse
+# (w2 doesn't fully retrace w1; w3 makes a new extreme with w3>=w1; w4 doesn't overlap
+# w1), enter on the breakout beyond the wave-3 extreme (wave 5 igniting), stop at the
+# wave-4 low. Wave 3 fails on every timeframe, and the DAILY timeframe from the source
+# chart is too data-starved to test (~1yr of daily bars => n=10-79 across all 40 pairs);
+# the only gate-passing EW entry is wave 5 on 4H (n=155-186, both OOS halves +). Emitted
+# at fixed RR2 (the cBot's execution model). MONITOR-ONLY observer, all classes.
+EW_WAVE5_PRD = 5
+EW_WAVE5_BREAK_WIN = 40
+EW_WAVE5_COOLDOWN = 6
+EW_WAVE5_ATR_BUF = 0.25
+EW_WAVE5_RR = 2.0
+EW_WAVE5_HOLD = 60          # 4h bars (matches HOLD['4h'])
+
+
+def detect_ew_wave5(pk, h1):
+    if len(h1) < 400:
+        return []
+    bars = agg4h(h1); n = len(bars)
+    piv = _ew_zigzag(bars, EW_WAVE5_PRD); out = []; last = -1
+    for k in range(len(piv) - 4):
+        pv = piv[k:k + 5]
+        for d, kinds in (('bull', ('L', 'H', 'L', 'H', 'L')), ('bear', ('H', 'L', 'H', 'L', 'H'))):
+            if tuple(p[2] for p in pv) != kinds:
+                continue
+            p0, p1, p2, p3, p4 = (p[1] for p in pv)
+            w1 = abs(p1 - p0); w3 = abs(p3 - p2)
+            if d == 'bull':
+                ok = p2 > p0 and p3 > p1 and p4 > p1 and p4 < p3 and w3 >= w1
+            else:
+                ok = p2 < p0 and p3 < p1 and p4 < p1 and p4 > p3 and w3 >= w1
+            if not ok or w1 <= 0:
+                continue
+            start = pv[4][0] + EW_WAVE5_PRD + 1
+            entry_i = None; invalid = False
+            for j in range(start, min(start + EW_WAVE5_BREAK_WIN, n - 1)):
+                b = bars[j]
+                if d == 'bull':
+                    if b['l'] < p4:
+                        invalid = True; break          # broke wave-4 low -> count invalid
+                    if b['h'] > p3:
+                        entry_i = j + 1; break
+                else:
+                    if b['h'] > p4:
+                        invalid = True; break
+                    if b['l'] < p3:
+                        entry_i = j + 1; break
+            if invalid or entry_i is None or entry_i <= last or entry_i >= n:
+                continue
+            entry = bars[entry_i]['o']; a = atr(bars, 14, entry_i - 1) or 0.0
+            stop = (p4 - EW_WAVE5_ATR_BUF * a) if d == 'bull' else (p4 + EW_WAVE5_ATR_BUF * a)
+            R = abs(entry - stop)
+            if R <= 0:
+                continue
+            target = entry + EW_WAVE5_RR * R if d == 'bull' else entry - EW_WAVE5_RR * R
+            out.append({'strategy': 'ew_wave5_4h', 'tf': '4h', 'pair': pk, 'dir': d,
+                        'entry_ts': bars[entry_i]['_ts'], 'entry': entry, 'stop': stop,
+                        'target': target})
+            last = entry_i + EW_WAVE5_COOLDOWN
+    return out
+
+
 def score_sess(bars, entry_ts, entry, stop, target, d, hold):
     """Target-bracket scorer (explicit target, not RR-derived). Bracket-honest:
     unresolved within the hold is EXCLUDED, mirroring score()."""
@@ -2038,7 +2102,8 @@ def main():
                  + detect_holygrail(pk, h1) + detect_volbreak(pk, h1)
                  + detect_zbreak(pk, h1, daily)
                  + detect_twob(pk, h1) + detect_holygrail_m15(pk, m15)
-                 + detect_fma(pk, m15) + detect_po3(pk, m15) + detect_sweepfvg(pk, m15))
+                 + detect_fma(pk, m15) + detect_po3(pk, m15) + detect_sweepfvg(pk, m15)
+                 + detect_ew_wave5(pk, h1))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -2107,6 +2172,8 @@ def main():
                 st, o = score_sess(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], PO3_HOLD)
             elif rec['strategy'] == 'sweepfvg_ix':
                 st, o = score_sess(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], SWEEPFVG_HOLD)
+            elif rec['strategy'] == 'ew_wave5_4h':
+                st, o = score_sess(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], EW_WAVE5_HOLD)
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -2225,7 +2292,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'absorb_btc'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'absorb_btc'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
