@@ -144,6 +144,40 @@ DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback', 'gtrend', 'threepush', 'o
 SCALED_GOLD = {'gbreak', 'gtrend'}
 SCALE_LEGS = (1.0, 2.0, 3.0)
 
+# Post-loss re-entry cooloff (validated on twob_cm 2026-09-05). After a LOSING twob_cm close
+# on a symbol, block NEW twob_cm entries on that symbol for REENTRY_COOLOFF_H hours. LOSERS
+# ONLY — a winning close never arms it, so two profitable trades on the same symbol inside the
+# window are fine (subject only to the one-position-per-pair cap). Full-history backtest: cuts
+# the correlated same-pair loss clusters ~40% and the worst losing streak 15->12 while LIFTING
+# per-trade expectancy (+0.171R -> +0.205R, both OOS halves +). Targets the metals whipsaw that
+# stacked 4 silver + 4 platinum longs into one -21.6K week. Reads swing-executions.json.
+REENTRY_COOLOFF = {'twob_cm'}
+REENTRY_COOLOFF_H = 12
+SWING_EXECS = os.path.join(_HERE, 'swing-executions.json')
+
+
+def _last_loss_closes():
+    """{(strategy, SYMBOL): latest losing-close ts (sec)} for cooloff-scoped strategies.
+    A loss is any closed fill with realized_r < 0 (stop-out or a manual/broker close in the
+    red) — matches the backtest, which armed the cooloff on every r<0 close. Fail-open."""
+    out = {}
+    try:
+        ex = json.load(open(SWING_EXECS)).get('executions', [])
+    except Exception:
+        return out
+    for r in ex:
+        if r.get('event') != 'closed':
+            continue
+        st = r.get('strategy') or ''
+        rr = r.get('realized_r')
+        ts = r.get('ts')
+        if st not in REENTRY_COOLOFF or not isinstance(rr, (int, float)) or rr >= 0 or ts is None:
+            continue
+        sym = (r.get('symbol') or r.get('pair') or '').upper()
+        if sym:
+            out[(st, sym)] = max(out.get((st, sym), 0), ts / 1000.0)
+    return out
+
 
 def main():
     d = json.load(open(HIST)); pairs = d.get('pairs', {})
@@ -155,6 +189,7 @@ def main():
             if b:
                 data_end = max(data_end, b[-1]['_ts'])
     fresh_after = data_end - FRESH_HOURS * 3600
+    loss_closes = _last_loss_closes()   # {(strategy, SYMBOL): last losing-close ts} — post-loss cooloff
 
     rows = []
     for pk in [x for x in PAIR_CLASS if x in pairs]:
@@ -208,6 +243,13 @@ def main():
                 continue
             if s['strategy'] in DEMOTED:   # detected but held back from the cBot; harness still logs it
                 continue
+            # post-loss re-entry cooloff (losers-only): skip a NEW entry that fires within
+            # REENTRY_COOLOFF_H of the last LOSING close on this symbol+strategy. A winning
+            # close never populates loss_closes, so back-to-back winners are unaffected.
+            if s['strategy'] in REENTRY_COOLOFF:
+                lc = loss_closes.get((s['strategy'], pk.upper()))
+                if lc is not None and s['entry_ts'] < lc + REENTRY_COOLOFF_H * 3600:
+                    continue
             sid = f"{s['strategy']}:{pk}:{int(s['entry_ts'])}"
             rows.append({
                 'id': sid,
