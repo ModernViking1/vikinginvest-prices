@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-05T21:14:03.255337+00:00",
-  "generated_ms": 1788642840727,
-  "detector_last_check": "2026-09-05T21:13:59.774117+00:00",
+  "generated": "2026-09-05T23:00:31.563409+00:00",
+  "generated_ms": 1788649228092,
+  "detector_last_check": "2026-09-05T23:00:26.678281+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,10 +10,55 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 0,
+    "total": 2,
     "armed": 0,
-    "triggered": 0,
-    "invalidated": 0
+    "triggered": 1,
+    "invalidated": 1
   },
-  "signals": []
+  "signals": [
+    {
+      "id": "xrpusd:1780326900000:fib",
+      "pair": "xrpusd",
+      "sym": "XRPUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 1.4212922000000001,
+      "stop": 1.4137,
+      "target": 1.4288844000000003,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780326900000,
+      "triggeredAt": 1788645600000,
+      "lastSeenAt": 1788649228092,
+      "source": "server-detector",
+      "event_aligned": null
+    },
+    {
+      "id": "ethusd:1780287300000:fib",
+      "pair": "ethusd",
+      "sym": "ETHUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 2488.8910800000003,
+      "stop": 2457.57,
+      "target": 2520.2121600000005,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780287300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1788649228092,
+      "source": "server-detector",
+      "event_aligned": null
+    }
+  ]
 }
