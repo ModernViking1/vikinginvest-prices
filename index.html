@@ -213,17 +213,26 @@ section{padding:84px 0;}
 /* ── EXPERIENCE ── */
 .experience{background:var(--bg2);}
 .exp-banks{
-  display:flex;flex-wrap:wrap;gap:10px;justify-content:center;
-  margin-bottom:54px;
+  display:flex;flex-wrap:wrap;gap:12px 14px;justify-content:center;align-items:stretch;
+  max-width:940px;margin:0 auto 54px;
 }
 .exp-banks .bank{
-  font-family:'Inter', system-ui, sans-serif;font-size:11px;font-weight:700;
-  letter-spacing:1.5px;text-transform:uppercase;
-  padding:11px 18px;background:var(--sf);border:1px solid var(--rule);
-  border-radius:8px;color:var(--ink);
-  transition:border-color .15s ease, transform .12s ease, box-shadow .15s ease;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  min-width:154px;min-height:60px;padding:15px 22px;
+  background:var(--sf);border:1px solid var(--rule);border-radius:12px;
+  transition:border-color .18s ease, transform .14s ease, box-shadow .18s ease;
 }
-.exp-banks .bank:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:var(--shad);}
+.exp-banks .bank .nm{
+  font-family:Georgia,'Times New Roman',serif;font-size:16.5px;font-weight:600;
+  letter-spacing:.2px;color:var(--inkm);line-height:1.15;white-space:nowrap;
+  transition:color .18s ease;
+}
+.exp-banks .bank .sub{
+  font-family:'Inter', system-ui, sans-serif;font-size:9px;font-weight:700;
+  letter-spacing:1.4px;text-transform:uppercase;color:var(--inkd);margin-top:5px;
+}
+.exp-banks .bank:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:var(--shad);}
+.exp-banks .bank:hover .nm{color:var(--ink);}
 .exp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:42px;}
 .exp-card{
   background:var(--sf);border:1px solid var(--rule);border-radius:14px;
@@ -595,12 +604,13 @@ section{padding:84px 0;}
     </div>
 
     <div class="exp-banks">
-      <span class="bank">Mitsubishi UFJ</span>
-      <span class="bank">Royal Bank of Canada</span>
-      <span class="bank">Deutsche Bank</span>
-      <span class="bank">Credit Suisse</span>
-      <span class="bank">UBS</span>
-      <span class="bank">Barclays</span>
+      <span class="bank"><span class="nm">Mitsubishi UFJ</span><span class="sub">MUFG</span></span>
+      <span class="bank"><span class="nm">Deutsche Bank</span></span>
+      <span class="bank"><span class="nm">Royal Bank of Canada</span><span class="sub">RBC</span></span>
+      <span class="bank"><span class="nm">Credit Suisse</span></span>
+      <span class="bank"><span class="nm">UBS</span></span>
+      <span class="bank"><span class="nm">Thomson Reuters</span><span class="sub">now LSEG</span></span>
+      <span class="bank"><span class="nm">Barclays</span></span>
     </div>
 
     <div class="exp-grid">
