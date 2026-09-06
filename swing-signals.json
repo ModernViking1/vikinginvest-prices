@@ -1,36 +1,10 @@
 {
  "schema_version": 1,
- "generated": "2026-09-06T15:00:00+00:00",
- "data_end_ts": 1788706800,
- "raw_signal_count": 21,
+ "generated": "2026-09-06T20:00:00+00:00",
+ "data_end_ts": 1788724800,
+ "raw_signal_count": 18,
  "count": 7,
  "signals": [
-  {
-   "id": "twob:suiusd:1788706800",
-   "strategy": "twob",
-   "pair": "suiusd",
-   "symbol": "SUIUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 0.78300571,
-   "ref_entry": 0.7908,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1788706800,
-   "created_ts": 1788706800,
-   "expiry_ts": 1788750000,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bear",
-    "twob:bull"
-   ],
-   "suppressed": 2
-  },
   {
    "id": "twob:taousd:1788706800",
    "strategy": "twob",
@@ -45,7 +19,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1788706800,
-   "created_ts": 1788706800,
+   "created_ts": 1788724800,
    "expiry_ts": 1788750000,
    "state": "triggered",
    "cofire": [
@@ -71,7 +45,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1788706800,
-   "created_ts": 1788706800,
+   "created_ts": 1788724800,
    "expiry_ts": 1788750000,
    "state": "triggered",
    "cofire": [
@@ -81,7 +55,59 @@
     "twob:bear",
     "twob:bull"
    ],
-   "suppressed": 4
+   "suppressed": 2
+  },
+  {
+   "id": "twob:nearusd:1788696000",
+   "strategy": "twob",
+   "pair": "nearusd",
+   "symbol": "NEARUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 2.42044714,
+   "ref_entry": 2.3915,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1788696000,
+   "created_ts": 1788724800,
+   "expiry_ts": 1788739200,
+   "state": "triggered",
+   "cofire": [
+    "twob"
+   ],
+   "cofire_dirs": [
+    "twob:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "engulf_manip:suiusd:1788692400",
+   "strategy": "engulf_manip",
+   "pair": "suiusd",
+   "symbol": "SUIUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 0.78249357,
+   "ref_entry": 0.8006,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1788692400,
+   "created_ts": 1788724800,
+   "expiry_ts": 1788735600,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip",
+    "twob"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bull",
+    "twob:bull"
+   ],
+   "suppressed": 2
   },
   {
    "id": "twob:solusd:1788688800",
@@ -97,7 +123,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1788688800,
-   "created_ts": 1788706800,
+   "created_ts": 1788724800,
    "expiry_ts": 1788732000,
    "state": "triggered",
    "cofire": [
@@ -122,7 +148,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1788678000,
-   "created_ts": 1788706800,
+   "created_ts": 1788724800,
    "expiry_ts": 1788721200,
    "state": "triggered",
    "cofire": [
@@ -131,9 +157,10 @@
    ],
    "cofire_dirs": [
     "hs:bear",
-    "twob:bear"
+    "twob:bear",
+    "twob:bull"
    ],
-   "suppressed": 1
+   "suppressed": 2
   },
   {
    "id": "twob:ethusd:1788674400",
@@ -149,7 +176,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1788674400,
-   "created_ts": 1788706800,
+   "created_ts": 1788724800,
    "expiry_ts": 1788717600,
    "state": "triggered",
    "cofire": [
@@ -159,34 +186,6 @@
     "twob:bear"
    ],
    "suppressed": 1
-  },
-  {
-   "id": "engulf_manip:nearusd:1788631200",
-   "strategy": "engulf_manip",
-   "pair": "nearusd",
-   "symbol": "NEARUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 2.14807786,
-   "ref_entry": 2.254,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1788631200,
-   "created_ts": 1788706800,
-   "expiry_ts": 1788674400,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bull",
-    "twob:bear",
-    "twob:bull"
-   ],
-   "suppressed": 2
   }
  ]
 }
