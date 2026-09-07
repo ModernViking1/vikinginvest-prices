@@ -29,6 +29,11 @@ SIGNALS = os.path.join(_HERE, 'signals.json')
 SWING = os.path.join(_HERE, 'swing-signals.json')
 STATE = os.path.join(_HERE, 'crypto-alerts-state.json')
 STATE_CAP = 800                      # keep the most recent N alerted ids
+MIN_WR = 50.0                        # only alert on strategies whose forward win rate exceeds this.
+                                     # NOTE: at fixed RR2 a strategy is profitable above ~33% WR, so
+                                     # this is a HIT-RATE preference, not a profitability gate — it
+                                     # drops profitable-but-lower-WR strategies (e.g. hs, engulf_manip).
+                                     # Set to 0.0 to alert on every proven, positive-expectancy strategy.
 
 
 def _proven_profitable():
@@ -45,7 +50,8 @@ def _proven_profitable():
     out = {}
     for r in rows:
         st = r.get('st')
-        if st in LIVE and r.get('exp', -1) > 0:      # promoted (not demoted) AND profitable
+        # promoted (not demoted) AND positive forward expectancy AND win rate over the threshold
+        if st in LIVE and r.get('exp', -1) > 0 and r.get('wr', 0.0) > MIN_WR:
             out[st] = (r.get('wr', 0.0), r.get('exp', 0.0))
     return out
 
