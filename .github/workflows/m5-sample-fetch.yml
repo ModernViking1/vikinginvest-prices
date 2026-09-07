@@ -46,6 +46,9 @@ jobs:
       - name: Intraday/microstructure strategies on true 5-minute
         run: python intraday_5m_research.py
 
+      - name: VWAP confluence-filter sweep (net of costs)
+        run: python vwap_confluence_research.py
+
       - name: Commit m5-sample-ohlc.json (sample scope only)
         if: ${{ (inputs.scope || 'sample') == 'sample' }}
         run: |
