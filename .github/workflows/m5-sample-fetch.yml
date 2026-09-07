@@ -43,6 +43,9 @@ jobs:
       - name: Box Theory backtest on true 5-minute
         run: python box_theory_research.py
 
+      - name: Intraday/microstructure strategies on true 5-minute
+        run: python intraday_5m_research.py
+
       - name: Commit m5-sample-ohlc.json (sample scope only)
         if: ${{ (inputs.scope || 'sample') == 'sample' }}
         run: |
