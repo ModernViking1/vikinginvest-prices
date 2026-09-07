@@ -13,6 +13,10 @@ on:
         description: 'Days of 5-minute history to fetch'
         required: false
         default: '90'
+      scope:
+        description: 'sample (7 instruments, committed) or all (every classed pair, results-only, not committed)'
+        required: false
+        default: 'sample'
 
 permissions:
   contents: write
@@ -31,15 +35,16 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
-      - name: Fetch 5-minute sample
+      - name: Fetch 5-minute data
         env:
           OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
-        run: python fetch_m5_sample.py --days "${{ inputs.days || '90' }}" --output m5-sample-ohlc.json
+        run: python fetch_m5_sample.py --days "${{ inputs.days || '90' }}" --pairs "${{ inputs.scope || 'sample' }}" --output m5-sample-ohlc.json
 
       - name: Box Theory backtest on true 5-minute
         run: python box_theory_research.py
 
-      - name: Commit m5-sample-ohlc.json
+      - name: Commit m5-sample-ohlc.json (sample scope only)
+        if: ${{ (inputs.scope || 'sample') == 'sample' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -49,3 +54,7 @@ jobs:
             git push && { echo pushed; exit 0; }
             git fetch origin main && git rebase origin/main && sleep 3
           done
+
+      - name: Note (all scope)
+        if: ${{ (inputs.scope || 'sample') == 'all' }}
+        run: echo "scope=all — raw m5 not committed (too large); results are in the backtest step log above."

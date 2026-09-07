@@ -14,9 +14,12 @@ import sys
 from datetime import datetime, timezone, timedelta
 
 from fetch_historical_ohlc import PAIRS, fetch_oanda_candles, fetch_coinbase_candles
+from detect_triggers import PAIR_CLASS
 
 # one+ per class: major / minor / index / comm(x2) / crypto(x2)
 SUBSET = ['eurusd', 'eurgbp', 'nas100', 'xagusd', 'wtiusd', 'btcusd', 'solusd']
+# every classed pair that has a source mapping (for --pairs all, full-coverage research)
+ALL_MAPPED = [pk for pk in PAIR_CLASS if pk in PAIRS]
 
 
 def _arg(flag, default):
@@ -26,12 +29,15 @@ def _arg(flag, default):
 def main():
     days = int(_arg('--days', '90'))
     out = _arg('--output', 'm5-sample-ohlc.json')
+    which = _arg('--pairs', 'sample')
+    subset = ALL_MAPPED if which == 'all' else (which.split(',') if ',' in which else SUBSET)
     token = os.environ.get('OANDA_TOKEN', '').strip() or None
     now = datetime.now(timezone.utc)
     frm = now - timedelta(days=days)
     data = {'generated': now.strftime('%Y-%m-%dT%H:%M:%SZ'), 'granularity': 'm5',
             'days': days, 'pairs': {}}
-    for pk in SUBSET:
+    print(f'fetching m5 for {len(subset)} pairs ({which}), {days} days', flush=True)
+    for pk in subset:
         cfg = PAIRS.get(pk)
         if not cfg:
             print(f'skip {pk}: not in PAIRS', flush=True)
