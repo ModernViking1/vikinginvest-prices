@@ -17,6 +17,7 @@ from collections import defaultdict
 
 from backtest_rsi_per_class import _bars_norm
 from detect_triggers import PAIR_CLASS
+from five_strategies_research import cost
 from session_2h_reversal_research import find_signals as _sess, GEO as _GEO
 from astongill_orb_po3_research import orb_signals as _orb, po3_signals as _po3
 from vwap_research import session_vwap as _svwap, sig_mr as _vmr, sig_tp as _vtp
@@ -45,23 +46,29 @@ def _norm_dir(d):
 
 
 def score(bars, ei, entry, stop, d):
+    """Fixed-RR2, NET of the desk's realistic per-side cost model. For a fast intraday
+    fade the cost drag is decisive, so gross scoring is misleading — this returns the
+    cost-adjusted R (o - cost) so the gate reflects what would actually be tradeable."""
     R = abs(entry - stop)
     if R <= 0 or ei >= len(bars):
         return None
     tgt = entry + RR * R if d == 'bull' else entry - RR * R
+    o = None
     for j in range(ei + 1, min(ei + 1 + HOLD, len(bars))):
         b = bars[j]
         if d == 'bull':
             if b['l'] <= stop:
-                return -1.0
+                o = -1.0; break
             if b['h'] >= tgt:
-                return RR
+                o = RR; break
         else:
             if b['h'] >= stop:
-                return -1.0
+                o = -1.0; break
             if b['l'] <= tgt:
-                return RR
-    return None
+                o = RR; break
+    if o is None:
+        return None
+    return o - cost(o, entry, R)
 
 
 def stat(seq):
@@ -100,7 +107,7 @@ def main():
                     results[name][cls].append((bars[ei]['_ts'], r))
 
     print("=" * 90)
-    print("INTRADAY/MICROSTRUCTURE STRATEGIES @ TRUE 5m — fixed RR2, per class, OOS split")
+    print("INTRADAY/MICROSTRUCTURE STRATEGIES @ TRUE 5m — fixed RR2 NET OF COSTS, per class, OOS split")
     print("=" * 90)
     hits = []
     for name in STRATS:
