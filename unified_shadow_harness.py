@@ -18,7 +18,7 @@ from hs_swing_research import scan as hs_scan, MAX_HOLD as HS_HOLD
 from five_strategies_research import ema, atr, adx, agg4h, weekly, is_engulf, HOLD
 from session_2h_reversal_research import find_signals as _sess_signals, GEO as _SESS_GEO, SESSIONS as _SESS_HOURS
 from fma_sweep_reversal_research import fma_signals as _fma_signals
-from astongill_orb_po3_research import po3_signals as _po3_signals, SESS as _PO3_SESS
+from astongill_orb_po3_research import po3_signals as _po3_signals, orb_signals as _orb_signals, SESS as _PO3_SESS
 from elliott_research import zigzag as _ew_zigzag
 from crypto_delta_research import absorption_signals as _absorb_signals, _norm as _delta_norm
 from liquidity_sweep_fvg_research import variant_B as _sweepfvg_signals
@@ -1870,6 +1870,33 @@ def _gold_us2h_signals(m5):
     return out
 
 
+# ── orb_ln 5m observer — London-open opening-range breakout, commodities (true m5) ──
+# The one cost-VALIDATED survivor of the 5m selective re-test: net +0.177R with both OOS
+# halves + on commodities. It survives where tight-stop 5m fades (VWAP) died because its
+# WIDE opening-range stop keeps the cost drag small. Fed by m5-comm-ohlc.json (fetched
+# daily in swing-shadow.yml). MONITOR-ONLY; scored NET OF COSTS in the harness block below.
+M5_COMM_HIST = os.path.join(_HERE, 'm5-comm-ohlc.json')
+ORB_LN_HOUR = 7            # London open (UTC)
+ORB_LN_RR = 2.0           # the fixed RR the edge was validated at
+ORB_LN_HOLD = 288         # m5 bars (~1 day) bracket horizon
+ORB_LN_POCKETS = ['xauusd', 'xagusd', 'wtiusd', 'usoil', 'natgas', 'xptusd']
+
+
+def _orb_ln_signals(m5, pair):
+    """London-open opening-range breakout on true m5, targeted at RR2."""
+    out = []
+    for (ei, entry, stop, d) in _orb_signals(m5, ORB_LN_HOUR):
+        if ei >= len(m5):
+            continue
+        R = abs(entry - stop)
+        if R <= 0:
+            continue
+        target = entry + ORB_LN_RR * R if d == 'bull' else entry - ORB_LN_RR * R
+        out.append({'strategy': 'orb_ln', 'tf': 'm5', 'pair': pair, 'dir': d,
+                    'entry_ts': m5[ei]['_ts'], 'entry': entry, 'stop': stop, 'target': target})
+    return out
+
+
 # ── FMA ($100->$1M Millionaire Trading Academy) sweep + 50-EMA-reclaim reversal ──
 # m15: sweep a 20-bar swing extreme that closes back inside (liquidity grab), then a
 # 50-EMA reclaim confirms the reversal; stop beyond the sweep, fixed RR2 target. The
@@ -2269,6 +2296,33 @@ def main():
         except Exception as e:
             print(f"gold m5 observer skipped: {e}")
 
+    # ── orb_ln 5m observer — London-open opening-range breakout, commodities (m5-comm-
+    #    ohlc.json, fetched daily in swing-shadow.yml). Cost-validated wide-stop 5m
+    #    survivor; scored NET OF COSTS (o - cost) exactly like the gold m5 observer. ──
+    if os.path.exists(M5_COMM_HIST):
+        try:
+            cpairs = json.load(open(M5_COMM_HIST)).get('pairs', {})
+            for pk in ORB_LN_POCKETS:
+                m5c = _bars_norm(cpairs.get(pk, {}).get('m5', []))
+                if len(m5c) < 400:
+                    continue
+                data_end = max(data_end, m5c[-1]['_ts'])
+                for s in _orb_ln_signals(m5c, pk):
+                    detected += 1
+                    k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
+                    if k not in sigs:
+                        s['first_seen'] = data_end; s['status'] = 'pending'; sigs[k] = s
+                    rec = sigs[k]
+                    st, o = score_sess(m5c, rec['entry_ts'], rec['entry'], rec['stop'],
+                                       rec['target'], rec['dir'], ORB_LN_HOLD)
+                    rec['status'] = st
+                    if st == 'resolved':
+                        rec['r'] = o - cost(o, rec['entry'], abs(rec['entry'] - rec['stop']))
+                    else:
+                        rec.pop('r', None)
+        except Exception as e:
+            print(f"orb_ln m5 observer skipped: {e}")
+
     # ── BTC absorption observer — Binance real-delta (binance-crypto-ohlcv.json). ──
     if os.path.exists(BINANCE_CRYPTO):
         try:
@@ -2313,7 +2367,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'absorb_btc'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'orb_ln', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'absorb_btc'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)

@@ -53,6 +53,15 @@ jobs:
             if [ ! -f "$f" ]; then echo "::error::$f missing from repo root"; exit 1; fi
           done
 
+      - name: Fetch 5m commodities (orb_ln observer)
+        # True 5-minute commodity bars for the orb_ln London-open ORB observer.
+        # 45-day rolling window, own file (small, ~few MB). Fail-open: the harness
+        # block guards on the file existing, so a fetch hiccup just skips orb_ln.
+        env:
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+        continue-on-error: true
+        run: python fetch_m5_sample.py --days 45 --pairs xauusd,xagusd,wtiusd,usoil,natgas,xptusd --output m5-comm-ohlc.json
+
       - name: Run unified shadow harness
         run: python unified_shadow_harness.py
 
@@ -60,11 +69,11 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- swing-shadow-log.json; then
-            echo "no change to swing-shadow-log.json"; exit 0
+          if git diff --quiet -- swing-shadow-log.json m5-comm-ohlc.json; then
+            echo "no change to swing-shadow-log.json / m5-comm-ohlc.json"; exit 0
           fi
-          git add swing-shadow-log.json
-          git commit -m "chore: update swing shadow forward-test log [skip ci]"
+          git add swing-shadow-log.json m5-comm-ohlc.json
+          git commit -m "chore: update swing shadow forward-test log + m5 comm [skip ci]"
           pushed=0
           for i in 1 2 3 4 5; do
             if git push origin main 2>&1; then echo "pushed"; pushed=1; break; fi
