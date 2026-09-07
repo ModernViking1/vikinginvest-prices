@@ -1,0 +1,51 @@
+name: M5 Sample Fetch (box-theory research)
+
+# One-shot: pull true 5-minute OHLC for a handful of representative instruments
+# (one+ per asset class) into m5-sample-ohlc.json, then run the Box Theory backtest
+# at the strategy's native 5m timeframe. Research-only; kept out of the main feed.
+# Requires repo secret OANDA_TOKEN (already used by fetch-data.yml). Coinbase pairs
+# are keyless.
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Days of 5-minute history to fetch'
+        required: false
+        default: '90'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: m5-sample-fetch
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Fetch 5-minute sample
+        env:
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+        run: python fetch_m5_sample.py --days "${{ inputs.days || '90' }}" --output m5-sample-ohlc.json
+
+      - name: Box Theory backtest on true 5-minute
+        run: python box_theory_research.py
+
+      - name: Commit m5-sample-ohlc.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add m5-sample-ohlc.json
+          git commit -m "data: 5-minute sample OHLC (box-theory research) [skip ci]" || { echo "nothing to commit"; exit 0; }
+          for i in 1 2 3 4; do
+            git push && { echo pushed; exit 0; }
+            git fetch origin main && git rebase origin/main && sleep 3
+          done
