@@ -102,6 +102,8 @@ PAIRS = {
     "solusd":  {"coinbase": "SOL-USD"},
     "xrpusd":  {"coinbase": "XRP-USD"},
     "taousd":  {"coinbase": "TAO-USD"},
+    "asterusd":   {"coinbase": "ASTER-USD"},     # added 2026-09-07 (user) — product IDs unverified
+    "lighterusd": {"coinbase": "LIGHTER-USD"},
     "nearusd": {"coinbase": "NEAR-USD"},
     # hypeusd removed 2026-06-10 — low win-rate drag.
     # Re-add: '"hypeusd": {"coinbase": "HYPE-USD"},'

@@ -131,6 +131,10 @@ PAIRS: Dict[str, Dict[str, str]] = {
     "xrpusd":  {"coinbase": "XRP-USD"},
     "taousd":  {"coinbase": "TAO-USD"},
     "nearusd": {"coinbase": "NEAR-USD"},
+    # asterusd / lighterusd added 2026-09-07 (user). Product IDs unverified — if Coinbase
+    # doesn't list them the fetch stores empty data (resilient) and they stay dormant.
+    "asterusd":   {"coinbase": "ASTER-USD"},
+    "lighterusd": {"coinbase": "LIGHTER-USD"},
     # hypeusd removed 2026-06-10 — low win-rate drag.
     # Re-add: '"hypeusd": {"coinbase": "HYPE-USD"},'
     # ondousd dropped 2026-06-17 (user). Re-add: '"ondousd": {"coinbase": "ONDO-USD"},'

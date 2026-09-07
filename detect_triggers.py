@@ -139,6 +139,7 @@ PAIR_CLASS = {
     'xrpusd': 'crypto', 'suiusd': 'crypto',
     # ltcusd removed 2026-06-10 — low win-rate drag.
     'taousd': 'crypto', 'nearusd': 'crypto',
+    'asterusd': 'crypto', 'lighterusd': 'crypto',   # added 2026-09-07 (user)
     # hypeusd removed 2026-06-10 — low win-rate drag.
     # ondousd dropped 2026-06-17 (user).
 }

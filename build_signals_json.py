@@ -93,6 +93,7 @@ PAIR_CLASS = {
     "btcusd": "crypto", "ethusd": "crypto", "nearusd": "crypto",
     "ondousd": "crypto", "solusd": "crypto", "suiusd": "crypto",
     "taousd": "crypto", "xrpusd": "crypto",
+    "asterusd": "crypto", "lighterusd": "crypto",   # added 2026-09-07 (user)
 }
 
 
