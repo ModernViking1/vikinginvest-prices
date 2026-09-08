@@ -1,0 +1,66 @@
+name: Fetch Anansi API spec (one-shot review)
+
+# One-shot: pull the Anansi REST API OpenAPI spec (the sandbox can't reach
+# onrender.com through the egress proxy) and print a digest — servers, auth,
+# every path+method+params, and any rate/macro/country schema fields — so the
+# spec can be reviewed for the potential data partnership. Read-only; nothing
+# committed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'OpenAPI JSON URL'
+        required: false
+        default: 'https://anansi-backend.onrender.com/v1/openapi.json'
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch + digest OpenAPI spec
+        run: |
+          set -e
+          URL="${{ inputs.url || 'https://anansi-backend.onrender.com/v1/openapi.json' }}"
+          echo "GET $URL"
+          curl -sSL --max-time 60 "$URL" -o openapi.json
+          echo "bytes: $(wc -c < openapi.json)"
+          python3 - <<'PY'
+          import json
+          try:
+              d = json.load(open('openapi.json'))
+          except Exception as e:
+              print("PARSE FAILED:", e)
+              print(open('openapi.json').read()[:2000]); raise SystemExit
+          print("=== INFO ==="); info = d.get('info', {})
+          print("title:", info.get('title'), "| version:", info.get('version'))
+          print("description:", (info.get('description') or '')[:500])
+          print("\n=== SERVERS ==="); [print(" ", s.get('url'), s.get('description','')) for s in d.get('servers', [])]
+          comps = d.get('components', {})
+          print("\n=== SECURITY SCHEMES ===")
+          for k, v in (comps.get('securitySchemes') or {}).items():
+              print(" ", k, "->", {x: v.get(x) for x in ('type','scheme','in','name','flows')})
+          print("\n=== PATHS ===")
+          for path, item in sorted((d.get('paths') or {}).items()):
+              for method, op in item.items():
+                  if method not in ('get','post','put','delete','patch'): continue
+                  print(f"\n{method.upper()} {path}")
+                  if op.get('summary'): print("  summary:", op['summary'])
+                  if op.get('tags'): print("  tags:", op['tags'])
+                  for p in op.get('parameters', []):
+                      sc = p.get('schema', {})
+                      print(f"    param: {p.get('name')} in={p.get('in')} req={p.get('required',False)} type={sc.get('type')} enum={sc.get('enum')}")
+                  rb = op.get('requestBody')
+                  if rb:
+                      for ct, m in (rb.get('content') or {}).items():
+                          print(f"    body[{ct}] schema:", json.dumps(m.get('schema', {}))[:300])
+                  for code, r in (op.get('responses') or {}).items():
+                      for ct, m in (r.get('content') or {}).items():
+                          print(f"    resp {code}[{ct}]:", json.dumps(m.get('schema', {}))[:200])
+          print("\n=== SCHEMAS mentioning rate/yield/macro/country/date ===")
+          for name, sch in sorted((comps.get('schemas') or {}).items()):
+              blob = json.dumps(sch).lower()
+              if any(w in (name.lower()+blob) for w in ('rate','yield','macro','countr','indicator','series','observation','date','period')):
+                  props = list((sch.get('properties') or {}).keys())
+                  print(f"  {name}: {props[:25]}")
+          PY
