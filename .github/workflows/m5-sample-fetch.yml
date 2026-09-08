@@ -49,6 +49,9 @@ jobs:
       - name: VWAP confluence-filter sweep (net of costs)
         run: python vwap_confluence_research.py
 
+      - name: Index reversal strategies — 5m vs m15 (net of costs)
+        run: python index_5m_research.py
+
       - name: Commit m5-sample-ohlc.json (sample scope only)
         if: ${{ (inputs.scope || 'sample') == 'sample' }}
         run: |
