@@ -62,6 +62,12 @@ LIVE_CLASSES = {"crypto"}
 # mmove_m15 promoted to the main live strategy in its place (see mmove_live.py).
 DEMOTED_METHODS = {"macdp", "wick"}
 
+# Pairs blacklisted from LIVE emission across ALL strategies — the cBot never sees a signal
+# on them (covers the intraday emitters AND the legacy alerts-state path merged into
+# signals.json). xptusd (platinum) 2026-09-08: net -£53.8K / 24 trades / 12% WR. The shadow
+# harness still observes it. Keep in sync with swing_signals.LIVE_BLACKLIST.
+LIVE_BLACKLIST = {"xptusd"}
+
 # Per-pair classification mirrors MKTS[k].t in the dashboard. Extracted
 # from Viking_Invest_Trading_v69.html so the EA's risk sizing matches
 # what the backtest engine computes. Kept inline (not imported) so this
@@ -373,6 +379,10 @@ def build_signals(state: dict) -> dict:
 
     # Newest-first ordering so the EA can early-exit on the first
     # already-seen id without paging through stale rows.
+    # Blacklisted pairs: drop from live emission entirely (never reaches the cBot).
+    out = [r for r in out if (r.get("pair") or "").lower() not in LIVE_BLACKLIST
+           and (r.get("sym") or "").lower() not in LIVE_BLACKLIST]
+
     out.sort(key=lambda r: r.get("armedAt") or 0, reverse=True)
 
     # Summary stats — handy for monitoring + the dashboard's signal-log

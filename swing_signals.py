@@ -134,6 +134,13 @@ DEMO_ONLY = {'fma_gold'}
 #   s5_rsi_wide(2026-08-24)  fwd n=26  -0.105R  — meets the DROP gate; rolled negative forward.
 DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback', 'gtrend', 'threepush', 'ob', 's5_rsi_wide'}
 
+# Pairs blacklisted from LIVE emission across ALL strategies (the cBot never sees a signal
+# on them). xptusd (platinum) 2026-09-08: net -£53.8K over 24 trades at 12% WR — every
+# attributable strategy 0-8% (twob_cm alone -£44K). Thin/gappy/wide-spread; no strategy
+# respects its structure. The shadow harness still OBSERVES these (evidence continues);
+# only live emission is blocked. Keep in sync with build_signals_json.LIVE_BLACKLIST.
+LIVE_BLACKLIST = {'xptusd'}
+
 # Scaled exit for the 2:1 gold signals (2026-08-01) — bank profit progressively instead of a
 # single far TP. gbreak/gtrend are emitted as THREE legs (1/3 risk each, SHARED stop) with
 # targets at 1R / 2R / 3R. The cBot opens one market position per signal id, so 3 ids = 3
@@ -193,6 +200,8 @@ def main():
 
     rows = []
     for pk in [x for x in PAIR_CLASS if x in pairs]:
+        if pk in LIVE_BLACKLIST:        # blacklisted from live emission (observed but not traded)
+            continue
         h1 = _bars_norm(pairs[pk].get('h1', [])); daily = _bars_norm(pairs[pk].get('daily', []))
         m15 = _bars_norm(pairs[pk].get('m15', []))   # for the m15 fma_gold demo pilot only
         draw = pairs[pk].get('daily', [])
