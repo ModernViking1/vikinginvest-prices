@@ -17,12 +17,24 @@ Run: python observer_review.py
 """
 import json
 import os
+import datetime
 import urllib.request
 import urllib.parse
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 LOG = os.path.join(_HERE, 'swing-shadow-log.json')
 EXECS = os.path.join(_HERE, 'executions.json')
+
+# Weekly pipeline sanity check — is every data pipe still flowing? Each entry is
+# (label, file, timestamp-key, warn-if-older-than-minutes). The intraday-feed check
+# is the one that would have caught the dead cron pinger (signals.json going stale)
+# weeks earlier instead of only surfacing via missing fills.
+_HEALTH_FILES = [
+    ('intraday feed', 'signals.json',         'generated',         30),
+    ('swing feed',    'swing-signals.json',    'generated',         360),
+    ('shadow log',    'swing-shadow-log.json', 'last_run_data_end', 2880),
+    ('price data',    'historical-ohlc.json',  'generated',         1440),
+]
 PROMOTE_N = 40
 DROP_N = 25
 DROP_EXP = -0.05
@@ -151,6 +163,74 @@ def fmt_gap_table(gaps):
     return "\n".join(out)
 
 
+def _ts_of(path, key):
+    """Epoch seconds of a timestamp field (ISO string or epoch) in a repo JSON file."""
+    try:
+        v = json.load(open(os.path.join(_HERE, path))).get(key)
+    except Exception:
+        return None
+    if v is None:
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        return datetime.datetime.fromisoformat(str(v).replace('Z', '+00:00')).timestamp()
+    except Exception:
+        return None
+
+
+def _fmt_age(mins):
+    if mins is None:
+        return 'n/a'
+    if mins < 90:
+        return f'{mins:.0f}m'
+    if mins < 60 * 48:
+        return f'{mins / 60:.1f}h'
+    return f'{mins / 1440:.1f}d'
+
+
+def _activity_7d():
+    """(fills, stale_rejects) across both execution logs over the last 7 days."""
+    cut = (datetime.datetime.now(datetime.timezone.utc).timestamp() - 7 * 86400) * 1000
+    fills = stale = 0
+    for fn in ('executions.json', 'swing-executions.json'):
+        try:
+            ex = json.load(open(os.path.join(_HERE, fn))).get('executions', [])
+        except Exception:
+            continue
+        for r in ex:
+            if (r.get('ts') or 0) < cut:
+                continue
+            if r.get('event') == 'placed':
+                fills += 1
+            elif r.get('event') == 'rejected' and 'stale' in (r.get('reason') or ''):
+                stale += 1
+    return fills, stale
+
+
+def pipeline_health():
+    """[(label, ok, detail)], overall_ok — weekly 'are all pipes flowing' check."""
+    now = datetime.datetime.now(datetime.timezone.utc).timestamp()
+    out = []
+    for label, path, key, warn in _HEALTH_FILES:
+        ts = _ts_of(path, key)
+        age = (now - ts) / 60.0 if ts else None
+        ok = age is not None and age <= warn
+        out.append((label, ok, f'{_fmt_age(age)} old (cap {_fmt_age(warn)})'))
+    fills, stale = _activity_7d()
+    # more stale-rejects than fills over 7d ⇒ the exact latency/dead-pinger failure mode
+    ok_act = fills > 0 and stale <= fills
+    out.append(('fills 7d', ok_act, f'{fills} filled / {stale} stale-rejected'))
+    return out, all(o for _, o, _ in out)
+
+
+def fmt_pipeline(health, ok):
+    lines = ["PIPELINE HEALTH — " + ("all pipes OK" if ok else "!! ISSUE(S) DETECTED")]
+    for label, o, detail in health:
+        lines.append(f"  {'OK  ' if o else 'WARN'} {label:<14} {detail}")
+    return "\n".join(lines)
+
+
 def telegram_digest(rows, gaps):
     promote = [r for r in rows if r['verdict'] == 'PROMOTE' and not r['live']]
     drop = [r for r in rows if r['verdict'] == 'DROP']
@@ -174,6 +254,10 @@ def telegram_digest(rows, gaps):
     if not promote and not drop:
         lines.append("\nNo promotions or drops this week — all observers still accruing.")
     lines.append(f"\n{len(watch)} observer(s) on watch. Full table in the job log.")
+    health, hp_ok = pipeline_health()
+    lines.append("\n\U0001F527 <b>Pipeline health</b> — " + ("✅ all pipes OK" if hp_ok else "⚠️ <b>ISSUE(S)</b>"))
+    for label, ok, detail in health:
+        lines.append(f"  {'✅' if ok else '⚠️'} {label}: {detail}")
     return "\n".join(lines)
 
 
@@ -208,6 +292,9 @@ def main():
     print(fmt_gap_table(gaps))
     flagged = [g['st'] for g in gaps if g['flag']]
     print("\nLIVE-vs-MODEL flags (live below model):", ', '.join(flagged) or 'none')
+    health, hp_ok = pipeline_health()
+    print("\n" + "=" * 84)
+    print(fmt_pipeline(health, hp_ok))
     send_telegram(telegram_digest(rows, gaps))
 
 
