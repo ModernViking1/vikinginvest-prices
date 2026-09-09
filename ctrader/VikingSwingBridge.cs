@@ -600,13 +600,30 @@ namespace cAlgo.Robots
                 // the current stop only when _posR is unknown (e.g. a pre-restart position).
                 double stopDistPx;
                 if (!_posR.TryGetValue(p.Id, out stopDistPx) || stopDistPx <= 0)
-                    stopDistPx = (p.StopLoss.HasValue && p.EntryPrice > 0) ? Math.Abs(p.EntryPrice - p.StopLoss.Value) : 0;
+                {
+                    // _posR is in-memory only, so a restart mid-trade loses it. Do NOT fall back to
+                    // the CURRENT stop: the 1R trail may have ratcheted it to ~break-even, and
+                    // dividing by that near-zero distance explodes realizedR (pre-2026-08-30 logs
+                    // show scaled gold legs recorded at -20R / -60R for what were really break-even
+                    // scratches). The take-profit is never moved by the trail, so |entry - TP| is a
+                    // stable, conservative risk proxy (>= the true 1R, so it under- not over-states R).
+                    stopDistPx = (p.TakeProfit.HasValue && p.EntryPrice > 0) ? Math.Abs(p.EntryPrice - p.TakeProfit.Value) : 0;
+                }
                 if (stopDistPx > 0 && p.Symbol.PipSize > 0 && p.Symbol.PipValue > 0)
                 {
                     var stopPips = stopDistPx / p.Symbol.PipSize;
-                    var riskAmt = stopPips * p.Symbol.PipValue * p.VolumeInUnits;
-                    if (riskAmt > 0) realizedR = p.NetProfit / riskAmt;
+                    // A distance below MinStopPips is degenerate (a trailed/lost stop, not the real
+                    // 1R) — refuse to derive R from it rather than log an absurd multiple.
+                    if (stopPips >= MinStopPips)
+                    {
+                        var riskAmt = stopPips * p.Symbol.PipValue * p.VolumeInUnits;
+                        if (riskAmt > 0) realizedR = p.NetProfit / riskAmt;
+                    }
                 }
+                // Absolute backstop: a fixed-bracket trade realises within ~[-1R, +rr]; anything far
+                // outside is an accounting artifact, never an outcome. Clamp so a stale/edge case can
+                // never again poison a strategy's expectancy (gold gbreak read -13.7R off two such rows).
+                realizedR = Math.Max(-2.0, Math.Min(6.0, realizedR));
             }
             catch { }
 
@@ -616,10 +633,17 @@ namespace cAlgo.Robots
                 var exit = p.Symbol?.Bid ?? p.EntryPrice; var tol = (p.Symbol?.PipSize ?? 0) * 2;
                 bool buy = p.TradeType == TradeType.Buy;
                 if (p.TakeProfit.HasValue && ((buy && exit >= p.TakeProfit.Value - tol) || (!buy && exit <= p.TakeProfit.Value + tol))) reason = "target-hit";
-                // A hit on the STOP that closes IN PROFIT is the 1R trailing stop banking a
-                // gain (the stop was ratcheted past break-even), not a loss — label it
-                // "trail-hit" so it isn't mistaken for a stop-out. A hit at a loss stays "stop-hit".
-                else if (p.StopLoss.HasValue && ((buy && exit <= p.StopLoss.Value + tol) || (!buy && exit >= p.StopLoss.Value - tol))) reason = p.NetProfit > 0 ? "trail-hit" : "stop-hit";
+                // A hit on the STOP that closes IN PROFIT is the 1R trailing stop banking a gain
+                // (the stop was ratcheted past break-even), not a loss — label it "trail-hit". A
+                // stop sitting within MinStopPips of entry is a trail that reached break-even, so a
+                // marginal loss there (costs/spread) is a "trail-scratch", not a real 1R stop-out —
+                // distinguishing the two keeps break-even scratches out of the stop-out loss count.
+                else if (p.StopLoss.HasValue && ((buy && exit <= p.StopLoss.Value + tol) || (!buy && exit >= p.StopLoss.Value - tol)))
+                {
+                    bool nearBE = p.EntryPrice > 0 && p.Symbol != null && p.Symbol.PipSize > 0
+                                  && Math.Abs(p.StopLoss.Value - p.EntryPrice) / p.Symbol.PipSize < MinStopPips;
+                    reason = p.NetProfit > 0 ? "trail-hit" : (nearBE ? "trail-scratch" : "stop-hit");
+                }
                 else reason = "manual-or-broker";
             }
             catch { reason = "manual-or-broker"; }

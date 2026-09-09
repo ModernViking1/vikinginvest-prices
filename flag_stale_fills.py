@@ -64,6 +64,17 @@ def m15_of(pk): return _bars_norm(_PAIRS.get(pk, {}).get('m15', []))
 def classify():
     ex = json.load(open(os.path.join(_HERE, 'swing-executions.json'))).get('executions', [])
     cl = [r for r in ex if r.get('event') == 'closed' and r.get('realized_r') is not None]
+    # Repair realized_r corrupted by the pre-2026-08-30 trailed-stop R calc (a break-even trail
+    # scratch dividing by a near-zero stop logged -20R / -60R). Mirror the dashboard: rows with
+    # |r|>4 are recomputed from net_profit / (median net_profit-per-R over the sane rows). Keeps
+    # the raw log untouched; only this in-memory copy is corrected for honest stats.
+    ratios = [r['net_profit'] / r['realized_r'] for r in cl
+              if abs(r['realized_r']) <= 4 and r['realized_r'] and isinstance(r.get('net_profit'), (int, float))]
+    if ratios:
+        med = sorted(ratios)[len(ratios) // 2]
+        for r in cl:
+            if abs(r['realized_r']) > 4 and isinstance(r.get('net_profit'), (int, float)) and med:
+                r['realized_r'] = r['net_profit'] / med
     cache = {}
     flagged = {}           # signal_id -> reason
     rows = defaultdict(lambda: {'all': [], 'kept': []})
