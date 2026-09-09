@@ -163,6 +163,25 @@ REENTRY_COOLOFF_H = 12
 SWING_EXECS = os.path.join(_HERE, 'swing-executions.json')
 
 
+def _stop_breached(bars, trigger_ts, data_end, stop, d):
+    """True if price traded through `stop` on any bar strictly after the trigger bar up to
+    the data edge — i.e. the setup's invalidation level was hit between the trigger and now.
+    A bar's high/low bounds any intrabar extreme, so h1 resolution is sufficient. Fail-open
+    (never block emission on bad data)."""
+    try:
+        for b in bars:
+            ts = b['_ts']
+            if ts <= trigger_ts:
+                continue
+            if ts > data_end:
+                break
+            if (d == 'bear' and b['h'] >= stop) or (d == 'bull' and b['l'] <= stop):
+                return True
+    except Exception:
+        return False
+    return False
+
+
 def _last_loss_closes():
     """{(strategy, SYMBOL): latest losing-close ts (sec)} for cooloff-scoped strategies.
     A loss is any closed fill with realized_r < 0 (stop-out or a manual/broker close in the
@@ -251,6 +270,18 @@ def main():
             if s['entry_ts'] < fresh_after:
                 continue
             if s['strategy'] in DEMOTED:   # detected but held back from the cBot; harness still logs it
+                continue
+            # STOP-INVALIDATION guard (2026-09-09). The cBot fills at market whenever it first
+            # sees a fresh signal within the 12h window, and the feed runs on GitHub's laggy
+            # hourly cron — so a signal can be published (and filled) hours after its trigger.
+            # If price has ALREADY traded through the STOP between the trigger bar and now, the
+            # setup is dead: filling it late just chases a broken level (e.g. USDCHF hs on this
+            # date — stop breached 3h after the trigger, filled 9h late, straight -1R). Refuse to
+            # emit it. Causal (past bars only). Backtest (guard_backtest): a no-op at prompt fills,
+            # and it holds swing expectancy positive under fill-lag where the unguarded feed goes
+            # negative. Scan on the signal's own timeframe; a bar's H/L bounds any intrabar extreme.
+            _gb = m15 if s.get('tf') == 'm15' else h1
+            if _stop_breached(_gb, s['entry_ts'], data_end, s['stop'], s['dir']):
                 continue
             # post-loss re-entry cooloff (losers-only): skip a NEW entry that fires within
             # REENTRY_COOLOFF_H of the last LOSING close on this symbol+strategy. A winning

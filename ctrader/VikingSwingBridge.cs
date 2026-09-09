@@ -49,6 +49,19 @@ namespace cAlgo.Robots
         [Parameter("Min stop (pips)", DefaultValue = 5.0, MinValue = 0.0, Group = "Risk")]
         public double MinStopPips { get; set; }
 
+        // 2026-09-09 — STALE-FILL guards. The feed emits market-entry signals with a 12h expiry
+        // and runs on GitHub's laggy hourly cron, so a fill can land many hours after the trigger
+        // at a price disconnected from the setup. Two live losses on one day exposed this:
+        //   • USDCHF hs   — filled 9h late into a setup whose stop had ALREADY been breached.
+        //   • USDCAD obfvg— filled 8h late 33 pips from ref_entry, inflating an 8.5-pip stop to 41.
+        // Guard 1 (Max entry drift R): refuse a fill whose |entry-stop| exceeds (1+this)*|ref-stop|,
+        // i.e. cap how much a drifted market fill may inflate the intended risk. 0 disables.
+        // Guard 2 (stop-invalidation) always on: refuse if price already traded through the stop
+        // between the trigger bar and now. Backtest (guard_backtest/tol_backtest): both are no-ops
+        // at prompt fills and hold swing expectancy positive under the fill-lag that caused these.
+        [Parameter("Max entry drift (R)", DefaultValue = 0.5, MinValue = 0.0, Group = "Risk")]
+        public double MaxEntryDriftR { get; set; }
+
         // 2026-08-07 — 1R trailing stop. Backtest (trail_partial_research.py): once a trade is
         // +1R in profit, trail the stop 1R behind the best price. Big win on indices
         // (-0.137R -> -0.048R) + comm + minors; neutral on majors, marginally negative on crypto,
@@ -368,6 +381,32 @@ namespace cAlgo.Robots
                 MarkSeen(s.Id); return;
             }
 
+            // STALE-FILL GUARD 1 — entry-drift / risk-inflation cap. A late market fill that lands
+            // far from the feed's ref_entry silently inflates the stop distance (USDCAD obfvg:
+            // 8.5-pip intended stop filled 33 pips away => 41-pip risk, ~5x). Refuse to open a
+            // position whose actual risk exceeds (1+MaxEntryDriftR) x the intended |ref_entry-stop|.
+            if (MaxEntryDriftR > 0 && s.RefEntry > 0)
+            {
+                var Rref = Math.Abs(s.RefEntry - s.Stop);
+                var Ract = Math.Abs(entry - s.Stop);
+                if (Rref > 0 && Ract > (1.0 + MaxEntryDriftR) * Rref)
+                {
+                    Print($"[VikingSwing] entry drifted — risk {Ract:F5} > {(1.0 + MaxEntryDriftR):F2}x intended {Rref:F5}; missed entry, not chasing — skipping {s.Id} (entry={entry:F5} ref={s.RefEntry:F5} stop={s.Stop:F5})");
+                    MarkSeen(s.Id); return;
+                }
+            }
+
+            // STALE-FILL GUARD 2 — stop-invalidation. If price has ALREADY traded through the stop
+            // between the trigger bar and now, the setup is dead; filling it late just chases a
+            // broken level (USDCHF hs: stop breached 3h after the trigger, filled 9h late, -1R).
+            // Scan H1 bars since the trigger (a bar's high/low bounds any intrabar extreme). The
+            // feed applies the same check up to publish time; this closes the publish->fill gap.
+            if (s.TriggerTs > 0 && StopBreachedSinceTrigger(symbol, s.TriggerTs, s.Stop, isBuy))
+            {
+                Print($"[VikingSwing] stop {s.Stop:F5} already breached since trigger — setup invalidated, skipping {s.Id}");
+                MarkSeen(s.Id); return;
+            }
+
             var slPips = Math.Abs(entry - s.Stop) / symbol.PipSize;
             if (slPips < MinStopPips)
             {
@@ -502,6 +541,29 @@ namespace cAlgo.Robots
                 try { var sym = Symbols.GetSymbol(name); if (sym != null) return sym; } catch { }
             }
             return null;
+        }
+
+        // True if price traded through `stop` on any H1 bar strictly after the trigger bar, up to
+        // now — i.e. the setup's invalidation level was already hit before this (possibly late)
+        // fill. Uses completed H1 bars (a bar's high/low bounds any intrabar extreme). Fail-open:
+        // any data hiccup returns false so a transient glitch never blocks a legitimate entry.
+        private bool StopBreachedSinceTrigger(Symbol symbol, long triggerTs, double stop, bool isBuy)
+        {
+            try
+            {
+                var trig = DateTimeOffset.FromUnixTimeSeconds(triggerTs).UtcDateTime;
+                var bars = MarketData.GetBars(TimeFrame.Hour, symbol.Name);
+                if (bars == null || bars.Count == 0) return false;
+                for (int i = bars.Count - 1; i >= 0; i--)
+                {
+                    var ot = bars.OpenTimes[i];
+                    if (ot <= trig) break;                       // reached the trigger bar — stop scanning
+                    if (isBuy ? (bars.LowPrices[i] <= stop) : (bars.HighPrices[i] >= stop))
+                        return true;
+                }
+            }
+            catch { return false; }
+            return false;
         }
 
         private long ComputeVolume(Symbol symbol, double entry, double stop, double riskPct)
@@ -678,7 +740,7 @@ namespace cAlgo.Robots
         private class Sig
         {
             public string Id, Pair, State, Dir, Strategy;
-            public double Stop, Rr;
+            public double Stop, Rr, RefEntry;
             public long ExpiryTs, TriggerTs;
             public bool DemoOnly;
         }
@@ -702,7 +764,7 @@ namespace cAlgo.Robots
                 {
                     Id = JsonStr(o, "id"), Pair = JsonStr(o, "pair"), State = JsonStr(o, "state"),
                     Dir = JsonStr(o, "dir"), Strategy = JsonStr(o, "strategy"),
-                    Stop = JsonNum(o, "stop"), Rr = JsonNum(o, "rr"),
+                    Stop = JsonNum(o, "stop"), Rr = JsonNum(o, "rr"), RefEntry = JsonNum(o, "ref_entry"),
                     ExpiryTs = (long)JsonNum(o, "expiry_ts"), TriggerTs = (long)JsonNum(o, "trigger_ts"),
                     DemoOnly = JsonBool(o, "demo_only"),
                 });
