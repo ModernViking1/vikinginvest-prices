@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-09T02:10:59.394127+00:00",
-  "generated_ms": 1788919856812,
-  "detector_last_check": "2026-09-09T02:10:55.675638+00:00",
+  "generated": "2026-09-09T02:16:33.431998+00:00",
+  "generated_ms": 1788920189850,
+  "detector_last_check": "2026-09-09T02:16:28.491440+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 4,
+    "total": 5,
     "armed": 2,
-    "triggered": 2,
+    "triggered": 3,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "btcusd:1788919200000:absorb_btc",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "absorb_btc",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 78891.5,
+      "stop": 78807.12871429,
+      "target": 79060.24257143,
+      "ew": null,
+      "tl": null,
+      "nw": null,
+      "cl": null,
+      "armedAt": 1788919200000,
+      "triggeredAt": 1788919200000,
+      "lastSeenAt": 1788920189850,
+      "source": "server-detector-absorb",
+      "event_aligned": null,
+      "held": false
+    },
     {
       "id": "fra40:1788895800000:mmove_m15",
       "pair": "fra40",
@@ -34,7 +57,7 @@
       "cl": null,
       "armedAt": 1788895800000,
       "triggeredAt": 1788895800000,
-      "lastSeenAt": 1788919856812,
+      "lastSeenAt": 1788920189850,
       "source": "server-detector-mmove",
       "event_aligned": null,
       "held": true
@@ -48,16 +71,16 @@
       "r_size": 0.5,
       "dir": "bull",
       "state": "armed",
-      "entry": 4.92345,
+      "entry": 4.929012,
       "stop": 4.819,
-      "target": 5.0279,
+      "target": 5.039024,
       "ew": "bull",
       "tl": "bull",
       "nw": "bull",
       "cl": "bull",
       "armedAt": 1788805800000,
       "triggeredAt": null,
-      "lastSeenAt": 1788919856812,
+      "lastSeenAt": 1788920189850,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -79,7 +102,7 @@
       "cl": "bull",
       "armedAt": 1788769800000,
       "triggeredAt": null,
-      "lastSeenAt": 1788919856812,
+      "lastSeenAt": 1788920189850,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -101,7 +124,7 @@
       "cl": "bull",
       "armedAt": 1780326900000,
       "triggeredAt": 1788915600000,
-      "lastSeenAt": 1788919856812,
+      "lastSeenAt": 1788920189850,
       "source": "server-detector",
       "event_aligned": null
     }
