@@ -10,6 +10,8 @@ FORWARD (entry after the harness's first run). Writes only swing-shadow-log.json
 which nothing on the platform reads. NO deployment — evidence-gathering only.
 """
 import json, os, bisect
+from datetime import datetime, timezone
+from collections import defaultdict
 from detect_triggers import (
     PAIR_CLASS, macd_series, auto_detect_ew, AUTO_EW_MIN_CONFIDENCE, AUTO_EW_VALID_PATTERNS,
 )
@@ -2059,6 +2061,75 @@ def detect_ew_wave5_fib(pk, h1):
     return _ew_wave5_core(pk, h1, 'ew_wave5_fib_4h', w2_filter=True)
 
 
+# --- PO3-Kane (AMD) US-open index-short observer --------------------------------
+# Trader-Kane power-of-three: accumulation (prior daily trend) -> manipulation
+# (sweep of the opening range high) -> distribution (short the small move down).
+# Scoped HONESTLY: the whole strategy on US-open index shorts across ALL 7 equity
+# index pockets was a thin +0.073R with both halves positive, but the headline
+# dj30/jp225/ftse100 cells were n=17 noise that flipped negative at n=69. So we
+# forward-test the FULL pocket set — genuine forward evidence decides it, not a
+# back-fitted 3-winner split. Monitor-only (no live/cBot path). RR2, net of costs.
+PO3K_HOUR = 13             # US cash open (UTC)
+PO3K_OR = 2                # opening-range = first 2 H1 bars
+PO3K_SCAN = 6              # H1 bars after the OR to look for the sweep+reject
+PO3K_BUF = 0.10            # stop buffer above the sweep high, as a fraction of (high-entry)
+PO3K_RR = 2.0
+PO3K_HOLD = 48             # H1 bars (~2 trading days)
+PO3K_POCKETS = {'ftse100', 'dj30', 'de40', 'nas100', 'spx500', 'jp225', 'fra40'}
+
+
+def _po3k_daily_ctx(daily):
+    """Prior-day daily trend (EMA8 vs EMA21) + 20-day range, keyed by the day it
+    applies to (shifted one day forward => no lookahead)."""
+    if len(daily) < 35:
+        return {}
+    c = [b['c'] for b in daily]; ef = ema(c, 8); es = ema(c, 21); ctx = {}
+    for i in range(30, len(daily)):
+        if ef[i] is None or es[i] is None:
+            continue
+        trend = 'bear' if ef[i] < es[i] else 'bull'
+        win = daily[i - 20:i]
+        hi = max(b['h'] for b in win); lo = min(b['l'] for b in win)
+        ctx[datetime.fromtimestamp(daily[i]['_ts'], timezone.utc).strftime('%Y-%m-%d')] = (trend, hi, lo)
+    ds = sorted(ctx)
+    return {ds[k]: ctx[ds[k - 1]] for k in range(1, len(ds))}
+
+
+def detect_po3_kane(pk, h1, daily):
+    if pk not in PO3K_POCKETS or len(h1) < 400 or len(daily) < 40:
+        return []
+    ctx = _po3k_daily_ctx(daily)
+    by = defaultdict(list)
+    for i, b in enumerate(h1):
+        by[datetime.fromtimestamp(b['_ts'], timezone.utc).strftime('%Y-%m-%d')].append(i)
+    out = []
+    for day, idxs in sorted(by.items()):
+        c = ctx.get(day)
+        if not c:
+            continue
+        trend, hi, lo = c
+        if trend != 'bear':                       # accumulation: only fade downtrend days
+            continue
+        oidx = [i for i in idxs if datetime.fromtimestamp(h1[i]['_ts'], timezone.utc).hour >= PO3K_HOUR][:PO3K_OR + 1]
+        if len(oidx) < PO3K_OR:
+            continue
+        orr = oidx[:PO3K_OR]; or_hi = max(h1[i]['h'] for i in orr)
+        start = orr[-1] + 1
+        for j in range(start, min(start + PO3K_SCAN, len(h1))):
+            b = h1[j]
+            if b['h'] > or_hi and b['c'] < or_hi:      # manipulation: sweep OR-high, reject
+                entry = b['c']; stop = b['h'] + PO3K_BUF * (b['h'] - entry)
+                R = abs(entry - stop)
+                if stop > entry and R > 0:
+                    out.append({'strategy': 'po3_kane', 'tf': 'h1', 'pair': pk, 'dir': 'bear',
+                                'entry_ts': b['_ts'], 'entry': entry, 'stop': stop,
+                                'target': entry - PO3K_RR * R})
+                break
+            if b['c'] > or_hi * 1.002:                 # moved away without sweeping — abort
+                break
+    return out
+
+
 def score_sess(bars, entry_ts, entry, stop, target, d, hold):
     """Target-bracket scorer (explicit target, not RR-derived). Bracket-honest:
     unresolved within the hold is EXCLUDED, mirroring score()."""
@@ -2151,7 +2222,8 @@ def main():
                  + detect_zbreak(pk, h1, daily)
                  + detect_twob(pk, h1) + detect_holygrail_m15(pk, m15)
                  + detect_fma(pk, m15) + detect_po3(pk, m15) + detect_sweepfvg(pk, m15)
-                 + detect_ew_wave5(pk, h1) + detect_ew_wave5_fib(pk, h1))
+                 + detect_ew_wave5(pk, h1) + detect_ew_wave5_fib(pk, h1)
+                 + detect_po3_kane(pk, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -2222,6 +2294,8 @@ def main():
                 st, o = score_sess(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], SWEEPFVG_HOLD)
             elif rec['strategy'] in ('ew_wave5_4h', 'ew_wave5_fib_4h'):
                 st, o = score_sess(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], EW_WAVE5_HOLD)
+            elif rec['strategy'] == 'po3_kane':
+                st, o = score_sess(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], PO3K_HOLD)
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -2367,7 +2441,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'orb_ln', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'absorb_btc'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'orb_ln', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'po3_kane', 'absorb_btc'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
