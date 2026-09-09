@@ -208,6 +208,44 @@ def _activity_7d():
     return fills, stale
 
 
+def _trigger_ts_of(sid):
+    """Epoch-seconds trigger stamp embedded in a signal id, whichever segment it is:
+    swing ids are strat:pair:ts (ts last), intraday are pair:ts:method (ts middle)."""
+    for seg in (sid or '').split(':'):
+        s = seg.split('.')[0]
+        if s.isdigit() and 1_000_000_000 <= int(s) <= 9_999_999_999:
+            return int(s)
+    return None
+
+
+def fill_latency_7d():
+    """(n, median_delay_min, pct_prompt) over 7d — the REAL gap from a signal's trigger bar
+    (parsed from its id) to when the cBot actually placed the fill. This is the direct
+    read on whether the external pinger keeps swing fills prompt: a rising median or a
+    collapsing '<1h' share is the dead-pinger / cron-throttle failure that caused the
+    stale-fill losses. Absurd/negative deltas (bad clock, backfilled id) are dropped."""
+    cut = (datetime.datetime.now(datetime.timezone.utc).timestamp() - 7 * 86400) * 1000
+    delays = []
+    for fn in ('executions.json', 'swing-executions.json'):
+        try:
+            ex = json.load(open(os.path.join(_HERE, fn))).get('executions', [])
+        except Exception:
+            continue
+        for r in ex:
+            if r.get('event') != 'placed' or (r.get('ts') or 0) < cut:
+                continue
+            trig = _trigger_ts_of(r.get('signal_id'))
+            if trig is None:
+                continue
+            d = r['ts'] / 1000.0 - trig
+            if 0 <= d <= 48 * 3600:
+                delays.append(d / 60.0)
+    if not delays:
+        return (0, None, None)
+    delays.sort(); n = len(delays)
+    return (n, delays[n // 2], 100.0 * sum(1 for d in delays if d <= 60) / n)
+
+
 def pipeline_health():
     """[(label, ok, detail)], overall_ok — weekly 'are all pipes flowing' check."""
     now = datetime.datetime.now(datetime.timezone.utc).timestamp()
@@ -221,6 +259,13 @@ def pipeline_health():
     # more stale-rejects than fills over 7d ⇒ the exact latency/dead-pinger failure mode
     ok_act = fills > 0 and stale <= fills
     out.append(('fills 7d', ok_act, f'{fills} filled / {stale} stale-rejected'))
+    # trigger→fill latency: with the pinger live, fills should land within an hour of the
+    # trigger bar. A median above that means the pinger/cron is lagging again (the root
+    # cause of the stale-fill losses) even if fills are still happening.
+    ln, med, prompt = fill_latency_7d()
+    if ln:
+        ok_lat = med is not None and med <= 60
+        out.append(('fill latency 7d', ok_lat, f'median {_fmt_age(med)} · {prompt:.0f}% <1h (n={ln})'))
     return out, all(o for _, o, _ in out)
 
 
