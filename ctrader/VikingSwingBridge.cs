@@ -99,12 +99,13 @@ namespace cAlgo.Robots
 
         private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         private readonly HashSet<string> _seenIds = new HashSet<string>();
-        // In-flight guard: a signal id is added here the instant we COMMIT to placing (before
-        // ExecuteMarketOrder), and removed when it becomes _seenIds. _seenIds is only stamped
-        // AFTER the order returns, and PollAsync's _busy flag clears once the Consider loop is
-        // scheduled (not after it runs) — so two closely-spaced Consider passes for the same id
-        // could both clear the top check and double-place (observed: gbreak :t1 twice, 32ms
-        // apart). Checking _inFlight at the top closes that window.
+        // In-flight guard: a signal id is CLAIMED here at the very top of Consider (right after the
+        // triggered/dir checks), and removed when it becomes _seenIds or on a transient retry.
+        // _seenIds is only stamped AFTER the order returns, and PollAsync's _busy flag clears once
+        // the Consider loop is scheduled (not after it runs) — so two closely-spaced Consider passes
+        // for the same id could both clear the top check and double-place (observed: gbreak :t1
+        // twice, 32ms apart). The claim used to live just before ExecuteMarketOrder, far below the
+        // dedup work, leaving that window open; claiming at the top (check + Add adjacent) closes it.
         private readonly HashSet<string> _inFlight = new HashSet<string>();
         private readonly Dictionary<long, string> _positionIdToSignalId = new Dictionary<long, string>();
         // Trailing-stop state (per open position): original risk unit R, the pair (for scope),
@@ -313,6 +314,17 @@ namespace cAlgo.Robots
             if (s.State != "triggered") return;
             if (s.Dir != "bull" && s.Dir != "bear") return;
 
+            // ── Atomic claim (anti-double-entry) ───────────────────────────────────────────
+            // Claim the id NOW — the guard above and this Add are adjacent, with no trading call,
+            // await, or Positions scan between them, so a second Consider for the same id (a
+            // near-simultaneous poll, or a queued main-thread continuation running before the
+            // first placement is visible in Positions) hits _inFlight at the guard and bails.
+            // Previously the claim lived just before ExecuteMarketOrder — far below the open-
+            // position dedup — leaving a wide window that produced same-second double fills (two
+            // broker positions on one signal, doubled risk). Every path below either MarkSeen()s
+            // (which frees the claim) or frees it explicitly (the transient retry returns).
+            _inFlight.Add(s.Id);
+
             // Demo-first pilots (e.g. fma_gold): execute ONLY on a demo account. On a live
             // account they are skipped (and marked seen) so an unproven candidate can never
             // risk live capital until it's promoted (remove demo_only in swing_signals.py).
@@ -368,11 +380,12 @@ namespace cAlgo.Robots
             if (concurrent >= MaxConcurrent)
             {
                 Print($"[VikingSwing] max concurrent ({MaxConcurrent}) reached — skipping {s.Id}");
+                _inFlight.Remove(s.Id);                 // release the claim — retry next poll when a slot frees
                 return; // do NOT MarkSeen: retry next poll when a slot frees
             }
 
             var entry = isBuy ? symbol.Ask : symbol.Bid;   // MARKET entry now
-            if (entry <= 0) return;
+            if (entry <= 0) { _inFlight.Remove(s.Id); return; }   // transient bad price — release, retry next poll
 
             // stop must be on the correct side of the current market
             if ((isBuy && s.Stop >= entry) || (!isBuy && s.Stop <= entry))
@@ -427,7 +440,7 @@ namespace cAlgo.Robots
             // Comment marks the position clearly as a SwingTrade + which edge fired,
             // shown in cTrader's Comment column (Label is already "VikingSwing").
             var comment = $"SwingTrade | {s.Strategy} | {s.Id}";
-            _inFlight.Add(s.Id);   // commit BEFORE the order — blocks a concurrent Consider from re-placing
+            // (the id was already claimed into _inFlight at the top of Consider)
             var result = ExecuteMarketOrder(direction, symbol.Name, volume, OrderLabel,
                                             slPips, tpPips, comment);
             if (result.IsSuccessful)
