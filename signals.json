@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-10T05:41:02.202564+00:00",
-  "generated_ms": 1789018858891,
-  "detector_last_check": "2026-09-10T05:40:57.318569+00:00",
+  "generated": "2026-09-10T05:46:08.739456+00:00",
+  "generated_ms": 1789019165438,
+  "detector_last_check": "2026-09-10T05:46:04.128602+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 1,
+    "total": 2,
     "armed": 0,
-    "triggered": 1,
+    "triggered": 2,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "btcusd:1789018200000:absorb_btc",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "absorb_btc",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 78476.6,
+      "stop": 78530.58564286,
+      "target": 78368.62871429,
+      "ew": null,
+      "tl": null,
+      "nw": null,
+      "cl": null,
+      "armedAt": 1789018200000,
+      "triggeredAt": 1789018200000,
+      "lastSeenAt": 1789019165438,
+      "source": "server-detector-absorb",
+      "event_aligned": null,
+      "held": false
+    },
     {
       "id": "dj30:1788984000000:sweepfvg_ix",
       "pair": "dj30",
@@ -34,7 +57,7 @@
       "cl": null,
       "armedAt": 1788984000000,
       "triggeredAt": 1788984000000,
-      "lastSeenAt": 1789018858891,
+      "lastSeenAt": 1789019165438,
       "source": "server-detector-sweepfvg",
       "event_aligned": null,
       "held": true
