@@ -49,6 +49,17 @@ namespace cAlgo.Robots
         [Parameter("Min stop (pips)", DefaultValue = 5.0, MinValue = 0.0, Group = "Risk")]
         public double MinStopPips { get; set; }
 
+        // 2026-09-10 — MAX SIGNAL AGE (direct staleness cap). The drift / stop-invalidation guards
+        // only catch the CONSEQUENCES of a late fill; a signal can still be hours stale yet sit near
+        // ref_entry with its stop intact and slip through (observed: a 5h-late fma_gold fill). Swing
+        // triggers are H1/m15 bars, so with the external pinger live a fill should land within
+        // minutes; anything hours old means the pinger/cron lagged and the market has moved on — a
+        // late fill then just chases (or wrongly reverses an open position, as the 5h fma long did).
+        // Reject outright when the signal is older than this, mirroring the intraday bot's 60-min
+        // cap. The feed's 12h ExpiryTs is the outer validity bound; this is the tighter freshness gate.
+        [Parameter("Max signal age (minutes)", DefaultValue = 120, MinValue = 5, MaxValue = 1440, Group = "Risk")]
+        public double MaxSignalAgeMin { get; set; }
+
         // 2026-09-09 — STALE-FILL guards. The feed emits market-entry signals with a 12h expiry
         // and runs on GitHub's laggy hourly cron, so a fill can land many hours after the trigger
         // at a price disconnected from the setup. Two live losses on one day exposed this:
@@ -339,6 +350,20 @@ namespace cAlgo.Robots
             {
                 var exp = DateTimeOffset.FromUnixTimeSeconds(s.ExpiryTs).UtcDateTime;
                 if (Server.Time > exp) { MarkSeen(s.Id); return; }
+            }
+
+            // MAX SIGNAL AGE — the direct staleness gate. If the trigger bar is older than the cap,
+            // the fill would be stale (the pinger/cron lagged); refuse it rather than chase a moved
+            // market or reverse an open position on hours-old information. MarkSeen: it only gets
+            // older, so never retry it.
+            if (MaxSignalAgeMin > 0 && s.TriggerTs > 0)
+            {
+                var ageMin = (Server.Time - DateTimeOffset.FromUnixTimeSeconds(s.TriggerTs).UtcDateTime).TotalMinutes;
+                if (ageMin > MaxSignalAgeMin)
+                {
+                    Print($"[VikingSwing] signal too stale — {ageMin:F0}m old > {MaxSignalAgeMin:F0}m cap, skipping {s.Id}");
+                    MarkSeen(s.Id); return;
+                }
             }
 
             var symbol = ResolveSymbol(s.Pair);
