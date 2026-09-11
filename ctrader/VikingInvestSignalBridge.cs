@@ -110,7 +110,13 @@ namespace cAlgo.Robots
         [Parameter("Max spread (% of stop)", DefaultValue = 0.5, MinValue = 0.05, MaxValue = 2.0, Group = "Risk")]
         public double MaxSpreadPctOfStop { get; set; }
 
-        [Parameter("Max signal age (minutes)", DefaultValue = 60, MinValue = 5, MaxValue = 720, Group = "Risk")]
+        // 2026-09-11 — tightened 60 -> 30. The live intraday strategies are m15
+        // (mmove_m15 et al.), so 60 min = 4 bars of staleness: a signal can fill
+        // long after its setup has failed (observed: a 34-min-late XAGUSD mmove_m15
+        // fill entered a continuation that had already reversed, stopped in ~1 min).
+        // 30 min ≈ 2 m15 bars — tight enough to reject stale fills, loose enough to
+        // tolerate normal publish/poll lag now the external pinger drives fetch-data.
+        [Parameter("Max signal age (minutes)", DefaultValue = 30, MinValue = 5, MaxValue = 720, Group = "Risk")]
         public int MaxSignalAgeMin { get; set; }
 
         // 2026-07-04 — feed-only trade blocklist. Illiquid micro-cap alts
@@ -1101,6 +1107,20 @@ namespace cAlgo.Robots
                 return;
             }
 
+            // 2026-09-11 — STOP-INVALIDATION (mirrors the swing bot). The entry-drift gate
+            // below only rejects a fill FAR from sig.Entry; a signal can drift little yet be
+            // dead because price already traded THROUGH the stop between the trigger and now
+            // (a stalled continuation that reversed). Refuse the fill if the stop was breached
+            // since the trigger — for both the market and limit paths (a limit at sig.Entry can
+            // still fill after a stop sweep-and-return). The 30-min age cap bounds the scan.
+            if (StopBreachedSinceTrigger(symbol, sig.TriggeredAtMs > 0 ? sig.TriggeredAtMs : sig.ArmedAtMs, sig.Stop, sig.Dir == "bull"))
+            {
+                Print($"⏭ [VikingInvest] Stop {sig.Stop:F5} already breached since trigger — setup invalidated, skipping id={sig.Id}");
+                EmitRejection(sig, symbol.Name, "stop-invalidated", $"stop {sig.Stop:F5} hit before fill");
+                MarkSeen(sig.Id); _ordersSkipped++;
+                return;
+            }
+
             // 2026-06-24 — one-position-per-pair guard. Two DIFFERENT signal
             // ids on the same instrument (a wick + a fib trigger, or two wick
             // triggers on different bars) would each open a position, stacking
@@ -1699,6 +1719,30 @@ namespace cAlgo.Robots
                 catch { /* not found — try next */ }
             }
             return null;
+        }
+
+        // True if price traded through `stop` on any M5 bar strictly after the trigger, up to
+        // now — i.e. the setup's invalidation level was already hit before this (possibly late)
+        // fill. M5 gives ~6 bars of resolution over the 30-min age window; a bar's high/low
+        // bounds any intrabar extreme. Fail-open: any data hiccup returns false so a transient
+        // glitch never blocks a legitimate entry.
+        private bool StopBreachedSinceTrigger(Symbol symbol, long triggeredAtMs, double stop, bool isBuy)
+        {
+            if (triggeredAtMs <= 0 || stop <= 0) return false;
+            try
+            {
+                var trig = DateTimeOffset.FromUnixTimeMilliseconds(triggeredAtMs).UtcDateTime;
+                var bars = MarketData.GetBars(TimeFrame.Minute5, symbol.Name);
+                if (bars == null || bars.Count == 0) return false;
+                for (int i = bars.Count - 1; i >= 0; i--)
+                {
+                    if (bars.OpenTimes[i] <= trig) break;              // reached the trigger bar
+                    if (isBuy ? (bars.LowPrices[i] <= stop) : (bars.HighPrices[i] >= stop))
+                        return true;
+                }
+            }
+            catch { return false; }
+            return false;
         }
 
         // ───────────── Volume sizing ──────────────────────────────────
