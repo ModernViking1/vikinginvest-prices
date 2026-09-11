@@ -1,26 +1,51 @@
 {
  "schema_version": 1,
- "generated": "2026-09-11T04:00:00+00:00",
- "data_end_ts": 1789099200,
- "raw_signal_count": 25,
- "count": 20,
+ "generated": "2026-09-11T11:00:00+00:00",
+ "data_end_ts": 1789124400,
+ "raw_signal_count": 19,
+ "count": 15,
  "signals": [
   {
-   "id": "twob:asterusd:1789099200",
+   "id": "twob:lighterusd:1789124400",
    "strategy": "twob",
-   "pair": "asterusd",
-   "symbol": "ASTERUSD",
+   "pair": "lighterusd",
+   "symbol": "LIGHTERUSD",
    "class": "crypto",
    "dir": "bear",
-   "stop": 0.70836571,
-   "ref_entry": 0.7056,
+   "stop": 4.57241429,
+   "ref_entry": 4.548,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
    "demo_only": false,
-   "trigger_ts": 1789099200,
-   "created_ts": 1789099200,
-   "expiry_ts": 1789142400,
+   "trigger_ts": 1789124400,
+   "created_ts": 1789124400,
+   "expiry_ts": 1789167600,
+   "state": "triggered",
+   "cofire": [
+    "twob"
+   ],
+   "cofire_dirs": [
+    "twob:bear"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "twob:solusd:1789117200",
+   "strategy": "twob",
+   "pair": "solusd",
+   "symbol": "SOLUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 100.31128571,
+   "ref_entry": 99.89,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789117200,
+   "created_ts": 1789124400,
+   "expiry_ts": 1789160400,
    "state": "triggered",
    "cofire": [
     "twob"
@@ -30,6 +55,131 @@
     "twob:bull"
    ],
    "suppressed": 1
+  },
+  {
+   "id": "twob_cm:xagusd:1789117200",
+   "strategy": "twob_cm",
+   "pair": "xagusd",
+   "symbol": "XAGUSD",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 64.39088214,
+   "ref_entry": 64.1045,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789117200,
+   "created_ts": 1789124400,
+   "expiry_ts": 1789160400,
+   "state": "triggered",
+   "cofire": [
+    "twob_cm"
+   ],
+   "cofire_dirs": [
+    "twob_cm:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "twob:xrpusd:1789113600",
+   "strategy": "twob",
+   "pair": "xrpusd",
+   "symbol": "XRPUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 1.36019714,
+   "ref_entry": 1.3509,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789113600,
+   "created_ts": 1789124400,
+   "expiry_ts": 1789156800,
+   "state": "triggered",
+   "cofire": [
+    "twob"
+   ],
+   "cofire_dirs": [
+    "twob:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "fma_gold:xauusd:1789103700",
+   "strategy": "fma_gold",
+   "pair": "xauusd",
+   "symbol": "XAUUSD",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 4299.771,
+   "ref_entry": 4338.12,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": true,
+   "trigger_ts": 1789103700,
+   "created_ts": 1789124400,
+   "expiry_ts": 1789146900,
+   "state": "triggered",
+   "cofire": [
+    "fma_gold"
+   ],
+   "cofire_dirs": [
+    "fma_gold:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "twob_cm:xauusd:1789102800",
+   "strategy": "twob_cm",
+   "pair": "xauusd",
+   "symbol": "XAUUSD",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 4300.22682143,
+   "ref_entry": 4331.765,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789102800,
+   "created_ts": 1789124400,
+   "expiry_ts": 1789146000,
+   "state": "triggered",
+   "cofire": [
+    "twob_cm"
+   ],
+   "cofire_dirs": [
+    "twob_cm:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "twob_ix:nas100:1789102800",
+   "strategy": "twob_ix",
+   "pair": "nas100",
+   "symbol": "NAS100",
+   "class": "index",
+   "dir": "bull",
+   "stop": 29011.40571429,
+   "ref_entry": 29102.4,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789102800,
+   "created_ts": 1789124400,
+   "expiry_ts": 1789146000,
+   "state": "triggered",
+   "cofire": [
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "twob_ix:bull"
+   ],
+   "suppressed": 0
   },
   {
    "id": "twob:nearusd:1789099200",
@@ -45,7 +195,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789099200,
-   "created_ts": 1789099200,
+   "created_ts": 1789124400,
    "expiry_ts": 1789142400,
    "state": "triggered",
    "cofire": [
@@ -56,56 +206,6 @@
     "twob:bull"
    ],
    "suppressed": 2
-  },
-  {
-   "id": "twob:taousd:1789092000",
-   "strategy": "twob",
-   "pair": "taousd",
-   "symbol": "TAOUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 233.34221429,
-   "ref_entry": 235.25,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789092000,
-   "created_ts": 1789099200,
-   "expiry_ts": 1789135200,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "fma_gold:xauusd:1789090200",
-   "strategy": "fma_gold",
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 4341.24753571,
-   "ref_entry": 4328.145,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": true,
-   "trigger_ts": 1789090200,
-   "created_ts": 1789099200,
-   "expiry_ts": 1789133400,
-   "state": "triggered",
-   "cofire": [
-    "fma_gold"
-   ],
-   "cofire_dirs": [
-    "fma_gold:bear"
-   ],
-   "suppressed": 0
   },
   {
    "id": "twob:btcusd:1789088400",
@@ -121,57 +221,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789088400,
-   "created_ts": 1789099200,
-   "expiry_ts": 1789131600,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob:solusd:1789088400",
-   "strategy": "twob",
-   "pair": "solusd",
-   "symbol": "SOLUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 98.45364286,
-   "ref_entry": 99.12,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789088400,
-   "created_ts": 1789099200,
-   "expiry_ts": 1789131600,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob:suiusd:1789088400",
-   "strategy": "twob",
-   "pair": "suiusd",
-   "symbol": "SUIUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 0.72646,
-   "ref_entry": 0.7332,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789088400,
-   "created_ts": 1789099200,
+   "created_ts": 1789124400,
    "expiry_ts": 1789131600,
    "state": "triggered",
    "cofire": [
@@ -196,7 +246,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789088400,
-   "created_ts": 1789099200,
+   "created_ts": 1789124400,
    "expiry_ts": 1789131600,
    "state": "triggered",
    "cofire": [
@@ -204,31 +254,6 @@
    ],
    "cofire_dirs": [
     "twob_cm:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob:lighterusd:1789081200",
-   "strategy": "twob",
-   "pair": "lighterusd",
-   "symbol": "LIGHTERUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 4.68323571,
-   "ref_entry": 4.528,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789081200,
-   "created_ts": 1789099200,
-   "expiry_ts": 1789124400,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bear"
    ],
    "suppressed": 0
   },
@@ -246,7 +271,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789077600,
-   "created_ts": 1789099200,
+   "created_ts": 1789124400,
    "expiry_ts": 1789120800,
    "state": "triggered",
    "cofire": [
@@ -271,17 +296,16 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789070400,
-   "created_ts": 1789099200,
+   "created_ts": 1789124400,
    "expiry_ts": 1789113600,
    "state": "triggered",
    "cofire": [
     "twob_ix"
    ],
    "cofire_dirs": [
-    "twob_ix:bear",
     "twob_ix:bull"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "twob_ix:de40:1789066800",
@@ -297,17 +321,16 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789066800,
-   "created_ts": 1789099200,
+   "created_ts": 1789124400,
    "expiry_ts": 1789110000,
    "state": "triggered",
    "cofire": [
     "twob_ix"
    ],
    "cofire_dirs": [
-    "twob_ix:bear",
     "twob_ix:bull"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "twob_ix:spx500:1789052400",
@@ -323,7 +346,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789052400,
-   "created_ts": 1789099200,
+   "created_ts": 1789124400,
    "expiry_ts": 1789095600,
    "state": "triggered",
    "cofire": [
@@ -348,7 +371,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789038000,
-   "created_ts": 1789099200,
+   "created_ts": 1789124400,
    "expiry_ts": 1789081200,
    "state": "triggered",
    "cofire": [
@@ -356,156 +379,6 @@
    ],
    "cofire_dirs": [
     "hs:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob_ix:ftse100:1789027200",
-   "strategy": "twob_ix",
-   "pair": "ftse100",
-   "symbol": "FTSE100",
-   "class": "index",
-   "dir": "bear",
-   "stop": 10688.66428571,
-   "ref_entry": 10657.2,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789027200,
-   "created_ts": 1789099200,
-   "expiry_ts": 1789070400,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob_ix:jp225:1789027200",
-   "strategy": "twob_ix",
-   "pair": "jp225",
-   "symbol": "JP225",
-   "class": "index",
-   "dir": "bear",
-   "stop": 65199.12857143,
-   "ref_entry": 65047.2,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789027200,
-   "created_ts": 1789099200,
-   "expiry_ts": 1789070400,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "fma_gold:xauusd:1789025400",
-   "strategy": "fma_gold",
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 4435.80010714,
-   "ref_entry": 4408.565,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": true,
-   "trigger_ts": 1789025400,
-   "created_ts": 1789099200,
-   "expiry_ts": 1789068600,
-   "state": "triggered",
-   "cofire": [
-    "fma_gold"
-   ],
-   "cofire_dirs": [
-    "fma_gold:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob:ethusd:1789023600",
-   "strategy": "twob",
-   "pair": "ethusd",
-   "symbol": "ETHUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 2485.30764286,
-   "ref_entry": 2479.6,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789023600,
-   "created_ts": 1789099200,
-   "expiry_ts": 1789066800,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob_cm:xagusd:1789023600",
-   "strategy": "twob_cm",
-   "pair": "xagusd",
-   "symbol": "XAGUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 67.98699464,
-   "ref_entry": 67.5605,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789023600,
-   "created_ts": 1789099200,
-   "expiry_ts": 1789066800,
-   "state": "triggered",
-   "cofire": [
-    "twob_cm"
-   ],
-   "cofire_dirs": [
-    "twob_cm:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob_ix:nas100:1789023600",
-   "strategy": "twob_ix",
-   "pair": "nas100",
-   "symbol": "NAS100",
-   "class": "index",
-   "dir": "bear",
-   "stop": 29474.11071429,
-   "ref_entry": 29453.0,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789023600,
-   "created_ts": 1789099200,
-   "expiry_ts": 1789066800,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bear"
    ],
    "suppressed": 0
   }
