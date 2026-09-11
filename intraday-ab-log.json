@@ -9823,7 +9823,7 @@
    "nowick_aligned": false,
    "market_status": "expired",
    "market_r": null,
-   "limit_status": "pending",
+   "limit_status": "expired",
    "limit_r": null
   },
   "btcusd:1789083000000:absorb_btc": {
@@ -9855,10 +9855,10 @@
    "cap_ts": 1789101000.0,
    "state_at_capture": "triggered",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
-   "limit_r": null
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "resolved",
+   "limit_r": 1.0
   },
   "jp225:1789100100000:crt_ix": {
    "id": "jp225:1789100100000:crt_ix",
@@ -9872,10 +9872,10 @@
    "cap_ts": 1789100100.0,
    "state_at_capture": "triggered",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
-   "limit_r": null
+   "market_status": "resolved",
+   "market_r": 1.0,
+   "limit_status": "resolved",
+   "limit_r": 1.0
   },
   "btcusd:1789098300000:absorb_btc": {
    "id": "btcusd:1789098300000:absorb_btc",
@@ -9887,6 +9887,40 @@
    "stop": 76686.43414286,
    "market_entry": 77082.89,
    "cap_ts": 1789101000.0,
+   "state_at_capture": "triggered",
+   "nowick_aligned": false,
+   "market_status": "pending",
+   "market_r": null,
+   "limit_status": "nofill",
+   "limit_r": null
+  },
+  "btcusd:1789130700000:absorb_btc": {
+   "id": "btcusd:1789130700000:absorb_btc",
+   "pair": "btcusd",
+   "dir": "bull",
+   "method": "absorb_btc",
+   "cls": "crypto",
+   "limit_entry": 77590.01,
+   "stop": 76017.68785714,
+   "market_entry": 76782.47,
+   "cap_ts": 1789125300.0,
+   "state_at_capture": "triggered",
+   "nowick_aligned": false,
+   "market_status": "pending",
+   "market_r": null,
+   "limit_status": "pending",
+   "limit_r": null
+  },
+  "xagusd:1789124400000:mmove_m15": {
+   "id": "xagusd:1789124400000:mmove_m15",
+   "pair": "xagusd",
+   "dir": "bull",
+   "method": "mmove_m15",
+   "cls": "comm",
+   "limit_entry": 63.8432,
+   "stop": 63.77299286,
+   "market_entry": 63.81965,
+   "cap_ts": 1789124400.0,
    "state_at_capture": "triggered",
    "nowick_aligned": false,
    "market_status": "pending",
