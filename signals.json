@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-11T00:40:59.920598+00:00",
-  "generated_ms": 1789087257312,
-  "detector_last_check": "2026-09-11T00:40:56.339684+00:00",
+  "generated": "2026-09-11T00:46:01.003786+00:00",
+  "generated_ms": 1789087557399,
+  "detector_last_check": "2026-09-11T00:45:56.038153+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 5,
+    "total": 6,
     "armed": 0,
     "triggered": 5,
-    "invalidated": 0
+    "invalidated": 1
   },
   "signals": [
+    {
+      "id": "btcusd:1789086600000:absorb_btc",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "absorb_btc",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 76848.85,
+      "stop": 76755.26328571,
+      "target": 77036.02342857,
+      "ew": null,
+      "tl": null,
+      "nw": null,
+      "cl": null,
+      "armedAt": 1789086600000,
+      "triggeredAt": 1789086600000,
+      "lastSeenAt": 1789087557399,
+      "source": "server-detector-absorb",
+      "event_aligned": null,
+      "held": false
+    },
     {
       "id": "btcusd:1789083000000:absorb_btc",
       "pair": "btcusd",
@@ -34,7 +57,7 @@
       "cl": null,
       "armedAt": 1789083000000,
       "triggeredAt": 1789083000000,
-      "lastSeenAt": 1789087257312,
+      "lastSeenAt": 1789087557399,
       "source": "server-detector-absorb",
       "event_aligned": null,
       "held": true
@@ -57,7 +80,7 @@
       "cl": null,
       "armedAt": 1789056000000,
       "triggeredAt": 1789056000000,
-      "lastSeenAt": 1789087257312,
+      "lastSeenAt": 1789087557399,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
@@ -80,7 +103,7 @@
       "cl": "bear",
       "armedAt": 1780440300000,
       "triggeredAt": 1789083000000,
-      "lastSeenAt": 1789087257312,
+      "lastSeenAt": 1789087557399,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -92,7 +115,7 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bear",
-      "state": "triggered",
+      "state": "invalidated",
       "entry": 0.7279032,
       "stop": 0.7418,
       "target": 0.7140063999999999,
@@ -101,8 +124,8 @@
       "nw": "bear",
       "cl": "bear",
       "armedAt": 1780424100000,
-      "triggeredAt": 1789083000000,
-      "lastSeenAt": 1789087257312,
+      "triggeredAt": null,
+      "lastSeenAt": 1789087557399,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -124,7 +147,7 @@
       "cl": "bear",
       "armedAt": 1780326900000,
       "triggeredAt": 1789083000000,
-      "lastSeenAt": 1789087257312,
+      "lastSeenAt": 1789087557399,
       "source": "server-detector",
       "event_aligned": null
     }
