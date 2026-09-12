@@ -22,7 +22,8 @@ Run: python absorb_live.py  (normally imported by build_signals_json.py)
 import json
 import os
 
-from crypto_delta_research import absorption_signals as _absorb_signals, _norm as _delta_norm
+from crypto_delta_research import absorption_signals as _absorb_signals, _norm as _delta_norm, resample
+from five_strategies_research import ema
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 LIVE = os.path.join(_HERE, "binance-btc-live.json")
@@ -51,6 +52,30 @@ def _load_state():
         return json.load(open(STATE)).get("open", {})
     except Exception:
         return {}
+
+
+def _trend_series(m15, factor):
+    """(_ts, 'bull'/'bear'/None) per higher-TF bar — EMA8 vs EMA21 on resampled closes."""
+    rs = resample(m15, factor)
+    c = [b["c"] for b in rs]; ef = ema(c, 8); es = ema(c, 21); out = []
+    for i in range(len(rs)):
+        t = None
+        if ef[i] is not None and es[i] is not None:
+            t = "bull" if ef[i] > es[i] else "bear"
+        out.append((rs[i]["_ts"], t))
+    return out
+
+
+def _trend_at(series, ts, span):
+    """Trend of the last higher-TF bar that FULLY CLOSED before `ts` (a resampled bar
+    starts at _ts and spans `span` seconds) — lookahead-free for a live filter."""
+    cur = None
+    for (bts, t) in series:
+        if bts + span <= ts:
+            cur = t
+        else:
+            break
+    return cur
 
 
 def _resolved(m15, armed_ts, stop, target, d):
@@ -88,6 +113,8 @@ def build_absorb_rows(now_ms):
         end_ts = m15[-1]["_ts"]
         open_state = _load_state()          # {id: {armedAt(ms), dir, entry, stop, target}}
         new_open = {}
+        # H1/H4 trend context (from the same delta bars) for the counter-trend entry filter.
+        tm1 = _trend_series(m15, 4); tm4 = _trend_series(m15, 16)
 
         # 1) Carry forward still-open positions from prior cycles; drop resolved/expired.
         for sid, pos in open_state.items():
@@ -106,6 +133,17 @@ def build_absorb_rows(now_ms):
                 continue
             R = abs(entry - stop)
             if R <= 0:
+                continue
+            # H1&H4 TREND FILTER (2026-09-12) — don't fade INTO a clear higher-TF trend. Skip a
+            # SHORT only when BOTH H1 and H4 are up (a clear aligned uptrend); a LONG only when
+            # both are down. Real-delta backtest: lifts the raw edge (+0.009R -> +0.073R, both
+            # OOS halves +) by cutting counter-trend fades. Entry-only, so it never affects an
+            # already-open position; it only REMOVES trades (low risk). NB it improves the edge
+            # but does NOT clear real crypto spread — absorb stays under forward review.
+            t1 = _trend_at(tm1, m15[ei]["_ts"], 4 * 900)
+            t4 = _trend_at(tm4, m15[ei]["_ts"], 16 * 900)
+            if (d == "bear" and t1 == "bull" and t4 == "bull") or \
+               (d == "bull" and t1 == "bear" and t4 == "bear"):
                 continue
             armed_ms = int(m15[ei]["_ts"] * 1000)
             sid = f"btcusd:{armed_ms}:absorb_btc"
