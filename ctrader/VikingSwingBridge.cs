@@ -581,16 +581,19 @@ namespace cAlgo.Robots
             return null;
         }
 
-        // True if price traded through `stop` on any H1 bar strictly after the trigger bar, up to
+        // True if price traded through `stop` on any M15 bar strictly after the trigger bar, up to
         // now — i.e. the setup's invalidation level was already hit before this (possibly late)
-        // fill. Uses completed H1 bars (a bar's high/low bounds any intrabar extreme). Fail-open:
-        // any data hiccup returns false so a transient glitch never blocks a legitimate entry.
+        // fill. M15 (not H1) so the scan also covers the one m15 swing strategy (fma_gold): an H1
+        // scan excludes the trigger's own partial hour and can miss a breach in the first sub-hour
+        // after an m15 trigger. M15 is still ample for the H1/4H strategies (a bar's high/low bounds
+        // any intrabar extreme), and the 120-min age cap keeps the window to ~8 bars. Fail-open: any
+        // data hiccup returns false so a transient glitch never blocks a legitimate entry.
         private bool StopBreachedSinceTrigger(Symbol symbol, long triggerTs, double stop, bool isBuy)
         {
             try
             {
                 var trig = DateTimeOffset.FromUnixTimeSeconds(triggerTs).UtcDateTime;
-                var bars = MarketData.GetBars(TimeFrame.Hour, symbol.Name);
+                var bars = MarketData.GetBars(TimeFrame.Minute15, symbol.Name);
                 if (bars == null || bars.Count == 0) return false;
                 for (int i = bars.Count - 1; i >= 0; i--)
                 {
