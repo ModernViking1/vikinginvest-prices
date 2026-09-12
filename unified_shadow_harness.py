@@ -2120,13 +2120,80 @@ def detect_po3_kane(pk, h1, daily):
             if b['h'] > or_hi and b['c'] < or_hi:      # manipulation: sweep OR-high, reject
                 entry = b['c']; stop = b['h'] + PO3K_BUF * (b['h'] - entry)
                 R = abs(entry - stop)
-                if stop > entry and R > 0:
+                if stop > entry and R > 0 and j + 1 < len(h1):
+                    # entry at THIS bar's close -> score from the NEXT bar (this bar's stop sits
+                    # above its own high, so scoring it would be lookahead that inflates the WR).
                     out.append({'strategy': 'po3_kane', 'tf': 'h1', 'pair': pk, 'dir': 'bear',
-                                'entry_ts': b['_ts'], 'entry': entry, 'stop': stop,
+                                'entry_ts': h1[j + 1]['_ts'], 'entry': entry, 'stop': stop,
                                 'target': entry - PO3K_RR * R})
                 break
             if b['c'] > or_hi * 1.002:                 # moved away without sweeping — abort
                 break
+    return out
+
+
+# --- PO3-Kane MULTI-TIMEFRAME CONFLUENCE observer (ChartFanatics method) --------------
+# Faithful build of the charted method: daily bias -> m15 sweep of the recent swing high(low)
+# + rejection -> distribution entry, taken ONLY when the recent H4 and H1 liquidity levels
+# STACK at the same price (the "H4-PO3 / H1-PO3 aligned" confluence). Cost-honest testing put
+# the honest edge NOT on the index universe it is demonstrated on (breakeven + decaying; nas100
+# itself negative) and NOT on crypto (dies past ~7bp round-trip, a cost-model mirage), but on
+# COMMODITIES + the four index pockets that held up (dj30/ftse100/jp225/spx500). Scoped there,
+# RR2, m15 execution, monitor-only — logged, never fed to the cBot. The two-TF liquidity
+# confluence is the only PO3 variant with any signal; forward evidence decides it.
+PO3C_POCKETS = {'xauusd', 'xagusd', 'usoil', 'wtiusd', 'natgas',
+                'dj30', 'ftse100', 'jp225', 'spx500'}
+PO3C_SWING_LB = 16      # m15 swing lookback for the sweep (~4h)
+PO3C_BUF = 0.10
+PO3C_H4K = 6            # recent H4 range lookback (~24h) for the H4 liquidity level
+PO3C_H1K = 12           # recent H1 range lookback (~12h) for the H1 liquidity level
+PO3C_TOL = 0.2          # H4 & H1 liquidity must stack within TOL * R to count as aligned
+PO3C_RR = 2.0
+PO3C_HOLD = 192         # m15 bars (~2 trading days) to resolve
+
+
+def detect_po3_conf(pk, m15, h1, daily):
+    if pk not in PO3C_POCKETS or len(m15) < 800 or len(h1) < 400 or len(daily) < 40:
+        return []
+    ctx = _po3k_daily_ctx(daily)                    # prior-day daily bias (EMA8 vs EMA21)
+    h4 = agg4h(h1)
+    h1ts = [b['_ts'] for b in h1]; h4ts = [b['_ts'] for b in h4]
+    out = []
+    for i in range(PO3C_SWING_LB + 2, len(m15) - 1):
+        b = m15[i]
+        c = ctx.get(datetime.fromtimestamp(b['_ts'], timezone.utc).strftime('%Y-%m-%d'))
+        if not c:
+            continue
+        br = c[0]                                    # 'bear' / 'bull' — trend-aligned only
+        seg = m15[i - PO3C_SWING_LB:i]
+        if br == 'bear':
+            ref = max(x['h'] for x in seg)
+            if not (b['h'] > ref and b['c'] < ref):   # sweep the swing high, reject back below
+                continue
+            entry = b['c']; stop = b['h'] + PO3C_BUF * (b['h'] - entry)
+        else:
+            ref = min(x['l'] for x in seg)
+            if not (b['l'] < ref and b['c'] > ref):
+                continue
+            entry = b['c']; stop = b['l'] - PO3C_BUF * (entry - b['l'])
+        R = abs(entry - stop)
+        if R <= 0:
+            continue
+        i4 = bisect.bisect_left(h4ts, b['_ts']); i1 = bisect.bisect_left(h1ts, b['_ts'])
+        if i4 < PO3C_H4K or i1 < PO3C_H1K:
+            continue
+        if br == 'bear':
+            e4 = max(x['h'] for x in h4[i4 - PO3C_H4K:i4]); e1 = max(x['h'] for x in h1[i1 - PO3C_H1K:i1])
+        else:
+            e4 = min(x['l'] for x in h4[i4 - PO3C_H4K:i4]); e1 = min(x['l'] for x in h1[i1 - PO3C_H1K:i1])
+        if abs(e4 - e1) > PO3C_TOL * R:              # H4-PO3 / H1-PO3 confluence gate
+            continue
+        tgt = entry - PO3C_RR * R if br == 'bear' else entry + PO3C_RR * R
+        # entry is at THIS bar's close, so scoring must start on the NEXT bar — using this bar's
+        # _ts would let score_sess re-evaluate the sweep bar (whose stop sits above its own high by
+        # construction, so it can only ever hit target) = lookahead that fakes the win rate up.
+        out.append({'strategy': 'po3_conf', 'tf': 'm15', 'pair': pk, 'dir': br,
+                    'entry_ts': m15[i + 1]['_ts'], 'entry': entry, 'stop': stop, 'target': tgt})
     return out
 
 
@@ -2223,7 +2290,8 @@ def main():
                  + detect_twob(pk, h1) + detect_holygrail_m15(pk, m15)
                  + detect_fma(pk, m15) + detect_po3(pk, m15) + detect_sweepfvg(pk, m15)
                  + detect_ew_wave5(pk, h1) + detect_ew_wave5_fib(pk, h1)
-                 + detect_po3_kane(pk, h1, daily))
+                 + detect_po3_kane(pk, h1, daily)
+                 + detect_po3_conf(pk, m15, h1, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -2296,6 +2364,8 @@ def main():
                 st, o = score_sess(b4, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], EW_WAVE5_HOLD)
             elif rec['strategy'] == 'po3_kane':
                 st, o = score_sess(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], PO3K_HOLD)
+            elif rec['strategy'] == 'po3_conf':
+                st, o = score_sess(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], PO3C_HOLD)
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -2441,7 +2511,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'orb_ln', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'po3_kane', 'absorb_btc'):
+        for strat in ('hs', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'orb_ln', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'po3_kane', 'po3_conf', 'absorb_btc'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
