@@ -2214,6 +2214,63 @@ def detect_po3_conf(pk, m15, h1, daily):
     return out
 
 
+# --- CAMARILLA pivot reversal (London Trading Institute method) --------------------------
+# Daily Camarilla levels from the PRIOR day (no lookahead): R4=C+rng*1.1/2, R3=C+rng*1.1/4,
+# S3=C-rng*1.1/4, S4=C-rng*1.1/2. Fade the level with a confirmation candle: a 15m bar tags
+# R3 (high>=R3) and rejects (bearish close back below) -> SHORT; tags S3 and rejects (bullish
+# close back above) -> LONG. Stop beyond R4/S4, RR1 target, one trade per level per day.
+# Cost-stress (cam_cost, 2026-09-13) is the reason this is wired where others weren't: it
+# SURVIVES realistic spread on comm (+0.50R @4bp), index (+0.39R @2bp), major (+0.32R @2bp)
+# and minor (+0.18R @5bp) — 72-77% WR, both OOS halves +, and the wide-R comm/index cells
+# prove it's not a cost artifact. Crypto dies (excluded). Monitor-only; RR1; scored on m15.
+CAM_CLASSES = {'major', 'minor', 'index', 'comm'}
+CAM_BUF = 0.10
+CAM_RR = 1.0
+CAM_HOLD = 96          # ~1 trading day on m15
+
+
+def _cam_levels(daily):
+    out = {}
+    for i in range(1, len(daily)):
+        p = daily[i - 1]; rng = p['h'] - p['l']
+        if rng > 0:
+            C = p['c']
+            out[datetime.fromtimestamp(daily[i]['_ts'], timezone.utc).strftime('%Y-%m-%d')] = {
+                'R4': C + rng * 1.1 / 2, 'R3': C + rng * 1.1 / 4,
+                'S3': C - rng * 1.1 / 4, 'S4': C - rng * 1.1 / 2}
+    return out
+
+
+def detect_cam_rev(pk, m15, daily):
+    if PAIR_CLASS.get(pk) not in CAM_CLASSES or len(m15) < 500 or len(daily) < 30:
+        return []
+    lv = _cam_levels(daily); out = []; done = set()
+    for i in range(len(m15) - 1):
+        b = m15[i]; day = datetime.fromtimestamp(b['_ts'], timezone.utc).strftime('%Y-%m-%d')
+        L = lv.get(day)
+        if not L:
+            continue
+        if (day, 'S') not in done and b['h'] >= L['R3'] and b['c'] < L['R3'] and b['c'] < b['o']:
+            entry = b['c']; stop = L['R4'] + CAM_BUF * (L['R4'] - L['R3'])
+            if stop > entry:
+                R = stop - entry
+                # entry at THIS bar's close -> score from the NEXT bar (avoid the lookahead
+                # that would let score_sess re-read the confirmation bar).
+                out.append({'strategy': 'cam_rev', 'tf': 'm15', 'pair': pk, 'dir': 'bear',
+                            'entry_ts': m15[i + 1]['_ts'], 'entry': entry, 'stop': stop,
+                            'target': entry - CAM_RR * R})
+                done.add((day, 'S'))
+        if (day, 'L') not in done and b['l'] <= L['S3'] and b['c'] > L['S3'] and b['c'] > b['o']:
+            entry = b['c']; stop = L['S4'] - CAM_BUF * (L['S3'] - L['S4'])
+            if stop < entry:
+                R = entry - stop
+                out.append({'strategy': 'cam_rev', 'tf': 'm15', 'pair': pk, 'dir': 'bull',
+                            'entry_ts': m15[i + 1]['_ts'], 'entry': entry, 'stop': stop,
+                            'target': entry + CAM_RR * R})
+                done.add((day, 'L'))
+    return out
+
+
 def score_sess(bars, entry_ts, entry, stop, target, d, hold):
     """Target-bracket scorer (explicit target, not RR-derived). Bracket-honest:
     unresolved within the hold is EXCLUDED, mirroring score()."""
@@ -2309,7 +2366,8 @@ def main():
                  + detect_ew_wave5(pk, h1) + detect_ew_wave5_fib(pk, h1)
                  + detect_po3_kane(pk, h1, daily)
                  + detect_po3_conf(pk, m15, h1, daily)
-                 + detect_hs_crypto(pk, h1, daily, draw))
+                 + detect_hs_crypto(pk, h1, daily, draw)
+                 + detect_cam_rev(pk, m15, daily))
         for s in found:
             detected += 1
             k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -2384,6 +2442,8 @@ def main():
                 st, o = score_sess(h1, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], PO3K_HOLD)
             elif rec['strategy'] == 'po3_conf':
                 st, o = score_sess(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], PO3C_HOLD)
+            elif rec['strategy'] == 'cam_rev':
+                st, o = score_sess(m15, rec['entry_ts'], rec['entry'], rec['stop'], rec['target'], rec['dir'], CAM_HOLD)
             else:
                 st, o = score(bars, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], hold)
             rec['status'] = st
@@ -2529,7 +2589,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 'hs_crypto', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'orb_ln', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'po3_kane', 'po3_conf', 'absorb_btc'):
+        for strat in ('hs', 'hs_crypto', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'orb_ln', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'po3_kane', 'po3_conf', 'cam_rev', 'absorb_btc'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
