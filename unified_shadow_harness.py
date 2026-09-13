@@ -2267,7 +2267,7 @@ def detect_cam_rev(pk, m15, daily):
                 # that would let score_sess re-read the confirmation bar).
                 out.append({'strategy': 'cam_rev', 'tf': 'm15', 'pair': pk, 'dir': 'bear',
                             'entry_ts': m15[i + 1]['_ts'], 'entry': entry, 'stop': stop,
-                            'target': entry - CAM_RR * R})
+                            'target': entry - CAM_RR * R, 'rr': CAM_RR})
                 done.add((day, 'S'))
         if (day, 'L') not in done and b['l'] <= L['S3'] and b['c'] > L['S3'] and b['c'] > b['o']:
             entry = b['c']; stop = L['S4'] - CAM_BUF * (L['S3'] - L['S4'])
@@ -2275,7 +2275,7 @@ def detect_cam_rev(pk, m15, daily):
                 R = entry - stop
                 out.append({'strategy': 'cam_rev', 'tf': 'm15', 'pair': pk, 'dir': 'bull',
                             'entry_ts': m15[i + 1]['_ts'], 'entry': entry, 'stop': stop,
-                            'target': entry + CAM_RR * R})
+                            'target': entry + CAM_RR * R, 'rr': CAM_RR})
                 done.add((day, 'L'))
     return out
 

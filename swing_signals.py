@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob, detect_cam_rev
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -99,7 +99,7 @@ PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'w5_pullback': 6, '
 #   fma_gold (2026-08-07) — FMA liquidity-sweep + 50-EMA reclaim reversal, m15 gold, RR2.
 #     Cross-validated in-sample (native m15 + 12-month m5->m15), but zero forward evidence
 #     yet — demo-first per decision.
-DEMO_ONLY = {'fma_gold'}
+DEMO_ONLY = {'fma_gold', 'cam_rev'}
 
 # Demoted to observer-only — genuine-forward decay on live data since tracking began
 # (see swing-shadow-log.json GENUINE FORWARD). The harness still runs each detector and
@@ -262,6 +262,13 @@ def main():
         # skips it on any live account until it earns forward evidence. detect_fma also emits
         # commodities/index tags — those stay observer-only, so filter to fma_gold here.
         found += [s for s in detect_fma(pk, m15) if s['strategy'] == 'fma_gold']
+        # cam_rev (2026-09-13) — Camarilla pivot reversal + London-session filter, RR1. The only
+        # candidate this session to survive the cost-stress (comm/index robust; major/minor
+        # cost-sensitive). Self-gates to major/minor/index/comm. Wired DEMO-ONLY as a real-fill
+        # pilot at the user's request despite having no forward evidence yet — the cBot fills at
+        # MARKET, so the live WR will likely lag the observer's precise-close 72-84% (tight-R fade
+        # is fill-sensitive); the observer runs in parallel as the clean benchmark.
+        found += detect_cam_rev(pk, m15, daily)
         if cls in THREEPUSH_CLASSES:
             found += detect_threepush(pk, h1, daily)
         if cls in ENGULF_CLASSES:
