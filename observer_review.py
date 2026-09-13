@@ -45,6 +45,12 @@ DROP_EXP = -0.05
 GAP_N = 15            # min closed live fills before the gap is meaningful
 GAP_TOL = 0.15       # live this far below model expectancy -> flag
 
+# Concentration guard: a "PROMOTE" whose R is carried by one pair isn't a portfolio edge,
+# it's one instrument in disguise (and usually one that dies on cost or won't scale). Hold
+# such a verdict at WATCH if the top pair is >CONC_MAX of total R, or if removing that pair
+# leaves the rest with non-positive expectancy (i.e. there's no edge without it).
+CONC_MAX = 0.40
+
 # Strategies executing on the cBot (live/demo feed) — swing_signals PRIORITY minus DEMOTED,
 # the demo pilot, plus the promoted intraday emitters (mmove_m15, absorb_btc). Everything
 # else in the log is an observer. Keep in sync when promoting/demoting, or a live strategy
@@ -114,7 +120,7 @@ def review():
     base = log.get('baseline_data_end') or 0
     end = log.get('last_run_data_end') or 0
     track = log.get('tracking', {})
-    by = {}
+    by = {}; by_pair = {}
     for s in log.get('signals', {}).values():
         st = s.get('strategy')
         # Genuine forward = entry AFTER this strategy's OWN tracking start (when it was
@@ -127,14 +133,31 @@ def review():
         if s.get('status') != 'resolved' or 'r' not in s:
             continue
         by.setdefault(st, []).append((s['entry_ts'], s['r']))
+        by_pair.setdefault(st, {}).setdefault(s.get('pair', '?'), []).append(s['r'])
     rows = []
     for st, rec in by.items():
         rec.sort(); seq = [r for _, r in rec]; n, wr, exp = agg(seq); m = len(rec) // 2
         _, _, eh = agg([r for _, r in rec[:m]]); _, _, es = agg([r for _, r in rec[m:]])
         days = int((end - track[st]) / 86400) if st in track and end else None
+        verdict = classify(n, exp, eh, es)
+        # CONCENTRATION GUARD (2026-09-13): a strategy only earns PROMOTE if its edge is BROAD.
+        # Downgrade PROMOTE -> WATCH when one pair contributes >CONC_MAX of total R, or the edge
+        # goes non-positive once the top pair is removed. Catches single-pair flukes that clear
+        # n>=40 + both-OOS-halves but are really one instrument (obfvg_fx4=usdsgd, mmove_c4=xagusd,
+        # holygrail_cm=wtiusd) — which must not read as promotion-ready.
+        conc = None
+        pairs = by_pair.get(st, {})
+        tot = sum(seq)
+        if verdict == 'PROMOTE' and tot > 0 and len(pairs) > 1:
+            ptot = {pk: sum(v) for pk, v in pairs.items()}
+            toppk = max(ptot, key=ptot.get); share = ptot[toppk] / tot
+            ex = [r for pk, v in pairs.items() if pk != toppk for r in v]
+            _, _, ex_exp = agg(ex)
+            if share > CONC_MAX or ex_exp <= 0:
+                verdict = 'WATCH'
+                conc = {'pair': toppk, 'share': share, 'ex_exp': ex_exp}
         rows.append({'st': st, 'n': n, 'wr': wr, 'exp': exp, 'eh': eh, 'es': es,
-                     'verdict': classify(n, exp, eh, es), 'days': days,
-                     'live': st in LIVE})
+                     'verdict': verdict, 'days': days, 'live': st in LIVE, 'conc': conc})
     rows.sort(key=lambda r: ({'PROMOTE': 0, 'DROP': 1, 'WATCH': 2}[r['verdict']], -r['exp']))
     return rows, base, end
 
@@ -292,6 +315,13 @@ def telegram_digest(rows, gaps):
         lines.append("\n✅ <b>Promotion-ready</b> (n≥40, both OOS halves +):")
         for r in promote:
             lines.append(f"  • {r['st']}  n={r['n']}  {r['exp']:+.3f}R")
+    held = [r for r in watch if r.get('conc')]
+    if held:
+        lines.append("\n\U0001F50E <b>Held back (concentration)</b> — cleared the gate but the edge is one pair:")
+        for r in held:
+            c = r['conc']
+            lines.append(f"  • {r['st']}  n={r['n']}  {r['exp']:+.3f}R  "
+                         f"({c['pair']} = {c['share']*100:.0f}% of R, ex-{c['pair']} {c['ex_exp']:+.3f}R)")
     if drop:
         lines.append("\n⛔ <b>Drop candidates</b> (persistent forward loss):")
         for r in drop:
