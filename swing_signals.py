@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob, detect_cam_rev
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob, detect_cam_rev, detect_mmove, detect_holygrail, detect_holygrail_m15
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -99,7 +99,7 @@ PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'w5_pullback': 6, '
 #   fma_gold (2026-08-07) — FMA liquidity-sweep + 50-EMA reclaim reversal, m15 gold, RR2.
 #     Cross-validated in-sample (native m15 + 12-month m5->m15), but zero forward evidence
 #     yet — demo-first per decision.
-DEMO_ONLY = {'fma_gold', 'cam_rev'}
+DEMO_ONLY = {'fma_gold', 'cam_rev', 'mmove', 'mmove_c4', 'holygrail_cm', 'holygrail_cm_m15'}
 
 # Demoted to observer-only — genuine-forward decay on live data since tracking began
 # (see swing-shadow-log.json GENUINE FORWARD). The harness still runs each detector and
@@ -269,6 +269,22 @@ def main():
         # MARKET, so the live WR will likely lag the observer's precise-close 72-84% (tight-R fade
         # is fill-sensitive); the observer runs in parallel as the clean benchmark.
         found += detect_cam_rev(pk, m15, daily)
+        # DEMO-ONLY observer promotions (2026-09-13, user-directed "prove on demo/prop first").
+        # These four cleared n>=40 + both OOS halves in the shadow harness but had NOT yet earned
+        # a live emitter; wired demo_only so the cBot accrues real-fill/real-spread evidence while
+        # they're kept OFF any live account. Exit models line up with the cBot: mmove/mmove_c4 are
+        # fixed-RR2 (score()); holygrail_cm/_m15 are trail-open, which the cBot's 1R comm-trailing
+        # reproduces (crypto/major trailing is off, so mmove rides the fixed RR2 correctly).
+        #  • mmove          — crypto H1, multi-pair (no concentration flag); open question is real
+        #                     crypto spread, which the demo fill answers.
+        #  • holygrail_cm_m15 / holygrail_cm — comm (oil-led); top-heavy on wtiusd but the edge
+        #                     survives ex-oil (well-sampled), so a genuine lean, not a single-pair fluke.
+        #  • mmove_c4       — comm 4h; FLAGGED: the concentration guard HOLDS this (all R is xagusd,
+        #                     NEGATIVE ex-silver). Wired at the user's explicit request; forward demo
+        #                     is the cleanest test of whether the silver-only edge is real or noise.
+        found += [s for s in detect_mmove(pk, h1, daily) if s['strategy'] in ('mmove', 'mmove_c4')]
+        found += [s for s in detect_holygrail(pk, h1) if s['strategy'] == 'holygrail_cm']
+        found += [s for s in detect_holygrail_m15(pk, m15) if s['strategy'] == 'holygrail_cm_m15']
         if cls in THREEPUSH_CLASSES:
             found += detect_threepush(pk, h1, daily)
         if cls in ENGULF_CLASSES:

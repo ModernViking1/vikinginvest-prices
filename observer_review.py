@@ -45,11 +45,15 @@ DROP_EXP = -0.05
 GAP_N = 15            # min closed live fills before the gap is meaningful
 GAP_TOL = 0.15       # live this far below model expectancy -> flag
 
-# Concentration guard: a "PROMOTE" whose R is carried by one pair isn't a portfolio edge,
-# it's one instrument in disguise (and usually one that dies on cost or won't scale). Hold
-# such a verdict at WATCH if the top pair is >CONC_MAX of total R, or if removing that pair
-# leaves the rest with non-positive expectancy (i.e. there's no edge without it).
-CONC_MAX = 0.40
+# Concentration guard: a "PROMOTE" whose edge collapses without its single best pair isn't a
+# portfolio edge, it's one instrument in disguise (and usually one that dies on cost or won't
+# scale). But a strategy that legitimately LEANS on its best instrument (e.g. a gold-heavy
+# comm edge) is still valid if the rest holds up — so we only HOLD a verdict when the edge
+# genuinely doesn't survive removing the top pair, or when the "other" pairs barely traded
+# (concentration that's really single-pair in disguise). A deliberately single-pair strategy
+# (gbreak = gold only) never reaches the guard at all — it fires only for len(pairs) > 1.
+CONC_MAX = 0.40          # top-pair share above this is "top-heavy" — annotate, and scrutinise
+CONC_MIN_REMAINDER = 20  # min non-top-pair fills for the remainder edge to be trustworthy
 
 # Strategies executing on the cBot (live/demo feed) — swing_signals PRIORITY minus DEMOTED,
 # the demo pilot, plus the promoted intraday emitters (mmove_m15, absorb_btc). Everything
@@ -140,11 +144,13 @@ def review():
         _, _, eh = agg([r for _, r in rec[:m]]); _, _, es = agg([r for _, r in rec[m:]])
         days = int((end - track[st]) / 86400) if st in track and end else None
         verdict = classify(n, exp, eh, es)
-        # CONCENTRATION GUARD (2026-09-13): a strategy only earns PROMOTE if its edge is BROAD.
-        # Downgrade PROMOTE -> WATCH when one pair contributes >CONC_MAX of total R, or the edge
-        # goes non-positive once the top pair is removed. Catches single-pair flukes that clear
-        # n>=40 + both-OOS-halves but are really one instrument (obfvg_fx4=usdsgd, mmove_c4=xagusd,
-        # holygrail_cm=wtiusd) — which must not read as promotion-ready.
+        # CONCENTRATION GUARD (2026-09-13): a PROMOTE should be a BROAD edge. For a multi-pair
+        # strategy, test whether the edge survives removing its single best pair. HOLD at WATCH
+        # only when it doesn't (ex-top expectancy <= 0), or when the strategy is top-heavy AND
+        # the remainder barely traded (single-pair in disguise). A strategy that legitimately
+        # leans on its best instrument but still has a real, well-sampled edge on the rest KEEPS
+        # PROMOTE — we just annotate the lean. Deliberately single-pair strategies never reach
+        # here (len(pairs) > 1 gate), so a gold-only edge like gbreak is exempt by construction.
         conc = None
         pairs = by_pair.get(st, {})
         tot = sum(seq)
@@ -152,10 +158,13 @@ def review():
             ptot = {pk: sum(v) for pk, v in pairs.items()}
             toppk = max(ptot, key=ptot.get); share = ptot[toppk] / tot
             ex = [r for pk, v in pairs.items() if pk != toppk for r in v]
-            _, _, ex_exp = agg(ex)
-            if share > CONC_MAX or ex_exp <= 0:
+            ex_n, _, ex_exp = agg(ex)
+            held = ex_exp <= 0 or (share > CONC_MAX and ex_n < CONC_MIN_REMAINDER)
+            if held:
                 verdict = 'WATCH'
-                conc = {'pair': toppk, 'share': share, 'ex_exp': ex_exp}
+                conc = {'pair': toppk, 'share': share, 'ex_exp': ex_exp, 'ex_n': ex_n, 'held': True}
+            elif share > CONC_MAX:   # top-heavy but the remainder is a real edge — keep PROMOTE, flag it
+                conc = {'pair': toppk, 'share': share, 'ex_exp': ex_exp, 'ex_n': ex_n, 'held': False}
         rows.append({'st': st, 'n': n, 'wr': wr, 'exp': exp, 'eh': eh, 'es': es,
                      'verdict': verdict, 'days': days, 'live': st in LIVE, 'conc': conc})
     rows.sort(key=lambda r: ({'PROMOTE': 0, 'DROP': 1, 'WATCH': 2}[r['verdict']], -r['exp']))
@@ -314,14 +323,17 @@ def telegram_digest(rows, gaps):
     if promote:
         lines.append("\n✅ <b>Promotion-ready</b> (n≥40, both OOS halves +):")
         for r in promote:
-            lines.append(f"  • {r['st']}  n={r['n']}  {r['exp']:+.3f}R")
-    held = [r for r in watch if r.get('conc')]
+            c = r.get('conc')
+            note = (f"  (top-heavy: {c['pair']} {c['share']*100:.0f}% of R, but ex-{c['pair']} "
+                    f"{c['ex_exp']:+.3f}R on n={c['ex_n']})") if c else ""
+            lines.append(f"  • {r['st']}  n={r['n']}  {r['exp']:+.3f}R{note}")
+    held = [r for r in watch if r.get('conc') and r['conc'].get('held')]
     if held:
-        lines.append("\n\U0001F50E <b>Held back (concentration)</b> — cleared the gate but the edge is one pair:")
+        lines.append("\n\U0001F50E <b>Held back (concentration)</b> — cleared the gate but the edge doesn't survive its top pair:")
         for r in held:
             c = r['conc']
             lines.append(f"  • {r['st']}  n={r['n']}  {r['exp']:+.3f}R  "
-                         f"({c['pair']} = {c['share']*100:.0f}% of R, ex-{c['pair']} {c['ex_exp']:+.3f}R)")
+                         f"({c['pair']} = {c['share']*100:.0f}% of R, ex-{c['pair']} {c['ex_exp']:+.3f}R on n={c['ex_n']})")
     if drop:
         lines.append("\n⛔ <b>Drop candidates</b> (persistent forward loss):")
         for r in drop:
