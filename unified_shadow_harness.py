@@ -2227,6 +2227,12 @@ CAM_CLASSES = {'major', 'minor', 'index', 'comm'}
 CAM_BUF = 0.10
 CAM_RR = 1.0
 CAM_HOLD = 96          # ~1 trading day on m15
+# London-session entry filter (07:00-16:00 UTC). Filter test (cam_filters, 2026-09-13): the
+# session gate lifts expR AND WR on EVERY class (major +0.33->+0.53R, minor +0.18->+0.33R,
+# comm +0.50->+0.57R, index +0.38->+0.47R) — coherent, since this is a London-session method.
+# The MA(EMA50) trend filter was ~neutral (helped index/major slightly, hurt comm) and just
+# cut sample, so it's NOT applied. Only the session filter is used.
+CAM_SESS_OPEN, CAM_SESS_CLOSE = 7, 16
 
 
 def _cam_levels(daily):
@@ -2246,9 +2252,12 @@ def detect_cam_rev(pk, m15, daily):
         return []
     lv = _cam_levels(daily); out = []; done = set()
     for i in range(len(m15) - 1):
-        b = m15[i]; day = datetime.fromtimestamp(b['_ts'], timezone.utc).strftime('%Y-%m-%d')
+        b = m15[i]; bt = datetime.fromtimestamp(b['_ts'], timezone.utc)
+        day = bt.strftime('%Y-%m-%d')
         L = lv.get(day)
         if not L:
+            continue
+        if not (CAM_SESS_OPEN <= bt.hour < CAM_SESS_CLOSE):   # London/EU-NY session only
             continue
         if (day, 'S') not in done and b['h'] >= L['R3'] and b['c'] < L['R3'] and b['c'] < b['o']:
             entry = b['c']; stop = L['R4'] + CAM_BUF * (L['R4'] - L['R3'])
