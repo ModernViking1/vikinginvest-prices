@@ -1,26 +1,26 @@
 {
  "schema_version": 1,
- "generated": "2026-09-13T04:00:00+00:00",
- "data_end_ts": 1789272000,
- "raw_signal_count": 9,
- "count": 6,
+ "generated": "2026-09-13T11:00:00+00:00",
+ "data_end_ts": 1789297200,
+ "raw_signal_count": 8,
+ "count": 5,
  "signals": [
   {
-   "id": "twob:taousd:1789272000",
+   "id": "twob:asterusd:1789279200",
    "strategy": "twob",
-   "pair": "taousd",
-   "symbol": "TAOUSD",
+   "pair": "asterusd",
+   "symbol": "ASTERUSD",
    "class": "crypto",
    "dir": "bear",
-   "stop": 236.58235714,
-   "ref_entry": 234.44,
+   "stop": 0.69705571,
+   "ref_entry": 0.6954,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
    "demo_only": false,
-   "trigger_ts": 1789272000,
-   "created_ts": 1789272000,
-   "expiry_ts": 1789315200,
+   "trigger_ts": 1789279200,
+   "created_ts": 1789297200,
+   "expiry_ts": 1789322400,
    "state": "triggered",
    "cofire": [
     "twob"
@@ -44,7 +44,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789268400,
-   "created_ts": 1789272000,
+   "created_ts": 1789297200,
    "expiry_ts": 1789311600,
    "state": "triggered",
    "cofire": [
@@ -69,7 +69,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789264800,
-   "created_ts": 1789272000,
+   "created_ts": 1789297200,
    "expiry_ts": 1789308000,
    "state": "triggered",
    "cofire": [
@@ -81,55 +81,31 @@
    "suppressed": 0
   },
   {
-   "id": "twob:btcusd:1789246800",
-   "strategy": "twob",
+   "id": "engulf_manip:btcusd:1789236000",
+   "strategy": "engulf_manip",
    "pair": "btcusd",
    "symbol": "BTCUSD",
    "class": "crypto",
-   "dir": "bull",
-   "stop": 77093.90192857,
-   "ref_entry": 77152.69,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789246800,
-   "created_ts": 1789272000,
-   "expiry_ts": 1789290000,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bear",
-    "twob:bull"
-   ],
-   "suppressed": 1
-  },
-  {
-   "id": "twob:asterusd:1789236000",
-   "strategy": "twob",
-   "pair": "asterusd",
-   "symbol": "ASTERUSD",
-   "class": "crypto",
    "dir": "bear",
-   "stop": 0.69771071,
-   "ref_entry": 0.691,
+   "stop": 77583.18707143,
+   "ref_entry": 77191.42,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789236000,
-   "created_ts": 1789272000,
+   "created_ts": 1789297200,
    "expiry_ts": 1789279200,
    "state": "triggered",
    "cofire": [
+    "engulf_manip",
     "twob"
    ],
    "cofire_dirs": [
+    "engulf_manip:bear",
     "twob:bear"
    ],
-   "suppressed": 0
+   "suppressed": 1
   },
   {
    "id": "twob:xrpusd:1789228800",
@@ -145,7 +121,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789228800,
-   "created_ts": 1789272000,
+   "created_ts": 1789297200,
    "expiry_ts": 1789272000,
    "state": "triggered",
    "cofire": [
