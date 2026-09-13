@@ -209,12 +209,19 @@ def _activity_7d():
 
 
 def _trigger_ts_of(sid):
-    """Epoch-seconds trigger stamp embedded in a signal id, whichever segment it is:
-    swing ids are strat:pair:ts (ts last), intraday are pair:ts:method (ts middle)."""
+    """Epoch-SECONDS trigger stamp embedded in a signal id, whichever segment it is:
+    swing ids are strat:pair:ts with ts in epoch SECONDS (10 digits); intraday ids are
+    (viking-)pair:ts:method with ts in epoch MILLISECONDS (13 digits). Normalise both to
+    seconds — else the intraday fills are silently dropped and the latency reads false-stale."""
     for seg in (sid or '').split(':'):
         s = seg.split('.')[0]
-        if s.isdigit() and 1_000_000_000 <= int(s) <= 9_999_999_999:
-            return int(s)
+        if not s.isdigit():
+            continue
+        v = int(s)
+        if 1_000_000_000 <= v <= 9_999_999_999:
+            return v                     # epoch seconds
+        if 1_000_000_000_000 <= v <= 9_999_999_999_999:
+            return v // 1000             # epoch milliseconds -> seconds
     return None
 
 
