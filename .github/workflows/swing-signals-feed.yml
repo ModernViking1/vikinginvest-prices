@@ -60,13 +60,32 @@ jobs:
       - name: Guard — required files present
         run: |
           for f in swing_signals.py unified_shadow_harness.py historical-ohlc.json \
-                   detect_triggers.py backtest_rsi_per_class.py \
-                   hs_swing_research.py five_strategies_research.py; do
+                   detect_triggers.py backtest_rsi_per_class.py freshen_h1_tail.py \
+                   fetch_historical_ohlc.py hs_swing_research.py five_strategies_research.py; do
             if [ ! -f "$f" ]; then echo "::error::$f missing from repo root"; exit 1; fi
           done
 
+      # The 6-hourly full backfill (publish-historical-ohlc.yml) leaves the H1 bars the swing
+      # detectors trigger on up to 6 h stale, so the swing cBot's entry-age guard rejects the
+      # signals and nothing fills. Splice just the last few days of H1 onto the tail here so
+      # THIS run reads current bars. Fail-open: on any error the existing (stale) file is used.
+      # The freshened file is DISCARDED below and never committed — the 6-hourly job stays the
+      # committed source of truth, so this adds no repo bloat (the file is ~60 MB).
+      - name: Freshen H1 tail (swing signals must be current, not up to 6 h stale)
+        env:
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+        run: |
+          python freshen_h1_tail.py --days 3 --skip-if-fresh-min 50 \
+            || echo "freshen failed (fail-open) — swing feed runs on existing data"
+
       - name: Generate swing feed
         run: python swing_signals.py
+
+      # Drop the transient H1 freshening so the working tree is clean: the commit step stages
+      # ONLY swing-signals.json, and a dirty 60 MB historical-ohlc.json would otherwise block
+      # the rebase-on-race below (git rebase refuses with unstaged changes).
+      - name: Discard transient H1 freshening (6-hourly backfill owns this file)
+        run: git checkout -- historical-ohlc.json 2>/dev/null || true
 
       - name: Commit + push swing-signals.json (retry on race)
         run: |
