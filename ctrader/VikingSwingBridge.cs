@@ -136,6 +136,15 @@ namespace cAlgo.Robots
         {
             return string.IsNullOrEmpty(pair) || !_noTrailPairs.Contains(pair);
         }
+        // Instruments this broker EXISTS but has trading DISABLED on (order sent -> broker
+        // rejects with "Trading is disabled"). Confirmed from the journal on Raw Trading /
+        // IC Markets: these alt-crypto pockets bounce every time. Skip them before order-send
+        // so they don't spam rejects or pollute the demo forward-record; they resolve fine, so
+        // the naive "symbol not found" path never catches them. Extend as more are confirmed.
+        private static readonly HashSet<string> _brokerUnavailable = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "taousd", "suiusd", "nearusd", "asterusd", "lighterusd"
+        };
         private string _seenIdsPath;
         private string _executionsPath;
         private bool _busy;
@@ -342,6 +351,14 @@ namespace cAlgo.Robots
             if (s.DemoOnly && Account.IsLive)
             {
                 Print($"[VikingSwing] demo-only signal {s.Id} skipped on LIVE account");
+                MarkSeen(s.Id); return;
+            }
+
+            // Broker has this instrument disabled — the order would just bounce with "Trading is
+            // disabled". Skip (and mark seen) so it never retries or clutters the log/record.
+            if (_brokerUnavailable.Contains(s.Pair))
+            {
+                Print($"[VikingSwing] {s.Pair} unavailable on this broker (trading disabled) — skipping {s.Id}");
                 MarkSeen(s.Id); return;
             }
 
