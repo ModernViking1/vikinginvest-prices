@@ -1131,8 +1131,13 @@ namespace cAlgo.Robots
             // with the simulated edge. Check the resolved symbol.Name (not the
             // feed pair) so aliased instruments collapse correctly. Mark seen
             // so the duplicate trigger doesn't re-evaluate every poll.
-            if (Positions.Any(p => p.Label == OrderLabel && p.SymbolName == symbol.Name)
-                || PendingOrders.Any(o => o.Label == OrderLabel && o.SymbolName == symbol.Name))
+            // 2026-09-14 — precedence refinement. An OPEN POSITION still blocks a new entry on
+            // the same symbol (real, correlated exposure — never stack two). But a merely-PENDING
+            // order is only an unfilled maybe (it can expire without ever filling), so it must NOT
+            // block a fresh, actionable signal: the live entry takes precedence and the superseded
+            // pending is cancelled just before placement (see "SUPERSEDE PENDING" below). This
+            // keeps the pair at exactly one live order while letting the executable trade win.
+            if (Positions.Any(p => p.Label == OrderLabel && p.SymbolName == symbol.Name))
             {
                 Print($"⏭ [VikingInvest] Already holding {symbol.Name} — skipping id={sig.Id} (one-per-pair).");
                 EmitRejection(sig, symbol.Name, "already-holding", $"already holding {symbol.Name}");
@@ -1143,8 +1148,10 @@ namespace cAlgo.Robots
             // Concurrency check — count our open positions by label.
             // Count open positions PLUS still-pending limit orders — otherwise
             // several limits filling at once could overshoot the position cap.
+            // A pending order on THIS symbol will be superseded (cancelled) by this entry, so it
+            // must not count against the book cap and wrongly reject its own replacement.
             var ourOpen = Positions.Count(p => p.Label == OrderLabel)
-                        + PendingOrders.Count(o => o.Label == OrderLabel);
+                        + PendingOrders.Count(o => o.Label == OrderLabel && o.SymbolName != symbol.Name);
             if (ourOpen >= EffectiveMaxPositions)
             {
                 Print($"🛑 [VikingInvest] Max positions reached ({ourOpen}/{EffectiveMaxPositions}) — skipping id={sig.Id}");
@@ -1349,6 +1356,17 @@ namespace cAlgo.Robots
                       $"entry≈{sig.Entry:F5} SL={sig.Stop:F5} TP={sig.Target:F5} ({slPips:F1}/{tpPips:F1} pips) id={sig.Id}");
                 MarkSeen(sig.Id); _ordersPlaced++;
                 return;
+            }
+
+            // SUPERSEDE PENDING (2026-09-14) — every gate has passed and we're placing this entry
+            // now, so cancel any still-pending order on this symbol: the actionable signal takes
+            // precedence over an unfilled limit that may never fill. Done HERE (not at the
+            // one-per-pair check) so a valid pending is never dropped for a signal a later gate
+            // would have rejected. Leaves the pair at exactly one live order.
+            foreach (var po in PendingOrders.Where(o => o.Label == OrderLabel && o.SymbolName == symbol.Name).ToList())
+            {
+                try { CancelPendingOrder(po); Print($"↪ [VikingInvest] Superseded pending {po.SymbolName} order {po.Id} — replaced by actionable signal id={sig.Id}"); }
+                catch (Exception ex) { Print($"[VikingInvest] supersede-cancel {po.Id} failed: {ex.Message} (id={sig.Id})"); }
             }
 
             // 2026-07-07 — LIMIT-ENTRY path. Place a pending limit AT sig.Entry
