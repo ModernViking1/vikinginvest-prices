@@ -571,10 +571,50 @@ namespace cAlgo.Robots
             return null;
         }
 
+        // Broker symbol-name aliases. Commodities and indices are named wildly differently
+        // across brokers (this demo is Raw Trading / IC Markets: WTI = XTIUSD, Nasdaq = USTEC,
+        // DAX = DE40, …), so a signal's canonical pair (wtiusd, nas100) must be mapped to the
+        // broker's symbol before GetSymbol can find it — otherwise the order is silently skipped
+        // with "symbol not found". Ported from VikingInvestSignalBridge, which already resolves
+        // these; the swing bot previously had ONLY the naive upper/lower sweep, which is why its
+        // oil/index signals never filled on this broker. Crypto needs no alias (IC Markets uses
+        // bare BTCUSD/ETHUSD, caught by the uppercase fallback); alt-cryptos the broker doesn't
+        // list stay unresolved and are correctly skipped.
+        private static readonly Dictionary<string, string[]> _symbolAliases = new Dictionary<string, string[]>
+        {
+            // Commodities
+            { "usoil",  new[] { "XBRUSD", "BRENT",   "BRENTOIL", "UKOIL",   "USOIL" } },
+            { "wtiusd", new[] { "XTIUSD", "WTI",     "USOIL",    "OIL",     "WTIUSD" } },
+            { "natgas", new[] { "XNGUSD", "NATGAS",  "NGAS",     "NG" } },
+            // Indices
+            { "de40",   new[] { "DE30",   "GER40",   "GER30",    "DAX40",   "DAX30",   "DE40" } },
+            { "dj30",   new[] { "US30",   "DJI",     "DJ30" } },
+            { "nas100", new[] { "USTEC",  "NAS100",  "NASDAQ",   "NQ" } },
+            { "spx500", new[] { "US500",  "SPX500",  "SP500",    "ES" } },
+            { "ftse100",new[] { "UK100",  "FTSE100", "FTSE" } },
+            { "jp225",  new[] { "JPN225", "JP225",   "NIKKEI",   "N225" } },
+            { "fra40",  new[] { "FRA40",  "F40",     "FR40",     "CAC40",   "CAC" } },
+            { "dxy",    new[] { "USDX",   "USDOLLAR","DXY",      "USDIDX" } },
+        };
+
         private Symbol ResolveSymbol(string pair)
         {
             if (string.IsNullOrEmpty(pair)) return null;
-            foreach (var name in new[] { pair.ToUpperInvariant(), pair.ToLowerInvariant(), pair })
+            var upper = pair.ToUpperInvariant();
+            var candidates = new List<string>();
+            // Broker-specific aliases first (with the common Raw/Pro/ECN suffixes) ...
+            if (_symbolAliases.ContainsKey(pair))
+                foreach (var name in _symbolAliases[pair])
+                {
+                    candidates.Add(name); candidates.Add(name + ".r");
+                    candidates.Add(name + ".pro"); candidates.Add(name + ".raw");
+                }
+            // ... then the canonical forms, always — covers every non-aliased pair (FX, XAUUSD,
+            // XAGUSD, BTCUSD, …) and any aliased pair whose exact broker name we didn't list.
+            foreach (var name in new[] { upper, upper + ".r", upper + ".pro", upper + ".raw",
+                                         pair.ToLowerInvariant(), pair })
+                candidates.Add(name);
+            foreach (var name in candidates)
             {
                 try { var sym = Symbols.GetSymbol(name); if (sym != null) return sym; } catch { }
             }
