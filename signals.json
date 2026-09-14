@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-14T13:25:56.344923+00:00",
-  "generated_ms": 1789392352814,
-  "detector_last_check": "2026-09-14T13:25:51.819173+00:00",
+  "generated": "2026-09-14T13:31:19.789356+00:00",
+  "generated_ms": 1789392676498,
+  "detector_last_check": "2026-09-14T13:31:15.400518+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
+    "total": 3,
     "armed": 2,
-    "triggered": 0,
+    "triggered": 1,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "btcusd:1789391700000:absorb_btc",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "absorb_btc",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 77714.01,
+      "stop": 77461.34335714,
+      "target": 78219.34328571,
+      "ew": null,
+      "tl": null,
+      "nw": null,
+      "cl": null,
+      "armedAt": 1789391700000,
+      "triggeredAt": 1789391700000,
+      "lastSeenAt": 1789392676498,
+      "source": "server-detector-absorb",
+      "event_aligned": null,
+      "held": false
+    },
     {
       "id": "lighterusd:1788805800000:fib",
       "pair": "lighterusd",
@@ -34,7 +57,7 @@
       "cl": "bear",
       "armedAt": 1788805800000,
       "triggeredAt": null,
-      "lastSeenAt": 1789392352814,
+      "lastSeenAt": 1789392676498,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -56,7 +79,7 @@
       "cl": "bear",
       "armedAt": 1788769800000,
       "triggeredAt": null,
-      "lastSeenAt": 1789392352814,
+      "lastSeenAt": 1789392676498,
       "source": "server-detector",
       "event_aligned": null
     }
