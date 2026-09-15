@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-09-15T14:00:00+00:00",
  "data_end_ts": 1789480800,
- "raw_signal_count": 32,
+ "raw_signal_count": 30,
  "count": 24,
  "signals": [
   {
@@ -101,10 +101,9 @@
     "twob"
    ],
    "cofire_dirs": [
-    "twob:bear",
-    "twob:bull"
+    "twob:bear"
    ],
-   "suppressed": 2
+   "suppressed": 1
   },
   {
    "id": "twob_ix:nas100:1789477200",
@@ -283,32 +282,6 @@
    "suppressed": 0
   },
   {
-   "id": "twob:suiusd:1789462800",
-   "strategy": "twob",
-   "pair": "suiusd",
-   "symbol": "SUIUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 0.70135429,
-   "ref_entry": 0.7084,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789462800,
-   "created_ts": 1789480800,
-   "expiry_ts": 1789506000,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bear",
-    "twob:bull"
-   ],
-   "suppressed": 1
-  },
-  {
    "id": "hs:natgas:1789459200",
    "strategy": "hs",
    "pair": "natgas",
@@ -471,6 +444,31 @@
    "dir": "bear",
    "stop": 79295.61278571,
    "ref_entry": 78982.77,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789416000,
+   "created_ts": 1789480800,
+   "expiry_ts": 1789459200,
+   "state": "triggered",
+   "cofire": [
+    "twob"
+   ],
+   "cofire_dirs": [
+    "twob:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "twob:suiusd:1789416000",
+   "strategy": "twob",
+   "pair": "suiusd",
+   "symbol": "SUIUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 0.74386,
+   "ref_entry": 0.7356,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
