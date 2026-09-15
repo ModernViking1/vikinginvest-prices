@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-09-15T11:00:00+00:00",
  "data_end_ts": 1789470000,
- "raw_signal_count": 29,
- "count": 21,
+ "raw_signal_count": 31,
+ "count": 23,
  "signals": [
   {
    "id": "mmove:btcusd:1789466400",
@@ -263,21 +263,46 @@
    "suppressed": 0
   },
   {
-   "id": "s5_rsi:ftse100:1789430400",
+   "id": "holygrail_cm_m15:xagusd:1789452000",
+   "strategy": "holygrail_cm_m15",
+   "pair": "xagusd",
+   "symbol": "XAGUSD",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 63.39449643,
+   "ref_entry": 63.1985,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": true,
+   "trigger_ts": 1789452000,
+   "created_ts": 1789470000,
+   "expiry_ts": 1789495200,
+   "state": "triggered",
+   "cofire": [
+    "holygrail_cm_m15"
+   ],
+   "cofire_dirs": [
+    "holygrail_cm_m15:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "s5_rsi:ftse100:1789441200",
    "strategy": "s5_rsi",
    "pair": "ftse100",
    "symbol": "FTSE100",
    "class": "index",
    "dir": "bear",
    "stop": 10745.6,
-   "ref_entry": 10692.2,
+   "ref_entry": 10689.2,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
    "demo_only": false,
-   "trigger_ts": 1789430400,
+   "trigger_ts": 1789441200,
    "created_ts": 1789470000,
-   "expiry_ts": 1789473600,
+   "expiry_ts": 1789484400,
    "state": "triggered",
    "cofire": [
     "s5_rsi",
@@ -511,6 +536,31 @@
    ],
    "cofire_dirs": [
     "twob_ix:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "mmove_c4:natgas:1789401600",
+   "strategy": "mmove_c4",
+   "pair": "natgas",
+   "symbol": "NATGAS",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 2.82951429,
+   "ref_entry": 2.89,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": true,
+   "trigger_ts": 1789401600,
+   "created_ts": 1789470000,
+   "expiry_ts": 1789444800,
+   "state": "triggered",
+   "cofire": [
+    "mmove_c4"
+   ],
+   "cofire_dirs": [
+    "mmove_c4:bull"
    ],
    "suppressed": 0
   },
