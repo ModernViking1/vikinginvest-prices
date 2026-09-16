@@ -3,7 +3,7 @@
  "generated": "2026-09-16T04:00:00+00:00",
  "data_end_ts": 1789531200,
  "raw_signal_count": 30,
- "count": 23,
+ "count": 22,
  "signals": [
   {
    "id": "hs:natgas:1789527600",
@@ -130,57 +130,6 @@
    ],
    "cofire_dirs": [
     "mmove:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob:xrpusd:1789506000",
-   "strategy": "twob",
-   "pair": "xrpusd",
-   "symbol": "XRPUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 1.26021714,
-   "ref_entry": 1.2929,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789506000,
-   "created_ts": 1789531200,
-   "expiry_ts": 1789549200,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bear",
-    "twob:bull"
-   ],
-   "suppressed": 1
-  },
-  {
-   "id": "holygrail_cm_m15:xagusd:1789504200",
-   "strategy": "holygrail_cm_m15",
-   "pair": "xagusd",
-   "symbol": "XAGUSD",
-   "class": "comm",
-   "dir": "bull",
-   "stop": 63.56723214,
-   "ref_entry": 63.5915,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": true,
-   "trigger_ts": 1789504200,
-   "created_ts": 1789531200,
-   "expiry_ts": 1789547400,
-   "state": "triggered",
-   "cofire": [
-    "holygrail_cm_m15"
-   ],
-   "cofire_dirs": [
-    "holygrail_cm_m15:bull"
    ],
    "suppressed": 0
   },
@@ -410,6 +359,34 @@
     "holygrail_cm_m15:bull"
    ],
    "suppressed": 0
+  },
+  {
+   "id": "engulf_manip:xrpusd:1789484400",
+   "strategy": "engulf_manip",
+   "pair": "xrpusd",
+   "symbol": "XRPUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 1.46294143,
+   "ref_entry": 1.3837,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789484400,
+   "created_ts": 1789531200,
+   "expiry_ts": 1789527600,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip",
+    "twob"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear",
+    "twob:bear",
+    "twob:bull"
+   ],
+   "suppressed": 2
   },
   {
    "id": "hs:solusd:1789484400",
