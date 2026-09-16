@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-09-16T18:00:00+00:00",
  "data_end_ts": 1789581600,
- "raw_signal_count": 38,
- "count": 25,
+ "raw_signal_count": 35,
+ "count": 24,
  "signals": [
   {
    "id": "twob:asterusd:1789581600",
@@ -78,10 +78,9 @@
     "twob"
    ],
    "cofire_dirs": [
-    "twob:bear",
     "twob:bull"
    ],
-   "suppressed": 2
+   "suppressed": 1
   },
   {
    "id": "twob:suiusd:1789581600",
@@ -285,31 +284,6 @@
    "suppressed": 0
   },
   {
-   "id": "twob:nearusd:1789567200",
-   "strategy": "twob",
-   "pair": "nearusd",
-   "symbol": "NEARUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 2.50608214,
-   "ref_entry": 2.4668,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789567200,
-   "created_ts": 1789581600,
-   "expiry_ts": 1789610400,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bear"
-   ],
-   "suppressed": 0
-  },
-  {
    "id": "twob_cm:natgas:1789567200",
    "strategy": "twob_cm",
    "pair": "natgas",
@@ -385,6 +359,31 @@
    "suppressed": 0
   },
   {
+   "id": "twob:btcusd:1789563600",
+   "strategy": "twob",
+   "pair": "btcusd",
+   "symbol": "BTCUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 76269.14864286,
+   "ref_entry": 75901.21,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789563600,
+   "created_ts": 1789581600,
+   "expiry_ts": 1789606800,
+   "state": "triggered",
+   "cofire": [
+    "twob"
+   ],
+   "cofire_dirs": [
+    "twob:bear"
+   ],
+   "suppressed": 0
+  },
+  {
    "id": "twob_ix:dj30:1789563600",
    "strategy": "twob_ix",
    "pair": "dj30",
@@ -436,33 +435,6 @@
     "twob_cm:bull"
    ],
    "suppressed": 2
-  },
-  {
-   "id": "hs:btcusd:1789552800",
-   "strategy": "hs",
-   "pair": "btcusd",
-   "symbol": "BTCUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 75271.81,
-   "ref_entry": 75924.04,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789552800,
-   "created_ts": 1789581600,
-   "expiry_ts": 1789596000,
-   "state": "triggered",
-   "cofire": [
-    "hs",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "hs:bull",
-    "twob:bear"
-   ],
-   "suppressed": 1
   },
   {
    "id": "twob_ix:de40:1789549200",
