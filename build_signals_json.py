@@ -58,9 +58,17 @@ LIVE_CLASSES = {"crypto"}
 
 # 2026-08-08 — macdp (MACD-cross) and wick (wick-reversal) DEMOTED from the cBot feed:
 # live realised fills were clearly negative (macdp -44.4R / 45% WR, wick -18.0R / 31% WR
-# at ~1:1 RR). Held back here (detector still runs + drives the dashboard/alerts).
-# mmove_m15 promoted to the main live strategy in its place (see mmove_live.py).
-DEMOTED_METHODS = {"macdp", "wick"}
+# at ~1:1 RR). mmove_m15 promoted to the main live strategy in its place (see mmove_live.py).
+#
+# 2026-09-18 — RE-PILOTED demo-only. The 3-year realistic-fill retest showed a thin-but-positive
+# both-OOS edge (structural/wick +0.12R, macdp +0.06R net) — but that still sits above the live
+# WR they actually printed, so the fill gap isn't fully closed. The cBot's execution guards
+# (entry-drift cap, stale-signal stand-down, limit-supersede, daily-loss breaker) have all
+# improved since they were retired, so forward-re-test them DEMO-ONLY under the better execution:
+# emitted with demo_only=True (cBot skips them on a live account) and bypassing the crypto-only
+# LIVE_CLASSES gate so the re-test spans all classes. Reinstate live only on confirming demo fills.
+DEMO_ONLY_METHODS = {"macdp", "wick"}
+DEMOTED_METHODS = set()   # divg is retired at the detector (returns None); nothing hard-held now
 
 # Pairs blacklisted from LIVE emission across ALL strategies — the cBot never sees a signal
 # on them (covers the intraday emitters AND the legacy alerts-state path merged into
@@ -133,7 +141,7 @@ def _R_per_trade(method: str) -> float:
     return 0.5 if method == "fib" else 1.0
 
 
-def _signal_row(pair: str, info: dict, kind: str, now_ms: int) -> dict | None:
+def _signal_row(pair: str, info: dict, kind: str, now_ms: int, demo_bypass_liveclass: bool = False) -> dict | None:
     """
     Build one row of the signals.json `signals` array from an
     alerts-state.json per-pair record.
@@ -213,7 +221,7 @@ def _signal_row(pair: str, info: dict, kind: str, now_ms: int) -> dict | None:
     # cohort is live-confirmed. macdp index/major/minor are already dropped
     # above via the shadow flag; this also stops their structural wick/fib
     # signals from reaching the cBot.
-    if cls not in LIVE_CLASSES:
+    if cls not in LIVE_CLASSES and not demo_bypass_liveclass:
         return None
     # MACD-primary + MACD-divergence sizing:
     # 2026-06-22 — macdp now fires on MAJOR/MINOR/CRYPTO too, not just
@@ -301,11 +309,14 @@ def build_signals(state: dict) -> dict:
         if not isinstance(info, dict):
             continue
         for kind in ("wick", "fib", "macdp", "divg"):
-            if kind in DEMOTED_METHODS:            # 2026-08-08 — held back from the cBot
+            if kind in DEMOTED_METHODS:            # hard-held from the cBot (none currently)
                 continue
-            row = _signal_row(pair, info, kind, now_ms)
+            demo = kind in DEMO_ONLY_METHODS       # re-pilot: emit demo_only, span all classes
+            row = _signal_row(pair, info, kind, now_ms, demo_bypass_liveclass=demo)
             if row is None:
                 continue
+            if demo:
+                row["demo_only"] = True            # cBot trades these on DEMO only, never live
             if pair in cooloff_pairs and row.get("state") == "triggered":
                 # Don't append — cBot will not place. Armed / invalidated
                 # rows on this pair continue to flow normally.

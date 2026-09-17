@@ -962,6 +962,16 @@ namespace cAlgo.Robots
             if (string.IsNullOrEmpty(sig.Id) || string.IsNullOrEmpty(sig.Pair) || string.IsNullOrEmpty(sig.State))
                 return;
 
+            // 2026-09-18 — DEMO-ONLY re-pilots (macdp / wick / structural). These lost money in
+            // live fills and were retired; they're being forward-re-tested on demo under the
+            // improved execution guards. On a LIVE account, skip them entirely (mirrors the swing
+            // bot's demo_only gate). On demo they trade normally.
+            if (sig.DemoOnly && Account.IsLive)
+            {
+                MarkSeen(sig.Id);
+                return;
+            }
+
             // 2026-06-22 — invalidated → close any matching open position.
             // The backtest WR figures assume invalidations exit the trade at
             // the invalidation bar (typically -0.2 to -0.5R), NOT at the full
@@ -2155,6 +2165,7 @@ namespace cAlgo.Robots
             public string Id, Pair, State, Dir;
             public double Entry, Stop, Target, RSize;
             public bool? EventAligned;   // H11 faytterro: true=aligned, false=no-event/fought, null=n/a
+            public bool DemoOnly;        // re-pilot strategies (macdp/wick): trade on DEMO only, never live
             public long ArmedAtMs;
             public long TriggeredAtMs;
         }
@@ -2190,6 +2201,7 @@ namespace cAlgo.Robots
                     Target    = JsonNum(obj, "target"),
                     RSize     = JsonNum(obj, "r_size"),
                     EventAligned  = JsonBoolN(obj, "event_aligned"),
+                    DemoOnly      = JsonBoolN(obj, "demo_only") == true,
                     ArmedAtMs     = (long)JsonNum(obj, "armedAt"),
                     TriggeredAtMs = (long)JsonNum(obj, "triggeredAt"),
                 });
