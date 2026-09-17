@@ -113,6 +113,32 @@ def run(hist_path, out_path):
     nb, wb, eb = _agg([r for _, r in book_seq])
     nu, wu, eu = _agg([s["r"] for s in sigs])
 
+    # ---- per-pair breakdown for the LIVE cBot strategies (to spot pairs to demote per class) ----
+    try:
+        from observer_review import LIVE as LIVE_STRATS
+    except Exception:
+        LIVE_STRATS = set()
+    try:
+        from detect_triggers import PAIR_CLASS as _PC
+    except Exception:
+        _PC = {}
+    _by_sp = {}
+    for s in live:
+        if s["strategy"] in LIVE_STRATS:
+            _by_sp.setdefault(s["strategy"], {}).setdefault(s.get("pair", "?"), []).append(s["r"])
+    live_by_pair = {}
+    for st, pairs_d in _by_sp.items():
+        row = {}
+        for pk, seq in pairs_d.items():
+            if len(seq) < 15:        # skip thin pairs — not enough to judge
+                continue
+            n, wr, exp = _agg(seq); m = len(seq) // 2
+            _, _, e1 = _agg(seq[:m]); _, _, e2 = _agg(seq[m:])
+            row[pk] = {"cls": _PC.get(pk, "?"), "n": n, "wr": round(wr, 1), "exp": round(exp, 4),
+                       "oos_1st": round(e1, 4), "oos_2nd": round(e2, 4), "total_r": round(sum(seq), 1)}
+        if row:
+            live_by_pair[st] = row
+
     summary = {
         "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "data_start": data_start,
@@ -125,6 +151,7 @@ def run(hist_path, out_path):
         "equity_curve_gated": _equity_curve(book_seq),
         "strategies_gated":   summarize(live),
         "strategies_ungated": summarize(sigs),
+        "live_by_pair":       live_by_pair,
     }
     with open(out_path, "w") as f:
         json.dump(summary, f, separators=(",", ":"))

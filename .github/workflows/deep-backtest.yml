@@ -51,8 +51,8 @@ jobs:
 
       - name: Guard — required files present
         run: |
-          for f in backtest_history.py backtest_intraday.py unified_shadow_harness.py trend_regime.py \
-                   backtest_rsi_per_class.py fetch_historical_ohlc.py detect_triggers.py; do
+          for f in backtest_history.py unified_shadow_harness.py trend_regime.py \
+                   fetch_historical_ohlc.py detect_triggers.py; do
             [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }
           done
 
@@ -66,28 +66,15 @@ jobs:
           python fetch_historical_ohlc.py --days "$DAYS" --m15-days "$M15" --output deep-ohlc.json
           ls -lh deep-ohlc.json
 
-      - name: Run deep backtest (swing + intraday) -> backtest-summary.json
+      - name: Run deep backtest -> backtest-summary.json
         run: |
-          # Swing / harness engine (h1, ~3yr) — the bulk of the book.
+          # Swing / harness engine over the deep fetch — this covers every LIVE strategy on the
+          # cBot (the swing set plus the live m15 intraday strategies: mmove_m15, absorb_btc,
+          # sweepfvg_ix, crt_ix, fma_sweep_cm are all scored by the harness). The legacy intraday
+          # 4/4-structural / MACD paths are retired (they fail a realistic limit-fill test — see
+          # intraday_realistic_fill.py), so they are NOT published as live track-record cards.
           python backtest_history.py --hist deep-ohlc.json --out backtest-summary.json
-          # Intraday engine (m15) — the 4/4 'structural' path (macdp is crypto/conf-4/Faytterro-
-          # gated to ~0 live, macd_divergence retired), replayed with the faithful live gates.
-          python backtest_intraday.py --hist deep-ohlc.json --out intraday-summary.json --no-anchor
           rm -f deep-ohlc.json         # discard the deep OHLC (never committed)
-          # Merge only genuinely-live, well-sampled intraday strategies (n>=40, both OOS halves +).
-          python - <<'PY'
-          import json
-          s=json.load(open('backtest-summary.json')); it=json.load(open('intraday-summary.json'))
-          si={k:v for k,v in it.get('strategies_intraday',{}).items()
-              if v['n']>=40 and v['oos_1st']>0 and v['oos_2nd']>0}
-          s['strategies_intraday']=si
-          s['book_intraday']=it.get('book_intraday',{})
-          s['equity_curve_intraday']=it.get('equity_curve_intraday',[])
-          s['intraday_window_days']=it.get('window_days',0)
-          json.dump(s,open('backtest-summary.json','w'),separators=(',',':'))
-          print('merged intraday strategies:', list(si.keys()), '| m15 window ~', s['intraday_window_days'],'d')
-          PY
-          rm -f intraday-summary.json
           echo "summary size:"; ls -lh backtest-summary.json
 
       - name: Commit + push backtest-summary.json (retry on race)
