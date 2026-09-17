@@ -2207,6 +2207,57 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         <div style="margin-top:8px;"><strong>MACD detectors expanded to MINORs + MAJORs.</strong> macd-primary fires for all 13 MINOR pairs AND all 7 MAJOR pairs. macd-divergence runs on INDEX only (rolled back from MINORs to isolate macd-primary impact + reduce alert volume; ~+1,030R deferred). System-wide profit jumped 12× (from +271R to +3,573R) on the latest 365-day backtest. Backtest WRs: MINOR macd-primary 75-81% / MINOR macd-divergence 67-71% / MAJOR macd-primary 72.8-80% (USDJPY 78.2%, GBPUSD 80.0%). Previously near-silent MINOR pairs (eurgbp, nzdchf, eursgd, usdsgd, nzdjpy, cadjpy) now receive 200-240 high-WR trades each via the MACD trigger path that doesn't require 4/4 alignment. Same SL/TP as INDEX MACDs: entry at the MACD-cross bar's low/high, structural stop on the 8-bar pivot, fixed 1:1 R:R target. Production gates: INDEX/MINOR macd-primary conf ≥1, MAJOR macd-primary conf 1-3 (skips the 47.6% MAJOR 4/4 cliff), INDEX/MINOR macd-divergence conf 1-3. MAJOR macd-divergence deferred to keep alert volume manageable while validating primary live first. <strong>Per-pair ATR ceiling — MAJOR + INDEX wick.</strong> Each pair has its own ATR(14)% ceiling sized to the pair's actual P75 trigger distribution. INDEX MACDs run unfiltered (their Q4 is best). <strong>Per-pair MID-BAND block — GBP/NZD.</strong> Targeted skip when ATR is in 0.055–0.072%. <strong>Diagnostic upgrades.</strong> Trigger-source comparison, per-source × per-quartile WR matrix, per-pair × per-quartile WR matrix, MAJOR + MINOR MACD expansion test (per-confluence breakdown). Append <code>?sw_reset=1</code> to the URL if a stale cache ever needs a manual reset.</div>
       </div>
     </div>
+    <div class="logsect" style="margin-bottom:12px;">
+      <div class="loghdr"><h3>▸ 3-Year Track Record</h3></div>
+      <div id="btSummary3y" style="padding:12px 14px;font-size:11px;color:var(--inkm);font-family:'Mukta',sans-serif;">
+        <div style="color:var(--inkd);">Loading 3-year backtest…</div>
+      </div>
+    </div>
+    <script>
+    /* 3-Year Track Record panel — reads the small server-side backtest-summary.json
+       (published by the weekly deep-backtest job) and renders book stats + equity curve +
+       per-strategy table. Self-contained; no 2yr/3yr of raw bars are loaded client-side. */
+    (function(){
+      var SUMURL='https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/backtest-summary.json';
+      function fmtR(x){return (x>=0?'+':'')+(x||0).toFixed(3)+'R';}
+      function fmt2(x){return (x>=0?'+':'')+(x||0).toFixed(3);}
+      function render(d){
+        var el=document.getElementById('btSummary3y'); if(!el)return;
+        var b=d.book_gated||{}, yrs=((d.window_days||0)/365).toFixed(1);
+        var tiles=[['Window',yrs+' yr'],['Signals',(b.n||0).toLocaleString()],
+          ['Win rate',(b.wr||0).toFixed(1)+'%'],['Expectancy',fmtR(b.exp)],
+          ['Total','+'+Math.round(b.total_r||0).toLocaleString()+'R'],
+          ['Max drawdown',Math.round(b.max_dd_r||0)+'R']]
+          .map(function(t){return '<div style="flex:1;min-width:88px;padding:8px 10px;background:var(--sf2);border:1px solid var(--rule);border-radius:4px;"><div style="font-size:9px;letter-spacing:.5px;color:var(--inkd);text-transform:uppercase;">'+t[0]+'</div><div style="font-family:Orbitron,monospace;font-size:15px;font-weight:700;color:var(--ink);margin-top:2px;">'+t[1]+'</div></div>';}).join('');
+        var ec=d.equity_curve_gated||[], svg='';
+        if(ec.length>1){
+          var W=600,H=110,xs=ec.map(function(p){return p[0];}),ys=ec.map(function(p){return p[1];});
+          var x0=Math.min.apply(0,xs),x1=Math.max.apply(0,xs),y0=Math.min.apply(0,ys),y1=Math.max.apply(0,ys);
+          var px=function(x){return (x-x0)/((x1-x0)||1)*W;},py=function(y){return H-(y-y0)/((y1-y0)||1)*H;};
+          var pts=ec.map(function(p){return px(p[0]).toFixed(1)+','+py(p[1]).toFixed(1);}).join(' ');
+          svg='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:110px;display:block;margin:12px 0 4px;">'
+            +'<line x1="0" y1="'+py(0).toFixed(1)+'" x2="'+W+'" y2="'+py(0).toFixed(1)+'" stroke="var(--rule)" stroke-dasharray="3 3"/>'
+            +'<polyline points="'+pts+'" fill="none" stroke="var(--bull)" stroke-width="1.5"/></svg>'
+            +'<div style="font-size:9px;color:var(--inkd);text-align:center;">cumulative R — live-gated book over '+yrs+' years</div>';
+        }
+        var sg=d.strategies_gated||{}, keys=Object.keys(sg).filter(function(k){return sg[k].n>=40;}).sort(function(a,b){return sg[b].total_r-sg[a].total_r;});
+        var rows=keys.map(function(k){var r=sg[k],both=(r.oos_1st>0&&r.oos_2nd>0);
+          return '<tr style="border-top:1px solid var(--rule);"><td style="padding:3px 6px;color:var(--ink);">'+k+'</td>'
+            +'<td style="text-align:right;padding:3px 6px;">'+r.n+'</td>'
+            +'<td style="text-align:right;padding:3px 6px;color:'+(r.exp>=0?'var(--bull)':'var(--bear)')+';">'+fmtR(r.exp)+'</td>'
+            +'<td style="text-align:right;padding:3px 6px;color:var(--inkd);">'+fmt2(r.oos_1st)+' / '+fmt2(r.oos_2nd)+'</td>'
+            +'<td style="text-align:right;padding:3px 6px;">'+Math.round(r.total_r)+'</td>'
+            +'<td style="text-align:center;padding:3px 6px;color:'+(both?'var(--bull)':'var(--inkd)')+';">'+(both?'✓':'—')+'</td></tr>';}).join('');
+        var table='<div style="overflow-x:auto;margin-top:12px;"><table style="width:100%;border-collapse:collapse;font-size:10px;">'
+          +'<thead><tr style="color:var(--inkd);"><th style="text-align:left;padding:3px 6px;">strategy</th><th style="text-align:right;padding:3px 6px;">n</th><th style="text-align:right;padding:3px 6px;">exp</th><th style="text-align:right;padding:3px 6px;">OOS 1st / 2nd</th><th style="text-align:right;padding:3px 6px;">total R</th><th style="text-align:center;padding:3px 6px;">both +</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+        el.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:8px;">'+tiles+'</div>'+svg
+          +'<div style="font-size:9px;color:var(--inkd);margin-top:8px;">Server-side deep backtest over '+yrs+' years, replayed causally and gated by the live ruleset; each survivor stays profitable in both out-of-sample halves. Frictionless (simulated) figures that run higher than live — see the Performance tab for net-of-cost live results. Updated '+((d.generated||'').slice(0,10))+'.</div>'+table;
+      }
+      fetch(SUMURL+'?t='+Date.now()).then(function(r){return r.json();}).then(render).catch(function(){
+        var el=document.getElementById('btSummary3y'); if(el)el.innerHTML='<div style="color:var(--inkd);">3-year backtest summary unavailable right now.</div>';
+      });
+    })();
+    </script>
     <div class="logsect">
       <div class="loghdr">
         <h3 id="sigHistTitle">▸ Full Signal History — All Markets</h3>
