@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
 from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob, detect_cam_rev, detect_mmove, detect_holygrail, detect_holygrail_m15
+from trend_regime import build_regime, passes_gate
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -226,6 +227,8 @@ def main():
         draw = pairs[pk].get('daily', [])
         if len(h1) < 400 or len(daily) < 80:
             continue
+        # Trend-quality regime series for THIS pair (ADX + Choppiness), used by the gate below.
+        h1_regime = build_regime(h1); m15_regime = build_regime(m15) if len(m15) >= 40 else None
         cls = PAIR_CLASS.get(pk)
         found = []
         if cls in S5_CLASSES:
@@ -293,6 +296,15 @@ def main():
             if s['entry_ts'] < fresh_after:
                 continue
             if s['strategy'] in DEMOTED:   # detected but held back from the cBot; harness still logs it
+                continue
+            # TREND-QUALITY GATE (2026-09-17) — regime-matched entry filter. Momentum/trend
+            # strategies fire only in a trending regime; reversal/fade strategies only outside a
+            # strong trend (see trend_regime.py). Forward-validated +0.082R -> +0.106R, both OOS
+            # halves. Measured on the signal's own timeframe, causally. The harness still logs the
+            # ungated signal, so the observation bench keeps the full regime record; only the LIVE
+            # feed is gated. Strategies in neither camp pass through untouched.
+            _reg = m15_regime if (s.get('tf') == 'm15' and m15_regime) else h1_regime
+            if not passes_gate(s['strategy'], _reg, s['entry_ts']):
                 continue
             # STOP-INVALIDATION guard (2026-09-09). The cBot fills at market whenever it first
             # sees a fresh signal within the 12h window, and the feed runs on GitHub's laggy
