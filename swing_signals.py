@@ -155,6 +155,36 @@ DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback', 'gtrend', 'threepush', 'o
 PAIR_DEMOTED = {('twob_cm', 'xauusd'), ('hs', 'eurgbp'), ('hs', 'cadjpy'),
                 ('hs', 'gbpcad'), ('hs', 'ftse100')}
 
+# 2026-09-18 — minimum-sample gate, SCOPED to net-negative per-pair edges. A few (strategy, pair)
+# splits are net-negative over the 3-year book but on too few trades to trust — e.g. s5_rsi/xauusd
+# -0.32R at n=17 (one OOS half still +ve), hs/nzdjpy -0.01R at n=32. Rather than DEMOTE them on
+# noise (they don't fail both halves, unlike the PAIR_DEMOTED set above) — or run a blanket n<MIN
+# gate that would also park PROFITABLE thin pairs (s5_rsi/ethusd +0.85R at n=21, natgas +0.68R at
+# n=16) — hold back only pairs that are BOTH thin (n < THIN_MIN_N) AND net-negative in the 3yr
+# summary. Self-releasing: once a pair earns n >= THIN_MIN_N from more demo fills, or turns
+# net-positive, it flows again on the next deep-backtest refresh — no code change needed. The
+# harness still observes it throughout. Fail-open: missing/unreadable summary -> empty gate.
+THIN_MIN_N = 40
+BT_SUMMARY = os.path.join(_HERE, 'backtest-summary.json')
+
+def _load_thin_neg_held():
+    """{(strategy, pair)} that are thin (n < THIN_MIN_N) AND net-negative in the 3yr per-pair book."""
+    held = set()
+    try:
+        lbp = json.load(open(BT_SUMMARY)).get('live_by_pair', {})
+        for strat, pairs in lbp.items():
+            items = pairs.items() if isinstance(pairs, dict) else [(r.get('pair'), r) for r in pairs]
+            for pair, st in items:
+                if not isinstance(st, dict):
+                    continue
+                if st.get('n', 0) < THIN_MIN_N and st.get('exp', 0.0) < 0:
+                    held.add((strat, pair))
+    except Exception:
+        pass
+    return held
+
+THIN_NEG_HELD = _load_thin_neg_held()
+
 # Pairs blacklisted from LIVE emission across ALL strategies (the cBot never sees a signal
 # on them). xptusd (platinum) 2026-09-08: net -£53.8K over 24 trades at 12% WR — every
 # attributable strategy 0-8% (twob_cm alone -£44K). Thin/gappy/wide-spread; no strategy
@@ -318,6 +348,8 @@ def main():
             if s['strategy'] in DEMOTED:   # detected but held back from the cBot; harness still logs it
                 continue
             if (s['strategy'], pk) in PAIR_DEMOTED:   # per-pair 3yr demotion; harness still observes it
+                continue
+            if (s['strategy'], pk) in THIN_NEG_HELD:   # thin (n<40) + net-negative 3yr edge — min-sample gate
                 continue
             # TREND-QUALITY GATE (2026-09-17) — regime-matched entry filter. Momentum/trend
             # strategies fire only in a trending regime; reversal/fade strategies only outside a
