@@ -1,6 +1,6 @@
-name: Deep Backtest (2-year track record)
+name: Deep Backtest (3-year track record)
 
-# Server-side deep backtest (dashboard "option 1"). Fetches TWO YEARS of OHLC into the
+# Server-side deep backtest (dashboard "option 1"). Fetches THREE YEARS of OHLC into the
 # runner, replays the full shadow-harness scoring over it, and publishes only a small
 # backtest-summary.json (per-strategy expectancy / WR / OOS halves / drawdown + a sampled
 # book equity curve, gated by the live trend-quality filter). The 2-year raw OHLC is NEVER
@@ -18,7 +18,7 @@ on:
     inputs:
       days:
         description: 'History window in days'
-        default: '730'
+        default: '1095'
       m15_days:
         description: 'm15 depth in days (kept small; h1 carries the swing backtest)'
         default: '120'
@@ -56,11 +56,11 @@ jobs:
             [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }
           done
 
-      - name: Fetch 2-year OHLC (throwaway — not committed)
+      - name: Fetch 3-year OHLC (throwaway — not committed)
         env:
           OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
         run: |
-          DAYS="${{ github.event.inputs.days || '730' }}"
+          DAYS="${{ github.event.inputs.days || '1095' }}"
           M15="${{ github.event.inputs.m15_days || '120' }}"
           echo "Fetching ${DAYS}d (m15 ${M15}d) to deep-ohlc.json ..."
           python fetch_historical_ohlc.py --days "$DAYS" --m15-days "$M15" --output deep-ohlc.json
