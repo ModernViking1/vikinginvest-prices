@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-09-17T17:00:00+00:00",
  "data_end_ts": 1789664400,
- "raw_signal_count": 24,
+ "raw_signal_count": 23,
  "count": 17,
  "signals": [
   {
@@ -82,33 +82,6 @@
     "twob:bull"
    ],
    "suppressed": 2
-  },
-  {
-   "id": "twob:taousd:1789657200",
-   "strategy": "twob",
-   "pair": "taousd",
-   "symbol": "TAOUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 229.83707143,
-   "ref_entry": 226.34,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789657200,
-   "created_ts": 1789664400,
-   "expiry_ts": 1789700400,
-   "state": "triggered",
-   "cofire": [
-    "mmove",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "mmove:bull",
-    "twob:bear"
-   ],
-   "suppressed": 1
   },
   {
    "id": "twob_ix:jp225:1789657200",
@@ -359,6 +332,31 @@
    ],
    "cofire_dirs": [
     "twob_ix:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "mmove:taousd:1789614000",
+   "strategy": "mmove",
+   "pair": "taousd",
+   "symbol": "TAOUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 219.80378571,
+   "ref_entry": 223.33,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789614000,
+   "created_ts": 1789664400,
+   "expiry_ts": 1789657200,
+   "state": "triggered",
+   "cofire": [
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "mmove:bull"
    ],
    "suppressed": 0
   },
