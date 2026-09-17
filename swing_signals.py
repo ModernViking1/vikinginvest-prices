@@ -133,7 +133,14 @@ DEMO_ONLY = {'fma_gold', 'cam_rev', 'mmove', 'mmove_c4', 'holygrail_cm', 'holygr
 #              broken-in-regime signal (P~0.1%), not variance. Early cut vs bleeding to n=25.
 #   ob         (2026-08-12)  fwd n=15  WR 13%  -0.611R  — thin, both OOS halves negative.
 #   s5_rsi_wide(2026-08-24)  fwd n=26  -0.105R  — meets the DROP gate; rolled negative forward.
-DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback', 'gtrend', 'threepush', 'ob', 's5_rsi_wide'}
+# 2026-09-18 — 3-year deep backtest demotions. asianglitch, obfvg and the mmove_c4 demo
+# pilot each fail the both-OOS-halves-positive test over the full 3-year window (each is
+# negative in the FIRST half: asianglitch -0.046, obfvg -0.139, mmove_c4 -0.119), so they
+# come off the cBot feed — live AND demo. The harness keeps observing them, so they can
+# re-earn a slot if the forward record turns durable. mmove_c4 was already the concentration-
+# flagged (silver-only) pilot; the 3-year window confirms it isn't robust.
+DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback', 'gtrend', 'threepush', 'ob', 's5_rsi_wide',
+           'asianglitch', 'obfvg', 'mmove_c4'}
 
 # Pairs blacklisted from LIVE emission across ALL strategies (the cBot never sees a signal
 # on them). xptusd (platinum) 2026-09-08: net -£53.8K over 24 trades at 12% WR — every
