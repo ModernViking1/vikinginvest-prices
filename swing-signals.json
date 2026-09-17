@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-09-17T07:00:00+00:00",
  "data_end_ts": 1789628400,
- "raw_signal_count": 27,
+ "raw_signal_count": 25,
  "count": 24,
  "signals": [
   {
@@ -154,32 +154,6 @@
     "twob:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "twob:ethusd:1789610400",
-   "strategy": "twob",
-   "pair": "ethusd",
-   "symbol": "ETHUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 2447.08142857,
-   "ref_entry": 2425.4,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789610400,
-   "created_ts": 1789628400,
-   "expiry_ts": 1789653600,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bear",
-    "twob:bull"
-   ],
-   "suppressed": 1
   },
   {
    "id": "twob_ix:ftse100:1789603200",
@@ -379,10 +353,9 @@
    ],
    "cofire_dirs": [
     "engulf_manip:bull",
-    "twob:bear",
     "twob:bull"
    ],
-   "suppressed": 2
+   "suppressed": 1
   },
   {
    "id": "fma_gold:xauusd:1789583400",
@@ -406,6 +379,31 @@
    ],
    "cofire_dirs": [
     "fma_gold:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "twob:ethusd:1789581600",
+   "strategy": "twob",
+   "pair": "ethusd",
+   "symbol": "ETHUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 2366.764,
+   "ref_entry": 2387.34,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789581600,
+   "created_ts": 1789628400,
+   "expiry_ts": 1789624800,
+   "state": "triggered",
+   "cofire": [
+    "twob"
+   ],
+   "cofire_dirs": [
+    "twob:bull"
    ],
    "suppressed": 0
   },
