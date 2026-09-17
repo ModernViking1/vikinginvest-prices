@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-17T14:22:13.398712+00:00",
-  "generated_ms": 1789654930682,
-  "detector_last_check": "2026-09-17T14:22:09.158449+00:00",
+  "generated": "2026-09-17T14:26:00.895094+00:00",
+  "generated_ms": 1789655158392,
+  "detector_last_check": "2026-09-17T14:25:57.409827+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 1,
+    "total": 3,
     "armed": 1,
     "triggered": 0,
-    "invalidated": 0
+    "invalidated": 2
   },
   "signals": [
+    {
+      "id": "nearusd:1789654500000:wick",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 2.8661,
+      "stop": 2.8283,
+      "target": 2.9038999999999997,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1789654500000,
+      "triggeredAt": null,
+      "lastSeenAt": 1789655158392,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "natgas:1789653600000:wick",
       "pair": "natgas",
@@ -34,10 +57,32 @@
       "cl": "bull",
       "armedAt": 1789653600000,
       "triggeredAt": null,
-      "lastSeenAt": 1789654930682,
+      "lastSeenAt": 1789655158392,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
+    },
+    {
+      "id": "nearusd:1780433100000:fib",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 2.8966292,
+      "stop": 2.8283,
+      "target": 2.9649584,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780433100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1789655158392,
+      "source": "server-detector",
+      "event_aligned": null
     }
   ]
 }
