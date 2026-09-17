@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-17T11:16:00.469424+00:00",
-  "generated_ms": 1789643756867,
-  "detector_last_check": "2026-09-17T11:15:55.391003+00:00",
+  "generated": "2026-09-17T11:21:09.704658+00:00",
+  "generated_ms": 1789644067369,
+  "detector_last_check": "2026-09-17T11:21:06.237510+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,10 +10,10 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 4,
+    "total": 5,
     "armed": 0,
     "triggered": 2,
-    "invalidated": 2
+    "invalidated": 3
   },
   "signals": [
     {
@@ -34,10 +34,10 @@
       "cl": null,
       "armedAt": 1789642800000,
       "triggeredAt": 1789642800000,
-      "lastSeenAt": 1789643756867,
+      "lastSeenAt": 1789644067369,
       "source": "server-detector-absorb",
       "event_aligned": null,
-      "held": false
+      "held": true
     },
     {
       "id": "fra40:1789587900000:mmove_m15",
@@ -57,7 +57,7 @@
       "cl": null,
       "armedAt": 1789587900000,
       "triggeredAt": 1789587900000,
-      "lastSeenAt": 1789643756867,
+      "lastSeenAt": 1789644067369,
       "source": "server-detector-mmove",
       "event_aligned": null,
       "held": true
@@ -80,7 +80,7 @@
       "cl": "bull",
       "armedAt": 1780433100000,
       "triggeredAt": null,
-      "lastSeenAt": 1789643756867,
+      "lastSeenAt": 1789644067369,
       "source": "server-detector",
       "event_aligned": null
     },
@@ -102,7 +102,29 @@
       "cl": "bear",
       "armedAt": 1780326900000,
       "triggeredAt": null,
-      "lastSeenAt": 1789643756867,
+      "lastSeenAt": 1789644067369,
+      "source": "server-detector",
+      "event_aligned": null
+    },
+    {
+      "id": "ethusd:1780287300000:fib",
+      "pair": "ethusd",
+      "sym": "ETHUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "invalidated",
+      "entry": 2432.1433,
+      "stop": 2451.92,
+      "target": 2412.3666000000003,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1780287300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1789644067369,
       "source": "server-detector",
       "event_aligned": null
     }
