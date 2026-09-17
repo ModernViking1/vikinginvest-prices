@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-17T22:40:52.598937+00:00",
-  "generated_ms": 1789684849854,
-  "detector_last_check": "2026-09-17T22:40:48.509535+00:00",
+  "generated": "2026-09-17T22:45:57.390302+00:00",
+  "generated_ms": 1789685154702,
+  "detector_last_check": "2026-09-17T22:45:53.238616+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
-    "armed": 2,
+    "total": 4,
+    "armed": 4,
     "triggered": 0,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "nearusd:1789684200000:wick",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 3.0214,
+      "stop": 2.9832,
+      "target": 3.0595999999999997,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1789684200000,
+      "triggeredAt": null,
+      "lastSeenAt": 1789685154702,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "xrpusd:1789683300000:wick",
       "pair": "xrpusd",
@@ -34,10 +57,32 @@
       "cl": "bear",
       "armedAt": 1789683300000,
       "triggeredAt": null,
-      "lastSeenAt": 1789684849854,
+      "lastSeenAt": 1789685154702,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
+    },
+    {
+      "id": "nearusd:1780433100000:fib",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 3.041176,
+      "stop": 2.9832,
+      "target": 3.099152,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780433100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1789685154702,
+      "source": "server-detector",
+      "event_aligned": null
     },
     {
       "id": "xrpusd:1780326900000:fib",
@@ -57,7 +102,7 @@
       "cl": "bear",
       "armedAt": 1780326900000,
       "triggeredAt": null,
-      "lastSeenAt": 1789684849854,
+      "lastSeenAt": 1789685154702,
       "source": "server-detector",
       "event_aligned": null
     }
