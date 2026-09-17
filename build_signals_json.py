@@ -350,16 +350,21 @@ def build_signals(state: dict) -> dict:
         print(f"[build_signals_json] absorb_btc emit skipped: {e}", file=sys.stderr)
 
     # 2026-08-24 — sweepfvg_ix (liquidity-sweep + FVG reversal, m15 indices) PROMOTED at RR2.
-    # Its trailing/RR3 model read negative forward, but at the fixed RR2 the cBot executes the
-    # edge is robust (fwd n=188 +0.165R, both OOS halves +, forward = in-sample). Fail-open.
-    try:
-        from sweepfvg_live import build_sweepfvg_rows
-        for row in build_sweepfvg_rows(now_ms):
-            if row["pair"] in cooloff_pairs and row.get("state") == "triggered" and not row.get("held"):
-                continue
-            out.append(row)
-    except Exception as e:
-        print(f"[build_signals_json] sweepfvg_ix emit skipped: {e}", file=sys.stderr)
+    # 2026-09-18 — DEMOTED. The 3-year deep backtest shows sweepfvg_ix is net-negative across
+    # EVERY index it trades (n=3,486, -0.083R, BOTH OOS halves negative, -290R total: ftse100
+    # -0.14, spx500 -0.10, jp225/de40 -0.10, dj30 -0.07, fra40 -0.06, nas100 -0.01). No pair
+    # survives, so the whole strategy comes off the cBot feed. The shadow harness keeps observing
+    # it (detect_sweepfvg), so it can re-earn a slot if the edge returns.
+    SWEEPFVG_LIVE = False
+    if SWEEPFVG_LIVE:
+        try:
+            from sweepfvg_live import build_sweepfvg_rows
+            for row in build_sweepfvg_rows(now_ms):
+                if row["pair"] in cooloff_pairs and row.get("state") == "triggered" and not row.get("held"):
+                    continue
+                out.append(row)
+        except Exception as e:
+            print(f"[build_signals_json] sweepfvg_ix emit skipped: {e}", file=sys.stderr)
 
     # 2026-08-30 — crt_ix (filtered Candle-Range-Theory reversal, m15 indices) wired live at
     # fixed RR2. Raw CRT is noise, but sweep of a CONFIRMED multi-day swing extreme by a

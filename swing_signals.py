@@ -147,6 +147,14 @@ DEMO_ONLY = {'fma_gold'}
 DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback', 'gtrend', 'threepush', 'ob', 's5_rsi_wide',
            'asianglitch', 'obfvg', 'mmove_c4'}
 
+# 2026-09-18 — per-(strategy, pair) demotions from the 3-year deep backtest. Each pair is
+# net-negative in BOTH OOS halves over 3yr on that strategy, while the strategy is healthy
+# overall — so the pair comes off the cBot feed for THAT strategy only; the harness keeps
+# observing it. twob_cm/xauusd -0.062R (usoil/silver keep twob_cm well +); hs on eurgbp/cadjpy/
+# gbpcad/ftse100 each both-OOS-negative (hs's ~2,500-trade book stays strongly positive).
+PAIR_DEMOTED = {('twob_cm', 'xauusd'), ('hs', 'eurgbp'), ('hs', 'cadjpy'),
+                ('hs', 'gbpcad'), ('hs', 'ftse100')}
+
 # Pairs blacklisted from LIVE emission across ALL strategies (the cBot never sees a signal
 # on them). xptusd (platinum) 2026-09-08: net -£53.8K over 24 trades at 12% WR — every
 # attributable strategy 0-8% (twob_cm alone -£44K). Thin/gappy/wide-spread; no strategy
@@ -308,6 +316,8 @@ def main():
             if s['entry_ts'] < fresh_after:
                 continue
             if s['strategy'] in DEMOTED:   # detected but held back from the cBot; harness still logs it
+                continue
+            if (s['strategy'], pk) in PAIR_DEMOTED:   # per-pair 3yr demotion; harness still observes it
                 continue
             # TREND-QUALITY GATE (2026-09-17) — regime-matched entry filter. Momentum/trend
             # strategies fire only in a trending regime; reversal/fade strategies only outside a

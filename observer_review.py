@@ -61,10 +61,11 @@ CONC_MIN_REMAINDER = 20  # min non-top-pair fills for the remainder edge to be t
 # wrongly shows as "promotion-ready" (and a demoted one lingers as live).
 LIVE = {'hs', 's5_rsi', 'engulf_manip', 'fred_tl',
         'gbreak', 'fma_gold', 'fma_sweep_cm', 'twob', 'twob_cm', 'twob_ix', 'mmove_m15',
-        'absorb_btc', 'sweepfvg_ix', 'crt_ix',
+        'absorb_btc', 'crt_ix',
         # 2026-09-18 — promoted to live after the 3-year both-OOS-positive backtest.
         'cam_rev', 'mmove', 'holygrail_cm', 'holygrail_cm_m15'}
-        # asianglitch + obfvg removed — demoted on the same 3-year test (negative 1st OOS half).
+        # asianglitch + obfvg removed 2026-09-18 (negative 1st OOS half on the 3-year test).
+        # sweepfvg_ix removed 2026-09-18 — net-negative across ALL indices over 3yr, both halves.
 
 
 def agg(seq):
