@@ -733,7 +733,10 @@ namespace cAlgo.Robots
         }
         private void CheckDailyLimit()
         {
-            if (!Account.IsLive) return;  // demo runs without the brake
+            // 2026-09-17 — brake now applies on DEMO too (was live-only). An uncapped multi-day
+            // demo drawdown on a whipsaw tape showed the circuit breaker is worth having
+            // regardless of account type: on demo it caps the bleed on a bad day exactly as it
+            // would live, and keeps the forward-test record from being dominated by one rout.
             if (_dailyLimitHit) return;
             if (_todayStartEquity <= 0) return;
             // Loss limit is expressed as % of starting equity. Convert

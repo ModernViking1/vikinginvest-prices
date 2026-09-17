@@ -43,6 +43,13 @@ namespace cAlgo.Robots
         [Parameter("Risk % per trade", DefaultValue = 1.0, MinValue = 0.1, MaxValue = 5.0, Group = "Risk")]
         public double RiskPct { get; set; }
 
+        // 2026-09-17 — daily-loss circuit breaker (mirrors the intraday bot). Once the day's
+        // realized loss crosses this % of start-of-day equity, NEW swing entries are blocked
+        // until 00:00 UTC; open positions keep running on their own stops. Caps the damage on a
+        // whipsaw day whatever the cause. Applies on demo too (no live gate). 0 disables it.
+        [Parameter("Daily loss limit (% of equity)", DefaultValue = 3.0, MinValue = 0.0, MaxValue = 15.0, Group = "Risk")]
+        public double DailyLossPctLimit { get; set; }
+
         [Parameter("Max concurrent swing positions", DefaultValue = 12, MinValue = 1, MaxValue = 50, Group = "Risk")]
         public int MaxConcurrent { get; set; }
 
@@ -148,6 +155,12 @@ namespace cAlgo.Robots
         private string _seenIdsPath;
         private string _executionsPath;
         private bool _busy;
+        // Daily-loss circuit breaker state (persisted so a mid-day restart keeps the budget).
+        private string _dailyLossPath;
+        private string _todayKey = "";
+        private double _todayRealizedR = 0;
+        private double _todayStartEquity = 0;
+        private bool   _dailyLimitHit = false;
 
         protected override void OnStart()
         {
@@ -156,7 +169,9 @@ namespace cAlgo.Robots
             try { System.IO.Directory.CreateDirectory(dir); } catch { }
             _seenIdsPath = System.IO.Path.Combine(dir, "swing_seen_ids.txt");
             _executionsPath = System.IO.Path.Combine(dir, "swing-executions.jsonl");
+            _dailyLossPath = System.IO.Path.Combine(dir, "swing_daily_loss.txt");
             LoadSeenIds();
+            LoadDailyLossState();
             Positions.Closed += OnPositionClosed;
             try { RecoverTrailingOnStart(); } catch (Exception ex) { Print($"[VikingSwing] trailing-recovery error: {ex.Message}"); }
             Print($"[VikingSwing] started. acct={Account.Number} live={Account.IsLive} seen={_seenIds.Count} risk={RiskPct}% publish={AutoPublishToRepo}");
@@ -166,6 +181,64 @@ namespace cAlgo.Robots
         }
 
         protected override void OnStop() { Positions.Closed -= OnPositionClosed; SaveSeenIds(); }
+
+        // ───────────── Daily-loss circuit breaker (mirrors the intraday bot) ─────────────
+        // Persists {today_key, today_R, start_equity, limit_hit} so a mid-day restart keeps the
+        // budget. Resets at 00:00 UTC. Applies on demo and live alike; 0 disables it.
+        private void LoadDailyLossState()
+        {
+            _todayKey = DateTime.UtcNow.ToString("yyyy-MM-dd");
+            _todayStartEquity = Account.Equity;
+            _todayRealizedR = 0;
+            _dailyLimitHit = false;
+            try
+            {
+                if (!IOFile.Exists(_dailyLossPath)) { SaveDailyLossState(); return; }
+                var parts = IOFile.ReadAllText(_dailyLossPath).Split('|');
+                if (parts.Length >= 4 && parts[0] == _todayKey)
+                {
+                    _todayRealizedR   = double.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture);
+                    _todayStartEquity = double.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture);
+                    _dailyLimitHit    = parts[3] == "1";
+                }
+            }
+            catch (Exception ex) { Print($"⚠️ [VikingSwing] daily-loss load failed: {ex.Message}"); }
+        }
+        private void SaveDailyLossState()
+        {
+            try
+            {
+                IOFile.WriteAllText(_dailyLossPath,
+                    $"{_todayKey}|{_todayRealizedR.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}|" +
+                    $"{_todayStartEquity.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}|" +
+                    $"{(_dailyLimitHit ? "1" : "0")}");
+            }
+            catch (Exception ex) { Print($"⚠️ [VikingSwing] daily-loss save failed: {ex.Message}"); }
+        }
+        private void RollDailyKeyIfNeeded()
+        {
+            var nowKey = DateTime.UtcNow.ToString("yyyy-MM-dd");
+            if (nowKey == _todayKey) return;
+            Print($"📅 [VikingSwing] UTC day rolled: closing {_todayKey} at {_todayRealizedR:+0.00;-0.00;0.00}R, starting {nowKey}");
+            _todayKey = nowKey;
+            _todayRealizedR = 0;
+            _todayStartEquity = Account.Equity;
+            _dailyLimitHit = false;
+            SaveDailyLossState();
+        }
+        private void CheckDailyLimit()
+        {
+            if (DailyLossPctLimit <= 0 || _dailyLimitHit || _todayStartEquity <= 0) return;
+            var lossR   = -_todayRealizedR;      // positive when in the red
+            var lossPct = lossR * RiskPct;       // R -> % of equity via the per-trade risk size
+            if (lossPct >= DailyLossPctLimit)
+            {
+                _dailyLimitHit = true;
+                SaveDailyLossState();
+                Print($"🛑 [VikingSwing] DAILY LOSS LIMIT HIT: -{lossR:F2}R ≈ -{lossPct:F2}% of equity (cap {DailyLossPctLimit}%). " +
+                      "No new swing entries until 00:00 UTC; open positions keep running on their stops.");
+            }
+        }
 
         protected override void OnTimer()
         {
@@ -331,6 +404,11 @@ namespace cAlgo.Robots
         private void Consider(Sig s)
         {
             if (string.IsNullOrEmpty(s.Id) || _seenIds.Contains(s.Id) || _inFlight.Contains(s.Id)) return;
+            // Daily-loss circuit breaker — once the day is in the red past the cap, take no NEW
+            // entries until the UTC day rolls. Not MarkSeen'd: the signal simply isn't acted on
+            // (by the time the day rolls it's aged out of the entry window anyway).
+            RollDailyKeyIfNeeded();
+            if (_dailyLimitHit) return;
             if (s.State != "triggered") return;
             if (s.Dir != "bull" && s.Dir != "bear") return;
 
@@ -724,6 +802,12 @@ namespace cAlgo.Robots
                 realizedR = Math.Max(-2.0, Math.Min(6.0, realizedR));
             }
             catch { }
+
+            // Daily-loss circuit breaker bookkeeping — accumulate the day's realized R (already
+            // clamped to [-2, 6]) and trip the brake if the running loss crosses the cap.
+            RollDailyKeyIfNeeded();
+            _todayRealizedR += realizedR;
+            CheckDailyLimit();
 
             string reason;
             try
