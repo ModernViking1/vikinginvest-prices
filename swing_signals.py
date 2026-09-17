@@ -92,7 +92,7 @@ ENGULF_CLASSES = {'crypto'}
 #          (15/15 parameter cells pass both OOS halves); highest gold priority.
 # gtrend = #1 50/200 EMA trend pullback (H4, RR2, choppiness filter removed —
 #          it hurt in testing). Both self-gate to xauusd and are cBot-executable.
-PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14, 'fma_gold': 15, 'twob': 16, 'twob_cm': 17, 'twob_ix': 18}
+PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'cam_rev': 4, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14, 'fma_gold': 15, 'twob': 16, 'twob_cm': 17, 'twob_ix': 18, 'mmove': 19, 'holygrail_cm': 20, 'holygrail_cm_m15': 21}
 
 # Demo-only pilots — emitted to the swing feed but flagged so the cBot executes them
 # ONLY on a demo account (skips on live). Lets a candidate accrue REAL forward fills
@@ -100,7 +100,12 @@ PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'w5_pullback': 6, '
 #   fma_gold (2026-08-07) — FMA liquidity-sweep + 50-EMA reclaim reversal, m15 gold, RR2.
 #     Cross-validated in-sample (native m15 + 12-month m5->m15), but zero forward evidence
 #     yet — demo-first per decision.
-DEMO_ONLY = {'fma_gold', 'cam_rev', 'mmove', 'mmove_c4', 'holygrail_cm', 'holygrail_cm_m15'}
+# 2026-09-18 — PROMOTED to full live after the 3-year deep backtest: cam_rev, mmove,
+# holygrail_cm, holygrail_cm_m15 each stay profitable in BOTH out-of-sample halves over 3yr,
+# so they graduate from demo-only pilots to live strategies — now inside the per-pair exposure
+# cap (no more stacking on top of a live position) and priced into PRIORITY above. fma_gold
+# stays a demo pilot (thin n, 2nd-half edge marginal); mmove_c4 was demoted outright.
+DEMO_ONLY = {'fma_gold'}
 
 # Demoted to observer-only — genuine-forward decay on live data since tracking began
 # (see swing-shadow-log.json GENUINE FORWARD). The harness still runs each detector and

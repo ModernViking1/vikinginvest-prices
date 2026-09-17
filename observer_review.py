@@ -59,9 +59,12 @@ CONC_MIN_REMAINDER = 20  # min non-top-pair fills for the remainder edge to be t
 # the demo pilot, plus the promoted intraday emitters (mmove_m15, absorb_btc). Everything
 # else in the log is an observer. Keep in sync when promoting/demoting, or a live strategy
 # wrongly shows as "promotion-ready" (and a demoted one lingers as live).
-LIVE = {'hs', 's5_rsi', 'engulf_manip', 'fred_tl', 'asianglitch', 'obfvg',
+LIVE = {'hs', 's5_rsi', 'engulf_manip', 'fred_tl',
         'gbreak', 'fma_gold', 'fma_sweep_cm', 'twob', 'twob_cm', 'twob_ix', 'mmove_m15',
-        'absorb_btc', 'sweepfvg_ix', 'crt_ix'}
+        'absorb_btc', 'sweepfvg_ix', 'crt_ix',
+        # 2026-09-18 — promoted to live after the 3-year both-OOS-positive backtest.
+        'cam_rev', 'mmove', 'holygrail_cm', 'holygrail_cm_m15'}
+        # asianglitch + obfvg removed — demoted on the same 3-year test (negative 1st OOS half).
 
 
 def agg(seq):
