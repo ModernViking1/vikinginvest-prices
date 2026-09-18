@@ -2242,21 +2242,26 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         }
         // Monthly-consistency strip — book-level heatmap (one cell per month, green up / red down).
         // Populates once the deep backtest publishes book_monthly_gated / monthly_gated.
-        var mg=d.monthly_gated||{}, bmc=d.book_monthly_gated, mstrip='';
+        // Prefer the deployed-roster book NET of costs (honest deployment claim); fall back to the
+        // full gated book only if the roster-net field isn't published yet.
+        var mg=d.monthly_gated||{}, lrn=d.live_roster_monthly_net, bmc=lrn||d.book_monthly_gated, mstrip='';
+        var isNet=!!lrn;
         if(bmc&&bmc.series){
           var ser=bmc.series, mk=Object.keys(ser), mt=bmc.months_traded||mk.length, mp=bmc.months_positive||0;
           var pct=mt?Math.round(100*mp/mt):0, maxA=1;
           mk.forEach(function(k){var a=Math.abs(ser[k].r); if(a>maxA)maxA=a;});
           var cells=mk.map(function(k){var rr=ser[k].r,up=rr>=0,op=(0.35+0.65*Math.min(1,Math.abs(rr)/maxA)).toFixed(2);
             return '<span title="'+k+': '+(up?'+':'')+rr+'R · '+ser[k].n+' trades" style="display:inline-block;width:13px;height:20px;border-radius:2px;margin:1px;background:'+(up?'var(--bull)':'var(--bear)')+';opacity:'+op+';"></span>';}).join('');
+          var lrnet=(d.live_roster_net||{});
+          var scope=isNet?('Deployed roster · net of costs'+(lrnet.net_exp!=null?(' · net exp '+fmtR(lrnet.net_exp)):'')):'Full gated research book (not deployment)';
           var perfNote=(d.perfect_months&&d.perfect_months.length)
             ? 'Positive in every trading month: '+d.perfect_months.join(', ')+'.'
-            : 'No single strategy is net-positive in every month — but the diversified book is close.';
+            : 'No single strategy is net-positive in every month — the diversified deployed book is far steadier.';
           mstrip='<div style="margin-top:14px;padding:10px 12px;background:var(--sf2);border:1px solid var(--rule);border-radius:4px;">'
-            +'<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;align-items:baseline;"><span style="font-family:Orbitron,monospace;font-size:11px;color:var(--ink);">Monthly consistency</span>'
-            +'<span style="font-size:10px;color:var(--inkd);">Portfolio net-positive in <b style="color:var(--bull);">'+mp+' / '+mt+'</b> months ('+pct+'%) · worst month '+bmc.worst_month_r+'R</span></div>'
+            +'<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;align-items:baseline;"><span style="font-family:Orbitron,monospace;font-size:11px;color:var(--ink);">Monthly consistency <span style="font-size:9px;color:var(--inkd);font-family:Mukta,sans-serif;">'+scope+'</span></span>'
+            +'<span style="font-size:10px;color:var(--inkd);">Net-positive in <b style="color:var(--bull);">'+mp+' / '+mt+'</b> months ('+pct+'%) · worst month '+bmc.worst_month_r+'R</span></div>'
             +'<div style="margin-top:8px;white-space:nowrap;overflow-x:auto;line-height:0;">'+cells+'</div>'
-            +'<div style="font-size:9px;color:var(--inkd);margin-top:6px;">Each cell = one calendar month of the live-gated book (green up / red down, shade ∝ size). '+perfNote+'</div></div>';
+            +'<div style="font-size:9px;color:var(--inkd);margin-top:6px;">Each cell = one calendar month'+(isNet?', deployed roster net of realistic spread/commission':' of the full gated research book')+' (green up / red down, shade ∝ size). '+perfNote+'</div></div>';
         }
         var sg=d.strategies_gated||{}, keys=Object.keys(sg).filter(function(k){return sg[k].n>=40;}).sort(function(a,b){return sg[b].total_r-sg[a].total_r;});
         var rows=keys.map(function(k){var r=sg[k],both=(r.oos_1st>0&&r.oos_2nd>0),mo=mg[k];

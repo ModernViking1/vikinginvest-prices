@@ -96,6 +96,20 @@ def _monthly_book(book_seq):
             "series": ser}
 
 
+# Realistic per-trade cost, calibrated from real executions (same model as
+# intraday_realistic_fill.py): ~fixed in PRICE — 0.0045% of entry on winners,
+# 0.0105% on losers — expressed in R as cost_pct * |entry| / |entry-stop|, so it
+# shrinks as the stop widens. This is a spread/commission deduction, NOT the harsher
+# realistic-FILL test (which also drops runaway winners that never fill).
+WIN_COST_PCT, LOSS_COST_PCT = 0.0045 / 100, 0.0105 / 100
+
+
+def _cost_r(outcome_r, entry, risk_dist):
+    if not entry or risk_dist <= 0:
+        return 0.0
+    return (WIN_COST_PCT if outcome_r > 0 else LOSS_COST_PCT) * abs(entry) / risk_dist
+
+
 def run(hist_path, out_path):
     import unified_shadow_harness as H
     from trend_regime import build_regime, passes_gate
@@ -189,6 +203,33 @@ def run(hist_path, out_path):
         if row:
             live_by_pair[st] = row
 
+    # ---- LIVE-ROSTER-ONLY monthly book, gross and NET of the realistic cost model ----
+    # Restricts to the deployed roster (observer_review.LIVE) — the honest basis for a
+    # "the deployed portfolio was positive in X of Y months" claim, unlike book_monthly_gated
+    # which aggregates every gated detector. Intraday-only structural methods (fib/wick/macdp/
+    # crt_ix) aren't scored by this harness, so they're absent — the coverage note travels in
+    # the summary. Net = each trade's frictionless r minus its per-trade cost_r.
+    live_roster = [s for s in live if s.get("strategy") in LIVE_STRATS]
+
+    def _net_r(s):
+        rd = abs((s.get("entry") or 0) - (s.get("stop") or 0))
+        return s["r"] - _cost_r(s["r"], s.get("entry") or 0, rd)
+
+    lr_gross = sorted((s["entry_ts"], s["r"]) for s in live_roster)
+    lr_net   = sorted((s["entry_ts"], _net_r(s)) for s in live_roster)
+    lr_costs = [_cost_r(s["r"], s.get("entry") or 0, abs((s.get("entry") or 0) - (s.get("stop") or 0))) for s in live_roster]
+    nlr = len(live_roster)
+    live_roster_net = {
+        "n": nlr,
+        "strategies_covered": sorted({s["strategy"] for s in live_roster}),
+        "strategies_uncovered": sorted(LIVE_STRATS - {s["strategy"] for s in live_roster}),
+        "gross_total_r": round(sum(r for _, r in lr_gross), 1),
+        "net_total_r":   round(sum(r for _, r in lr_net), 1),
+        "gross_exp":     round(sum(r for _, r in lr_gross) / nlr, 4) if nlr else 0.0,
+        "net_exp":       round(sum(r for _, r in lr_net) / nlr, 4) if nlr else 0.0,
+        "mean_cost_r":   round(sum(lr_costs) / nlr, 4) if nlr else 0.0,
+    }
+
     summary = {
         "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "data_start": data_start,
@@ -209,6 +250,10 @@ def run(hist_path, out_path):
         "book_monthly_gated": _monthly_book(book_seq),
         "perfect_months":     sorted(st for st, v in _monthly(live).items() if v["perfect"]),
         "min_months_for_perfect": MIN_MONTHS_FOR_PERFECT,
+        # Deployed-roster-only book — the honest, cost-adjusted portfolio consistency figure.
+        "live_roster_net":            live_roster_net,
+        "live_roster_monthly_gross":  _monthly_book(lr_gross),
+        "live_roster_monthly_net":    _monthly_book(lr_net),
     }
     with open(out_path, "w") as f:
         json.dump(summary, f, separators=(",", ":"))
