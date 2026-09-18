@@ -46,6 +46,56 @@ def _equity_curve(pairs_r, max_pts=400):
     return [[int(pts[int(i*step)][0]), round(pts[int(i*step)][1], 3)] for i in range(max_pts)]
 
 
+MIN_MONTHS_FOR_PERFECT = 12   # need >=1yr of trading months before "positive every month" means anything
+
+
+def _month_key(ts):
+    dt = datetime.fromtimestamp(ts, timezone.utc)
+    return "%04d-%02d" % (dt.year, dt.month)
+
+
+def _monthly(rows, series_for=None):
+    """Per-strategy calendar-month P&L. A month counts only if the strategy traded in it
+       (a quiet month is 'no signal', not 'a loss'). 'perfect' = net-positive in EVERY
+       trading month over at least MIN_MONTHS_FOR_PERFECT months — the real test behind a
+       'profitable every month' claim. series (the YYYY-MM -> {n,r} detail) is emitted only
+       for strategies in series_for, to keep the summary compact."""
+    by = {}
+    for s in rows:
+        by.setdefault(s["strategy"], {}).setdefault(_month_key(s["entry_ts"]), []).append(s["r"])
+    out = {}
+    for st, months in by.items():
+        ser = {mk: {"n": len(v), "r": round(sum(v), 2)} for mk, v in sorted(months.items())}
+        rs = [m["r"] for m in ser.values()]
+        traded = len(rs)
+        pos = sum(1 for r in rs if r > 0)
+        neg = sum(1 for r in rs if r < 0)
+        row = {"months_traded": traded, "months_positive": pos, "months_negative": neg,
+               "pct_positive": round(100 * pos / traded, 1) if traded else 0.0,
+               "worst_month_r": round(min(rs), 2) if rs else 0.0,
+               "best_month_r": round(max(rs), 2) if rs else 0.0,
+               "perfect": bool(traded >= MIN_MONTHS_FOR_PERFECT and neg == 0 and pos == traded)}
+        if series_for is None or st in series_for:
+            row["series"] = ser
+        out[st] = row
+    return out
+
+
+def _monthly_book(book_seq):
+    """Aggregate book P&L per calendar month — 'is the portfolio positive every month?'."""
+    months = {}
+    for ts, r in book_seq:
+        months.setdefault(_month_key(ts), []).append(r)
+    ser = {mk: {"n": len(v), "r": round(sum(v), 2)} for mk, v in sorted(months.items())}
+    rs = [m["r"] for m in ser.values()]
+    return {"months_traded": len(rs),
+            "months_positive": sum(1 for r in rs if r > 0),
+            "months_negative": sum(1 for r in rs if r < 0),
+            "worst_month_r": round(min(rs), 2) if rs else 0.0,
+            "best_month_r": round(max(rs), 2) if rs else 0.0,
+            "series": ser}
+
+
 def run(hist_path, out_path):
     import unified_shadow_harness as H
     from trend_regime import build_regime, passes_gate
@@ -152,6 +202,13 @@ def run(hist_path, out_path):
         "strategies_gated":   summarize(live),
         "strategies_ungated": summarize(sigs),
         "live_by_pair":       live_by_pair,
+        # Per-month P&L (gated / live-emulated). Full YYYY-MM series only for the LIVE roster;
+        # every gated strategy still gets the months_positive / worst_month / perfect summary so
+        # we can answer "does any strategy stay positive every month?" across the whole book.
+        "monthly_gated":      _monthly(live, series_for=LIVE_STRATS),
+        "book_monthly_gated": _monthly_book(book_seq),
+        "perfect_months":     sorted(st for st, v in _monthly(live).items() if v["perfect"]),
+        "min_months_for_perfect": MIN_MONTHS_FOR_PERFECT,
     }
     with open(out_path, "w") as f:
         json.dump(summary, f, separators=(",", ":"))
