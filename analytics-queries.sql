@@ -124,16 +124,16 @@ begin
     from ev where event = 'page_view' and target is not null group by 1 order by 2 desc
   ),
   investors as (
-    select coalesce(p.email, u.email)                as email,
-           count(*)                                   as opens,
-           bool_or(ps.session_id is not null)         as saw_panel,
-           max(bt.created_at)                         as last_opened
+    -- email lives in auth.users (public.profiles has no email column)
+    select coalesce(u.email, 'user ' || left(bt.user_id::text, 8)) as email,
+           count(*)                                                 as opens,
+           bool_or(ps.session_id is not null)                       as saw_panel,
+           max(bt.created_at)                                       as last_opened
     from bt
     left join auth.users     u  on u.id = bt.user_id
-    left join public.profiles p on p.id = bt.user_id
     left join panel_sessions ps on ps.session_id = bt.session_id
     where bt.user_id is not null
-      and coalesce(p.email, u.email) <> 'kmma@vikinginvest.org'
+      and coalesce(u.email, '') <> 'kmma@vikinginvest.org'
     group by 1 order by 2 desc limit 50
   )
   select jsonb_build_object(
