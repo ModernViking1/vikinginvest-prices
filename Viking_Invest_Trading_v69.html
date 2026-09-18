@@ -23308,5 +23308,122 @@ function _renderCCIVariantPanel(host, commodityKeys){
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
 </script>
+
+<!-- Owner-only Usage Analytics panel (2026-09-18). Renders inside the Backtest tab
+     for the owner only, reading real counts via the owner-guarded RPC
+     public.usage_analytics(p_days). The RPC enforces owner server-side, so no data
+     leaks even if the client check is bypassed. Fails gracefully if the RPC isn't
+     installed yet. Theme-agnostic (uses --ink/--inkm/--inkd + gold tints). -->
+<script>
+(function(){
+  var OWNER='kmma@vikinginvest.org';
+  var built=false, days=14;
+  var GOLD='#c8860a', BORD='rgba(200,134,10,0.30)', SOFT='rgba(200,134,10,0.06)', CARD='rgba(200,134,10,0.05)';
+  function ses(){ try{ return window._vinlSession; }catch(_){ return null; } }
+  function isOwner(){ var s=ses(); return !!(s && s.user && String(s.user.email||'').toLowerCase()===OWNER); }
+  function el(h){ var d=document.createElement('div'); d.innerHTML=h; return d.firstElementChild; }
+  function num(n){ n=n||0; return n>=1000 ? (n/1000).toFixed(1)+'k' : String(n); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+
+  function tile(n,l,d){
+    return '<div style="flex:1;min-width:108px;background:'+CARD+';border:1px solid '+BORD+';border-radius:9px;padding:12px 13px;">'
+      +'<div style="font-family:Orbitron,monospace;font-weight:700;font-size:22px;line-height:1;color:var(--ink,#1c1a17);">'+n+'</div>'
+      +'<div style="font-family:monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--inkd,#8b8279);margin-top:7px;">'+l+'</div>'
+      +(d?'<div style="font-family:monospace;font-size:10px;color:var(--inkm,#4a4640);margin-top:5px;">'+d+'</div>':'')+'</div>';
+  }
+  function fbar(lab,w,v){
+    return '<div style="display:grid;grid-template-columns:128px 1fr auto;align-items:center;gap:9px;font-size:12px;margin:7px 0;">'
+      +'<span style="color:var(--inkm,#4a4640);">'+lab+'</span>'
+      +'<span style="height:18px;border-radius:4px;background:linear-gradient(90deg,#b07d0a,'+GOLD+');width:'+w+'%;min-width:2px;"></span>'
+      +'<span style="font-family:monospace;font-size:11px;color:var(--ink,#1c1a17);white-space:nowrap;">'+v+'</span></div>';
+  }
+  function head(txt){ return '<div style="font-family:Orbitron,monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--inkm,#4a4640);margin-bottom:10px;">'+txt+'</div>'; }
+
+  function render(container,d){
+    var t=d.tiles||{}, trend=d.trend||[], tabs=d.tabs||[], investors=d.investors||[];
+    var sessions=t.sessions||0, openedBt=t.opened_bt||0, sawPanel=t.saw_panel||0, btOpens=t.bt_opens||0;
+    var conv=sessions?Math.round(100*openedBt/sessions):0;
+    var maxTrend=Math.max.apply(null,trend.map(function(x){return x.opens;}).concat([1]));
+    var maxTab=Math.max.apply(null,tabs.map(function(x){return x.views;}).concat([1]));
+    var step=400/Math.max(trend.length,1);
+    var bars=trend.map(function(x,i){
+      var h=Math.max(3,Math.round(96*x.opens/maxTrend));
+      return '<rect x="'+(i*step+2)+'" y="'+(110-h)+'" width="'+Math.max(4,step-4)+'" height="'+h+'" fill="'+(i===trend.length-1?GOLD:'#b07d0a')+'"/>';
+    }).join('');
+    var tabRows=tabs.map(function(x){
+      var hot=x.tab==='bt';
+      return '<div style="display:grid;grid-template-columns:92px 1fr 42px;align-items:center;gap:9px;font-size:12px;margin:8px 0;">'
+        +'<span style="font-family:monospace;color:'+(hot?GOLD:'var(--inkm,#4a4640)')+';">'+esc(hot?'Backtest':x.tab)+'</span>'
+        +'<span style="height:12px;border-radius:3px;background:'+SOFT+';overflow:hidden;"><span style="display:block;height:100%;width:'+Math.round(100*x.views/maxTab)+'%;background:linear-gradient(90deg,#b07d0a,'+GOLD+');"></span></span>'
+        +'<span style="font-family:monospace;text-align:right;color:var(--ink,#1c1a17);">'+x.views+'</span></div>';
+    }).join('');
+    var td='padding:8px 6px;border-bottom:1px solid '+BORD+';';
+    var invRows=investors.length?investors.map(function(x){
+      var when=x.last_opened?new Date(x.last_opened).toLocaleDateString():'';
+      return '<tr><td style="'+td+'font-family:monospace;font-size:11px;color:var(--ink,#1c1a17);">'+esc(x.email||'—')+'</td>'
+        +'<td style="'+td+'font-family:monospace;text-align:right;color:'+GOLD+';">'+x.opens+'</td>'
+        +'<td style="'+td+'font-family:monospace;font-size:10px;color:var(--inkm,#4a4640);">'+(x.saw_panel?'yes':'no')+'</td>'
+        +'<td style="'+td+'font-family:monospace;font-size:10px;color:var(--inkd,#8b8279);">'+esc(when)+'</td></tr>';
+    }).join(''):'<tr><td colspan="4" style="padding:12px 6px;color:var(--inkd,#8b8279);font-size:12px;">No signed-in investors have opened the backtest page in this window yet.</td></tr>';
+    var th='text-align:left;font-family:monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--inkd,#8b8279);padding:0 6px 8px;border-bottom:1px solid '+BORD+';';
+
+    container.innerHTML=
+      '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px;">'
+        +tile(num(btOpens),'Backtest-page opens')
+        +tile(num(t.unique_viewers),'Unique viewers',(t.signed_in_viewers||0)+' signed-in · '+(t.anon_sessions||0)+' anon')
+        +tile(conv+'%','Sessions → backtest')
+        +tile(num(sawPanel),'Saw 3-yr panel')
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">'
+        +'<div style="background:'+CARD+';border:1px solid '+BORD+';border-radius:9px;padding:13px;">'+head('Funnel')
+          +fbar('Dashboard sessions',100,sessions)
+          +fbar('Opened Backtest tab',sessions?Math.round(100*openedBt/sessions):0,openedBt+' · '+conv+'%')
+          +fbar('Saw 3-Year panel',sessions?Math.round(100*sawPanel/sessions):0,sawPanel)+'</div>'
+        +'<div style="background:'+CARD+';border:1px solid '+BORD+';border-radius:9px;padding:13px;">'+head('Backtest opens / day ('+ (d.range_days||days) +'d)')
+          +'<svg viewBox="0 0 400 120" preserveAspectRatio="none" style="width:100%;height:110px;"><line x1="0" y1="110" x2="400" y2="110" stroke="'+BORD+'"/>'+bars+'</svg></div>'
+      +'</div>'
+      +'<div style="background:'+CARD+';border:1px solid '+BORD+';border-radius:9px;padding:13px;margin-top:14px;">'+head('Tab popularity')+tabRows+'</div>'
+      +'<div style="background:'+CARD+';border:1px solid '+BORD+';border-radius:9px;padding:13px;margin-top:14px;overflow-x:auto;">'+head('Investors who opened the backtest page')
+        +'<table style="width:100%;border-collapse:collapse;"><thead><tr>'
+          +'<th style="'+th+'">Investor</th><th style="'+th+'text-align:right;">Opens</th><th style="'+th+'">3y panel</th><th style="'+th+'">Last</th>'
+        +'</tr></thead><tbody>'+invRows+'</tbody></table></div>';
+  }
+
+  function load(body){
+    var c=window._vinlSb;
+    if(!c||!c.rpc){ body.innerHTML='<div style="color:var(--inkd,#8b8279);font-size:12px;">Analytics client not ready.</div>'; return; }
+    body.innerHTML='<div style="color:var(--inkd,#8b8279);font-size:12px;">Loading usage…</div>';
+    c.rpc('usage_analytics',{p_days:days}).then(function(r){
+      if(r && r.error){
+        var m=String(r.error.message||''), code=r.error.code||'';
+        if(code==='PGRST202' || code==='42883' || /usage_analytics/.test(m)){
+          body.innerHTML='<div style="color:var(--inkd,#8b8279);font-size:12px;">Usage RPC not installed yet — run the <code>usage_analytics</code> function from analytics-queries.sql in the Supabase SQL editor.</div>';
+        } else { body.innerHTML='<div style="color:var(--inkd,#8b8279);font-size:12px;">Usage query failed: '+esc(m)+'</div>'; }
+        return;
+      }
+      try{ render(body, (r&&r.data)||{}); }catch(e){ body.innerHTML='<div style="color:var(--inkd,#8b8279);font-size:12px;">Render error.</div>'; }
+    }, function(){ body.innerHTML='<div style="color:var(--inkd,#8b8279);font-size:12px;">Usage query failed.</div>'; });
+  }
+
+  function build(){
+    if(built) return; var host=document.getElementById('page-bt'); if(!host) return; built=true;
+    var sect=el('<div class="logsect" style="margin-bottom:12px;border:1px solid '+BORD+';border-radius:8px;background:'+SOFT+';"></div>');
+    var hdr=el('<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:10px 13px;border-bottom:1px solid '+BORD+';"></div>');
+    hdr.appendChild(el('<span style="font-family:Orbitron,monospace;font-size:11px;letter-spacing:.06em;color:var(--ink,#1c1a17);">▸ USAGE ANALYTICS&nbsp; <span style="color:'+GOLD+';font-size:9px;">OWNER</span></span>'));
+    var ctrls=el('<span style="display:inline-flex;gap:6px;align-items:center;"></span>');
+    var body=el('<div style="padding:13px;"></div>');
+    [7,14,30].forEach(function(dd){
+      var b=el('<button type="button" style="font-family:monospace;font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid '+BORD+';background:'+(dd===days?GOLD:'transparent')+';color:'+(dd===days?'#0e0c07':'var(--inkm,#4a4640)')+';cursor:pointer;">'+dd+'d</button>');
+      b.onclick=function(){ days=dd; Array.prototype.forEach.call(ctrls.children,function(x){ x.style.background='transparent'; x.style.color='var(--inkm,#4a4640)'; }); b.style.background=GOLD; b.style.color='#0e0c07'; load(body); };
+      ctrls.appendChild(b);
+    });
+    hdr.appendChild(ctrls); sect.appendChild(hdr); sect.appendChild(body);
+    host.insertBefore(sect, host.firstChild);
+    load(body);
+  }
+
+  var tries=0, iv=setInterval(function(){ tries++; if(isOwner()){ build(); clearInterval(iv); } else if(tries>60) clearInterval(iv); }, 500);
+})();
+</script>
 </body>
 </html>
