@@ -1581,6 +1581,8 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // Currently-demoted swing strategies (mirror swing_signals.py DEMOTED). Their fills were
         // live when they filled but the strategy is now observer-only, so they are excluded from
         // the headline LIVE win-rate and shown separately under ○ OBSERVING.
+        // ⚠ SYNC: hardcoded mirror of swing_signals.py DEMOTED — update in lockstep on every
+        // promote/demote, or demoted strategies keep counting in the headline stats.
         var DEMOTED_SWING={tl_nowick:1,fib_gz:1,wm:1,w5_pullback:1,gtrend:1,threepush:1,ob:1,s5_rsi_wide:1,asianglitch:1,obfvg:1,mmove_c4:1};
         // Outcome-tile overview (mirrors the intraday panel's window._viOutcomeTiles; guarded
         // so whichever panel renders first defines it, avoiding a cross-scope ordering trap).
@@ -1748,6 +1750,9 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         };
         // LIVE (executing on cTrader) vs OBSERVING (shadow-only, not yet qualified for
         // live capital). Mirrors swing_signals.py PRIORITY minus DEMOTED.
+        // ⚠ SYNC: hardcoded mirror of observer_review.LIVE (swing members) — update in lockstep on
+        // every promote/demote. m15 members (cam_rev, holygrail_cm_m15, fma_gold) only surface here
+        // once they have demo fills; their model is tracked in the intraday panel (see SWING_LIVE_M15).
         var LIVE_SWING={hs:1,s5_rsi:1,engulf_manip:1,fred_tl:1,gbreak:1,fma_gold:1,twob:1,twob_cm:1,twob_ix:1,cam_rev:1,mmove:1,holygrail_cm:1,holygrail_cm_m15:1};
         var _hdr='<tr style="color:'+C.mut+';text-align:left;"><th>strategy</th><th>tracked</th><th>demo n</th><th>demo WR</th><th>demo R</th><th>model WR</th><th>model exp</th></tr>';
         function _swRow(st){
@@ -21335,7 +21340,13 @@ function _renderCCIVariantPanel(host, commodityKeys){
     // historical live fills are excluded from the LIVE headline / per-pair / tiles and
     // surface only in the by-method ○ OBSERVING box below — matching the stated intent
     // ("demoted fills are shown in the OBSERVING table, not the live overview").
+    // ⚠ SYNC: hardcoded mirror of build_signals_json DEMOTED_METHODS / DEMO_ONLY_METHODS.
+    // Update in lockstep on every intraday promote/demote, or the headline mis-classifies.
     var INTRADAY_DEMOTED = { macdp:1, wick:1, sweepfvg_ix:1 };
+    // ⚠ SYNC with observer_review.LIVE: m15 methods that are PROMOTED and execute on the SWING
+    // cBot (not the intraday feed). They surface here via the m15 shadow log, so without this they
+    // wrongly read as ○ OBSERVING / "ready to promote". Shown as ● LIVE (swing feed) instead.
+    var SWING_LIVE_M15 = { cam_rev:1, holygrail_cm_m15:1, fma_gold:1 };
     var _isDemotedMethod = function(r){ return !!INTRADAY_DEMOTED[_stratOf(r)]; };
 
     // Aggregate per-pair.
@@ -21730,7 +21741,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
       Object.keys(sh.signals).forEach(function(k){ var s=sh.signals[k]; if(!s||(s.tf!=='m15'&&s.tf!=='m5'))return;
         var st=s.strategy||k.split(':')[0]; var o=by[st]||(by[st]={res:0,wins:0,r:0});
         if(s.status==='resolved'&&typeof s.r==='number'){ o.res++; if(s.r>0)o.wins++; o.r+=s.r; } });
-      _monRows=Object.keys(by).filter(function(st){ return !_liveSet[st] && !byStrat[st]; }).sort(function(a,b){ var A=by[a],B=by[b]; var wa=A.res?A.wins/A.res:-1,wb=B.res?B.wins/B.res:-1; return wb-wa; }).map(function(st){
+      _monRows=Object.keys(by).filter(function(st){ return !_liveSet[st] && !byStrat[st] && !SWING_LIVE_M15[st]; }).sort(function(a,b){ var A=by[a],B=by[b]; var wa=A.res?A.wins/A.res:-1,wb=B.res?B.wins/B.res:-1; return wb-wa; }).map(function(st){
         var o=by[st]; var wr=o.res?100*o.wins/o.res:null; var exp=o.res?o.r/o.res:null;
         var td=(trk[st]&&end)?Math.max(0,Math.round((end-trk[st])/86400)):null;
         return _obsRow(st, _bObs2, _obsOg[st]||'', td, null, null, null, wr, exp, o.res); }).join('');
@@ -21744,11 +21755,25 @@ function _renderCCIVariantPanel(host, commodityKeys){
         +'<div style="font-size:8px;color:var(--inkd);margin-bottom:4px;line-height:1.4;">One box — demoted methods show real demo fills (demo cols); m15 / m5 shadow monitors (never sent to the cBot) show the idealised model. A blank demo column means never traded live. They accrue forward evidence before any promotion call.</div>'
         +'<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow-x:auto;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:8.5px;font-family:Orbitron,monospace;">'+_obsHead+'<tbody>'+_demRows+_monRows+'</tbody></table></div>'
       : (_monLoading ? '<div style="font-size:8px;color:var(--inkd);font-style:italic;margin:10px 0 6px;">○ shadow monitors — loading from the shadow model…</div>' : '');
+    // Promoted m15 methods that run on the SWING cBot — surfaced from the shadow model, badged
+    // ● LIVE (swing feed). Their demo fills appear in the swing panel; excluded from OBSERVING +
+    // promotion-watch here so they don't read as "not live / ready to promote".
+    var _swingLiveRows = Object.keys(SWING_LIVE_M15).filter(function(st){return _shadowModel[st];})
+      .sort(function(a,b){var A=_shadowModel[a]||{},B=_shadowModel[b]||{};return (B.exp==null?-1e9:B.exp)-(A.exp==null?-1e9:A.exp);})
+      .map(function(st){var m=_shadowModel[st]||{};
+        return _obsRow(_mLbl2[st]||st, _bLive2+' <span style="font-size:6px;color:var(--inkd);vertical-align:middle;">swing feed</span>', _obsOg[st]||'', (m.td!=null?m.td:null), null, null, null, (m.wr==null?null:m.wr), (m.exp==null?null:m.exp), (m.res||null));}).join('');
+    var swingLiveBlock = _swingLiveRows
+      ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:#0d5a36;margin:8px 0 3px;">● LIVE · swing feed (m15) · executes on the swing cBot</div>'
+        +'<div style="font-size:8px;color:var(--inkd);margin-bottom:4px;line-height:1.4;">Promoted m15 methods that run on the SWING cBot (demo fills appear in the swing forward-test panel). Shown with their idealised model for completeness — not intraday-feed strategies.</div>'
+        +'<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow-x:auto;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:8.5px;font-family:Orbitron,monospace;">'+_obsHead+'<tbody>'+_swingLiveRows+'</tbody></table></div>'
+      : '';
+    var _liveSetPlus = Object.assign({}, _liveSet, SWING_LIVE_M15);
     var stratHtml = '<div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:1px;color:#0d5a36;text-transform:uppercase;margin:12px 0 4px;border-top:1px dashed rgba(13,90,54,0.25);padding-top:9px;">By strategy (method)</div>'
       + '<div style="font-size:8.5px;color:var(--inkd);margin-bottom:5px;line-height:1.5;">Grouped by the intraday method. <b style="color:#0d5a36;">● LIVE</b> methods execute on cTrader; the <b>○ OBSERVING</b> box below carries the <b>demoted</b> methods (real demo fills) and the <b>m15 / m5 shadow monitors</b> (never sent to the cBot).</div>'
       + (liveStrats.length ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:#0d5a36;margin:2px 0 3px;">● LIVE methods · executing on cTrader</div>' + '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow-x:auto;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:8.5px;font-family:Orbitron,monospace;">'+_obsHead+'<tbody>'+liveStrats.map(liveRowFor).join('')+'</tbody></table></div>' : '')
       + (stratKeys.length ? '' : '<div style="font-size:8px;color:var(--inkd);font-style:italic;">No closed fills to break down by method in this window.</div>')
-      + (typeof window._viPromotionBanner==='function' ? window._viPromotionBanner(window._swingShadow, function(tf){return tf==='m15'||tf==='m5';}, _liveSet) : '')
+      + swingLiveBlock
+      + (typeof window._viPromotionBanner==='function' ? window._viPromotionBanner(window._swingShadow, function(tf){return tf==='m15'||tf==='m5';}, _liveSetPlus) : '')
       + shadowBlock;
 
     // ── Interpretation hint when one bucket dominates ──
