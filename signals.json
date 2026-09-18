@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-18T17:25:53.519379+00:00",
-  "generated_ms": 1789752350964,
-  "detector_last_check": "2026-09-18T17:25:49.603519+00:00",
+  "generated": "2026-09-18T17:31:14.133368+00:00",
+  "generated_ms": 1789752672122,
+  "detector_last_check": "2026-09-18T17:31:10.842201+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 3,
+    "total": 4,
     "armed": 0,
-    "triggered": 1,
-    "invalidated": 2
+    "triggered": 0,
+    "invalidated": 4
   },
   "signals": [
+    {
+      "id": "nearusd:1789751700000:wick",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 3.7022,
+      "stop": 3.5764,
+      "target": 3.828,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1789751700000,
+      "triggeredAt": null,
+      "lastSeenAt": 1789752672122,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "solusd:1789749000000:wick",
       "pair": "solusd",
@@ -34,33 +57,32 @@
       "cl": "bull",
       "armedAt": 1789749000000,
       "triggeredAt": null,
-      "lastSeenAt": 1789752350964,
+      "lastSeenAt": 1789752672122,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
     },
     {
-      "id": "gbpnzd:1789744500000:wick",
-      "pair": "gbpnzd",
-      "sym": "GBPNZD",
-      "cls": "minor",
-      "method": "wick",
-      "r_size": 1.0,
+      "id": "nearusd:1780433100000:fib",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
       "dir": "bull",
-      "state": "triggered",
-      "entry": 2.34098,
-      "stop": 2.33636,
-      "target": 2.3456,
+      "state": "invalidated",
+      "entry": 3.7714778,
+      "stop": 3.5764,
+      "target": 3.9665556,
       "ew": "bull",
       "tl": "bull",
       "nw": "bull",
       "cl": "bull",
-      "armedAt": 1789744500000,
-      "triggeredAt": 1789748100000,
-      "lastSeenAt": 1789752350964,
+      "armedAt": 1780433100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1789752672122,
       "source": "server-detector",
-      "event_aligned": null,
-      "demo_only": true
+      "event_aligned": null
     },
     {
       "id": "solusd:1780326900000:fib",
@@ -80,7 +102,7 @@
       "cl": "bull",
       "armedAt": 1780326900000,
       "triggeredAt": null,
-      "lastSeenAt": 1789752350964,
+      "lastSeenAt": 1789752672122,
       "source": "server-detector",
       "event_aligned": null
     }
