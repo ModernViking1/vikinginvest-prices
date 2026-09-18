@@ -2214,7 +2214,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         <div style="margin-top:8px;"><strong>MACD detectors expanded to MINORs + MAJORs.</strong> macd-primary fires for all 13 MINOR pairs AND all 7 MAJOR pairs. macd-divergence runs on INDEX only (rolled back from MINORs to isolate macd-primary impact + reduce alert volume; ~+1,030R deferred). System-wide profit jumped 12× (from +271R to +3,573R) on the latest 365-day backtest. Backtest WRs: MINOR macd-primary 75-81% / MINOR macd-divergence 67-71% / MAJOR macd-primary 72.8-80% (USDJPY 78.2%, GBPUSD 80.0%). Previously near-silent MINOR pairs (eurgbp, nzdchf, eursgd, usdsgd, nzdjpy, cadjpy) now receive 200-240 high-WR trades each via the MACD trigger path that doesn't require 4/4 alignment. Same SL/TP as INDEX MACDs: entry at the MACD-cross bar's low/high, structural stop on the 8-bar pivot, fixed 1:1 R:R target. Production gates: INDEX/MINOR macd-primary conf ≥1, MAJOR macd-primary conf 1-3 (skips the 47.6% MAJOR 4/4 cliff), INDEX/MINOR macd-divergence conf 1-3. MAJOR macd-divergence deferred to keep alert volume manageable while validating primary live first. <strong>Per-pair ATR ceiling — MAJOR + INDEX wick.</strong> Each pair has its own ATR(14)% ceiling sized to the pair's actual P75 trigger distribution. INDEX MACDs run unfiltered (their Q4 is best). <strong>Per-pair MID-BAND block — GBP/NZD.</strong> Targeted skip when ATR is in 0.055–0.072%. <strong>Diagnostic upgrades.</strong> Trigger-source comparison, per-source × per-quartile WR matrix, per-pair × per-quartile WR matrix, MAJOR + MINOR MACD expansion test (per-confluence breakdown). Append <code>?sw_reset=1</code> to the URL if a stale cache ever needs a manual reset.</div>
       </div>
     </div>
-    <div class="logsect" style="margin-bottom:12px;">
+    <div class="logsect" id="btTrackRecordSect" style="margin-bottom:12px;">
       <div class="loghdr"><h3>▸ 3-Year Track Record</h3></div>
       <div id="btSummary3y" style="padding:12px 14px;font-size:11px;color:var(--inkm);font-family:'Mukta',sans-serif;">
         <div style="color:var(--inkd);">Loading 3-year backtest…</div>
@@ -2328,8 +2328,8 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
             +'<div style="font-size:9px;color:var(--inkd);margin-bottom:6px;">Cell = win rate that month, coloured vs the strategy’s break-even (33% at RR2 · 50% at RR1) so cells compare across strategies. Toggle to trade count (N); row label shows overall WR · n. Sorted by expectancy. Blank = no trades. m15 strategies use the deep-m15 backtest.</div>'
             +'<div id="viSeasonGrid" style="overflow-x:auto;border:1px solid var(--rule);border-radius:4px;">'+viSeasonTable(window.__viSeason)+'</div></div>';
         }
-        el.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:8px;">'+tiles+'</div>'+svg+mstrip
-          +'<div style="font-size:9px;color:var(--inkd);margin-top:8px;">Server-side deep backtest over '+yrs+' years, replayed causally and gated by the live ruleset; each survivor stays profitable in both out-of-sample halves. Live intraday strategies (m15 momentum/absorption/sweep paths) sit in the same table; the legacy 4/4-structural and MACD intraday paths are retired — they do not survive a realistic limit-fill test. Frictionless (simulated) figures that run higher than live — see the Performance tab for net-of-cost live results. Updated '+((d.generated||'').slice(0,10))+'.</div>'+table+season;
+        el.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:8px;">'+tiles+'</div>'+svg+mstrip+season
+          +'<div style="font-size:9px;color:var(--inkd);margin-top:8px;">Server-side deep backtest over '+yrs+' years, replayed causally and gated by the live ruleset; each survivor stays profitable in both out-of-sample halves. Live intraday strategies (m15 momentum/absorption/sweep paths) sit in the same table; the legacy 4/4-structural and MACD intraday paths are retired — they do not survive a realistic limit-fill test. Frictionless (simulated) figures that run higher than live — see the Performance tab for net-of-cost live results. Updated '+((d.generated||'').slice(0,10))+'.</div>'+table;
       }
       // Deep-m15 overlay: the m15 strategies get their multi-year monthly series from the
       // separate m15-backtest-summary.json (deep-m15 run); everything else stays on SUMURL.
@@ -2346,6 +2346,28 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
       }).catch(function(){
         var el=document.getElementById('btSummary3y'); if(el)el.innerHTML='<div style="color:var(--inkd);">3-year backtest summary unavailable right now.</div>';
       });
+    })();
+    </script>
+    <script>
+    /* Investor-first ordering (2026-09-18) — user request: the monthly view (3-Year Track Record:
+       monthly consistency + seasonality) is more relevant than the per-pair win-rate cards, so
+       promote it above them and collapse the per-pair cards behind a tap-to-expand. Pure DOM
+       reorder; no data logic touched, idempotent. */
+    (function(){
+      function reorder(){
+        var tr=document.getElementById('btTrackRecordSect'), cards=document.getElementById('mktCards');
+        if(!tr || !cards || !cards.parentNode) return;
+        if(document.getElementById('btPairCardsWrap')) return;      // already reordered
+        cards.parentNode.insertBefore(tr, cards);                    // 3-Year panel now leads the tab
+        var det=document.createElement('details'); det.id='btPairCardsWrap';
+        det.style.cssText='margin:10px 0;border:1px solid var(--rule);border-radius:4px;background:rgba(28,26,23,0.02);';
+        var sum=document.createElement('summary');
+        sum.style.cssText='cursor:pointer;padding:8px 12px;font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:0.5px;color:var(--inkm);';
+        sum.textContent='▸ Per-pair backtest cards · tap to expand';
+        cards.parentNode.insertBefore(det, cards);
+        det.appendChild(sum); det.appendChild(cards);
+      }
+      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', reorder); else reorder();
     })();
     </script>
     <div class="logsect">
