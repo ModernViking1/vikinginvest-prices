@@ -2,9 +2,36 @@
  "schema_version": 1,
  "generated": "2026-09-18T11:00:00+00:00",
  "data_end_ts": 1789729200,
- "raw_signal_count": 19,
+ "raw_signal_count": 20,
  "count": 12,
  "signals": [
+  {
+   "id": "twob:nearusd:1789729200",
+   "strategy": "twob",
+   "pair": "nearusd",
+   "symbol": "NEARUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 3.61947786,
+   "ref_entry": 3.5263,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789729200,
+   "created_ts": 1789729200,
+   "expiry_ts": 1789772400,
+   "state": "triggered",
+   "cofire": [
+    "mmove",
+    "twob"
+   ],
+   "cofire_dirs": [
+    "mmove:bull",
+    "twob:bear"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "twob:lighterusd:1789722000",
    "strategy": "twob",
@@ -107,31 +134,6 @@
    ],
    "cofire_dirs": [
     "twob_ix:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "mmove:nearusd:1789693200",
-   "strategy": "mmove",
-   "pair": "nearusd",
-   "symbol": "NEARUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 3.03561786,
-   "ref_entry": 3.1549,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789693200,
-   "created_ts": 1789729200,
-   "expiry_ts": 1789736400,
-   "state": "triggered",
-   "cofire": [
-    "mmove"
-   ],
-   "cofire_dirs": [
-    "mmove:bull"
    ],
    "suppressed": 0
   },
