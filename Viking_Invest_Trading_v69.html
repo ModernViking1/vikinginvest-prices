@@ -21762,17 +21762,11 @@ function _renderCCIVariantPanel(host, commodityKeys){
       .sort(function(a,b){var A=_shadowModel[a]||{},B=_shadowModel[b]||{};return (B.exp==null?-1e9:B.exp)-(A.exp==null?-1e9:A.exp);})
       .map(function(st){var m=_shadowModel[st]||{};
         return _obsRow(_mLbl2[st]||st, _bLive2+' <span style="font-size:6px;color:var(--inkd);vertical-align:middle;">swing feed</span>', _obsOg[st]||'', (m.td!=null?m.td:null), null, null, null, (m.wr==null?null:m.wr), (m.exp==null?null:m.exp), (m.res||null));}).join('');
-    var swingLiveBlock = _swingLiveRows
-      ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:#0d5a36;margin:8px 0 3px;">● LIVE · swing feed (m15) · executes on the swing cBot</div>'
-        +'<div style="font-size:8px;color:var(--inkd);margin-bottom:4px;line-height:1.4;">Promoted m15 methods that run on the SWING cBot (demo fills appear in the swing forward-test panel). Shown with their idealised model for completeness — not intraday-feed strategies.</div>'
-        +'<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow-x:auto;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:8.5px;font-family:Orbitron,monospace;">'+_obsHead+'<tbody>'+_swingLiveRows+'</tbody></table></div>'
-      : '';
     var _liveSetPlus = Object.assign({}, _liveSet, SWING_LIVE_M15);
     var stratHtml = '<div style="font-family:Orbitron,monospace;font-size:9px;font-weight:700;letter-spacing:1px;color:#0d5a36;text-transform:uppercase;margin:12px 0 4px;border-top:1px dashed rgba(13,90,54,0.25);padding-top:9px;">By strategy (method)</div>'
       + '<div style="font-size:8.5px;color:var(--inkd);margin-bottom:5px;line-height:1.5;">Grouped by the intraday method. <b style="color:#0d5a36;">● LIVE</b> methods execute on cTrader; the <b>○ OBSERVING</b> box below carries the <b>demoted</b> methods (real demo fills) and the <b>m15 / m5 shadow monitors</b> (never sent to the cBot).</div>'
-      + (liveStrats.length ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:#0d5a36;margin:2px 0 3px;">● LIVE methods · executing on cTrader</div>' + '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow-x:auto;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:8.5px;font-family:Orbitron,monospace;">'+_obsHead+'<tbody>'+liveStrats.map(liveRowFor).join('')+'</tbody></table></div>' : '')
+      + ((liveStrats.length || _swingLiveRows) ? '<div style="font-family:Orbitron,monospace;font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:#0d5a36;margin:2px 0 3px;">● LIVE · executing on cTrader <span style="font-weight:400;font-size:7px;color:var(--inkd);">· intraday + swing-feed m15 methods (tagged)</span></div>' + '<div style="background:#fff;border:1px solid var(--rule);border-radius:3px;overflow-x:auto;margin-bottom:6px;"><table style="width:100%;border-collapse:collapse;font-size:8.5px;font-family:Orbitron,monospace;">'+_obsHead+'<tbody>'+liveStrats.map(liveRowFor).join('')+_swingLiveRows+'</tbody></table></div>' : '')
       + (stratKeys.length ? '' : '<div style="font-size:8px;color:var(--inkd);font-style:italic;">No closed fills to break down by method in this window.</div>')
-      + swingLiveBlock
       + (typeof window._viPromotionBanner==='function' ? window._viPromotionBanner(window._swingShadow, function(tf){return tf==='m15'||tf==='m5';}, _liveSetPlus) : '')
       + shadowBlock;
 
