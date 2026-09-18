@@ -2276,40 +2276,67 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
             +'<td style="text-align:right;padding:3px 6px;color:'+(mo&&mo.perfect?'var(--bull)':'var(--inkd)')+';" title="'+moPct+'% of traded months net-positive">'+mocell+'</td></tr>';}).join('');
         var table='<div style="overflow-x:auto;margin-top:12px;"><table style="width:100%;border-collapse:collapse;font-size:10px;">'
           +'<thead><tr style="color:var(--inkd);"><th style="text-align:left;padding:3px 6px;">strategy</th><th style="text-align:right;padding:3px 6px;">n</th><th style="text-align:right;padding:3px 6px;">exp</th><th style="text-align:right;padding:3px 6px;">OOS 1st / 2nd</th><th style="text-align:right;padding:3px 6px;">total R</th><th style="text-align:center;padding:3px 6px;">both +</th><th style="text-align:right;padding:3px 6px;" title="net-positive months / months traded">months +</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
-        // Strategy seasonality — monthly win-rate heatmap (needs the per-month wins field 'w').
+        // Strategy seasonality — monthly heatmap. Toggle WR (coloured vs break-even) / N (trade
+        // count). m15 strategies come from the deep-m15 overlay merged in below. Needs field 'w'.
         var RRm={cam_rev:1.0};
-        function _rr(s){return RRm[s]!=null?RRm[s]:2.0;}
-        function _be(rr){return 100/(1+rr);}
+        function viSeasonTable(S){
+          var mode=S.mode, mgS=S.mg, sgS=S.sg, maxN=1;
+          S.sk.forEach(function(s){var ser=mgS[s].series;for(var m in ser){if(ser[m].n>maxN)maxN=ser[m].n;}});
+          var stk='position:sticky;left:0;background:var(--sf2);z-index:1;';
+          var hh='<tr><th style="text-align:left;padding:2px 6px;color:var(--inkd);'+stk+'">strategy</th>';
+          S.yrb.forEach(function(yr){hh+='<th colspan="'+yr.c.length+'" style="padding:2px;color:var(--ink);border-left:1px solid var(--rule);">'+yr.y+'</th>';});
+          hh+='</tr><tr><th style="'+stk+'"></th>';
+          S.yrb.forEach(function(yr){yr.c.forEach(function(m,i){hh+='<th style="padding:1px 0;color:var(--inkd);font-size:8px;'+(i===0?'border-left:1px solid var(--rule);':'')+'">'+parseInt(m.slice(5,7),10)+'</th>';});});
+          hh+='</tr>';
+          var bb='';
+          S.sk.forEach(function(s){var rr=S.RR[s]!=null?S.RR[s]:2.0,be=100/(1+rr),gg=sgS[s]||{};
+            bb+='<tr><td style="text-align:left;padding:2px 6px;white-space:nowrap;'+stk+'"><span style="color:var(--ink);">'+s+'</span> <span style="color:var(--inkd);">RR'+(rr%1?rr.toFixed(1):rr)+'·'+(gg.wr||0).toFixed(0)+'%·n'+(gg.n||0)+'</span></td>';
+            S.yrb.forEach(function(yr){yr.c.forEach(function(m,i){var c=mgS[s].series[m],bl=i===0?'border-left:1px solid var(--rule);':'';
+              if(c&&c.n>0&&c.w!=null){var wr=100*c.w/c.n,tip='title="'+m+' · '+wr.toFixed(0)+'% WR · '+c.n+' trades · '+(c.r>=0?'+':'')+c.r+'R"';
+                if(mode==='n'){var an=Math.min(1,c.n/maxN),cn='rgba(200,134,10,'+(0.14+0.7*an).toFixed(2)+')';
+                  bb+='<td '+tip+' style="'+bl+'background:'+cn+';width:22px;height:16px;font-size:7px;color:'+(an>0.5?'#fff':'var(--inkm)')+';">'+c.n+'</td>';
+                } else {var dd=wr-be,a=Math.min(1,Math.abs(dd)/28),col=dd>=0?'rgba(39,174,116,'+(0.18+0.72*a).toFixed(2)+')':'rgba(208,88,63,'+(0.18+0.72*a).toFixed(2)+')';
+                  bb+='<td '+tip+' style="'+bl+'background:'+col+';width:22px;height:16px;font-size:7px;color:'+(a>0.5?'#fff':'transparent')+';">'+wr.toFixed(0)+'</td>';}
+              } else { bb+='<td style="'+bl+'width:22px;height:16px;color:var(--inkd);">·</td>'; }
+            });});
+            bb+='</tr>';});
+          return '<table style="border-collapse:collapse;font-family:monospace;text-align:center;">'+hh+bb+'</table>';
+        }
+        window.__viSeasonToggle=function(){var S=window.__viSeason;if(!S)return;S.mode=S.mode==='wr'?'n':'wr';
+          var g=document.getElementById('viSeasonGrid');if(g)g.innerHTML=viSeasonTable(S);
+          var b=document.getElementById('viSeasonBtn');if(b)b.textContent='show: '+(S.mode==='wr'?'N':'WR');
+          var t=document.getElementById('viSeasonTitle');if(t)t.textContent='Strategy Seasonality — monthly '+(S.mode==='wr'?'win rate':'trade count (N)');};
         var sk=Object.keys(mg).filter(function(s){var v=mg[s];return v.series&&Object.keys(v.series).some(function(m){return v.series[m].w!=null;});});
         var season='';
         if(sk.length){
           var mset={};sk.forEach(function(s){Object.keys(mg[s].series).forEach(function(m){mset[m]=1;});});
-          var mos=Object.keys(mset).sort();
-          var yrb=[];mos.forEach(function(m){var y=m.slice(0,4);if(!yrb.length||yrb[yrb.length-1].y!==y)yrb.push({y:y,c:[]});yrb[yrb.length-1].c.push(m);});
+          var yrb=[];Object.keys(mset).sort().forEach(function(m){var y=m.slice(0,4);if(!yrb.length||yrb[yrb.length-1].y!==y)yrb.push({y:y,c:[]});yrb[yrb.length-1].c.push(m);});
           sk.sort(function(a,b){return ((sg[b]||{}).exp||0)-((sg[a]||{}).exp||0);});
-          var stk='position:sticky;left:0;background:var(--sf2);z-index:1;';
-          var hh='<tr><th style="text-align:left;padding:2px 6px;color:var(--inkd);'+stk+'">strategy</th>';
-          yrb.forEach(function(yr){hh+='<th colspan="'+yr.c.length+'" style="padding:2px;color:var(--ink);border-left:1px solid var(--rule);">'+yr.y+'</th>';});
-          hh+='</tr><tr><th style="'+stk+'"></th>';
-          yrb.forEach(function(yr){yr.c.forEach(function(m,i){hh+='<th style="padding:1px 0;color:var(--inkd);font-size:8px;'+(i===0?'border-left:1px solid var(--rule);':'')+'">'+parseInt(m.slice(5,7),10)+'</th>';});});
-          hh+='</tr>';
-          var bb='';
-          sk.forEach(function(s){var rr=_rr(s),be=_be(rr),gg=sg[s]||{};
-            bb+='<tr><td style="text-align:left;padding:2px 6px;white-space:nowrap;'+stk+'"><span style="color:var(--ink);">'+s+'</span> <span style="color:var(--inkd);">RR'+(rr%1?rr.toFixed(1):rr)+'·'+(gg.wr||0).toFixed(0)+'%</span></td>';
-            yrb.forEach(function(yr){yr.c.forEach(function(m,i){var c=mg[s].series[m],bl=i===0?'border-left:1px solid var(--rule);':'';
-              if(c&&c.n>0&&c.w!=null){var wr=100*c.w/c.n,dd=wr-be,a=Math.min(1,Math.abs(dd)/28),col=dd>=0?'rgba(39,174,116,'+(0.18+0.72*a).toFixed(2)+')':'rgba(208,88,63,'+(0.18+0.72*a).toFixed(2)+')';
-                bb+='<td title="'+m+' · '+wr.toFixed(0)+'% WR · '+c.n+' trades · '+(c.r>=0?'+':'')+c.r+'R" style="'+bl+'background:'+col+';width:17px;height:16px;font-size:7px;color:'+(a>0.5?'#fff':'transparent')+';">'+wr.toFixed(0)+'</td>';
-              } else { bb+='<td style="'+bl+'width:17px;height:16px;color:var(--inkd);">·</td>'; }
-            });});
-            bb+='</tr>';});
-          season='<div style="margin-top:16px;"><div style="font-family:Orbitron,monospace;font-size:10px;letter-spacing:.5px;color:var(--ink);text-transform:uppercase;margin-bottom:5px;">Strategy Seasonality — monthly win rate</div>'
-            +'<div style="font-size:9px;color:var(--inkd);margin-bottom:6px;">Cell = win rate that month, coloured vs the strategy’s break-even (33% at RR2 · 50% at RR1) so cells compare across strategies. Greener beat break-even; redder fell short. Sorted by expectancy. Blank = no trades. Hover for detail.</div>'
-            +'<div style="overflow-x:auto;border:1px solid var(--rule);border-radius:4px;"><table style="border-collapse:collapse;font-family:monospace;text-align:center;">'+hh+bb+'</table></div></div>';
+          var pm=(window.__viSeason&&window.__viSeason.mode)||'wr';
+          window.__viSeason={sk:sk,yrb:yrb,mg:mg,sg:sg,RR:RRm,mode:pm};
+          season='<div style="margin-top:16px;">'
+            +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:5px;">'
+              +'<span id="viSeasonTitle" style="font-family:Orbitron,monospace;font-size:10px;letter-spacing:.5px;color:var(--ink);text-transform:uppercase;">Strategy Seasonality — monthly '+(pm==='wr'?'win rate':'trade count (N)')+'</span>'
+              +'<button id="viSeasonBtn" onclick="window.__viSeasonToggle&&window.__viSeasonToggle()" style="font-family:monospace;font-size:9px;padding:2px 8px;border:1px solid var(--rule);background:transparent;color:var(--inkm);border-radius:4px;cursor:pointer;">show: '+(pm==='wr'?'N':'WR')+'</button></div>'
+            +'<div style="font-size:9px;color:var(--inkd);margin-bottom:6px;">Cell = win rate that month, coloured vs the strategy’s break-even (33% at RR2 · 50% at RR1) so cells compare across strategies. Toggle to trade count (N); row label shows overall WR · n. Sorted by expectancy. Blank = no trades. m15 strategies use the deep-m15 backtest.</div>'
+            +'<div id="viSeasonGrid" style="overflow-x:auto;border:1px solid var(--rule);border-radius:4px;">'+viSeasonTable(window.__viSeason)+'</div></div>';
         }
         el.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:8px;">'+tiles+'</div>'+svg+mstrip
           +'<div style="font-size:9px;color:var(--inkd);margin-top:8px;">Server-side deep backtest over '+yrs+' years, replayed causally and gated by the live ruleset; each survivor stays profitable in both out-of-sample halves. Live intraday strategies (m15 momentum/absorption/sweep paths) sit in the same table; the legacy 4/4-structural and MACD intraday paths are retired — they do not survive a realistic limit-fill test. Frictionless (simulated) figures that run higher than live — see the Performance tab for net-of-cost live results. Updated '+((d.generated||'').slice(0,10))+'.</div>'+table+season;
       }
-      fetch(SUMURL+'?t='+Date.now()).then(function(r){return r.json();}).then(render).catch(function(){
+      // Deep-m15 overlay: the m15 strategies get their multi-year monthly series from the
+      // separate m15-backtest-summary.json (deep-m15 run); everything else stays on SUMURL.
+      var M15SUM='https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/m15-backtest-summary.json';
+      var M15_STRATS=['cam_rev','mmove_m15','holygrail_cm_m15','fma_sweep_cm','absorb_btc','fma_gold'];
+      fetch(SUMURL+'?t='+Date.now()).then(function(r){return r.json();}).then(function(d){
+        fetch(M15SUM+'?t='+Date.now()).then(function(r){return r.ok?r.json():null;}).then(function(m){
+          if(m){ M15_STRATS.forEach(function(s){
+            if(d.monthly_gated&&m.monthly_gated&&m.monthly_gated[s]) d.monthly_gated[s]=m.monthly_gated[s];
+            if(d.strategies_gated&&m.strategies_gated&&m.strategies_gated[s]) d.strategies_gated[s]=m.strategies_gated[s];
+          }); }
+          render(d);
+        }).catch(function(){ render(d); });
+      }).catch(function(){
         var el=document.getElementById('btSummary3y'); if(el)el.innerHTML='<div style="color:var(--inkd);">3-year backtest summary unavailable right now.</div>';
       });
     })();
