@@ -77,10 +77,12 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- m15-backtest-summary.json; then
+          # Stage first, THEN check the staged diff — `git diff --quiet` alone ignores a
+          # brand-new (untracked) file, which is why run #1 skipped the commit.
+          git add m15-backtest-summary.json
+          if git diff --cached --quiet -- m15-backtest-summary.json; then
             echo "no change to m15-backtest-summary.json"; exit 0
           fi
-          git add m15-backtest-summary.json
           git commit -m "chore: update deep-m15 seasonality summary [skip ci]"
           for i in 1 2 3 4 5; do
             if git push origin main 2>&1; then echo pushed; exit 0; fi
