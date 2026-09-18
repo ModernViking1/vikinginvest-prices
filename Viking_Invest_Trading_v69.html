@@ -1581,7 +1581,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // Currently-demoted swing strategies (mirror swing_signals.py DEMOTED). Their fills were
         // live when they filled but the strategy is now observer-only, so they are excluded from
         // the headline LIVE win-rate and shown separately under ○ OBSERVING.
-        var DEMOTED_SWING={tl_nowick:1,fib_gz:1,wm:1,w5_pullback:1,gtrend:1,threepush:1,ob:1,s5_rsi_wide:1};
+        var DEMOTED_SWING={tl_nowick:1,fib_gz:1,wm:1,w5_pullback:1,gtrend:1,threepush:1,ob:1,s5_rsi_wide:1,asianglitch:1,obfvg:1,mmove_c4:1};
         // Outcome-tile overview (mirrors the intraday panel's window._viOutcomeTiles; guarded
         // so whichever panel renders first defines it, avoiding a cross-scope ordering trap).
         if(typeof window._viOutcomeTiles!=='function'){ window._viOutcomeTiles=function(rows, opts){
@@ -1748,7 +1748,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         };
         // LIVE (executing on cTrader) vs OBSERVING (shadow-only, not yet qualified for
         // live capital). Mirrors swing_signals.py PRIORITY minus DEMOTED.
-        var LIVE_SWING={hs:1,s5_rsi:1,engulf_manip:1,fred_tl:1,asianglitch:1,obfvg:1,gbreak:1,twob:1,twob_cm:1,twob_ix:1};
+        var LIVE_SWING={hs:1,s5_rsi:1,engulf_manip:1,fred_tl:1,gbreak:1,fma_gold:1,twob:1,twob_cm:1,twob_ix:1,cam_rev:1,mmove:1,holygrail_cm:1,holygrail_cm_m15:1};
         var _hdr='<tr style="color:'+C.mut+';text-align:left;"><th>strategy</th><th>tracked</th><th>demo n</th><th>demo WR</th><th>demo R</th><th>model WR</th><th>model exp</th></tr>';
         function _swRow(st){
           var d=byStratD[st]?agg(byStratD[st]):null, m=byStratM[st]?agg(byStratM[st]):null;
@@ -1760,8 +1760,10 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
           var nameCell='<span style="font-weight:600;">'+esc(st)+'</span>'+badge+(og?'<div style="color:'+C.mut+';font-size:7px;font-weight:400;line-height:1.15;margin-top:1px;">'+esc(og)+'</div>':'');
           return '<tr style="vertical-align:top;'+(live?'':'opacity:0.7;')+'"><td>'+nameCell+'</td><td style="color:'+C.mut+'">'+(td!==null?td+'d':'–')+'</td><td>'+(d?d.n:0)+'</td><td>'+(d&&d.n?d.wr.toFixed(0)+'%':'–')+'</td><td style="color:'+(d&&d.tot>=0?C.g:C.r)+'">'+(d&&d.n?(d.tot>=0?'+':'')+d.tot.toFixed(2)+'R':'–')+'</td><td>'+(m&&m.n?m.wr.toFixed(0)+'%':'–')+'</td><td>'+(m&&m.n?(m.exp>=0?'+':'')+m.exp.toFixed(3):'–')+'</td></tr>';
         }
-        var liveRows=strats.filter(function(st){return LIVE_SWING[st] && (byStratD[st]||byStratM[st]);}).map(_swRow).join('');
-        var obsRows=strats.filter(function(st){return !LIVE_SWING[st] && (byStratD[st]||byStratM[st]);}).map(_swRow).join('');
+        // Sort both tables best-first by the model edge (expectancy R/trade) — the metric the panel emphasises.
+        var _swExp=function(st){var m=byStratM[st]?agg(byStratM[st]):null;return (m&&m.n)?m.exp:-1e9;};
+        var liveRows=strats.filter(function(st){return LIVE_SWING[st] && (byStratD[st]||byStratM[st]);}).sort(function(a,b){return _swExp(b)-_swExp(a);}).map(_swRow).join('');
+        var obsRows=strats.filter(function(st){return !LIVE_SWING[st] && (byStratD[st]||byStratM[st]);}).sort(function(a,b){return _swExp(b)-_swExp(a);}).map(_swRow).join('');
         h+='<div style="background:rgba(200,134,10,0.06);border:1px solid rgba(200,134,10,0.28);border-radius:3px;padding:5px 8px;margin:4px 0 6px;color:#7a5c0a;font-size:8px;line-height:1.45;">These edges target ~2:1 reward:risk — so a win rate near 40% is <b>profitable</b>. <b>Expectancy (R per trade)</b> is what matters here, not win rate alone. Only <b style="color:'+C.g+';">● LIVE</b> rows execute on cTrader; <b>○ OBSERVING</b> rows are shadow-tracked candidates that have not yet qualified for live capital.</div>';
         if(liveRows){ h+='<div style="color:'+C.g+';font-weight:700;letter-spacing:0.5px;margin:2px 0 2px;">● LIVE · executing on cTrader</div><table style="width:100%;border-collapse:collapse;font-size:8.5px;">'+_hdr+liveRows+'</table>'; }
         if(obsRows){ h+='<div style="color:'+C.mut+';font-weight:700;letter-spacing:0.5px;margin:9px 0 2px;">○ OBSERVING · shadow-only · not yet qualified for live</div>'
@@ -21333,7 +21335,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     // historical live fills are excluded from the LIVE headline / per-pair / tiles and
     // surface only in the by-method ○ OBSERVING box below — matching the stated intent
     // ("demoted fills are shown in the OBSERVING table, not the live overview").
-    var INTRADAY_DEMOTED = { macdp:1, wick:1 };
+    var INTRADAY_DEMOTED = { macdp:1, wick:1, sweepfvg_ix:1 };
     var _isDemotedMethod = function(r){ return !!INTRADAY_DEMOTED[_stratOf(r)]; };
 
     // Aggregate per-pair.
@@ -21389,7 +21391,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     //    pockets — mmove_m15 on gold/silver/FRA40). Method-based, so mmove's non-crypto
     //    pocket fills count live; demoted methods and observed non-crypto classes don't.
     var _isLiveClass = function(pr){ return (typeof MKTS !== 'undefined' && MKTS[pr] && MKTS[pr].t === 'crypto'); };
-    var _LIVE_NONCRYPTO = { mmove_m15:1, sweepfvg_ix:1, crt_ix:1, fma_sweep_cm:1 };   // live methods whose pockets include non-crypto (gold/silver/FRA40/indices/commodities)
+    var _LIVE_NONCRYPTO = { mmove_m15:1, crt_ix:1, fma_sweep_cm:1 };   // live methods whose pockets include non-crypto (gold/silver/FRA40/indices/commodities). sweepfvg_ix removed 2026-09-18 (demoted).
     var _isLiveFill = function(r){ return !_isDemotedMethod(r) && (_isLiveClass(r.pair) || !!_LIVE_NONCRYPTO[_stratOf(r)]); };
     var Lw=0, Ll=0, LR=0, Ln=0, aggCL={'target-hit':0,'stop-clean':0,'stop-after-progress':0,'cbot-invalidation':0,'manual':0};
     execs.forEach(function(r){
@@ -21640,7 +21642,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var stratKeys = Object.keys(byStrat);
     // A method is LIVE if it produced any live-cohort fills this window and isn't demoted.
     var _stratLive = function(st){ return byStrat[st].liveN>0 && !INTRADAY_DEMOTED[st]; };
-    var _stSort = function(a,b){ var A=byStrat[a],B=byStrat[b]; var na=A.wins+A.losses,nb=B.wins+B.losses; var wa=na?A.wins/na:-1,wb=nb?B.wins/nb:-1; if(wb!==wa)return wb-wa; return B.R-A.R; };
+    var _stSort = function(a,b){ var A=byStrat[a],B=byStrat[b]; if(B.R!==A.R) return B.R-A.R; var na=A.wins+A.losses,nb=B.wins+B.losses; var wa=na?A.wins/na:-1,wb=nb?B.wins/nb:-1; return wb-wa; };
     var stratRowFor = function(st){
       var o=byStrat[st]; var rr=o.wins+o.losses; var wr=rr?pct(o.wins,rr):0; var live=_stratLive(st);
       var topPairs = Object.keys(o.pairs).sort(function(a,b){return o.pairs[b]-o.pairs[a];}).slice(0,5).join(', ');
