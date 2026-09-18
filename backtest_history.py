@@ -65,7 +65,8 @@ def _monthly(rows, series_for=None):
         by.setdefault(s["strategy"], {}).setdefault(_month_key(s["entry_ts"]), []).append(s["r"])
     out = {}
     for st, months in by.items():
-        ser = {mk: {"n": len(v), "r": round(sum(v), 2)} for mk, v in sorted(months.items())}
+        ser = {mk: {"n": len(v), "w": sum(1 for r in v if r > 0), "r": round(sum(v), 2)}
+               for mk, v in sorted(months.items())}
         rs = [m["r"] for m in ser.values()]
         traded = len(rs)
         pos = sum(1 for r in rs if r > 0)
