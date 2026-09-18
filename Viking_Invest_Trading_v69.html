@@ -2240,17 +2240,38 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
             +'<polyline points="'+pts+'" fill="none" stroke="var(--bull)" stroke-width="1.5"/></svg>'
             +'<div style="font-size:9px;color:var(--inkd);text-align:center;">cumulative R — live-gated book over '+yrs+' years</div>';
         }
+        // Monthly-consistency strip — book-level heatmap (one cell per month, green up / red down).
+        // Populates once the deep backtest publishes book_monthly_gated / monthly_gated.
+        var mg=d.monthly_gated||{}, bmc=d.book_monthly_gated, mstrip='';
+        if(bmc&&bmc.series){
+          var ser=bmc.series, mk=Object.keys(ser), mt=bmc.months_traded||mk.length, mp=bmc.months_positive||0;
+          var pct=mt?Math.round(100*mp/mt):0, maxA=1;
+          mk.forEach(function(k){var a=Math.abs(ser[k].r); if(a>maxA)maxA=a;});
+          var cells=mk.map(function(k){var rr=ser[k].r,up=rr>=0,op=(0.35+0.65*Math.min(1,Math.abs(rr)/maxA)).toFixed(2);
+            return '<span title="'+k+': '+(up?'+':'')+rr+'R · '+ser[k].n+' trades" style="display:inline-block;width:13px;height:20px;border-radius:2px;margin:1px;background:'+(up?'var(--bull)':'var(--bear)')+';opacity:'+op+';"></span>';}).join('');
+          var perfNote=(d.perfect_months&&d.perfect_months.length)
+            ? 'Positive in every trading month: '+d.perfect_months.join(', ')+'.'
+            : 'No single strategy is net-positive in every month — but the diversified book is close.';
+          mstrip='<div style="margin-top:14px;padding:10px 12px;background:var(--sf2);border:1px solid var(--rule);border-radius:4px;">'
+            +'<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;align-items:baseline;"><span style="font-family:Orbitron,monospace;font-size:11px;color:var(--ink);">Monthly consistency</span>'
+            +'<span style="font-size:10px;color:var(--inkd);">Portfolio net-positive in <b style="color:var(--bull);">'+mp+' / '+mt+'</b> months ('+pct+'%) · worst month '+bmc.worst_month_r+'R</span></div>'
+            +'<div style="margin-top:8px;white-space:nowrap;overflow-x:auto;line-height:0;">'+cells+'</div>'
+            +'<div style="font-size:9px;color:var(--inkd);margin-top:6px;">Each cell = one calendar month of the live-gated book (green up / red down, shade ∝ size). '+perfNote+'</div></div>';
+        }
         var sg=d.strategies_gated||{}, keys=Object.keys(sg).filter(function(k){return sg[k].n>=40;}).sort(function(a,b){return sg[b].total_r-sg[a].total_r;});
-        var rows=keys.map(function(k){var r=sg[k],both=(r.oos_1st>0&&r.oos_2nd>0);
+        var rows=keys.map(function(k){var r=sg[k],both=(r.oos_1st>0&&r.oos_2nd>0),mo=mg[k];
+          var mocell=mo?(mo.months_positive+'/'+mo.months_traded+(mo.perfect?' ★':'')):'—';
+          var moPct=(mo&&mo.months_traded)?Math.round(100*mo.months_positive/mo.months_traded):0;
           return '<tr style="border-top:1px solid var(--rule);"><td style="padding:3px 6px;color:var(--ink);">'+k+'</td>'
             +'<td style="text-align:right;padding:3px 6px;">'+r.n+'</td>'
             +'<td style="text-align:right;padding:3px 6px;color:'+(r.exp>=0?'var(--bull)':'var(--bear)')+';">'+fmtR(r.exp)+'</td>'
             +'<td style="text-align:right;padding:3px 6px;color:var(--inkd);">'+fmt2(r.oos_1st)+' / '+fmt2(r.oos_2nd)+'</td>'
             +'<td style="text-align:right;padding:3px 6px;">'+Math.round(r.total_r)+'</td>'
-            +'<td style="text-align:center;padding:3px 6px;color:'+(both?'var(--bull)':'var(--inkd)')+';">'+(both?'✓':'—')+'</td></tr>';}).join('');
+            +'<td style="text-align:center;padding:3px 6px;color:'+(both?'var(--bull)':'var(--inkd)')+';">'+(both?'✓':'—')+'</td>'
+            +'<td style="text-align:right;padding:3px 6px;color:'+(mo&&mo.perfect?'var(--bull)':'var(--inkd)')+';" title="'+moPct+'% of traded months net-positive">'+mocell+'</td></tr>';}).join('');
         var table='<div style="overflow-x:auto;margin-top:12px;"><table style="width:100%;border-collapse:collapse;font-size:10px;">'
-          +'<thead><tr style="color:var(--inkd);"><th style="text-align:left;padding:3px 6px;">strategy</th><th style="text-align:right;padding:3px 6px;">n</th><th style="text-align:right;padding:3px 6px;">exp</th><th style="text-align:right;padding:3px 6px;">OOS 1st / 2nd</th><th style="text-align:right;padding:3px 6px;">total R</th><th style="text-align:center;padding:3px 6px;">both +</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
-        el.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:8px;">'+tiles+'</div>'+svg
+          +'<thead><tr style="color:var(--inkd);"><th style="text-align:left;padding:3px 6px;">strategy</th><th style="text-align:right;padding:3px 6px;">n</th><th style="text-align:right;padding:3px 6px;">exp</th><th style="text-align:right;padding:3px 6px;">OOS 1st / 2nd</th><th style="text-align:right;padding:3px 6px;">total R</th><th style="text-align:center;padding:3px 6px;">both +</th><th style="text-align:right;padding:3px 6px;" title="net-positive months / months traded">months +</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+        el.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:8px;">'+tiles+'</div>'+svg+mstrip
           +'<div style="font-size:9px;color:var(--inkd);margin-top:8px;">Server-side deep backtest over '+yrs+' years, replayed causally and gated by the live ruleset; each survivor stays profitable in both out-of-sample halves. Live intraday strategies (m15 momentum/absorption/sweep paths) sit in the same table; the legacy 4/4-structural and MACD intraday paths are retired — they do not survive a realistic limit-fill test. Frictionless (simulated) figures that run higher than live — see the Performance tab for net-of-cost live results. Updated '+((d.generated||'').slice(0,10))+'.</div>'+table;
       }
       fetch(SUMURL+'?t='+Date.now()).then(function(r){return r.json();}).then(render).catch(function(){
