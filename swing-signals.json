@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-09-18T16:00:00+00:00",
  "data_end_ts": 1789747200,
- "raw_signal_count": 21,
- "count": 15,
+ "raw_signal_count": 19,
+ "count": 16,
  "signals": [
   {
    "id": "twob:nearusd:1789747200",
@@ -183,35 +183,6 @@
    "suppressed": 0
   },
   {
-   "id": "s5_rsi:xrpusd:1789725600",
-   "strategy": "s5_rsi",
-   "pair": "xrpusd",
-   "symbol": "XRPUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 1.2996,
-   "ref_entry": 1.334,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789725600,
-   "created_ts": 1789747200,
-   "expiry_ts": 1789768800,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip",
-    "s5_rsi",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bull",
-    "s5_rsi:bull",
-    "twob:bull"
-   ],
-   "suppressed": 2
-  },
-  {
    "id": "twob:lighterusd:1789722000",
    "strategy": "twob",
    "pair": "lighterusd",
@@ -313,6 +284,31 @@
    "suppressed": 0
   },
   {
+   "id": "twob:xrpusd:1789686000",
+   "strategy": "twob",
+   "pair": "xrpusd",
+   "symbol": "XRPUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 1.285555,
+   "ref_entry": 1.2951,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789686000,
+   "created_ts": 1789747200,
+   "expiry_ts": 1789729200,
+   "state": "triggered",
+   "cofire": [
+    "twob"
+   ],
+   "cofire_dirs": [
+    "twob:bull"
+   ],
+   "suppressed": 0
+  },
+  {
    "id": "holygrail_cm:usoil:1789675200",
    "strategy": "holygrail_cm",
    "pair": "usoil",
@@ -330,14 +326,12 @@
    "expiry_ts": 1789718400,
    "state": "triggered",
    "cofire": [
-    "holygrail_cm",
-    "holygrail_cm_m15"
+    "holygrail_cm"
    ],
    "cofire_dirs": [
-    "holygrail_cm:bear",
-    "holygrail_cm_m15:bear"
+    "holygrail_cm:bear"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "s5_rsi:natgas:1789675200",
@@ -361,6 +355,31 @@
    ],
    "cofire_dirs": [
     "s5_rsi:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "s5_rsi:taousd:1789671600",
+   "strategy": "s5_rsi",
+   "pair": "taousd",
+   "symbol": "TAOUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 224.7,
+   "ref_entry": 230.88,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789671600,
+   "created_ts": 1789747200,
+   "expiry_ts": 1789714800,
+   "state": "triggered",
+   "cofire": [
+    "s5_rsi"
+   ],
+   "cofire_dirs": [
+    "s5_rsi:bull"
    ],
    "suppressed": 0
   },
