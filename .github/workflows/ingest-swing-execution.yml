@@ -49,6 +49,44 @@ jobs:
           echo "::warning::push failed after retries — VPS JSONL retains the row"
           exit 1
 
+      # Telegram alert when a WATCHED strategy actually executes (opens) a trade.
+      # Fires once per dispatch (= once per execution), independent of the push-retry
+      # loop above, so no duplicate alerts. Fail-open: a Telegram hiccup never fails
+      # the ingest. Extend WATCH by adding strategy names to the `if:` condition.
+      - name: Telegram alert on watched-strategy execution
+        if: ${{ github.event.client_payload.row.event == 'placed' && github.event.client_payload.row.strategy == 'cam_rev' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ROW: ${{ toJSON(github.event.client_payload.row) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request, urllib.parse
+          row = json.loads(os.environ.get('ROW') or '{}')
+          tok = os.environ.get('TELEGRAM_BOT_TOKEN'); chat = os.environ.get('TELEGRAM_CHAT_ID')
+          if not tok or not chat:
+              print('no telegram secrets configured; skipping'); raise SystemExit(0)
+          d = str(row.get('dir', '')).upper()
+          buy = d in ('BULL', 'BUY', 'LONG')
+          side = 'BUY' if buy else ('SELL' if d in ('BEAR', 'SELL', 'SHORT') else (d or '?'))
+          arrow = '🟢' if buy else '🔴'
+          def f(x):
+              try: return '%g' % float(x)
+              except Exception: return str(x)
+          pair = str(row.get('pair', '')).upper()
+          strat = row.get('strategy', '?')
+          txt = (f"{arrow} <b>{strat}</b> executed — {pair} {side}\n"
+                 f"entry {f(row.get('entry_filled'))} · SL {f(row.get('stop'))} · TP {f(row.get('target'))}\n"
+                 f"{f(row.get('volume_units'))} units · {row.get('account_mode', '?')}")
+          data = urllib.parse.urlencode({'chat_id': chat, 'text': txt,
+                                         'parse_mode': 'HTML', 'disable_web_page_preview': 'true'}).encode()
+          try:
+              urllib.request.urlopen(f"https://api.telegram.org/bot{tok}/sendMessage", data=data, timeout=10)
+              print(f"telegram alert sent: {strat} {pair} {side}")
+          except Exception as e:
+              print(f"::warning::telegram alert failed: {e}")
+          PY
+
       - name: Purge CDN
         run: |
           curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/swing-executions.json" || echo "purge failed"
