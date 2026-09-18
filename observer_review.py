@@ -56,15 +56,23 @@ CONC_MAX = 0.40          # top-pair share above this is "top-heavy" — annotate
 CONC_MIN_REMAINDER = 20  # min non-top-pair fills for the remainder edge to be trustworthy
 
 # Strategies executing on the cBot (live/demo feed) — swing_signals PRIORITY minus DEMOTED,
-# the demo pilot, plus the promoted intraday emitters (mmove_m15, absorb_btc). Everything
-# else in the log is an observer. Keep in sync when promoting/demoting, or a live strategy
-# wrongly shows as "promotion-ready" (and a demoted one lingers as live).
+# the demo pilot, plus the promoted intraday emitters (mmove_m15, absorb_btc) AND the intraday
+# structural methods (fib/wick/macdp). Everything else in the log is an observer. Keep in sync
+# when promoting/demoting, or a live strategy wrongly shows as "promotion-ready" (and a demoted
+# one lingers as live). NOTE: this set is the complete NAMED ROSTER of what trades on the cBot;
+# per-strategy live/demo/class gating is enforced in the feeds (swing_signals.DEMO_ONLY,
+# build_signals_json.DEMO_ONLY_METHODS / LIVE_CLASSES), not here.
 LIVE = {'hs', 's5_rsi', 'engulf_manip', 'fred_tl',
         'gbreak', 'fma_gold', 'fma_sweep_cm', 'twob', 'twob_cm', 'twob_ix', 'mmove_m15',
         'absorb_btc', 'crt_ix',
         # 2026-09-18 — promoted to live after the 3-year both-OOS-positive backtest.
-        'cam_rev', 'mmove', 'holygrail_cm', 'holygrail_cm_m15'}
+        'cam_rev', 'mmove', 'holygrail_cm', 'holygrail_cm_m15',
+        # 2026-09-18 — intraday structural methods folded into the named roster (were an
+        # untracked "structural layer"). fib = crypto-live (build_signals_json LIVE_CLASSES);
+        # wick + macdp = demo-only pilots (DEMO_ONLY_METHODS). Gating lives in the feed.
+        'fib', 'wick', 'macdp'}
         # asianglitch + obfvg removed 2026-09-18 (negative 1st OOS half on the 3-year test).
+        # divg NOT included — retired at the detector (returns None), not trading.
         # sweepfvg_ix removed 2026-09-18 — net-negative across ALL indices over 3yr, both halves.
 
 
