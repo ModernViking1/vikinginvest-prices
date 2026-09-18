@@ -2276,8 +2276,38 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
             +'<td style="text-align:right;padding:3px 6px;color:'+(mo&&mo.perfect?'var(--bull)':'var(--inkd)')+';" title="'+moPct+'% of traded months net-positive">'+mocell+'</td></tr>';}).join('');
         var table='<div style="overflow-x:auto;margin-top:12px;"><table style="width:100%;border-collapse:collapse;font-size:10px;">'
           +'<thead><tr style="color:var(--inkd);"><th style="text-align:left;padding:3px 6px;">strategy</th><th style="text-align:right;padding:3px 6px;">n</th><th style="text-align:right;padding:3px 6px;">exp</th><th style="text-align:right;padding:3px 6px;">OOS 1st / 2nd</th><th style="text-align:right;padding:3px 6px;">total R</th><th style="text-align:center;padding:3px 6px;">both +</th><th style="text-align:right;padding:3px 6px;" title="net-positive months / months traded">months +</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+        // Strategy seasonality — monthly win-rate heatmap (needs the per-month wins field 'w').
+        var RRm={cam_rev:1.0};
+        function _rr(s){return RRm[s]!=null?RRm[s]:2.0;}
+        function _be(rr){return 100/(1+rr);}
+        var sk=Object.keys(mg).filter(function(s){var v=mg[s];return v.series&&Object.keys(v.series).some(function(m){return v.series[m].w!=null;});});
+        var season='';
+        if(sk.length){
+          var mset={};sk.forEach(function(s){Object.keys(mg[s].series).forEach(function(m){mset[m]=1;});});
+          var mos=Object.keys(mset).sort();
+          var yrb=[];mos.forEach(function(m){var y=m.slice(0,4);if(!yrb.length||yrb[yrb.length-1].y!==y)yrb.push({y:y,c:[]});yrb[yrb.length-1].c.push(m);});
+          sk.sort(function(a,b){return ((sg[b]||{}).exp||0)-((sg[a]||{}).exp||0);});
+          var stk='position:sticky;left:0;background:var(--sf2);z-index:1;';
+          var hh='<tr><th style="text-align:left;padding:2px 6px;color:var(--inkd);'+stk+'">strategy</th>';
+          yrb.forEach(function(yr){hh+='<th colspan="'+yr.c.length+'" style="padding:2px;color:var(--ink);border-left:1px solid var(--rule);">'+yr.y+'</th>';});
+          hh+='</tr><tr><th style="'+stk+'"></th>';
+          yrb.forEach(function(yr){yr.c.forEach(function(m,i){hh+='<th style="padding:1px 0;color:var(--inkd);font-size:8px;'+(i===0?'border-left:1px solid var(--rule);':'')+'">'+parseInt(m.slice(5,7),10)+'</th>';});});
+          hh+='</tr>';
+          var bb='';
+          sk.forEach(function(s){var rr=_rr(s),be=_be(rr),gg=sg[s]||{};
+            bb+='<tr><td style="text-align:left;padding:2px 6px;white-space:nowrap;'+stk+'"><span style="color:var(--ink);">'+s+'</span> <span style="color:var(--inkd);">RR'+(rr%1?rr.toFixed(1):rr)+'·'+(gg.wr||0).toFixed(0)+'%</span></td>';
+            yrb.forEach(function(yr){yr.c.forEach(function(m,i){var c=mg[s].series[m],bl=i===0?'border-left:1px solid var(--rule);':'';
+              if(c&&c.n>0&&c.w!=null){var wr=100*c.w/c.n,dd=wr-be,a=Math.min(1,Math.abs(dd)/28),col=dd>=0?'rgba(39,174,116,'+(0.18+0.72*a).toFixed(2)+')':'rgba(208,88,63,'+(0.18+0.72*a).toFixed(2)+')';
+                bb+='<td title="'+m+' · '+wr.toFixed(0)+'% WR · '+c.n+' trades · '+(c.r>=0?'+':'')+c.r+'R" style="'+bl+'background:'+col+';width:17px;height:16px;font-size:7px;color:'+(a>0.5?'#fff':'transparent')+';">'+wr.toFixed(0)+'</td>';
+              } else { bb+='<td style="'+bl+'width:17px;height:16px;color:var(--inkd);">·</td>'; }
+            });});
+            bb+='</tr>';});
+          season='<div style="margin-top:16px;"><div style="font-family:Orbitron,monospace;font-size:10px;letter-spacing:.5px;color:var(--ink);text-transform:uppercase;margin-bottom:5px;">Strategy Seasonality — monthly win rate</div>'
+            +'<div style="font-size:9px;color:var(--inkd);margin-bottom:6px;">Cell = win rate that month, coloured vs the strategy’s break-even (33% at RR2 · 50% at RR1) so cells compare across strategies. Greener beat break-even; redder fell short. Sorted by expectancy. Blank = no trades. Hover for detail.</div>'
+            +'<div style="overflow-x:auto;border:1px solid var(--rule);border-radius:4px;"><table style="border-collapse:collapse;font-family:monospace;text-align:center;">'+hh+bb+'</table></div></div>';
+        }
         el.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:8px;">'+tiles+'</div>'+svg+mstrip
-          +'<div style="font-size:9px;color:var(--inkd);margin-top:8px;">Server-side deep backtest over '+yrs+' years, replayed causally and gated by the live ruleset; each survivor stays profitable in both out-of-sample halves. Live intraday strategies (m15 momentum/absorption/sweep paths) sit in the same table; the legacy 4/4-structural and MACD intraday paths are retired — they do not survive a realistic limit-fill test. Frictionless (simulated) figures that run higher than live — see the Performance tab for net-of-cost live results. Updated '+((d.generated||'').slice(0,10))+'.</div>'+table;
+          +'<div style="font-size:9px;color:var(--inkd);margin-top:8px;">Server-side deep backtest over '+yrs+' years, replayed causally and gated by the live ruleset; each survivor stays profitable in both out-of-sample halves. Live intraday strategies (m15 momentum/absorption/sweep paths) sit in the same table; the legacy 4/4-structural and MACD intraday paths are retired — they do not survive a realistic limit-fill test. Frictionless (simulated) figures that run higher than live — see the Performance tab for net-of-cost live results. Updated '+((d.generated||'').slice(0,10))+'.</div>'+table+season;
       }
       fetch(SUMURL+'?t='+Date.now()).then(function(r){return r.json();}).then(render).catch(function(){
         var el=document.getElementById('btSummary3y'); if(el)el.innerHTML='<div style="color:var(--inkd);">3-year backtest summary unavailable right now.</div>';
