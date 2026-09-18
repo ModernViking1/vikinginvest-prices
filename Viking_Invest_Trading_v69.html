@@ -9391,6 +9391,10 @@ function switchPage(p){
   });
   var pg = document.getElementById('page-'+p);
   if(pg) pg.classList.add('active');
+  // Usage analytics (2026-09-18) — log the tab the user actually opened. 'p' is
+  // the resolved route after aliasing above, so 'bt' == the Backtest / 3-Year
+  // Track Record page. Fire-and-forget; no-ops until the tracker mounts.
+  try{ window.viTrack && window.viTrack('page_view', p); }catch(_){}
   if(p === 'dash' && activeMkt !== 'overview') setTimeout(function(){drawChart(activeMkt);}, 60);
   // 2026-06-24 — tabs that actually consume the 41 MB historical-ohlc
   // pull trigger the deep-history fetch on demand. The Dashboard tab
@@ -23240,6 +23244,68 @@ function _renderCCIVariantPanel(host, commodityKeys){
     document.body.appendChild(btn);
     apply(on);
   }catch(e){}
+})();
+</script>
+
+<!-- Usage analytics (2026-09-18) — first-party, cookieless. Logs which tabs/panels
+     signed-in investors (and anon visitors) actually view, to the existing Supabase
+     project (table public.usage_events, insert-only RLS). Reuses the auth client at
+     window._vinlSb; user_id is attached when signed in. Fire-and-forget; every path
+     is wrapped so a failure can never affect the dashboard. No cookies (localStorage
+     session id only), no third-party calls. -->
+<script>
+(function(){
+  var QUEUE = [];
+  // Anonymous, per-browser session id — lets us count unique visitors without cookies
+  // or PII. Survives reloads; regenerated if storage is unavailable/cleared.
+  var SID;
+  try {
+    SID = localStorage.getItem('vi_sid');
+    if(!SID){ SID = Date.now().toString(36) + Math.random().toString(36).slice(2,10); localStorage.setItem('vi_sid', SID); }
+  } catch(_) { SID = 'nostore-' + Math.random().toString(36).slice(2,10); }
+
+  function userId(){ try { var s = window._vinlSession; return (s && s.user && s.user.id) || null; } catch(_){ return null; } }
+
+  function flush(){
+    var c = window._vinlSb;
+    if(!c || !c.from || !QUEUE.length) return;   // client not mounted yet — try again later
+    var rows = QUEUE.splice(0, QUEUE.length).map(function(e){
+      return { event: e.event, target: e.target, user_id: userId(), session_id: SID, meta: e.meta };
+    });
+    try { c.from('usage_events').insert(rows).then(function(){}, function(){}); } catch(_){}
+  }
+
+  // Public API used by switchPage() and the panel observer below.
+  window.viTrack = function(event, target, meta){
+    if(!event) return;
+    QUEUE.push({ event: String(event), target: (target != null ? String(target) : null), meta: (meta || null) });
+    flush();
+  };
+
+  // The auth IIFE sets window._vinlSb after boot; keep retrying the flush until it mounts.
+  var tries = 0, iv = setInterval(function(){ tries++; flush(); if(window._vinlSb || tries > 40) clearInterval(iv); }, 500);
+
+  function boot(){
+    try { window.viTrack('page_load', 'dashboard', { path: location.pathname || '' }); } catch(_){}
+    // Finer signal: fire once when the 3-Year Track Record panel is genuinely on
+    // screen (>=50% visible). It lives inside the hidden Backtest tab, so this only
+    // trips when the user opens that tab AND the panel renders in the viewport.
+    try {
+      var el = document.getElementById('btSummary3y');
+      if(el && 'IntersectionObserver' in window){
+        var seen = false;
+        var io = new IntersectionObserver(function(entries){
+          entries.forEach(function(en){
+            if(en.isIntersecting && en.intersectionRatio >= 0.5 && !seen){
+              seen = true; window.viTrack('panel_view', 'backtest_3y'); io.disconnect();
+            }
+          });
+        }, { threshold: [0.5] });
+        io.observe(el);
+      }
+    } catch(_){}
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
 </script>
 </body>
