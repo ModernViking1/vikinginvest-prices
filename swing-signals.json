@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-09-18T04:00:00+00:00",
  "data_end_ts": 1789704000,
- "raw_signal_count": 21,
- "count": 16,
+ "raw_signal_count": 19,
+ "count": 14,
  "signals": [
   {
    "id": "twob_cm:xagusd:1789700400",
@@ -159,6 +159,31 @@
    "suppressed": 0
   },
   {
+   "id": "s5_rsi:natgas:1789682400",
+   "strategy": "s5_rsi",
+   "pair": "natgas",
+   "symbol": "NATGAS",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 2.954,
+   "ref_entry": 2.866,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789682400,
+   "created_ts": 1789704000,
+   "expiry_ts": 1789725600,
+   "state": "triggered",
+   "cofire": [
+    "s5_rsi"
+   ],
+   "cofire_dirs": [
+    "s5_rsi:bear"
+   ],
+   "suppressed": 0
+  },
+  {
    "id": "twob:lighterusd:1789678800",
    "strategy": "twob",
    "pair": "lighterusd",
@@ -184,39 +209,14 @@
    "suppressed": 0
   },
   {
-   "id": "fred_tl:xauusd:1789675200",
-   "strategy": "fred_tl",
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 4383.17017857,
-   "ref_entry": 4346.2,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789675200,
-   "created_ts": 1789704000,
-   "expiry_ts": 1789718400,
-   "state": "triggered",
-   "cofire": [
-    "fred_tl"
-   ],
-   "cofire_dirs": [
-    "fred_tl:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "s5_rsi:natgas:1789671600",
+   "id": "s5_rsi:taousd:1789671600",
    "strategy": "s5_rsi",
-   "pair": "natgas",
-   "symbol": "NATGAS",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 2.954,
-   "ref_entry": 2.882,
+   "pair": "taousd",
+   "symbol": "TAOUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 224.7,
+   "ref_entry": 230.88,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
@@ -224,31 +224,6 @@
    "trigger_ts": 1789671600,
    "created_ts": 1789704000,
    "expiry_ts": 1789714800,
-   "state": "triggered",
-   "cofire": [
-    "s5_rsi"
-   ],
-   "cofire_dirs": [
-    "s5_rsi:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "s5_rsi:usdzar:1789664400",
-   "strategy": "s5_rsi",
-   "pair": "usdzar",
-   "symbol": "USDZAR",
-   "class": "minor",
-   "dir": "bull",
-   "stop": 16.20742,
-   "ref_entry": 16.26954,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789664400,
-   "created_ts": 1789704000,
-   "expiry_ts": 1789707600,
    "state": "triggered",
    "cofire": [
     "s5_rsi"
@@ -284,31 +259,6 @@
    "suppressed": 0
   },
   {
-   "id": "s5_rsi:taousd:1789660800",
-   "strategy": "s5_rsi",
-   "pair": "taousd",
-   "symbol": "TAOUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 224.7,
-   "ref_entry": 227.71,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789660800,
-   "created_ts": 1789704000,
-   "expiry_ts": 1789704000,
-   "state": "triggered",
-   "cofire": [
-    "s5_rsi"
-   ],
-   "cofire_dirs": [
-    "s5_rsi:bull"
-   ],
-   "suppressed": 0
-  },
-  {
    "id": "twob_cm:usoil:1789653600",
    "strategy": "twob_cm",
    "pair": "usoil",
@@ -338,33 +288,6 @@
    "suppressed": 2
   },
   {
-   "id": "s5_rsi:spx500:1789639200",
-   "strategy": "s5_rsi",
-   "pair": "spx500",
-   "symbol": "SPX500",
-   "class": "index",
-   "dir": "bull",
-   "stop": 7600.4,
-   "ref_entry": 7627.2,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789639200,
-   "created_ts": 1789704000,
-   "expiry_ts": 1789682400,
-   "state": "triggered",
-   "cofire": [
-    "s5_rsi",
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "s5_rsi:bull",
-    "twob_ix:bear"
-   ],
-   "suppressed": 1
-  },
-  {
    "id": "hs:nas100:1789632000",
    "strategy": "hs",
    "pair": "nas100",
@@ -388,6 +311,33 @@
     "hs:bull"
    ],
    "suppressed": 0
+  },
+  {
+   "id": "s5_rsi:spx500:1789632000",
+   "strategy": "s5_rsi",
+   "pair": "spx500",
+   "symbol": "SPX500",
+   "class": "index",
+   "dir": "bull",
+   "stop": 7598.4,
+   "ref_entry": 7624.0,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789632000,
+   "created_ts": 1789704000,
+   "expiry_ts": 1789675200,
+   "state": "triggered",
+   "cofire": [
+    "s5_rsi",
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "s5_rsi:bull",
+    "twob_ix:bear"
+   ],
+   "suppressed": 1
   },
   {
    "id": "twob_ix:fra40:1789624800",
