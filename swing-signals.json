@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-09-19T07:00:00+00:00",
  "data_end_ts": 1789801200,
- "raw_signal_count": 15,
- "count": 12,
+ "raw_signal_count": 39,
+ "count": 29,
  "signals": [
   {
    "id": "twob:xrpusd:1789797600",
@@ -136,31 +136,6 @@
    "suppressed": 0
   },
   {
-   "id": "twob_ix:dj30:1789750800",
-   "strategy": "twob_ix",
-   "pair": "dj30",
-   "symbol": "DJ30",
-   "class": "index",
-   "dir": "bull",
-   "stop": 51538.43785714,
-   "ref_entry": 51657.6,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789750800,
-   "created_ts": 1789801200,
-   "expiry_ts": 1789794000,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bull"
-   ],
-   "suppressed": 0
-  },
-  {
    "id": "fma_gold:xauusd:1789749000",
    "strategy": "fma_gold",
    "pair": "xauusd",
@@ -186,77 +161,158 @@
    "suppressed": 0
   },
   {
-   "id": "twob_cm:natgas:1789747200",
-   "strategy": "twob_cm",
+   "id": "cam_rev:cadjpy:1789743600",
+   "strategy": "cam_rev",
+   "pair": "cadjpy",
+   "symbol": "CADJPY",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 113.07625,
+   "ref_entry": 112.418,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789743600,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789786800,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:eurgbp:1789743600",
+   "strategy": "cam_rev",
+   "pair": "eurgbp",
+   "symbol": "EURGBP",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 0.858966,
+   "ref_entry": 0.8579,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789743600,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789786800,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:usdjpy:1789743600",
+   "strategy": "cam_rev",
+   "pair": "usdjpy",
+   "symbol": "USDJPY",
+   "class": "major",
+   "dir": "bear",
+   "stop": 158.15557,
+   "ref_entry": 157.444,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789743600,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789786800,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:natgas:1789741800",
+   "strategy": "cam_rev",
    "pair": "natgas",
    "symbol": "NATGAS",
    "class": "comm",
    "dir": "bear",
-   "stop": 2.93886429,
-   "ref_entry": 2.928,
-   "rr": 2.0,
+   "stop": 2.9520175,
+   "ref_entry": 2.916,
+   "rr": 1.0,
    "r_pct": 1.0,
    "entry_mode": "market",
    "demo_only": false,
-   "trigger_ts": 1789747200,
+   "trigger_ts": 1789741800,
    "created_ts": 1789801200,
-   "expiry_ts": 1789790400,
+   "expiry_ts": 1789785000,
    "state": "triggered",
    "cofire": [
+    "cam_rev",
     "twob_cm"
    ],
    "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull",
     "twob_cm:bear"
    ],
-   "suppressed": 0
+   "suppressed": 2
   },
   {
-   "id": "fred_tl:xauusd:1789740000",
-   "strategy": "fred_tl",
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 4399.57910714,
-   "ref_entry": 4349.42,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789740000,
-   "created_ts": 1789801200,
-   "expiry_ts": 1789783200,
-   "state": "triggered",
-   "cofire": [
-    "fred_tl"
-   ],
-   "cofire_dirs": [
-    "fred_tl:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "holygrail_cm:xagusd:1789740000",
-   "strategy": "holygrail_cm",
-   "pair": "xagusd",
-   "symbol": "XAGUSD",
-   "class": "comm",
+   "id": "cam_rev:dj30:1789738200",
+   "strategy": "cam_rev",
+   "pair": "dj30",
+   "symbol": "DJ30",
+   "class": "index",
    "dir": "bull",
-   "stop": 66.15340929,
-   "ref_entry": 66.2355,
-   "rr": 2.0,
+   "stop": 51518.99275,
+   "ref_entry": 51791.5,
+   "rr": 1.0,
    "r_pct": 1.0,
    "entry_mode": "market",
    "demo_only": false,
-   "trigger_ts": 1789740000,
+   "trigger_ts": 1789738200,
    "created_ts": 1789801200,
-   "expiry_ts": 1789783200,
+   "expiry_ts": 1789781400,
    "state": "triggered",
    "cofire": [
-    "holygrail_cm"
+    "cam_rev",
+    "twob_ix"
    ],
    "cofire_dirs": [
-    "holygrail_cm:bull"
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "twob_ix:bull"
+   ],
+   "suppressed": 2
+  },
+  {
+   "id": "cam_rev:nzdjpy:1789736400",
+   "strategy": "cam_rev",
+   "pair": "nzdjpy",
+   "symbol": "NZDJPY",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 90.4341375,
+   "ref_entry": 90.077,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789736400,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789779600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
    ],
    "suppressed": 0
   },
@@ -282,6 +338,386 @@
    ],
    "cofire_dirs": [
     "mmove:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:xauusd:1789735500",
+   "strategy": "cam_rev",
+   "pair": "xauusd",
+   "symbol": "XAUUSD",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 4340.6309375,
+   "ref_entry": 4369.245,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789735500,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789778700,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "fred_tl"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "fred_tl:bear"
+   ],
+   "suppressed": 2
+  },
+  {
+   "id": "cam_rev:euraud:1789734600",
+   "strategy": "cam_rev",
+   "pair": "euraud",
+   "symbol": "EURAUD",
+   "class": "minor",
+   "dir": "bull",
+   "stop": 1.60864345,
+   "ref_entry": 1.61054,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789734600,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789777800,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:de40:1789733700",
+   "strategy": "cam_rev",
+   "pair": "de40",
+   "symbol": "DE40",
+   "class": "index",
+   "dir": "bear",
+   "stop": 25566.629,
+   "ref_entry": 25418.5,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789733700,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789776900,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:fra40:1789733700",
+   "strategy": "cam_rev",
+   "pair": "fra40",
+   "symbol": "FRA40",
+   "class": "index",
+   "dir": "bear",
+   "stop": 8136.337,
+   "ref_entry": 8091.4,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789733700,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789776900,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:ftse100:1789733700",
+   "strategy": "cam_rev",
+   "pair": "ftse100",
+   "symbol": "FTSE100",
+   "class": "index",
+   "dir": "bear",
+   "stop": 10757.13825,
+   "ref_entry": 10693.6,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789733700,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789776900,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:xagusd:1789733700",
+   "strategy": "cam_rev",
+   "pair": "xagusd",
+   "symbol": "XAGUSD",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 67.45698875,
+   "ref_entry": 66.465,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789733700,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789776900,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "holygrail_cm"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "holygrail_cm:bull"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "cam_rev:audnzd:1789732800",
+   "strategy": "cam_rev",
+   "pair": "audnzd",
+   "symbol": "AUDNZD",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 1.25040342,
+   "ref_entry": 1.2471,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789732800,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789776000,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:nzdusd:1789729200",
+   "strategy": "cam_rev",
+   "pair": "nzdusd",
+   "symbol": "NZDUSD",
+   "class": "major",
+   "dir": "bull",
+   "stop": 0.5703103,
+   "ref_entry": 0.57169,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789729200,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789772400,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:eursgd:1789726500",
+   "strategy": "cam_rev",
+   "pair": "eursgd",
+   "symbol": "EURSGD",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 1.467939,
+   "ref_entry": 1.46682,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789726500,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789769700,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:eurnok:1789725600",
+   "strategy": "cam_rev",
+   "pair": "eurnok",
+   "symbol": "EURNOK",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 10.83895168,
+   "ref_entry": 10.81635,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789725600,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789768800,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:nzdchf:1789725600",
+   "strategy": "cam_rev",
+   "pair": "nzdchf",
+   "symbol": "NZDCHF",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 0.47229715,
+   "ref_entry": 0.47135,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789725600,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789768800,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:jp225:1789724700",
+   "strategy": "cam_rev",
+   "pair": "jp225",
+   "symbol": "JP225",
+   "class": "index",
+   "dir": "bear",
+   "stop": 65944.1,
+   "ref_entry": 65447.5,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789724700,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789767900,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:usoil:1789717500",
+   "strategy": "cam_rev",
+   "pair": "usoil",
+   "symbol": "USOIL",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 102.4122575,
+   "ref_entry": 103.363,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789717500,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789760700,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:gbpnzd:1789715700",
+   "strategy": "cam_rev",
+   "pair": "gbpnzd",
+   "symbol": "GBPNZD",
+   "class": "minor",
+   "dir": "bull",
+   "stop": 2.33203738,
+   "ref_entry": 2.33833,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789715700,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789758900,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:usdzar:1789715700",
+   "strategy": "cam_rev",
+   "pair": "usdzar",
+   "symbol": "USDZAR",
+   "class": "minor",
+   "dir": "bull",
+   "stop": 16.20655168,
+   "ref_entry": 16.24339,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789715700,
+   "created_ts": 1789801200,
+   "expiry_ts": 1789758900,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull"
    ],
    "suppressed": 0
   },
