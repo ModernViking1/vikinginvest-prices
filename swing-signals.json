@@ -3,35 +3,8 @@
  "generated": "2026-09-19T14:00:00+00:00",
  "data_end_ts": 1789826400,
  "raw_signal_count": 27,
- "count": 22,
+ "count": 21,
  "signals": [
-  {
-   "id": "twob:xrpusd:1789826400",
-   "strategy": "twob",
-   "pair": "xrpusd",
-   "symbol": "XRPUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 1.45091143,
-   "ref_entry": 1.4369,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789826400,
-   "created_ts": 1789826400,
-   "expiry_ts": 1789869600,
-   "state": "triggered",
-   "cofire": [
-    "mmove",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "mmove:bull",
-    "twob:bear"
-   ],
-   "suppressed": 1
-  },
   {
    "id": "twob:suiusd:1789822800",
    "strategy": "twob",
@@ -95,18 +68,22 @@
    "rr": 1.0,
    "r_pct": 1.0,
    "entry_mode": "market",
-   "demo_only": true,
+   "demo_only": false,
    "trigger_ts": 1789821000,
    "created_ts": 1789826400,
    "expiry_ts": 1789864200,
    "state": "triggered",
    "cofire": [
-    "cam_rev"
+    "cam_rev",
+    "mmove",
+    "twob"
    ],
    "cofire_dirs": [
-    "cam_rev:bear"
+    "cam_rev:bear",
+    "mmove:bull",
+    "twob:bear"
    ],
-   "suppressed": 0
+   "suppressed": 2
   },
   {
    "id": "twob:asterusd:1789808400",
