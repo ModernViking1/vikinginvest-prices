@@ -3,7 +3,7 @@
  "generated": "2026-09-19T04:00:00+00:00",
  "data_end_ts": 1789790400,
  "raw_signal_count": 12,
- "count": 10,
+ "count": 11,
  "signals": [
   {
    "id": "twob:lighterusd:1789783200",
@@ -132,14 +132,14 @@
    "suppressed": 0
   },
   {
-   "id": "s5_rsi:natgas:1789747200",
-   "strategy": "s5_rsi",
+   "id": "twob_cm:natgas:1789747200",
+   "strategy": "twob_cm",
    "pair": "natgas",
    "symbol": "NATGAS",
    "class": "comm",
-   "dir": "bull",
-   "stop": 2.844,
-   "ref_entry": 2.929,
+   "dir": "bear",
+   "stop": 2.93886429,
+   "ref_entry": 2.928,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
@@ -149,14 +149,37 @@
    "expiry_ts": 1789790400,
    "state": "triggered",
    "cofire": [
-    "s5_rsi",
     "twob_cm"
    ],
    "cofire_dirs": [
-    "s5_rsi:bull",
     "twob_cm:bear"
    ],
-   "suppressed": 1
+   "suppressed": 0
+  },
+  {
+   "id": "fred_tl:xauusd:1789740000",
+   "strategy": "fred_tl",
+   "pair": "xauusd",
+   "symbol": "XAUUSD",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 4399.57910714,
+   "ref_entry": 4349.42,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789740000,
+   "created_ts": 1789790400,
+   "expiry_ts": 1789783200,
+   "state": "triggered",
+   "cofire": [
+    "fred_tl"
+   ],
+   "cofire_dirs": [
+    "fred_tl:bear"
+   ],
+   "suppressed": 0
   },
   {
    "id": "holygrail_cm:xagusd:1789740000",
