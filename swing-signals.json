@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-09-19T20:00:00+00:00",
  "data_end_ts": 1789848000,
- "raw_signal_count": 12,
+ "raw_signal_count": 11,
  "count": 7,
  "signals": [
   {
@@ -138,33 +138,6 @@
    "suppressed": 0
   },
   {
-   "id": "engulf_manip:nearusd:1789797600",
-   "strategy": "engulf_manip",
-   "pair": "nearusd",
-   "symbol": "NEARUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 3.93755714,
-   "ref_entry": 3.6822,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789797600,
-   "created_ts": 1789848000,
-   "expiry_ts": 1789840800,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bear",
-    "twob:bear"
-   ],
-   "suppressed": 1
-  },
-  {
    "id": "twob:lighterusd:1789783200",
    "strategy": "twob",
    "pair": "lighterusd",
@@ -186,6 +159,31 @@
    ],
    "cofire_dirs": [
     "twob:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "twob:nearusd:1789783200",
+   "strategy": "twob",
+   "pair": "nearusd",
+   "symbol": "NEARUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 3.89644357,
+   "ref_entry": 3.8132,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789783200,
+   "created_ts": 1789848000,
+   "expiry_ts": 1789826400,
+   "state": "triggered",
+   "cofire": [
+    "twob"
+   ],
+   "cofire_dirs": [
+    "twob:bear"
    ],
    "suppressed": 0
   }
