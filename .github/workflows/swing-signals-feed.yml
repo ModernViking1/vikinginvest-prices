@@ -61,6 +61,7 @@ jobs:
         run: |
           for f in swing_signals.py unified_shadow_harness.py historical-ohlc.json \
                    detect_triggers.py backtest_rsi_per_class.py freshen_h1_tail.py \
+                   freshen_daily_tail.py \
                    fetch_historical_ohlc.py hs_swing_research.py five_strategies_research.py; do
             if [ ! -f "$f" ]; then echo "::error::$f missing from repo root"; exit 1; fi
           done
@@ -77,6 +78,18 @@ jobs:
         run: |
           python freshen_h1_tail.py --days 3 --skip-if-fresh-min 50 \
             || echo "freshen failed (fail-open) — swing feed runs on existing data"
+
+      # cam_rev (Camarilla pivots) + any daily-levels strategy need a CURRENT daily bar: the
+      # levels for today are built from yesterday's daily close, and the 6-hourly backfill
+      # leaves the daily layer 1-2 days stale — which silently blocked ALL cam_rev emission
+      # (0 signals reached the cBot despite fresh m15). Splice the last few days of DAILY
+      # bars onto the tail here. Fail-open; discarded with the H1 freshening below.
+      - name: Freshen daily tail (cam_rev Camarilla levels need current daily bars)
+        env:
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+        run: |
+          python freshen_daily_tail.py --days 10 \
+            || echo "daily freshen failed (fail-open) — swing feed runs on existing data"
 
       - name: Generate swing feed
         run: python swing_signals.py
