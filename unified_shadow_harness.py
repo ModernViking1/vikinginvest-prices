@@ -2230,21 +2230,18 @@ CAM_CLASSES = {'major', 'minor', 'index', 'comm'}
 # Allowed through the class gate so the shadow scores them; the swing feed wires them demo_only
 # so real demo fills measure whether the thin RR1 edge survives crypto spread. Never live capital.
 CAM_CRYPTO_PILOT = {'btcusd', 'ethusd', 'xrpusd', 'solusd'}
-# Crypto trades 24/7, so the London-only window just cuts sample. 90-day test: London+US
-# (07-22 UTC, skipping the thin Asian hours 22-07) HOLDS the edge and adds liquidity —
-# 55% WR / +0.11R over 257 trades vs London-only 55% / +0.10R over 220 (+5R total), while
-# full 24/7 dilutes to 53% / +0.05R. So the crypto pilot uses 07-22; FX/index/comm keep the
-# validated London-only 07-16.
-CAM_CRYPTO_SESS_OPEN, CAM_CRYPTO_SESS_CLOSE = 7, 22
+# Crypto now uses the same unified 07-22 window as everyone else (see the CAM_SESS note below —
+# the 3-year test extended ALL classes to London+US). CAM_CRYPTO_PILOT still gates crypto in and
+# flags it demo-only.
 CAM_BUF = 0.10
 CAM_RR = 1.0
 CAM_HOLD = 96          # ~1 trading day on m15
-# London-session entry filter (07:00-16:00 UTC). Filter test (cam_filters, 2026-09-13): the
-# session gate lifts expR AND WR on EVERY class (major +0.33->+0.53R, minor +0.18->+0.33R,
-# comm +0.50->+0.57R, index +0.38->+0.47R) — coherent, since this is a London-session method.
-# The MA(EMA50) trend filter was ~neutral (helped index/major slightly, hurt comm) and just
-# cut sample, so it's NOT applied. Only the session filter is used.
-CAM_SESS_OPEN, CAM_SESS_CLOSE = 7, 16
+# Intraday entry filter: London+US session, 07:00-22:00 UTC (skips the thin Asian hours 22-07).
+# Originally London-only 07-16; the 3-year deep-m15 test (cam_session_research, 2026-09-19)
+# extended it to include the US session across ALL classes — overall expectancy +0.510->+0.525R,
+# BOTH OOS halves up, +20% total R over +3,313 more trades; index +2pp/+0.041R, comm +2pp/+0.041R,
+# FX majors/minors flat (no dilution). The MA(EMA50) trend filter stays off (neutral, cuts sample).
+CAM_SESS_OPEN, CAM_SESS_CLOSE = 7, 22
 
 
 def _cam_levels(daily):
@@ -2263,15 +2260,13 @@ def detect_cam_rev(pk, m15, daily):
     if (PAIR_CLASS.get(pk) not in CAM_CLASSES and pk not in CAM_CRYPTO_PILOT) or len(m15) < 500 or len(daily) < 30:
         return []
     lv = _cam_levels(daily); out = []; done = set()
-    # Crypto pilot pairs trade the wider London+US window (07-22); everything else London-only.
-    _so, _sc = (CAM_CRYPTO_SESS_OPEN, CAM_CRYPTO_SESS_CLOSE) if pk in CAM_CRYPTO_PILOT else (CAM_SESS_OPEN, CAM_SESS_CLOSE)
     for i in range(len(m15) - 1):
         b = m15[i]; bt = datetime.fromtimestamp(b['_ts'], timezone.utc)
         day = bt.strftime('%Y-%m-%d')
         L = lv.get(day)
         if not L:
             continue
-        if not (_so <= bt.hour < _sc):   # London (07-16) / crypto pilot London+US (07-22)
+        if not (CAM_SESS_OPEN <= bt.hour < CAM_SESS_CLOSE):   # London+US session (07-22 UTC)
             continue
         if (day, 'S') not in done and b['h'] >= L['R3'] and b['c'] < L['R3'] and b['c'] < b['o']:
             entry = b['c']; stop = L['R4'] + CAM_BUF * (L['R4'] - L['R3'])
