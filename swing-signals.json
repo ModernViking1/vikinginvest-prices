@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-09-19T04:00:00+00:00",
  "data_end_ts": 1789790400,
- "raw_signal_count": 12,
+ "raw_signal_count": 11,
  "count": 10,
  "signals": [
   {
@@ -55,33 +55,6 @@
     "twob:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "twob:suiusd:1789779600",
-   "strategy": "twob",
-   "pair": "suiusd",
-   "symbol": "SUIUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 0.83345786,
-   "ref_entry": 0.8212,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789779600,
-   "created_ts": 1789790400,
-   "expiry_ts": 1789822800,
-   "state": "triggered",
-   "cofire": [
-    "mmove",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "mmove:bull",
-    "twob:bear"
-   ],
-   "suppressed": 1
   },
   {
    "id": "mmove:xrpusd:1789768800",
@@ -224,6 +197,31 @@
    "trigger_ts": 1789736400,
    "created_ts": 1789790400,
    "expiry_ts": 1789779600,
+   "state": "triggered",
+   "cofire": [
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "mmove:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "mmove:suiusd:1789732800",
+   "strategy": "mmove",
+   "pair": "suiusd",
+   "symbol": "SUIUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 0.78586429,
+   "ref_entry": 0.7912,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789732800,
+   "created_ts": 1789790400,
+   "expiry_ts": 1789776000,
    "state": "triggered",
    "cofire": [
     "mmove"
