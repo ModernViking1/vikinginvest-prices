@@ -93,11 +93,10 @@ into the freshness margin. If borderline fills are being missed, the levers are:
 
 - Camarilla pivot **reversal**; daily R3/S3 levels from the prior day; **m15** rejection
   trigger; RR 1:1; session-filtered (`CAM_SESS_OPEN`/`CLOSE` in `unified_shadow_harness`).
-- Live for its core classes (major/minor/index/comm) — those signals are **not**
-  demo_only and execute on demo now that daily+m15 are freshened.
-- **Crypto pilot** (btc/eth/xrp/sol via `CAM_CRYPTO_PILOT`) is emitted with
-  `demo_only: true` — a deliberate pilot, since 3-yr crypto expectancy was marginal/
-  negative. On the demo account it still fills; on a **live** account it would be skipped
-  until `demo_only` is removed for those pairs in `swing_signals.py`.
+- **Fully LIVE across all its classes** — major/minor/index/comm **and** the crypto
+  pilot (btc/eth/xrp/sol via `CAM_CRYPTO_PILOT`). None are `demo_only`. Crypto was
+  promoted from demo-only to live execution on **2026-09-19** at the user's direction
+  (3-yr crypto expectancy was marginal/negative, so watch the live-vs-observer gap on
+  those pairs); the observer tracks them in parallel as the clean benchmark.
 - Historical 0 fills were because cam_rev emitted **0 signals** at all until the daily +
   m15 freshness fixes (Sept 2026); there was never a per-strategy execution block.

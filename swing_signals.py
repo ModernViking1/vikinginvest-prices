@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob, detect_cam_rev, detect_mmove, detect_holygrail, detect_holygrail_m15, CAM_CRYPTO_PILOT
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob, detect_cam_rev, detect_mmove, detect_holygrail, detect_holygrail_m15
 from trend_regime import build_regime, passes_gate
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
@@ -346,10 +346,11 @@ def main():
         # skips it on any live account until it earns forward evidence. detect_fma also emits
         # commodities/index tags — those stay observer-only, so filter to fma_gold here.
         found += [s for s in detect_fma(pk, m15) if s['strategy'] == 'fma_gold']
-        # cam_rev (2026-09-13) — Camarilla pivot reversal + London-session filter, RR1. The only
-        # candidate this session to survive the cost-stress (comm/index robust; major/minor
-        # cost-sensitive). Self-gates to major/minor/index/comm. Wired DEMO-ONLY as a real-fill
-        # pilot at the user's request despite having no forward evidence yet — the cBot fills at
+        # cam_rev (2026-09-13) — Camarilla pivot reversal + session filter, RR1. The only candidate
+        # this session to survive the cost-stress (comm/index robust; major/minor cost-sensitive).
+        # Gates to major/minor/index/comm PLUS the crypto pilot (btc/eth/xrp/sol via
+        # CAM_CRYPTO_PILOT in the harness). Fully LIVE across all those classes — crypto was
+        # promoted from demo-only to live 2026-09-19 at the user's direction. The cBot fills at
         # MARKET, so the live WR will likely lag the observer's precise-close 72-84% (tight-R fade
         # is fill-sensitive); the observer runs in parallel as the clean benchmark.
         found += detect_cam_rev(pk, m15, _synth_current_daily(daily, m15))   # synth today's daily bar so live cam_rev isn't a day behind
@@ -423,10 +424,11 @@ def main():
                 'rr': s.get('rr', RR),   # per-signal RR (asianglitch=3.0); others default to RR (2.0)
                 'r_pct': R_PCT,
                 'entry_mode': 'market',
-                # cBot skips demo_only on a live account. cam_rev on the crypto-pilot pairs is
-                # demo-only (real-fill re-test); cam_rev on FX/index/comm stays live.
-                'demo_only': (s['strategy'] in DEMO_ONLY)
-                             or (s['strategy'] == 'cam_rev' and pk in CAM_CRYPTO_PILOT),
+                # cBot skips demo_only on a live account. cam_rev is fully LIVE across all its
+                # classes — the crypto-pilot pairs (btc/eth/xrp/sol) were promoted from demo-only
+                # to live execution 2026-09-19 at the user's direction (see SIGNAL_PIPELINE.md);
+                # the observer still tracks them in parallel as the clean benchmark.
+                'demo_only': (s['strategy'] in DEMO_ONLY),
                 'trigger_ts': int(s['entry_ts']),
                 'created_ts': int(data_end),
                 'expiry_ts': int(s['entry_ts'] + EXPIRY_HOURS * 3600),
