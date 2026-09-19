@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob, detect_cam_rev, detect_mmove, detect_holygrail, detect_holygrail_m15
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob, detect_cam_rev, detect_mmove, detect_holygrail, detect_holygrail_m15, CAM_CRYPTO_PILOT
 from trend_regime import build_regime, passes_gate
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
@@ -423,7 +423,10 @@ def main():
                 'rr': s.get('rr', RR),   # per-signal RR (asianglitch=3.0); others default to RR (2.0)
                 'r_pct': R_PCT,
                 'entry_mode': 'market',
-                'demo_only': s['strategy'] in DEMO_ONLY,   # cBot skips these on a live account
+                # cBot skips demo_only on a live account. cam_rev on the crypto-pilot pairs is
+                # demo-only (real-fill re-test); cam_rev on FX/index/comm stays live.
+                'demo_only': (s['strategy'] in DEMO_ONLY)
+                             or (s['strategy'] == 'cam_rev' and pk in CAM_CRYPTO_PILOT),
                 'trigger_ts': int(s['entry_ts']),
                 'created_ts': int(data_end),
                 'expiry_ts': int(s['entry_ts'] + EXPIRY_HOURS * 3600),

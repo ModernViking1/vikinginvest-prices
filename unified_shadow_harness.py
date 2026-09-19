@@ -2224,6 +2224,12 @@ def detect_po3_conf(pk, m15, h1, daily):
 # and minor (+0.18R @5bp) — 72-77% WR, both OOS halves +, and the wide-R comm/index cells
 # prove it's not a cost artifact. Crypto dies (excluded). Monitor-only; RR1; scored on m15.
 CAM_CLASSES = {'major', 'minor', 'index', 'comm'}
+# 2026-09-19 — DEMO-ONLY crypto re-test pilot. Crypto was excluded originally (edge dies on
+# cost), but a fresh 90-day re-run showed these four TRADEABLE crypto pairs individually
+# positive frictionless (btc +0.04R, eth +0.09R, sol +0.12R, xrp +0.15R; aggregate ~break-even).
+# Allowed through the class gate so the shadow scores them; the swing feed wires them demo_only
+# so real demo fills measure whether the thin RR1 edge survives crypto spread. Never live capital.
+CAM_CRYPTO_PILOT = {'btcusd', 'ethusd', 'xrpusd', 'solusd'}
 CAM_BUF = 0.10
 CAM_RR = 1.0
 CAM_HOLD = 96          # ~1 trading day on m15
@@ -2248,7 +2254,7 @@ def _cam_levels(daily):
 
 
 def detect_cam_rev(pk, m15, daily):
-    if PAIR_CLASS.get(pk) not in CAM_CLASSES or len(m15) < 500 or len(daily) < 30:
+    if (PAIR_CLASS.get(pk) not in CAM_CLASSES and pk not in CAM_CRYPTO_PILOT) or len(m15) < 500 or len(daily) < 30:
         return []
     lv = _cam_levels(daily); out = []; done = set()
     for i in range(len(m15) - 1):
