@@ -61,7 +61,7 @@ jobs:
         run: |
           for f in swing_signals.py unified_shadow_harness.py historical-ohlc.json \
                    detect_triggers.py backtest_rsi_per_class.py freshen_h1_tail.py \
-                   freshen_daily_tail.py \
+                   freshen_daily_tail.py freshen_m15_tail.py \
                    fetch_historical_ohlc.py hs_swing_research.py five_strategies_research.py; do
             if [ ! -f "$f" ]; then echo "::error::$f missing from repo root"; exit 1; fi
           done
@@ -91,13 +91,29 @@ jobs:
           python freshen_daily_tail.py --days 10 \
             || echo "daily freshen failed (fail-open) — swing feed runs on existing data"
 
+      # The m15-triggered swing strategies — cam_rev's rejection candle and the 24/7 crypto
+      # detectors (twob / engulf_manip / mmove on btc/eth/xrp/sol) — fire on the m15 bar
+      # itself, but the H1/daily fresheners above leave m15 to the 6-hourly backfill. So
+      # crypto m15 goes 0-6 h stale and every crypto signal is BORN past the cBot's 120-min
+      # age guard -> no crypto fills (confirmed 2026-09-19: crypto m15 lagged 3 h, all btc/xrp
+      # signals 8-16 h old, cap rejected them). Splice the last couple of days of m15 onto the
+      # tail so THIS run reads current bars. Weekends: FX/comm/index just return nothing (closed)
+      # and are left as-is; only 24/7 crypto actually freshens. Fail-open; discarded below.
+      - name: Freshen m15 tail (m15 strategies — esp. 24/7 crypto — must not be born stale)
+        env:
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+        run: |
+          python freshen_m15_tail.py --days 2 --skip-if-fresh-min 12 \
+            || echo "m15 freshen failed (fail-open) — swing feed runs on existing data"
+
       - name: Generate swing feed
         run: python swing_signals.py
 
-      # Drop the transient H1 freshening so the working tree is clean: the commit step stages
-      # ONLY swing-signals.json, and a dirty 60 MB historical-ohlc.json would otherwise block
-      # the rebase-on-race below (git rebase refuses with unstaged changes).
-      - name: Discard transient H1 freshening (6-hourly backfill owns this file)
+      # Drop the transient tail freshening (H1 + daily + m15 all splice into this one file) so
+      # the working tree is clean: the commit step stages ONLY swing-signals.json, and a dirty
+      # 60 MB historical-ohlc.json would otherwise block the rebase-on-race below (git rebase
+      # refuses with unstaged changes).
+      - name: Discard transient tail freshening (6-hourly backfill owns this file)
         run: git checkout -- historical-ohlc.json 2>/dev/null || true
 
       - name: Commit + push swing-signals.json (retry on race)
