@@ -2,35 +2,9 @@
  "schema_version": 1,
  "generated": "2026-09-19T11:00:00+00:00",
  "data_end_ts": 1789815600,
- "raw_signal_count": 37,
+ "raw_signal_count": 39,
  "count": 28,
  "signals": [
-  {
-   "id": "twob:nearusd:1789812000",
-   "strategy": "twob",
-   "pair": "nearusd",
-   "symbol": "NEARUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 3.61703857,
-   "ref_entry": 3.7017,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789812000,
-   "created_ts": 1789815600,
-   "expiry_ts": 1789855200,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bear",
-    "twob:bull"
-   ],
-   "suppressed": 1
-  },
   {
    "id": "twob:asterusd:1789808400",
    "strategy": "twob",
@@ -86,6 +60,34 @@
    "suppressed": 1
   },
   {
+   "id": "engulf_manip:nearusd:1789797600",
+   "strategy": "engulf_manip",
+   "pair": "nearusd",
+   "symbol": "NEARUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 3.93755714,
+   "ref_entry": 3.6822,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789797600,
+   "created_ts": 1789815600,
+   "expiry_ts": 1789840800,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip",
+    "twob"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear",
+    "twob:bear",
+    "twob:bull"
+   ],
+   "suppressed": 2
+  },
+  {
    "id": "twob:xrpusd:1789797600",
    "strategy": "twob",
    "pair": "xrpusd",
@@ -109,6 +111,33 @@
    "cofire_dirs": [
     "mmove:bull",
     "twob:bear"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "engulf_manip:btcusd:1789794000",
+   "strategy": "engulf_manip",
+   "pair": "btcusd",
+   "symbol": "BTCUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 81815.15528571,
+   "ref_entry": 81002.41,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789794000,
+   "created_ts": 1789815600,
+   "expiry_ts": 1789837200,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip",
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear",
+    "mmove:bull"
    ],
    "suppressed": 1
   },
@@ -413,32 +442,34 @@
    "suppressed": 0
   },
   {
-   "id": "cam_rev:natgas:1789741800",
-   "strategy": "cam_rev",
+   "id": "s5_rsi:natgas:1789740000",
+   "strategy": "s5_rsi",
    "pair": "natgas",
    "symbol": "NATGAS",
    "class": "comm",
-   "dir": "bear",
-   "stop": 2.9520175,
-   "ref_entry": 2.916,
-   "rr": 1.0,
+   "dir": "bull",
+   "stop": 2.844,
+   "ref_entry": 2.925,
+   "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
    "demo_only": false,
-   "trigger_ts": 1789741800,
+   "trigger_ts": 1789740000,
    "created_ts": 1789815600,
-   "expiry_ts": 1789785000,
+   "expiry_ts": 1789783200,
    "state": "triggered",
    "cofire": [
     "cam_rev",
+    "s5_rsi",
     "twob_cm"
    ],
    "cofire_dirs": [
     "cam_rev:bear",
     "cam_rev:bull",
+    "s5_rsi:bull",
     "twob_cm:bear"
    ],
-   "suppressed": 2
+   "suppressed": 3
   },
   {
    "id": "cam_rev:dj30:1789738200",
@@ -493,31 +524,6 @@
    "suppressed": 0
   },
   {
-   "id": "mmove:btcusd:1789736400",
-   "strategy": "mmove",
-   "pair": "btcusd",
-   "symbol": "BTCUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 77755.24335714,
-   "ref_entry": 77977.65,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789736400,
-   "created_ts": 1789815600,
-   "expiry_ts": 1789779600,
-   "state": "triggered",
-   "cofire": [
-    "mmove"
-   ],
-   "cofire_dirs": [
-    "mmove:bull"
-   ],
-   "suppressed": 0
-  },
-  {
    "id": "cam_rev:xauusd:1789735500",
    "strategy": "cam_rev",
    "pair": "xauusd",
@@ -535,14 +541,12 @@
    "expiry_ts": 1789778700,
    "state": "triggered",
    "cofire": [
-    "cam_rev",
-    "fred_tl"
+    "cam_rev"
    ],
    "cofire_dirs": [
-    "cam_rev:bull",
-    "fred_tl:bear"
+    "cam_rev:bull"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "cam_rev:euraud:1789734600",
