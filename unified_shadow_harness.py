@@ -2230,6 +2230,12 @@ CAM_CLASSES = {'major', 'minor', 'index', 'comm'}
 # Allowed through the class gate so the shadow scores them; the swing feed wires them demo_only
 # so real demo fills measure whether the thin RR1 edge survives crypto spread. Never live capital.
 CAM_CRYPTO_PILOT = {'btcusd', 'ethusd', 'xrpusd', 'solusd'}
+# Crypto trades 24/7, so the London-only window just cuts sample. 90-day test: London+US
+# (07-22 UTC, skipping the thin Asian hours 22-07) HOLDS the edge and adds liquidity —
+# 55% WR / +0.11R over 257 trades vs London-only 55% / +0.10R over 220 (+5R total), while
+# full 24/7 dilutes to 53% / +0.05R. So the crypto pilot uses 07-22; FX/index/comm keep the
+# validated London-only 07-16.
+CAM_CRYPTO_SESS_OPEN, CAM_CRYPTO_SESS_CLOSE = 7, 22
 CAM_BUF = 0.10
 CAM_RR = 1.0
 CAM_HOLD = 96          # ~1 trading day on m15
@@ -2257,13 +2263,15 @@ def detect_cam_rev(pk, m15, daily):
     if (PAIR_CLASS.get(pk) not in CAM_CLASSES and pk not in CAM_CRYPTO_PILOT) or len(m15) < 500 or len(daily) < 30:
         return []
     lv = _cam_levels(daily); out = []; done = set()
+    # Crypto pilot pairs trade the wider London+US window (07-22); everything else London-only.
+    _so, _sc = (CAM_CRYPTO_SESS_OPEN, CAM_CRYPTO_SESS_CLOSE) if pk in CAM_CRYPTO_PILOT else (CAM_SESS_OPEN, CAM_SESS_CLOSE)
     for i in range(len(m15) - 1):
         b = m15[i]; bt = datetime.fromtimestamp(b['_ts'], timezone.utc)
         day = bt.strftime('%Y-%m-%d')
         L = lv.get(day)
         if not L:
             continue
-        if not (CAM_SESS_OPEN <= bt.hour < CAM_SESS_CLOSE):   # London/EU-NY session only
+        if not (_so <= bt.hour < _sc):   # London (07-16) / crypto pilot London+US (07-22)
             continue
         if (day, 'S') not in done and b['h'] >= L['R3'] and b['c'] < L['R3'] and b['c'] < b['o']:
             entry = b['c']; stop = L['R4'] + CAM_BUF * (L['R4'] - L['R3'])
