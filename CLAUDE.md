@@ -43,6 +43,17 @@ lands.
   mechanics, threshold values, file/function names, or class-by-class
   WR breakdowns. Match the existing entries' tone.
 
+## Signal pipeline (read before debugging "alerted but didn't trade")
+
+- **`SIGNAL_PIPELINE.md`** is the reference for the swing path: the
+  6-hourly OHLC backfill + the H1/daily/m15 tail-fresheners that keep it
+  current, the swing cBot's execution gates (demo_only + account,
+  broker-unavailable, expiry, `MaxSignalAgeMin`, dedup), and why a
+  Telegram alert (`crypto_alert.py`) fires independently of execution.
+  A signal born on a stale bar is rejected by the 120-min age cap — this
+  is the most common cause of "it alerted but never filled." If you add a
+  strategy on a new trigger timeframe, it needs a freshener for that layer.
+
 ## Don't commit
 
 - Real secrets (`.env`, credential JSONs). The repo's auto-publish
