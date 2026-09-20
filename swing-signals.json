@@ -1,10 +1,35 @@
 {
  "schema_version": 1,
- "generated": "2026-09-20T05:00:00+00:00",
- "data_end_ts": 1789880400,
- "raw_signal_count": 9,
- "count": 5,
+ "generated": "2026-09-20T06:00:00+00:00",
+ "data_end_ts": 1789884000,
+ "raw_signal_count": 11,
+ "count": 6,
  "signals": [
+  {
+   "id": "mmove:lighterusd:1789884000",
+   "strategy": "mmove",
+   "pair": "lighterusd",
+   "symbol": "LIGHTERUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 4.74086429,
+   "ref_entry": 4.714,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789884000,
+   "created_ts": 1789884000,
+   "expiry_ts": 1789927200,
+   "state": "triggered",
+   "cofire": [
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "mmove:bear"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "mmove:solusd:1789880400",
    "strategy": "mmove",
@@ -19,7 +44,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789880400,
-   "created_ts": 1789880400,
+   "created_ts": 1789884000,
    "expiry_ts": 1789923600,
    "state": "triggered",
    "cofire": [
@@ -44,7 +69,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789873200,
-   "created_ts": 1789880400,
+   "created_ts": 1789884000,
    "expiry_ts": 1789916400,
    "state": "triggered",
    "cofire": [
@@ -71,7 +96,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789848000,
-   "created_ts": 1789880400,
+   "created_ts": 1789884000,
    "expiry_ts": 1789891200,
    "state": "triggered",
    "cofire": [
@@ -98,7 +123,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789840800,
-   "created_ts": 1789880400,
+   "created_ts": 1789884000,
    "expiry_ts": 1789884000,
    "state": "triggered",
    "cofire": [
@@ -123,18 +148,20 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789821000,
-   "created_ts": 1789880400,
+   "created_ts": 1789884000,
    "expiry_ts": 1789864200,
    "state": "triggered",
    "cofire": [
     "cam_rev",
+    "mmove",
     "twob"
    ],
    "cofire_dirs": [
     "cam_rev:bear",
+    "mmove:bear",
     "twob:bear"
    ],
-   "suppressed": 1
+   "suppressed": 2
   }
  ]
 }
