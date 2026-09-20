@@ -2,9 +2,37 @@
  "schema_version": 1,
  "generated": "2026-09-20T17:00:00+00:00",
  "data_end_ts": 1789923600,
- "raw_signal_count": 11,
+ "raw_signal_count": 12,
  "count": 6,
  "signals": [
+  {
+   "id": "cam_rev:ethusd:1789924500",
+   "strategy": "cam_rev",
+   "pair": "ethusd",
+   "symbol": "ETHUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 2669.635975,
+   "ref_entry": 2636.79,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789924500,
+   "created_ts": 1789923600,
+   "expiry_ts": 1789967700,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "twob"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "twob:bear"
+   ],
+   "suppressed": 2
+  },
   {
    "id": "cam_rev:solusd:1789922700",
    "strategy": "cam_rev",
@@ -29,33 +57,6 @@
    "cofire_dirs": [
     "cam_rev:bull",
     "mmove:bear"
-   ],
-   "suppressed": 1
-  },
-  {
-   "id": "cam_rev:ethusd:1789920900",
-   "strategy": "cam_rev",
-   "pair": "ethusd",
-   "symbol": "ETHUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 2593.764025,
-   "ref_entry": 2622.11,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789920900,
-   "created_ts": 1789923600,
-   "expiry_ts": 1789964100,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull",
-    "twob:bear"
    ],
    "suppressed": 1
   },
