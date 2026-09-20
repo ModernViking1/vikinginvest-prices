@@ -1,9 +1,9 @@
 {
  "schema_version": 1,
- "generated": "2026-09-20T16:00:00+00:00",
- "data_end_ts": 1789920000,
+ "generated": "2026-09-20T17:00:00+00:00",
+ "data_end_ts": 1789923600,
  "raw_signal_count": 11,
- "count": 7,
+ "count": 6,
  "signals": [
   {
    "id": "cam_rev:solusd:1789922700",
@@ -19,16 +19,18 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789922700,
-   "created_ts": 1789920000,
+   "created_ts": 1789923600,
    "expiry_ts": 1789965900,
    "state": "triggered",
    "cofire": [
-    "cam_rev"
+    "cam_rev",
+    "mmove"
    ],
    "cofire_dirs": [
-    "cam_rev:bull"
+    "cam_rev:bull",
+    "mmove:bear"
    ],
-   "suppressed": 0
+   "suppressed": 1
   },
   {
    "id": "cam_rev:ethusd:1789920900",
@@ -44,7 +46,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789920900,
-   "created_ts": 1789920000,
+   "created_ts": 1789923600,
    "expiry_ts": 1789964100,
    "state": "triggered",
    "cofire": [
@@ -71,7 +73,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789920900,
-   "created_ts": 1789920000,
+   "created_ts": 1789923600,
    "expiry_ts": 1789964100,
    "state": "triggered",
    "cofire": [
@@ -79,31 +81,6 @@
    ],
    "cofire_dirs": [
     "cam_rev:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "mmove:suiusd:1789920000",
-   "strategy": "mmove",
-   "pair": "suiusd",
-   "symbol": "SUIUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 0.85369071,
-   "ref_entry": 0.8459,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789920000,
-   "created_ts": 1789920000,
-   "expiry_ts": 1789963200,
-   "state": "triggered",
-   "cofire": [
-    "mmove"
-   ],
-   "cofire_dirs": [
-    "mmove:bear"
    ],
    "suppressed": 0
   },
@@ -121,7 +98,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789916400,
-   "created_ts": 1789920000,
+   "created_ts": 1789923600,
    "expiry_ts": 1789959600,
    "state": "triggered",
    "cofire": [
@@ -149,7 +126,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789891200,
-   "created_ts": 1789920000,
+   "created_ts": 1789923600,
    "expiry_ts": 1789934400,
    "state": "triggered",
    "cofire": [
@@ -174,7 +151,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1789873200,
-   "created_ts": 1789920000,
+   "created_ts": 1789923600,
    "expiry_ts": 1789916400,
    "state": "triggered",
    "cofire": [
