@@ -2,9 +2,63 @@
  "schema_version": 1,
  "generated": "2026-09-20T16:00:00+00:00",
  "data_end_ts": 1789920000,
- "raw_signal_count": 9,
- "count": 7,
+ "raw_signal_count": 14,
+ "count": 8,
  "signals": [
+  {
+   "id": "cam_rev:ethusd:1789920900",
+   "strategy": "cam_rev",
+   "pair": "ethusd",
+   "symbol": "ETHUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 2593.764025,
+   "ref_entry": 2622.11,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789920900,
+   "created_ts": 1789920000,
+   "expiry_ts": 1789964100,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "twob"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull",
+    "twob:bear"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "cam_rev:xrpusd:1789920900",
+   "strategy": "cam_rev",
+   "pair": "xrpusd",
+   "symbol": "XRPUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 1.37473025,
+   "ref_entry": 1.3976,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789920900,
+   "created_ts": 1789920000,
+   "expiry_ts": 1789964100,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull",
+    "mmove:bear"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "mmove:suiusd:1789920000",
    "strategy": "mmove",
@@ -151,37 +205,16 @@
    "expiry_ts": 1789916400,
    "state": "triggered",
    "cofire": [
-    "hs"
+    "cam_rev",
+    "hs",
+    "mmove"
    ],
    "cofire_dirs": [
-    "hs:bear"
+    "cam_rev:bull",
+    "hs:bear",
+    "mmove:bear"
    ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob:ethusd:1789840800",
-   "strategy": "twob",
-   "pair": "ethusd",
-   "symbol": "ETHUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 2669.09107143,
-   "ref_entry": 2645.0,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789840800,
-   "created_ts": 1789920000,
-   "expiry_ts": 1789884000,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bear"
-   ],
-   "suppressed": 0
+   "suppressed": 2
   }
  ]
 }
