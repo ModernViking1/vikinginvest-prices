@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-20T05:40:59.473120+00:00",
-  "generated_ms": 1789882857584,
-  "detector_last_check": "2026-09-20T05:40:56.172976+00:00",
+  "generated": "2026-09-20T05:45:53.495892+00:00",
+  "generated_ms": 1789883150715,
+  "detector_last_check": "2026-09-20T05:45:49.340666+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 1,
+    "total": 2,
     "armed": 0,
-    "triggered": 1,
+    "triggered": 2,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "btcusd:1789882200000:absorb_btc",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "absorb_btc",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 80554.48,
+      "stop": 80625.16535714,
+      "target": 80413.10928571,
+      "ew": null,
+      "tl": null,
+      "nw": null,
+      "cl": null,
+      "armedAt": 1789882200000,
+      "triggeredAt": 1789882200000,
+      "lastSeenAt": 1789883150715,
+      "source": "server-detector-absorb",
+      "event_aligned": null,
+      "held": false
+    },
     {
       "id": "nas100:1789764300000:crt_ix",
       "pair": "nas100",
@@ -34,7 +57,7 @@
       "cl": null,
       "armedAt": 1789764300000,
       "triggeredAt": 1789764300000,
-      "lastSeenAt": 1789882857584,
+      "lastSeenAt": 1789883150715,
       "source": "server-detector-crt",
       "event_aligned": null,
       "held": true
