@@ -2,9 +2,60 @@
  "schema_version": 1,
  "generated": "2026-09-21T11:00:00+00:00",
  "data_end_ts": 1789988400,
- "raw_signal_count": 32,
- "count": 23,
+ "raw_signal_count": 34,
+ "count": 24,
  "signals": [
+  {
+   "id": "cam_rev:gbpusd:1789990200",
+   "strategy": "cam_rev",
+   "pair": "gbpusd",
+   "symbol": "GBPUSD",
+   "class": "major",
+   "dir": "bull",
+   "stop": 1.33849688,
+   "ref_entry": 1.33894,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1789990200,
+   "created_ts": 1789988400,
+   "expiry_ts": 1790033400,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:usdzar:1789990200",
+   "strategy": "cam_rev",
+   "pair": "usdzar",
+   "symbol": "USDZAR",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 16.2677071,
+   "ref_entry": 16.25889,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1789990200,
+   "created_ts": 1789988400,
+   "expiry_ts": 1790033400,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "cam_rev:usdchf:1789988400",
    "strategy": "cam_rev",
@@ -157,31 +208,6 @@
     "cam_rev:bull"
    ],
    "suppressed": 2
-  },
-  {
-   "id": "cam_rev:usdzar:1789981200",
-   "strategy": "cam_rev",
-   "pair": "usdzar",
-   "symbol": "USDZAR",
-   "class": "minor",
-   "dir": "bull",
-   "stop": 16.2380929,
-   "ref_entry": 16.26301,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1789981200,
-   "created_ts": 1789988400,
-   "expiry_ts": 1790024400,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull"
-   ],
-   "suppressed": 0
   },
   {
    "id": "twob_cm:xagusd:1789981200",
