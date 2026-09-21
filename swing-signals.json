@@ -3,7 +3,7 @@
  "generated": "2026-09-21T09:00:00+00:00",
  "data_end_ts": 1789981200,
  "raw_signal_count": 31,
- "count": 21,
+ "count": 23,
  "signals": [
   {
    "id": "cam_rev:audnzd:1789981200",
@@ -81,6 +81,33 @@
     "cam_rev:bull"
    ],
    "suppressed": 0
+  },
+  {
+   "id": "twob:ethusd:1789981200",
+   "strategy": "twob",
+   "pair": "ethusd",
+   "symbol": "ETHUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 2715.37778571,
+   "ref_entry": 2695.48,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789981200,
+   "created_ts": 1789981200,
+   "expiry_ts": 1790024400,
+   "state": "triggered",
+   "cofire": [
+    "mmove",
+    "twob"
+   ],
+   "cofire_dirs": [
+    "mmove:bull",
+    "twob:bear"
+   ],
+   "suppressed": 1
   },
   {
    "id": "cam_rev:eurnok:1789978500",
@@ -441,6 +468,31 @@
    "suppressed": 0
   },
   {
+   "id": "mmove:xrpusd:1789930800",
+   "strategy": "mmove",
+   "pair": "xrpusd",
+   "symbol": "XRPUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 1.39025357,
+   "ref_entry": 1.4036,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789930800,
+   "created_ts": 1789981200,
+   "expiry_ts": 1789974000,
+   "state": "triggered",
+   "cofire": [
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "mmove:bull"
+   ],
+   "suppressed": 0
+  },
+  {
    "id": "cam_rev:solusd:1789922700",
    "strategy": "cam_rev",
    "pair": "solusd",
@@ -452,7 +504,7 @@
    "rr": 1.0,
    "r_pct": 1.0,
    "entry_mode": "limit",
-   "demo_only": false,
+   "demo_only": true,
    "trigger_ts": 1789922700,
    "created_ts": 1789981200,
    "expiry_ts": 1789965900,
@@ -477,22 +529,18 @@
    "rr": 1.0,
    "r_pct": 1.0,
    "entry_mode": "limit",
-   "demo_only": false,
+   "demo_only": true,
    "trigger_ts": 1789920900,
    "created_ts": 1789981200,
    "expiry_ts": 1789964100,
    "state": "triggered",
    "cofire": [
-    "cam_rev",
-    "mmove",
-    "twob"
+    "cam_rev"
    ],
    "cofire_dirs": [
-    "cam_rev:bull",
-    "mmove:bull",
-    "twob:bear"
+    "cam_rev:bull"
    ],
-   "suppressed": 2
+   "suppressed": 0
   },
   {
    "id": "cam_rev:xrpusd:1789920900",
@@ -506,20 +554,18 @@
    "rr": 1.0,
    "r_pct": 1.0,
    "entry_mode": "limit",
-   "demo_only": false,
+   "demo_only": true,
    "trigger_ts": 1789920900,
    "created_ts": 1789981200,
    "expiry_ts": 1789964100,
    "state": "triggered",
    "cofire": [
-    "cam_rev",
-    "mmove"
+    "cam_rev"
    ],
    "cofire_dirs": [
-    "cam_rev:bull",
-    "mmove:bull"
+    "cam_rev:bull"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "twob:asterusd:1789916400",
