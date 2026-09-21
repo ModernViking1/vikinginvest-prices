@@ -67,6 +67,26 @@ A signal in `swing-signals.json` fills **only if it clears all of these**:
 There is **no per-strategy whitelist** — the cBot executes whatever strategy string the
 feed emits, subject only to the gates above.
 
+### Market vs LIMIT entries (`entry_mode`)
+
+Most strategies emit `entry_mode: "market"` — the cBot fills at market the moment it sees
+a fresh signal. **cam_rev emits `entry_mode: "limit"`** because it is a level *fade*: it
+must fill **at** the pivot (`ref_entry`), not chase the bounce. For a limit signal the cBot
+rests a **pending limit order** at `ref_entry` (via `PlaceLimitEntry`), self-expiring at the
+signal's `ExpiryTs`, and **skips the market-only gates** — the `MaxSignalAgeMin` age cap,
+the market-price wrong-side check, and the entry-drift cap. It keeps the protective ones
+(demo_only, broker-unavailable, expiry, stop-invalidation, min-stop, and a pending-order
+dedup so re-triggers don't stack). The fill is recorded by a `Positions.Opened` handler
+(keyed on `_pendingLimitIds`, so market fills are never double-written).
+
+**Why this matters:** market-mode cam_rev filled **zero** times ever. Its signals are born
+8–14h old (a fade's rejection candle is hours behind live), so the 120-min age cap rejected
+every one; and even when fresh, the entry-drift cap refused the late market chase off the
+level. Both are correct for market orders and both are moot for a resting limit. A limit at
+the level also matches the observer's precise-close backtest, so live WR should track the
+model instead of lagging it. **Requires a cBot rebuild in cTrader to take effect** — the
+feed change alone does nothing until the deployed binary parses `entry_mode`.
+
 ## Telegram alerts are independent of execution
 
 `crypto_alert.py` (run at the end of `fetch-data.yml`, ~every 5 min) reads
@@ -98,5 +118,7 @@ into the freshness margin. If borderline fills are being missed, the levers are:
   promoted from demo-only to live execution on **2026-09-19** at the user's direction
   (3-yr crypto expectancy was marginal/negative, so watch the live-vs-observer gap on
   those pairs); the observer tracks them in parallel as the clean benchmark.
-- Historical 0 fills were because cam_rev emitted **0 signals** at all until the daily +
-  m15 freshness fixes (Sept 2026); there was never a per-strategy execution block.
+- Historical 0 fills had two stacked causes: it emitted **0 signals** until the daily + m15
+  freshness fixes, and once emitting, its **market** orders were rejected every time (born
+  8–14h old → age cap; late chase off the level → entry-drift cap). Fixed by emitting cam_rev
+  as a **LIMIT** at `ref_entry` (see "Market vs LIMIT entries" above) — needs a cBot rebuild.

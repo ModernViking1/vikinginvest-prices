@@ -125,6 +125,10 @@ namespace cAlgo.Robots
         // twice, 32ms apart). The claim used to live just before ExecuteMarketOrder, far below the
         // dedup work, leaving that window open; claiming at the top (check + Add adjacent) closes it.
         private readonly HashSet<string> _inFlight = new HashSet<string>();
+        // Signal ids we placed as resting LIMIT orders (fade entries), awaiting fill. OnPositionOpened
+        // consumes an id from here to write the 'placed' exec + bookkeeping when the limit fills; a
+        // market fill's id is never in this set, so the inline market path is never double-written.
+        private readonly HashSet<string> _pendingLimitIds = new HashSet<string>();
         private readonly Dictionary<long, string> _positionIdToSignalId = new Dictionary<long, string>();
         // Trailing-stop state (per open position): original risk unit R, the pair (for scope),
         // and the best favourable price seen so far.
@@ -173,6 +177,7 @@ namespace cAlgo.Robots
             LoadSeenIds();
             LoadDailyLossState();
             Positions.Closed += OnPositionClosed;
+            Positions.Opened += OnPositionOpened;   // captures LIMIT fills (market fills are recorded inline)
             try { RecoverTrailingOnStart(); } catch (Exception ex) { Print($"[VikingSwing] trailing-recovery error: {ex.Message}"); }
             Print($"[VikingSwing] started. acct={Account.Number} live={Account.IsLive} seen={_seenIds.Count} risk={RiskPct}% publish={AutoPublishToRepo}");
             if (Account.IsLive)
@@ -180,7 +185,7 @@ namespace cAlgo.Robots
             Timer.Start(PollSeconds);
         }
 
-        protected override void OnStop() { Positions.Closed -= OnPositionClosed; SaveSeenIds(); }
+        protected override void OnStop() { Positions.Closed -= OnPositionClosed; Positions.Opened -= OnPositionOpened; SaveSeenIds(); }
 
         // ───────────── Daily-loss circuit breaker (mirrors the intraday bot) ─────────────
         // Persists {today_key, today_R, start_equity, limit_hit} so a mid-day restart keeps the
@@ -450,8 +455,10 @@ namespace cAlgo.Robots
             // MAX SIGNAL AGE — the direct staleness gate. If the trigger bar is older than the cap,
             // the fill would be stale (the pinger/cron lagged); refuse it rather than chase a moved
             // market or reverse an open position on hours-old information. MarkSeen: it only gets
-            // older, so never retry it.
-            if (MaxSignalAgeMin > 0 && s.TriggerTs > 0)
+            // older, so never retry it. MARKET entries only — a LIMIT rests AT the level and only
+            // fills if price returns there, so its staleness bound is its own ExpiryTs, not this cap
+            // (fade signals are born hours old by design; this cap would reject every one of them).
+            if (MaxSignalAgeMin > 0 && s.TriggerTs > 0 && s.EntryMode != "limit")
             {
                 var ageMin = (Server.Time - DateTimeOffset.FromUnixTimeSeconds(s.TriggerTs).UtcDateTime).TotalMinutes;
                 if (ageMin > MaxSignalAgeMin)
@@ -503,6 +510,11 @@ namespace cAlgo.Robots
                 _inFlight.Remove(s.Id);                 // release the claim — retry next poll when a slot frees
                 return; // do NOT MarkSeen: retry next poll when a slot frees
             }
+
+            // LIMIT (fade) entries branch off here — they rest at the level rather than filling at
+            // market, so they skip the market-price / entry-drift guards below (which exist to refuse
+            // a late market chase). PlaceLimitEntry MarkSeen()s on every path.
+            if (s.EntryMode == "limit") { PlaceLimitEntry(s, symbol, isBuy); return; }
 
             var entry = isBuy ? symbol.Ask : symbol.Bid;   // MARKET entry now
             if (entry <= 0) { _inFlight.Remove(s.Id); return; }   // transient bad price — release, retry next poll
@@ -592,6 +604,109 @@ namespace cAlgo.Robots
                 Print($"❌ [VikingSwing] order rejected {direction} {symbol.Name}: {result.Error} id={s.Id}");
             }
             MarkSeen(s.Id);
+        }
+
+        // LIMIT (fade) entry — rest a pending order AT the level (ref_entry) instead of chasing at
+        // market. This matches how a fade is modelled (fill at the pivot, not after the bounce), so
+        // it sidesteps the entry-drift / stale-market guards that (correctly) refuse a late market
+        // chase — the reason market-mode cam_rev never filled. Bounded by the signal's own ExpiryTs
+        // (the order self-expires), not the market age cap. Idempotent: MarkSeen on every path, and
+        // the fill (if any) is recorded by OnPositionOpened, keyed on _pendingLimitIds.
+        private void PlaceLimitEntry(Sig s, Symbol symbol, bool isBuy)
+        {
+            var refPx = s.RefEntry;
+            if (refPx <= 0) { Print($"[VikingSwing] limit: no ref_entry for {s.Id} — skipping"); MarkSeen(s.Id); return; }
+            // Pending-order dedup: the open-position check above only sees FILLED positions, but a
+            // resting limit is a PendingOrder. Refuse to stack a second resting fade of the same
+            // (pair, strategy, direction), or the exact same id, so re-triggers can't double exposure.
+            var wantDir = isBuy ? TradeType.Buy : TradeType.Sell;
+            foreach (var po in PendingOrders)
+            {
+                if (po.Label != OrderLabel || po.SymbolName != symbol.Name) continue;
+                var poStrat = (!string.IsNullOrEmpty(po.Comment) && po.Comment.Split('|').Length >= 2)
+                              ? po.Comment.Split('|')[1].Trim() : null;
+                if (po.TradeType == wantDir && string.Equals(poStrat, s.Strategy, StringComparison.Ordinal))
+                {
+                    Print($"[VikingSwing] limit: {s.Strategy} {symbol.Name} {(isBuy ? "buy" : "sell")} already resting — skipping {s.Id}");
+                    MarkSeen(s.Id); return;
+                }
+            }
+            // Stop must sit on the correct side of the level (a valid fade), else the signal is bad.
+            if ((isBuy && s.Stop >= refPx) || (!isBuy && s.Stop <= refPx))
+            {
+                Print($"[VikingSwing] limit: stop wrong side of level — skipping {s.Id} (ref={refPx:F5} stop={s.Stop:F5})");
+                MarkSeen(s.Id); return;
+            }
+            // Setup-invalidation: if price already traded through the stop since the trigger, the
+            // level failed — don't rest a limit into an already-broken level.
+            if (s.TriggerTs > 0 && StopBreachedSinceTrigger(symbol, s.TriggerTs, s.Stop, isBuy))
+            {
+                Print($"[VikingSwing] limit: stop {s.Stop:F5} already breached since trigger — skipping {s.Id}");
+                MarkSeen(s.Id); return;
+            }
+            var slPips = Math.Abs(refPx - s.Stop) / symbol.PipSize;
+            if (slPips < MinStopPips)
+            {
+                Print($"[VikingSwing] limit: stop too tight {slPips:F1} < {MinStopPips} — skipping {s.Id}");
+                MarkSeen(s.Id); return;
+            }
+            var rr = s.Rr > 0 ? s.Rr : 2.0;
+            var tpPips = rr * slPips;
+            var volume = ComputeVolume(symbol, refPx, s.Stop, RiskPct);
+            if (volume <= 0)
+            {
+                Print($"[VikingSwing] limit: volume computed 0 for {symbol.Name} — skipping {s.Id}");
+                MarkSeen(s.Id); return;
+            }
+            var direction = isBuy ? TradeType.Buy : TradeType.Sell;
+            var comment = $"SwingTrade | {s.Strategy} | {s.Id}";
+            // Self-expire the resting order with the signal, so a stale level never fills days later.
+            DateTime? expiry = s.ExpiryTs > 0 ? DateTimeOffset.FromUnixTimeSeconds(s.ExpiryTs).UtcDateTime : (DateTime?)null;
+            var targetPrice = Math.Round(refPx, symbol.Digits);
+            TradeResult result;
+            try
+            {
+                result = PlaceLimitOrder(direction, symbol.Name, volume, targetPrice, OrderLabel,
+                                         slPips, tpPips, expiry, comment);
+            }
+            catch (Exception ex) { Print($"[VikingSwing] limit place threw {s.Id}: {ex.Message}"); MarkSeen(s.Id); return; }
+            if (result != null && result.IsSuccessful)
+            {
+                _pendingLimitIds.Add(s.Id);   // OnPositionOpened writes 'placed' + bookkeeping when/if it fills
+                Print($"⏳ [VikingSwing] LIMIT {direction} {symbol.Name} {volume:F0}u @ {targetPrice:F5} " +
+                      $"SLp={slPips:F1} TPp={tpPips:F1} exp={(expiry.HasValue ? expiry.Value.ToString("u") : "none")} " +
+                      $"strat={s.Strategy} id={s.Id}");
+            }
+            else
+            {
+                Print($"❌ [VikingSwing] limit rejected {direction} {symbol.Name}: {result?.Error} id={s.Id}");
+            }
+            MarkSeen(s.Id);
+        }
+
+        // Records a LIMIT fill: sets up trailing bookkeeping and writes the 'placed' execution when a
+        // resting fade order actually opens a position. Only acts on ids in _pendingLimitIds, so a
+        // MARKET fill (recorded inline in Consider) is never double-written here.
+        private void OnPositionOpened(PositionOpenedEventArgs args)
+        {
+            try
+            {
+                var p = args?.Position;
+                if (p == null || p.Label != OrderLabel) return;
+                var sid = SignalIdOf(p);
+                if (string.IsNullOrEmpty(sid) || !_pendingLimitIds.Remove(sid)) return;   // only our limit fills
+                _positionIdToSignalId[p.Id] = sid;
+                _posR[p.Id] = Math.Abs(p.EntryPrice - (p.StopLoss ?? p.EntryPrice));
+                var seg = sid.Split(':');
+                if (seg.Length >= 2) _posPair[p.Id] = seg[1];
+                _posPeak[p.Id] = p.EntryPrice;
+                var dir = p.TradeType == TradeType.Buy ? "bull" : "bear";
+                Print($"✅ [VikingSwing] LIMIT FILLED {p.TradeType} {p.SymbolName} {p.VolumeInUnits:F0}u " +
+                      $"@{p.EntryPrice:F5} SL={p.StopLoss:F5} id={sid} pid={p.Id}");
+                WriteExec("placed", sid, p.Id, p.SymbolName, dir, p.VolumeInUnits,
+                          p.EntryPrice, 0, p.StopLoss ?? 0, p.TakeProfit ?? 0, 0, 0, 0, 0, "placed", null);
+            }
+            catch (Exception ex) { Print($"[VikingSwing] OnPositionOpened threw: {ex.Message}"); }
         }
 
         // Close our own SAME-strategy, OPPOSITE-direction positions on this symbol, enforcing
@@ -945,7 +1060,7 @@ namespace cAlgo.Robots
         // ---- swing-signals.json parse (mirrors intraday bot's manual parser) ----
         private class Sig
         {
-            public string Id, Pair, State, Dir, Strategy;
+            public string Id, Pair, State, Dir, Strategy, EntryMode;
             public double Stop, Rr, RefEntry;
             public long ExpiryTs, TriggerTs;
             public bool DemoOnly;
@@ -972,7 +1087,7 @@ namespace cAlgo.Robots
                     Dir = JsonStr(o, "dir"), Strategy = JsonStr(o, "strategy"),
                     Stop = JsonNum(o, "stop"), Rr = JsonNum(o, "rr"), RefEntry = JsonNum(o, "ref_entry"),
                     ExpiryTs = (long)JsonNum(o, "expiry_ts"), TriggerTs = (long)JsonNum(o, "trigger_ts"),
-                    DemoOnly = JsonBool(o, "demo_only"),
+                    DemoOnly = JsonBool(o, "demo_only"), EntryMode = JsonStr(o, "entry_mode"),
                 });
                 pos = oe + 1;
             }

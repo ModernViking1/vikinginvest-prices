@@ -423,7 +423,12 @@ def main():
                 'ref_entry': round(s['entry'], 8),   # reference only; cBot enters at market
                 'rr': s.get('rr', RR),   # per-signal RR (asianglitch=3.0); others default to RR (2.0)
                 'r_pct': R_PCT,
-                'entry_mode': 'market',
+                # cam_rev is a level FADE — it must fill AT the pivot (ref_entry), not chase the
+                # bounce at market. Emitting it as a LIMIT lets the cBot rest a pending order at the
+                # level, matching the backtest's precise-close model and sidestepping the stale-market
+                # / entry-drift guards that (correctly) refuse a late market chase — the reason
+                # market-mode cam_rev never filled. All other strategies stay market.
+                'entry_mode': 'limit' if s['strategy'] == 'cam_rev' else 'market',
                 # cBot skips demo_only on a live account. cam_rev is fully LIVE across all its
                 # classes — the crypto-pilot pairs (btc/eth/xrp/sol) were promoted from demo-only
                 # to live execution 2026-09-19 at the user's direction (see SIGNAL_PIPELINE.md);
