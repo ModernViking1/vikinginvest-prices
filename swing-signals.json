@@ -2,9 +2,37 @@
  "schema_version": 1,
  "generated": "2026-09-21T07:00:00+00:00",
  "data_end_ts": 1789974000,
- "raw_signal_count": 27,
+ "raw_signal_count": 28,
  "count": 16,
  "signals": [
+  {
+   "id": "cam_rev:solusd:1789974900",
+   "strategy": "cam_rev",
+   "pair": "solusd",
+   "symbol": "SOLUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 113.511975,
+   "ref_entry": 111.97,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1789974900,
+   "created_ts": 1789974000,
+   "expiry_ts": 1790018100,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "twob"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "twob:bear"
+   ],
+   "suppressed": 2
+  },
   {
    "id": "twob:taousd:1789974000",
    "strategy": "twob",
@@ -339,33 +367,6 @@
     "cam_rev:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "cam_rev:solusd:1789922700",
-   "strategy": "cam_rev",
-   "pair": "solusd",
-   "symbol": "SOLUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 108.33885,
-   "ref_entry": 110.38,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1789922700,
-   "created_ts": 1789974000,
-   "expiry_ts": 1789965900,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull",
-    "twob:bear"
-   ],
-   "suppressed": 1
   },
   {
    "id": "cam_rev:ethusd:1789920900",
