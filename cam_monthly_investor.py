@@ -37,6 +37,7 @@ def main():
     monthly = defaultdict(lambda: {'n': 0, 'w': 0, 'r': 0.0})
     n_sig = n_res = 0
     pairs_used = []
+    perpair = defaultdict(list)   # pk -> [(entry_ts, R), ...]
     for pk, layers in pairs.items():
         cls = PAIR_CLASS.get(pk)
         if cls not in CLASSES or pk in BLACKLIST or not isinstance(layers, dict):
@@ -62,10 +63,28 @@ def main():
             b['n'] += 1
             b['w'] += 1 if o > 0 else 0
             b['r'] += o
+            perpair[pk].append((s['entry_ts'], o))
             n_res += 1
             used = True
         if used:
             pairs_used.append(pk)
+
+    # Per-pair 3yr breakdown (n / win% / expectancy / total R + OOS halves by median entry).
+    per_pair = {}
+    for pk, rows in perpair.items():
+        rows.sort()
+        rv = [o for _, o in rows]
+        n = len(rv); m = n // 2
+        h1, h2 = rv[:m], rv[m:]
+        per_pair[pk] = {
+            'n': n, 'w': sum(1 for o in rv if o > 0),
+            'wr': round(100.0 * sum(1 for o in rv if o > 0) / n, 1),
+            'exp': round(sum(rv) / n, 4), 'r': round(sum(rv), 1),
+            'oos1': round(sum(h1) / len(h1), 4) if h1 else 0.0,
+            'oos2': round(sum(h2) / len(h2), 4) if h2 else 0.0,
+            'both_halves_pos': (len(h1) > 0 and len(h2) > 0 and sum(h1) > 0 and sum(h2) > 0),
+        }
+    per_pair = dict(sorted(per_pair.items(), key=lambda kv: -kv[1]['r']))
 
     series = {k: {'n': v['n'], 'w': v['w'], 'r': round(v['r'], 2)} for k, v in sorted(monthly.items())}
     rs = [v['r'] for v in series.values()]
@@ -84,7 +103,10 @@ def main():
         'best_month_r': round(max(rs), 1) if rs else 0.0,
         'worst_month_r': round(min(rs), 1) if rs else 0.0,
         'pairs_used': sorted(pairs_used),
+        'pairs_net_positive': sum(1 for v in per_pair.values() if v['r'] > 0),
+        'pairs_both_halves_pos': sum(1 for v in per_pair.values() if v['both_halves_pos']),
         'series': series,
+        'per_pair': per_pair,
     }
     print(f"raw signals={n_sig}  gated+resolved={n_res}  pairs={len(pairs_used)}")
     print("BEGIN_CAM_MONTHLY_JSON")
