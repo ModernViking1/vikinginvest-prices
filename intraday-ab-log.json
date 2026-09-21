@@ -10722,10 +10722,10 @@
    "cap_ts": 1789764300.0,
    "state_at_capture": "triggered",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
-   "limit_r": null
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "resolved",
+   "limit_r": -1.0
   },
   "suiusd:1789813800000:wick": {
    "id": "suiusd:1789813800000:wick",
@@ -10843,7 +10843,7 @@
    "nowick_aligned": true,
    "market_status": "resolved",
    "market_r": 1.0,
-   "limit_status": "pending",
+   "limit_status": "expired",
    "limit_r": null
   },
   "btcusd:1789921800000:wick": {
@@ -10860,8 +10860,8 @@
    "nowick_aligned": false,
    "market_status": "resolved",
    "market_r": 1.0,
-   "limit_status": "pending",
-   "limit_r": null
+   "limit_status": "resolved",
+   "limit_r": 1.0
   },
   "nearusd:1789921800000:wick": {
    "id": "nearusd:1789921800000:wick",
@@ -10877,7 +10877,7 @@
    "nowick_aligned": false,
    "market_status": "resolved",
    "market_r": 1.0,
-   "limit_status": "pending",
+   "limit_status": "expired",
    "limit_r": null
   },
   "suiusd:1789921800000:wick": {
@@ -10909,10 +10909,10 @@
    "cap_ts": 1789937100.0,
    "state_at_capture": "triggered",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
-   "limit_r": null
+   "market_status": "resolved",
+   "market_r": 1.0,
+   "limit_status": "resolved",
+   "limit_r": 1.0
   },
   "solusd:1789947900000:wick": {
    "id": "solusd:1789947900000:wick",
@@ -10926,9 +10926,9 @@
    "cap_ts": 1789937100.0,
    "state_at_capture": "armed",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "asterusd:1789943400000:wick": {
@@ -10943,9 +10943,9 @@
    "cap_ts": 1789937100.0,
    "state_at_capture": "invalidated",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "suiusd:1789942500000:wick": {
@@ -10960,9 +10960,9 @@
    "cap_ts": 1789937100.0,
    "state_at_capture": "triggered",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "wtiusd:1789941600000:wick": {
@@ -10977,10 +10977,10 @@
    "cap_ts": 1789764300.0,
    "state_at_capture": "invalidated",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
-   "limit_r": null
+   "market_status": "resolved",
+   "market_r": 1.0,
+   "limit_status": "resolved",
+   "limit_r": -1.0
   },
   "nearusd:1789962300000:wick": {
    "id": "nearusd:1789962300000:wick",
@@ -10993,6 +10993,91 @@
    "market_entry": 4.1467,
    "cap_ts": 1789937100.0,
    "state_at_capture": "triggered",
+   "nowick_aligned": false,
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "nofill",
+   "limit_r": null
+  },
+  "btcusd:1789983000000:wick": {
+   "id": "btcusd:1789983000000:wick",
+   "pair": "btcusd",
+   "dir": "bull",
+   "method": "wick",
+   "cls": "crypto",
+   "limit_entry": 84315.0,
+   "stop": 81210.0,
+   "market_entry": 81400.82,
+   "cap_ts": 1789965900.0,
+   "state_at_capture": "invalidated",
+   "nowick_aligned": false,
+   "market_status": "pending",
+   "market_r": null,
+   "limit_status": "pending",
+   "limit_r": null
+  },
+  "asterusd:1789982100000:wick": {
+   "id": "asterusd:1789982100000:wick",
+   "pair": "asterusd",
+   "dir": "bull",
+   "method": "wick",
+   "cls": "crypto",
+   "limit_entry": 0.7556,
+   "stop": 0.7381,
+   "market_entry": 0.7376,
+   "cap_ts": 1789965900.0,
+   "state_at_capture": "triggered",
+   "nowick_aligned": false,
+   "market_status": "pending",
+   "market_r": null,
+   "limit_status": "pending",
+   "limit_r": null
+  },
+  "suiusd:1789982100000:wick": {
+   "id": "suiusd:1789982100000:wick",
+   "pair": "suiusd",
+   "dir": "bull",
+   "method": "wick",
+   "cls": "crypto",
+   "limit_entry": 0.9974,
+   "stop": 0.953,
+   "market_entry": 0.9383,
+   "cap_ts": 1789965900.0,
+   "state_at_capture": "invalidated",
+   "nowick_aligned": false,
+   "market_status": "pending",
+   "market_r": null,
+   "limit_status": "pending",
+   "limit_r": null
+  },
+  "usdzar:1789982100000:wick": {
+   "id": "usdzar:1789982100000:wick",
+   "pair": "usdzar",
+   "dir": "bull",
+   "method": "wick",
+   "cls": "minor",
+   "limit_entry": 16.26296,
+   "stop": 16.20222,
+   "market_entry": 16.22967,
+   "cap_ts": 1789965000.0,
+   "state_at_capture": "armed",
+   "nowick_aligned": false,
+   "market_status": "pending",
+   "market_r": null,
+   "limit_status": "pending",
+   "limit_r": null
+  },
+  "solusd:1789979400000:wick": {
+   "id": "solusd:1789979400000:wick",
+   "pair": "solusd",
+   "dir": "bull",
+   "method": "wick",
+   "cls": "crypto",
+   "limit_entry": 113.41,
+   "stop": 110.9,
+   "market_entry": 111.46,
+   "cap_ts": 1789965900.0,
+   "state_at_capture": "armed",
    "nowick_aligned": false,
    "market_status": "pending",
    "market_r": null,
