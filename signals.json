@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-21T03:01:42.958845+00:00",
-  "generated_ms": 1789959700280,
-  "detector_last_check": "2026-09-21T03:01:39.346236+00:00",
+  "generated": "2026-09-21T03:06:01.453482+00:00",
+  "generated_ms": 1789959959454,
+  "detector_last_check": "2026-09-21T03:05:58.279480+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 1,
-    "armed": 0,
+    "total": 3,
+    "armed": 2,
     "triggered": 1,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "nearusd:1789959600000:wick",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 4.2371,
+      "stop": 4.1063,
+      "target": 4.3679,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1789959600000,
+      "triggeredAt": null,
+      "lastSeenAt": 1789959959454,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "nas100:1789764300000:crt_ix",
       "pair": "nas100",
@@ -34,10 +57,32 @@
       "cl": null,
       "armedAt": 1789764300000,
       "triggeredAt": 1789764300000,
-      "lastSeenAt": 1789959700280,
+      "lastSeenAt": 1789959959454,
       "source": "server-detector-crt",
       "event_aligned": null,
       "held": true
+    },
+    {
+      "id": "nearusd:1780433100000:fib",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 4.2919166,
+      "stop": 4.1063,
+      "target": 4.477533200000001,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780433100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1789959959454,
+      "source": "server-detector",
+      "event_aligned": null
     }
   ]
 }
