@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob, detect_cam_rev, detect_mmove, detect_holygrail, detect_holygrail_m15
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob, detect_cam_rev, detect_mmove, detect_holygrail, detect_holygrail_m15, CAM_CRYPTO_PILOT
 from trend_regime import build_regime, passes_gate
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
@@ -429,11 +429,13 @@ def main():
                 # / entry-drift guards that (correctly) refuse a late market chase — the reason
                 # market-mode cam_rev never filled. All other strategies stay market.
                 'entry_mode': 'limit' if s['strategy'] == 'cam_rev' else 'market',
-                # cBot skips demo_only on a live account. cam_rev is fully LIVE across all its
-                # classes — the crypto-pilot pairs (btc/eth/xrp/sol) were promoted from demo-only
-                # to live execution 2026-09-19 at the user's direction (see SIGNAL_PIPELINE.md);
-                # the observer still tracks them in parallel as the clean benchmark.
-                'demo_only': (s['strategy'] in DEMO_ONLY),
+                # cBot skips demo_only on a live account. cam_rev is LIVE for its robust classes
+                # (major/minor/index/comm) but the crypto pilot (btc/eth/xrp/sol) is DEMO-ONLY:
+                # the 3yr limit-execution backtest (cam_limit_backtest.py) showed crypto cam_rev is
+                # break-even at best and NEGATIVE under any placement latency (-0.12R@30m .. -0.23R@2h,
+                # both OOS halves red), so it stays off live capital and is observed on demo only.
+                'demo_only': (s['strategy'] in DEMO_ONLY)
+                             or (s['strategy'] == 'cam_rev' and pk in CAM_CRYPTO_PILOT),
                 'trigger_ts': int(s['entry_ts']),
                 'created_ts': int(data_end),
                 'expiry_ts': int(s['entry_ts'] + EXPIRY_HOURS * 3600),

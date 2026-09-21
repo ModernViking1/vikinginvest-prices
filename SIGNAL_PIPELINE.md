@@ -113,11 +113,13 @@ into the freshness margin. If borderline fills are being missed, the levers are:
 
 - Camarilla pivot **reversal**; daily R3/S3 levels from the prior day; **m15** rejection
   trigger; RR 1:1; session-filtered (`CAM_SESS_OPEN`/`CLOSE` in `unified_shadow_harness`).
-- **Fully LIVE across all its classes** — major/minor/index/comm **and** the crypto
-  pilot (btc/eth/xrp/sol via `CAM_CRYPTO_PILOT`). None are `demo_only`. Crypto was
-  promoted from demo-only to live execution on **2026-09-19** at the user's direction
-  (3-yr crypto expectancy was marginal/negative, so watch the live-vs-observer gap on
-  those pairs); the observer tracks them in parallel as the clean benchmark.
+- **LIVE for major/minor/index/comm; crypto is DEMO-ONLY.** The 3-yr limit-execution
+  backtest (`cam_limit_backtest.py`, 28k signals) settled it: at prompt placement the limit
+  reproduces the observer baseline (FX/index/comm +0.46..+0.55R, robust in both OOS halves),
+  but crypto (btc/eth/xrp/sol via `CAM_CRYPTO_PILOT`) is break-even at lag 0 and **negative
+  under any placement latency** (−0.12R@30m .. −0.23R@2h, both OOS halves red). So crypto is
+  emitted `demo_only=True` — observed on demo, never live. (It briefly went live 2026-09-19
+  before this backtest existed; reverted 2026-09-21 on the evidence.)
 - Historical 0 fills had two stacked causes: it emitted **0 signals** until the daily + m15
   freshness fixes, and once emitting, its **market** orders were rejected every time (born
   8–14h old → age cap; late chase off the level → entry-drift cap). Fixed by emitting cam_rev
