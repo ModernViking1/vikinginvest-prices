@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-09-21T22:00:00+00:00",
  "data_end_ts": 1790028000,
- "raw_signal_count": 59,
- "count": 33,
+ "raw_signal_count": 60,
+ "count": 34,
  "signals": [
   {
    "id": "cam_rev:eursgd:1790028000",
@@ -30,6 +30,31 @@
     "cam_rev:bull"
    ],
    "suppressed": 1
+  },
+  {
+   "id": "twob:btcusd:1790028000",
+   "strategy": "twob",
+   "pair": "btcusd",
+   "symbol": "BTCUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 87074.85785714,
+   "ref_entry": 86557.3,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790028000,
+   "created_ts": 1790028000,
+   "expiry_ts": 1790071200,
+   "state": "triggered",
+   "cofire": [
+    "twob"
+   ],
+   "cofire_dirs": [
+    "twob:bear"
+   ],
+   "suppressed": 0
   },
   {
    "id": "twob:solusd:1790028000",
@@ -187,33 +212,6 @@
    "suppressed": 1
   },
   {
-   "id": "s5_rsi:eurgbp:1790006400",
-   "strategy": "s5_rsi",
-   "pair": "eurgbp",
-   "symbol": "EURGBP",
-   "class": "minor",
-   "dir": "bear",
-   "stop": 0.85812,
-   "ref_entry": 0.8577,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790006400,
-   "created_ts": 1790028000,
-   "expiry_ts": 1790049600,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "s5_rsi"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull",
-    "s5_rsi:bear"
-   ],
-   "suppressed": 1
-  },
-  {
    "id": "cam_rev:spx500:1790003700",
    "strategy": "cam_rev",
    "pair": "spx500",
@@ -367,6 +365,33 @@
    "suppressed": 0
   },
   {
+   "id": "s5_rsi:eurgbp:1789995600",
+   "strategy": "s5_rsi",
+   "pair": "eurgbp",
+   "symbol": "EURGBP",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 0.85812,
+   "ref_entry": 0.85772,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789995600,
+   "created_ts": 1790028000,
+   "expiry_ts": 1790038800,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "s5_rsi"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull",
+    "s5_rsi:bear"
+   ],
+   "suppressed": 1
+  },
+  {
    "id": "cam_rev:xauusd:1789993800",
    "strategy": "cam_rev",
    "pair": "xauusd",
@@ -442,34 +467,6 @@
     "cam_rev:bull"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "s5_rsi:usdzar:1789992000",
-   "strategy": "s5_rsi",
-   "pair": "usdzar",
-   "symbol": "USDZAR",
-   "class": "minor",
-   "dir": "bull",
-   "stop": 16.20222,
-   "ref_entry": 16.25562,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789992000,
-   "created_ts": 1790028000,
-   "expiry_ts": 1790035200,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "s5_rsi"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "cam_rev:bull",
-    "s5_rsi:bull"
-   ],
-   "suppressed": 2
   },
   {
    "id": "cam_rev:usdchf:1789990200",
@@ -678,6 +675,34 @@
     "cam_rev:bull"
    ],
    "suppressed": 1
+  },
+  {
+   "id": "s5_rsi:usdzar:1789981200",
+   "strategy": "s5_rsi",
+   "pair": "usdzar",
+   "symbol": "USDZAR",
+   "class": "minor",
+   "dir": "bull",
+   "stop": 16.20222,
+   "ref_entry": 16.26287,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789981200,
+   "created_ts": 1790028000,
+   "expiry_ts": 1790024400,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "s5_rsi"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "s5_rsi:bull"
+   ],
+   "suppressed": 2
   },
   {
    "id": "cam_rev:fra40:1789979400",
