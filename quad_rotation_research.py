@@ -256,7 +256,7 @@ def _agg(rows):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--hist', default='historical-ohlc.json')
-    ap.add_argument('--tf', default='m15', choices=['m5', 'm15', 'h1', 'daily'])
+    ap.add_argument('--tf', default='m15', choices=['m1', 'm5', 'm15', 'h1', 'daily'])
     ap.add_argument('--setup', default='quaddiv', choices=['quaddiv', 'bullflag'])
     args = ap.parse_args()
     detect = detect_bull_flag if args.setup == 'bullflag' else detect_quad_div

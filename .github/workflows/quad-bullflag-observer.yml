@@ -1,0 +1,63 @@
+name: Quad Bull-Flag Observer (5-min gold/comm)
+
+# Observe-only forward test for the HPS 20/20 Bull-Flag on 5-min gold + commodities — the only
+# quad-rotation pocket that was positive in both OOS halves. Fetches recent 5-min bars, logs newly
+# resolved signals to quad-bullflag-shadow.json (deduped), and commits the log. No capital, no orders.
+
+on:
+  schedule:
+    - cron: '17 3 * * *'      # daily, off the herd
+  workflow_dispatch:
+
+concurrency:
+  group: quad-bullflag-observer
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: python -m pip install --upgrade pip requests
+
+      - name: Guard — required files present
+        run: |
+          for f in quad_bullflag_observer.py quad_rotation_research.py unified_shadow_harness.py \
+                   detect_triggers.py fetch_historical_ohlc.py; do
+            [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }
+          done
+
+      - name: Observe (fetch 5-min gold/comm, log resolved bull-flag signals)
+        env:
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+        run: python quad_bullflag_observer.py
+
+      - name: Commit + push the shadow log (retry on race)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- quad-bullflag-shadow.json; then
+            echo "no change to shadow log"; exit 0
+          fi
+          git add quad-bullflag-shadow.json
+          git commit -m "chore: update quad bull-flag shadow observer [skip ci]"
+          for i in 1 2 3 4 5; do
+            if git push origin HEAD:main 2>&1; then echo pushed; break; fi
+            git fetch origin main && git rebase origin/main || git rebase --abort
+            sleep $((2 ** i))
+          done

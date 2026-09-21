@@ -1,0 +1,73 @@
+name: HPS Quad-Rotation 1-min Test
+
+# On-demand: pull a bounded window of 1-MINUTE bars (the strategy's native timeframe) for a
+# representative cross-asset set and backtest both HPS setups on it — the definitive native-TF read.
+# OANDA (M1) for FX/index/metal/comm + Coinbase (60s) for crypto to a throwaway file; the 5 US
+# equities via Twelve Data (1min, ~13d cap) separately. Prints to the log; commits nothing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: '1-min window in days (OANDA/Coinbase)'
+        default: '60'
+
+concurrency:
+  group: quad-1min-test
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: python -m pip install --upgrade pip requests
+
+      - name: Guard — required files present
+        run: |
+          for f in fetch_1min_research.py fetch_equity_ohlc.py quad_rotation_research.py \
+                   unified_shadow_harness.py detect_triggers.py fetch_historical_ohlc.py; do
+            [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }
+          done
+
+      - name: Fetch 1-min FX/index/comm/crypto (throwaway)
+        env:
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+        run: |
+          DAYS="${{ github.event.inputs.days || '60' }}"
+          python fetch_1min_research.py --days "$DAYS" \
+            --pairs eurusd,gbpusd,usdjpy,audusd,nas100,spx500,xauusd,xagusd,wtiusd,btcusd,ethusd,solusd \
+            --output ohlc-1m.json
+          ls -lh ohlc-1m.json
+
+      - name: Fetch 1-min equities (throwaway, ~13d cap)
+        env:
+          TWELVEDATA_API_KEY: ${{ secrets.TD_API_KEY }}
+        run: |
+          python fetch_equity_ohlc.py --output equity-1m.json --intervals m1 --no-earnings || echo "equity 1m fetch failed (continuing)"
+
+      - name: Backtest both setups on 1-min (result in this log)
+        run: |
+          echo "================ FX/INDEX/COMM/CRYPTO · 1-min ================"
+          echo "--- QUAD DIVERGENCE ---"; python quad_rotation_research.py --hist ohlc-1m.json --tf m1 --setup quaddiv
+          echo "--- 20/20 BULL FLAG ---"; python quad_rotation_research.py --hist ohlc-1m.json --tf m1 --setup bullflag
+          echo "================ EQUITIES · 1-min (~13d) ================"
+          if [ -f equity-1m.json ]; then
+            echo "--- QUAD DIVERGENCE ---"; python quad_rotation_research.py --hist equity-1m.json --tf m1 --setup quaddiv
+            echo "--- 20/20 BULL FLAG ---"; python quad_rotation_research.py --hist equity-1m.json --tf m1 --setup bullflag
+          fi
+          rm -f ohlc-1m.json equity-1m.json

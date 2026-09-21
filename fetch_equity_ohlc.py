@@ -46,8 +46,8 @@ BASE = "https://api.twelvedata.com"
 # Twelve Data interval codes → our timeframe keys. Daily + 1h only for the
 # swing pilot (swing edges live on h1/daily; intraday m15 comes later once
 # session logic is built).
-INTERVALS = {"daily": "1day", "h1": "1h", "m15": "15min", "m5": "5min"}
-OUTPUTSIZE = {"daily": 400, "h1": 5000, "m15": 5000, "m5": 5000}   # daily ~365d; h1 ~200d; m15 ~50d; m5 ~64d RTH
+INTERVALS = {"daily": "1day", "h1": "1h", "m15": "15min", "m5": "5min", "m1": "1min"}
+OUTPUTSIZE = {"daily": 400, "h1": 5000, "m15": 5000, "m5": 5000, "m1": 5000}   # daily ~365d; h1 ~200d; m15 ~50d; m5 ~64d; m1 ~13d RTH
 
 
 def _require_key() -> str:
