@@ -46,8 +46,8 @@ BASE = "https://api.twelvedata.com"
 # Twelve Data interval codes → our timeframe keys. Daily + 1h only for the
 # swing pilot (swing edges live on h1/daily; intraday m15 comes later once
 # session logic is built).
-INTERVALS = {"daily": "1day", "h1": "1h", "m15": "15min"}
-OUTPUTSIZE = {"daily": 400, "h1": 5000, "m15": 5000}   # ~365d daily; ~200d h1; ~50d m15 RTH
+INTERVALS = {"daily": "1day", "h1": "1h", "m15": "15min", "m5": "5min"}
+OUTPUTSIZE = {"daily": 400, "h1": 5000, "m15": 5000, "m5": 5000}   # daily ~365d; h1 ~200d; m15 ~50d; m5 ~64d RTH
 
 
 def _require_key() -> str:
@@ -144,7 +144,15 @@ def main():
     ap.add_argument("--output", default="equity-ohlc.json")
     ap.add_argument("--earnings-output", default="equity-earnings.json")
     ap.add_argument("--no-earnings", action="store_true", help="skip the earnings-date pull")
+    ap.add_argument("--intervals", default="daily,h1,m15",
+                    help="comma-separated timeframes to fetch (daily,h1,m15,m5). "
+                         "e.g. --intervals m5 for a throwaway 5-min research pull")
     args = ap.parse_args()
+
+    tfs = [t.strip() for t in args.intervals.split(",") if t.strip()]
+    bad = [t for t in tfs if t not in INTERVALS]
+    if bad:
+        sys.exit(f"ERROR: unknown interval(s) {bad}; valid: {list(INTERVALS)}")
 
     key = _require_key()
     pairs: Dict[str, Dict[str, List[Dict]]] = {}
@@ -152,7 +160,7 @@ def main():
 
     for pk, sym in US_TOP5.items():
         pairs[pk] = {}
-        for tf in ("daily", "h1", "m15"):   # m15 added for the intraday ORB test
+        for tf in tfs:
             print(f"  {sym:<5} {tf} …", flush=True)
             pairs[pk][tf] = fetch_series(sym, tf, key)
             time.sleep(9.0)   # free-tier rate limit: 8 req/min → keep ~7/min for margin
@@ -161,7 +169,7 @@ def main():
             time.sleep(8.0)
 
     with open(args.output, "w") as f:
-        json.dump({"granularities": ["m15", "h1", "daily"], "pairs": pairs}, f)
+        json.dump({"granularities": tfs, "pairs": pairs}, f)
     print(f"wrote {args.output} ({len(pairs)} symbols)")
 
     if not args.no_earnings and any(earnings.values()):
