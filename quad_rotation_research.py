@@ -178,6 +178,44 @@ def score(bars, sig):
     return ('expired', None)
 
 
+def detect_bull_flag(bars):
+    """HPS '20/20 Bull Flag' — trend-continuation. LONG: strong uptrend (close>50EMA, 20EMA>50EMA)
+    with the 60-10 slow stoch HOLDING >=85 (the key trend gauge), a fresh pullback (9-3 came from
+    strength then drops toward the 20 line) into the 20EMA. Enter buying weakness at the 20EMA touch;
+    stop under the pullback low. SHORT is the mirror. Cooldown so one flag doesn't fire every bar."""
+    if len(bars) < 220:
+        return []
+    s1 = _rolling_stoch_d(bars, 9, 1, 3)
+    s4 = _rolling_stoch_d(bars, 60, 10, 1)
+    closes = [b['c'] for b in bars]
+    ema20 = _ema(closes, 20); ema50 = _ema(closes, 50)
+    out = []; last_l = last_s = -999
+    for i in range(60, len(bars) - 1):
+        # LONG bull flag
+        if closes[i] > ema50[i] and ema20[i] > ema50[i] and s4[i] >= 85 and i - last_l > 12:
+            from_strength = max(s1[i - 12:i]) >= 60          # 9-3 was recently high (the pole)
+            near_20ema = bars[i]['l'] <= ema20[i] * 1.001     # pullback into the 20EMA
+            dip93 = s1[i] <= 30                               # 9-3 dropped toward the 20 line
+            if from_strength and near_20ema and dip93:
+                entry = closes[i]; stop = min(b['l'] for b in bars[i - 10:i + 1]) * (1 - STOP_BUF)
+                if entry > stop:
+                    out.append({'dir': 'bull', 'entry_ts': bars[i]['_ts'], 'entry': entry, 'stop': stop,
+                                'entry_i': i, 's1': s1, 's4': s4, 'trend': 'up'})
+                    last_l = i
+        # SHORT bear flag (mirror)
+        if closes[i] < ema50[i] and ema20[i] < ema50[i] and s4[i] <= 15 and i - last_s > 12:
+            from_weak = min(s1[i - 12:i]) <= 40
+            near_20ema = bars[i]['h'] >= ema20[i] * 0.999
+            pop93 = s1[i] >= 70
+            if from_weak and near_20ema and pop93:
+                entry = closes[i]; stop = max(b['h'] for b in bars[i - 10:i + 1]) * (1 + STOP_BUF)
+                if entry < stop:
+                    out.append({'dir': 'bear', 'entry_ts': bars[i]['_ts'], 'entry': entry, 'stop': stop,
+                                'entry_i': i, 's1': s1, 's4': s4, 'trend': 'down'})
+                    last_s = i
+    return out
+
+
 def score_trend(bars, sig):
     """Faithful trend-aware exit. WITH-trend (super-signal aligned with the 200EMA trend): 'let it
     play out' — ride until the 60-10 (slow stoch) rotates back through 50 (trend rolls over).
@@ -218,8 +256,11 @@ def _agg(rows):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--hist', default='historical-ohlc.json')
-    ap.add_argument('--tf', default='m15', choices=['m15', 'h1', 'daily'])
+    ap.add_argument('--tf', default='m15', choices=['m5', 'm15', 'h1', 'daily'])
+    ap.add_argument('--setup', default='quaddiv', choices=['quaddiv', 'bullflag'])
     args = ap.parse_args()
+    detect = detect_bull_flag if args.setup == 'bullflag' else detect_quad_div
+    label = '20/20 Bull Flag' if args.setup == 'bullflag' else 'Quad-Divergence (Holy Grail)'
     pairs = json.load(open(args.hist)).get('pairs', {})
     A = defaultdict(list)          # Exit A: first-target (9-3 to opposite band)
     B = defaultdict(list)          # Exit B: trend-aware (let with-trend run on the 60-10)
@@ -233,7 +274,7 @@ def main():
         bars = H._bars_norm(layers.get(args.tf) or [])
         if len(bars) < 300: continue
         got = False
-        for s in detect_quad_div(bars):
+        for s in detect(bars):
             n_sig += 1
             stA, oA = score(bars, s)
             if stA == 'resolved' and oA is not None:
@@ -254,7 +295,7 @@ def main():
                 print(f"  {cls:7} n={v['n']:<5} WR={v['wr']:>3.0f}%  exp={v['exp']:+.3f}R  "
                       f"totR={v['totR']:+.0f}  OOS1={v['oos1']:+.3f} OOS2={v['oos2']:+.3f}")
 
-    print(f"=== HPS Quad-Divergence (Holy Grail) backtest · tf={args.tf} · {len(used)} pairs · {n_sig} raw signals ===")
+    print(f"=== HPS {label} backtest · tf={args.tf} · {len(used)} pairs · {n_sig} raw signals ===")
     print("Stop = pattern low (-1R). Bracket-honest (unresolved excluded).")
     show(A, "Exit A — first-target: exit on first 9-3 rotation to the opposite band (counter-trend style)")
     show(B, "Exit B — trend-aware: with-trend rides the 60-10 rollover, counter-trend takes first target")
