@@ -1,0 +1,57 @@
+name: cam_rev Live-Fill Tracker
+
+# Summarises real cam_rev fills from swing-executions.json vs the 3-yr backtest benchmark (the
+# live-vs-observer gap) and quantifies stop-slippage. Read-only (no external fetch), so it's fast.
+# Writes cam-rev-live-tracker.json and commits it.
+
+on:
+  schedule:
+    - cron: '37 */3 * * *'      # every 3 hours, offset off the herd
+  workflow_dispatch:
+
+concurrency:
+  group: cam-rev-live-tracker
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Guard — required files present
+        run: |
+          for f in cam_rev_live_tracker.py swing-executions.json detect_triggers.py; do
+            [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }
+          done
+
+      - name: Compute cam_rev live tracker
+        run: python cam_rev_live_tracker.py
+
+      - name: Commit + push the tracker (retry on race)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add cam-rev-live-tracker.json
+          if git diff --cached --quiet; then
+            echo "no change to tracker"; exit 0
+          fi
+          git commit -m "chore: update cam_rev live-fill tracker [skip ci]"
+          for i in 1 2 3 4 5; do
+            if git push origin HEAD:main 2>&1; then echo pushed; break; fi
+            git fetch origin main && git rebase origin/main || git rebase --abort
+            sleep $((2 ** i))
+          done
