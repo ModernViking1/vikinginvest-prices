@@ -56,6 +56,15 @@ namespace cAlgo.Robots
         [Parameter("Min stop (pips)", DefaultValue = 5.0, MinValue = 0.0, Group = "Risk")]
         public double MinStopPips { get; set; }
 
+        // 2026-09-21 — HARD position-size cap. cam_rev's tight Camarilla stops make %-risk sizing
+        // demand very large positions that hit the broker max (e.g. 50 lots on EURNZD). A single
+        // max-size resting LIMIT then consumes the account's margin, so the next fade limits
+        // (DJ30, NZDUSD, XAGUSD…) are rejected for insufficient funds — leaving only one pending
+        // order. Cap every order to this many lots (0 = off) so many fade limits can rest at once.
+        // Set it small relative to the account; also lower "Risk % per trade" for the same effect.
+        [Parameter("Max position size (lots), 0=off", DefaultValue = 0.0, MinValue = 0.0, Group = "Risk")]
+        public double MaxLots { get; set; }
+
         // 2026-09-10 — MAX SIGNAL AGE (direct staleness cap). The drift / stop-invalidation guards
         // only catch the CONSEQUENCES of a late fill; a signal can still be hours stale yet sit near
         // ref_entry with its stop intact and slip through (observed: a 5h-late fma_gold fill). Swing
@@ -867,8 +876,14 @@ namespace cAlgo.Robots
             if (symbol.PipValue <= 0 || effStopPips <= 0) return 0;
             var volume = riskAmt / (effStopPips * symbol.PipValue);
             volume = symbol.NormalizeVolumeInUnits(volume, RoundingMode.Down);
-            if (volume < symbol.VolumeInUnitsMin) return 0;
             if (volume > symbol.VolumeInUnitsMax) volume = symbol.VolumeInUnitsMax;
+            // Hard lot cap so one tight-stop fade can't max out and starve later limits (see MaxLots).
+            if (MaxLots > 0)
+            {
+                var maxUnits = symbol.QuantityToVolumeInUnits(MaxLots);
+                if (volume > maxUnits) volume = symbol.NormalizeVolumeInUnits(maxUnits, RoundingMode.Down);
+            }
+            if (volume < symbol.VolumeInUnitsMin) return 0;
             return (long)volume;
         }
 
