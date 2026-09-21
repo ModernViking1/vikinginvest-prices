@@ -1,0 +1,65 @@
+name: cam_rev Investor Monthly Series (3yr)
+
+# On-demand: fetch deep m15 and emit the 3-yr MONTHLY net-R series for LIVE cam_rev restricted to
+# FX / index / commodity (crypto excluded), using the same gated + target-bracket methodology as
+# the dashboard headline. Prints an auditable JSON block to the job log (read it there). Heavy
+# fetch → manual dispatch only. Commits nothing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Daily/H1 context window in days'
+        default: '1095'
+      m15_days:
+        description: 'm15 depth in days (the 3-year surface)'
+        default: '1095'
+
+concurrency:
+  group: cam-monthly-investor
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  monthly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: python -m pip install --upgrade pip requests
+
+      - name: Guard — required files present
+        run: |
+          for f in cam_monthly_investor.py unified_shadow_harness.py detect_triggers.py \
+                   trend_regime.py fetch_historical_ohlc.py; do
+            [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }
+          done
+
+      - name: Fetch deep-m15 OHLC (throwaway — not committed)
+        env:
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+        run: |
+          DAYS="${{ github.event.inputs.days || '1095' }}"
+          M15="${{ github.event.inputs.m15_days || '1095' }}"
+          echo "Fetching ${DAYS}d (m15 ${M15}d) to deep-ohlc.json ..."
+          python fetch_historical_ohlc.py --days "$DAYS" --m15-days "$M15" --output deep-ohlc.json
+          ls -lh deep-ohlc.json
+
+      - name: Build cam_rev FX/index/comm monthly series (JSON in this log)
+        run: |
+          echo "================ RESULT ================"
+          python cam_monthly_investor.py --hist deep-ohlc.json
+          echo "========================================"
+          rm -f deep-ohlc.json
