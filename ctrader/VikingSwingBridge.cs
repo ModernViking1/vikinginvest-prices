@@ -681,8 +681,15 @@ namespace cAlgo.Robots
             TradeResult result;
             try
             {
+                // CS0618: this pips-based PlaceLimitOrder overload is marked obsolete in newer cAlgo
+                // (the replacement renames stopLossPips/takeProfitPips). It still works correctly and
+                // places SL/TP in PIPS, which is what slPips/tpPips are — so we keep it and suppress
+                // the deprecation warning rather than switch blind to params whose pips-vs-price
+                // semantics we can't verify on live trade code. Migrate once the new API is confirmed.
+#pragma warning disable CS0618
                 result = PlaceLimitOrder(direction, symbol.Name, volume, targetPrice, OrderLabel,
                                          slPips, tpPips, expiry, comment);
+#pragma warning restore CS0618
             }
             catch (Exception ex) { Print($"[VikingSwing] limit place threw {s.Id}: {ex.Message}"); MarkSeen(s.Id); return; }
             if (result != null && result.IsSuccessful)
