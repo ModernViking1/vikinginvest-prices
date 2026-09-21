@@ -138,6 +138,12 @@ namespace cAlgo.Robots
         // consumes an id from here to write the 'placed' exec + bookkeeping when the limit fills; a
         // market fill's id is never in this set, so the inline market path is never double-written.
         private readonly HashSet<string> _pendingLimitIds = new HashSet<string>();
+        // Positions.Closed can fire more than once for the same position — dedup so a close is
+        // logged (and its R added to the daily-loss tally) exactly once.
+        private readonly HashSet<long> _closedIds = new HashSet<long>();
+        // Serialise appends to the local exec log; an external reader (ingest/publish) can hold a
+        // transient lock, so writes are also retried under this lock.
+        private readonly object _execFileLock = new object();
         private readonly Dictionary<long, string> _positionIdToSignalId = new Dictionary<long, string>();
         // Trailing-stop state (per open position): original risk unit R, the pair (for scope),
         // and the best favourable price seen so far.
@@ -892,6 +898,7 @@ namespace cAlgo.Robots
         {
             var p = args.Position;
             if (p == null || p.Label != OrderLabel) return;   // not one of ours
+            if (!_closedIds.Add(p.Id)) return;   // dedup: Positions.Closed can fire twice for one close
             // Prefer the in-memory map; fall back to the position Comment so a position opened
             // before a bot restart still logs its real signal_id (not null) on close.
             string sigId = SignalIdOf(p);
@@ -1004,7 +1011,14 @@ namespace cAlgo.Robots
                 F(sb, "account", (long)Account.Number);
                 sb.Append('}');
                 var line = sb.ToString();
-                IOFile.AppendAllText(_executionsPath, line + Environment.NewLine);
+                lock (_execFileLock)
+                {
+                    for (int attempt = 0; ; attempt++)
+                    {
+                        try { IOFile.AppendAllText(_executionsPath, line + Environment.NewLine); break; }
+                        catch (System.IO.IOException) when (attempt < 4) { System.Threading.Thread.Sleep(50); }
+                    }
+                }
                 if (AutoPublishToRepo && !string.IsNullOrEmpty(GhPersonalAccessToken))
                     _ = DispatchAsync(line);
             }
