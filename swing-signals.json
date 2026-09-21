@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-09-21T14:00:00+00:00",
  "data_end_ts": 1789999200,
- "raw_signal_count": 39,
+ "raw_signal_count": 38,
  "count": 23,
  "signals": [
   {
@@ -86,33 +86,6 @@
    "suppressed": 1
   },
   {
-   "id": "twob:xrpusd:1789992000",
-   "strategy": "twob",
-   "pair": "xrpusd",
-   "symbol": "XRPUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 1.49947857,
-   "ref_entry": 1.4855,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1789992000,
-   "created_ts": 1789999200,
-   "expiry_ts": 1790035200,
-   "state": "triggered",
-   "cofire": [
-    "mmove",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "mmove:bull",
-    "twob:bear"
-   ],
-   "suppressed": 2
-  },
-  {
    "id": "twob_ix:fra40:1789992000",
    "strategy": "twob_ix",
    "pair": "fra40",
@@ -146,6 +119,31 @@
    "dir": "bull",
    "stop": 0.96705286,
    "ref_entry": 1.0026,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789988400,
+   "created_ts": 1789999200,
+   "expiry_ts": 1790031600,
+   "state": "triggered",
+   "cofire": [
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "mmove:bull"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "mmove:xrpusd:1789988400",
+   "strategy": "mmove",
+   "pair": "xrpusd",
+   "symbol": "XRPUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 1.44307714,
+   "ref_entry": 1.4901,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
