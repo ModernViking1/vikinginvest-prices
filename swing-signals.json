@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-09-21T16:00:00+00:00",
  "data_end_ts": 1790006400,
- "raw_signal_count": 39,
+ "raw_signal_count": 37,
  "count": 22,
  "signals": [
   {
@@ -85,33 +85,6 @@
    "suppressed": 0
   },
   {
-   "id": "twob:ethusd:1790002800",
-   "strategy": "twob",
-   "pair": "ethusd",
-   "symbol": "ETHUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 2758.5255,
-   "ref_entry": 2736.11,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790002800,
-   "created_ts": 1790006400,
-   "expiry_ts": 1790046000,
-   "state": "triggered",
-   "cofire": [
-    "mmove",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "mmove:bull",
-    "twob:bear"
-   ],
-   "suppressed": 1
-  },
-  {
    "id": "holygrail_cm_m15:natgas:1790001000",
    "strategy": "holygrail_cm_m15",
    "pair": "natgas",
@@ -182,15 +155,13 @@
    "state": "triggered",
    "cofire": [
     "cam_rev",
-    "holygrail_cm_m15",
     "twob_cm"
    ],
    "cofire_dirs": [
     "cam_rev:bear",
-    "holygrail_cm_m15:bear",
     "twob_cm:bear"
    ],
-   "suppressed": 3
+   "suppressed": 2
   },
   {
    "id": "mmove:suiusd:1789988400",
@@ -450,6 +421,31 @@
     "holygrail_cm_m15:bear"
    ],
    "suppressed": 2
+  },
+  {
+   "id": "mmove:ethusd:1789941600",
+   "strategy": "mmove",
+   "pair": "ethusd",
+   "symbol": "ETHUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 2613.51221429,
+   "ref_entry": 2630.59,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789941600,
+   "created_ts": 1790006400,
+   "expiry_ts": 1789984800,
+   "state": "triggered",
+   "cofire": [
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "mmove:bull"
+   ],
+   "suppressed": 0
   },
   {
    "id": "cam_rev:audusd:1789939800",
