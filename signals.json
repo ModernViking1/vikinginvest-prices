@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-22T06:06:06.109549+00:00",
-  "generated_ms": 1790057163602,
-  "detector_last_check": "2026-09-22T06:06:02.618464+00:00",
+  "generated": "2026-09-22T06:11:22.655817+00:00",
+  "generated_ms": 1790057479913,
+  "detector_last_check": "2026-09-22T06:11:18.558426+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 3,
-    "armed": 3,
+    "total": 5,
+    "armed": 5,
     "triggered": 0,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "nearusd:1790056800000:wick",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 4.3992,
+      "stop": 4.2513,
+      "target": 4.547100000000001,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790056800000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790057479913,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "taousd:1790055900000:wick",
       "pair": "taousd",
@@ -34,7 +57,7 @@
       "cl": "bull",
       "armedAt": 1790055900000,
       "triggeredAt": null,
-      "lastSeenAt": 1790057163602,
+      "lastSeenAt": 1790057479913,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -57,10 +80,32 @@
       "cl": "bear",
       "armedAt": 1790055000000,
       "triggeredAt": null,
-      "lastSeenAt": 1790057163602,
+      "lastSeenAt": 1790057479913,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
+    },
+    {
+      "id": "nearusd:1780433100000:fib",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 4.442769,
+      "stop": 4.2513,
+      "target": 4.634238000000001,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780433100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790057479913,
+      "source": "server-detector",
+      "event_aligned": null
     },
     {
       "id": "taousd:1780254900000:fib",
@@ -80,7 +125,7 @@
       "cl": "bull",
       "armedAt": 1780254900000,
       "triggeredAt": null,
-      "lastSeenAt": 1790057163602,
+      "lastSeenAt": 1790057479913,
       "source": "server-detector",
       "event_aligned": null
     }
