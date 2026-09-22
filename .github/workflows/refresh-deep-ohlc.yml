@@ -1,0 +1,70 @@
+name: Refresh deep-m15 OHLC cache
+
+# Fetches the full 3-yr deep m15/h1/daily OHLC ONCE and stores it GZIPPED as a single Release
+# asset on the rolling `deep-ohlc-cache` tag, so the heavy OANDA fetch runs on a schedule (or on
+# demand) instead of inside every backtest. On-demand research/backtests download + gunzip this
+# ~60 MB asset in seconds.
+#
+# IMPORTANT: this asset is NOT read by the dashboard or the live signal algorithms. It lives
+# outside the git tree (Release asset, not committed), so the repo, jsdelivr feeds and clones stay
+# lean. It is overwritten each refresh (no accumulation).
+
+on:
+  schedule:
+    - cron: '23 4 1 * *'      # 04:23 UTC on the 1st of each month — keep the cache fresh
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Daily/H1 context window in days'
+        default: '1095'
+      m15_days:
+        description: 'm15 depth in days'
+        default: '1095'
+
+concurrency:
+  group: refresh-deep-ohlc
+  cancel-in-progress: false
+
+permissions:
+  contents: write            # needed to create/upload the cache release asset
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CACHE_TAG: deep-ohlc-cache
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: python -m pip install --upgrade pip requests
+
+      - name: Fetch deep m15 → gzip
+        env:
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+        run: |
+          DAYS="${{ github.event.inputs.days || '1095' }}"
+          M15="${{ github.event.inputs.m15_days || '1095' }}"
+          echo "Fetching ${DAYS}d (m15 ${M15}d) ..."
+          python fetch_historical_ohlc.py --days "$DAYS" --m15-days "$M15" --output deep-ohlc.json
+          ls -lh deep-ohlc.json
+          gzip -9 -c deep-ohlc.json > deep-ohlc.json.gz
+          ls -lh deep-ohlc.json.gz
+
+      - name: Upload to the rolling cache release
+        run: |
+          gh release view "$CACHE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create "$CACHE_TAG" --repo "$GITHUB_REPOSITORY" \
+              --title "deep-ohlc cache (auto)" \
+              --notes "Gzipped 3-yr deep m15/h1/daily OHLC for on-demand cam_rev backtests. Auto-managed; overwritten monthly. NOT read by the dashboard or the live algorithms." \
+              --latest=false
+          gh release upload "$CACHE_TAG" deep-ohlc.json.gz --repo "$GITHUB_REPOSITORY" --clobber
+          echo "cache updated $(date -u +%FT%TZ)"

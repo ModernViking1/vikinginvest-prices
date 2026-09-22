@@ -47,14 +47,21 @@ jobs:
             [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }
           done
 
-      - name: Fetch deep-m15 OHLC (throwaway — not committed)
+      - name: Restore deep m15 from cache release (else fetch fresh)
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+          CACHE_TAG: deep-ohlc-cache
         run: |
-          DAYS="${{ github.event.inputs.days || '1095' }}"
-          M15="${{ github.event.inputs.m15_days || '1095' }}"
-          echo "Fetching ${DAYS}d (m15 ${M15}d) to deep-ohlc.json ..."
-          python fetch_historical_ohlc.py --days "$DAYS" --m15-days "$M15" --output deep-ohlc.json
+          if gh release download "$CACHE_TAG" --repo "$GITHUB_REPOSITORY" -p deep-ohlc.json.gz --clobber 2>/dev/null; then
+            gunzip -c deep-ohlc.json.gz > deep-ohlc.json
+            echo "✅ restored deep-ohlc.json from '$CACHE_TAG' cache ($(ls -lh deep-ohlc.json | awk '{print $5}'))"
+          else
+            echo "cache miss — fetching fresh deep m15 (slow; ~45-90 min)"
+            DAYS="${{ github.event.inputs.days || '1095' }}"
+            M15="${{ github.event.inputs.m15_days || '1095' }}"
+            python fetch_historical_ohlc.py --days "$DAYS" --m15-days "$M15" --output deep-ohlc.json
+          fi
           ls -lh deep-ohlc.json
 
       - name: Run cam_rev limit-execution backtest (result in this log)
