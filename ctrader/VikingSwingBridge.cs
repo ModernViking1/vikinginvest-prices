@@ -285,6 +285,9 @@ namespace cAlgo.Robots
                 if (p.Label != OrderLabel || p.Symbol == null) continue;
                 string pair; _posPair.TryGetValue(p.Id, out pair);
                 if (!ShouldTrail(pair)) continue;                       // scope: skip crypto & FX majors
+                if (StrategyOf(p) == "cam_rev") continue;               // cam_rev is a fixed 1:1 fade —
+                // no 1R trail / break-even lock, so live matches the fixed-stop/target backtest (and
+                // repeated restarts stop scratching in-profit fades to break-even).
                 double R;
                 if (!_posR.TryGetValue(p.Id, out R) || R <= 0)
                 {
@@ -340,6 +343,7 @@ namespace cAlgo.Robots
             foreach (var p in Positions)
             {
                 if (p.Label != OrderLabel || p.Symbol == null || p.EntryPrice <= 0) continue;
+                if (StrategyOf(p) == "cam_rev") continue;               // cam_rev: fixed stop/target, never BE-locked on restart
                 bool isBuy = p.TradeType == TradeType.Buy;
                 var sig = SignalIdOf(p);
                 int legN = 2;
@@ -797,8 +801,19 @@ namespace cAlgo.Robots
             var c = p.Comment;
             if (!string.IsNullOrEmpty(c))
             {
+                // Comment is "SwingTrade | <strategy>[ (R+/-)] | <id>". Prefer the id segment (no
+                // regime tag), else strip the " (R+)"/" (R-)" tag off the strategy token.
                 var seg = c.Split('|');
-                if (seg.Length >= 2) return seg[1].Trim();
+                if (seg.Length >= 3)
+                {
+                    var id = seg[2].Trim(); var ci = id.IndexOf(':');
+                    if (ci > 0) return id.Substring(0, ci);
+                }
+                if (seg.Length >= 2)
+                {
+                    var s = seg[1].Trim(); var sp = s.IndexOf(' ');
+                    return sp > 0 ? s.Substring(0, sp) : s;
+                }
             }
             return null;
         }
