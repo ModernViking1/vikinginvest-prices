@@ -2,9 +2,64 @@
  "schema_version": 1,
  "generated": "2026-09-22T11:00:00+00:00",
  "data_end_ts": 1790074800,
- "raw_signal_count": 61,
- "count": 34,
+ "raw_signal_count": 63,
+ "count": 35,
  "signals": [
+  {
+   "id": "cam_rev:dj30:1790075700",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "dj30",
+   "symbol": "DJ30",
+   "class": "index",
+   "dir": "bear",
+   "stop": 52363.72275,
+   "ref_entry": 52238.2,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790075700,
+   "created_ts": 1790074800,
+   "expiry_ts": 1790114400,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "cam_rev:nzdchf:1790075700",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "nzdchf",
+   "symbol": "NZDCHF",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 0.47046052,
+   "ref_entry": 0.46954,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790075700,
+   "created_ts": 1790074800,
+   "expiry_ts": 1790114400,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "cam_rev:de40:1790073000",
    "strategy": "cam_rev",
@@ -386,33 +441,6 @@
    ],
    "cofire_dirs": [
     "cam_rev:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:dj30:1790065800",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "dj30",
-   "symbol": "DJ30",
-   "class": "index",
-   "dir": "bull",
-   "stop": 51894.67725,
-   "ref_entry": 52018.2,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790065800,
-   "created_ts": 1790074800,
-   "expiry_ts": 1790109000,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull"
    ],
    "suppressed": 0
   },
