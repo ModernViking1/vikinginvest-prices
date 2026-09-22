@@ -2,9 +2,36 @@
  "schema_version": 1,
  "generated": "2026-09-22T14:00:00+00:00",
  "data_end_ts": 1790085600,
- "raw_signal_count": 51,
+ "raw_signal_count": 50,
  "count": 33,
  "signals": [
+  {
+   "id": "cam_rev:xrpusd:1790086500",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "xrpusd",
+   "symbol": "XRPUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 1.6348835,
+   "ref_entry": 1.5765,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": true,
+   "trigger_ts": 1790086500,
+   "created_ts": 1790085600,
+   "expiry_ts": 1790114400,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "twob:asterusd:1790085600",
    "strategy": "twob",
@@ -170,33 +197,6 @@
     "twob_cm:bear"
    ],
    "suppressed": 2
-  },
-  {
-   "id": "cam_rev:nzdchf:1790075700",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "nzdchf",
-   "symbol": "NZDCHF",
-   "class": "minor",
-   "dir": "bear",
-   "stop": 0.47046052,
-   "ref_entry": 0.46954,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790075700,
-   "created_ts": 1790085600,
-   "expiry_ts": 1790114400,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
-   ],
-   "suppressed": 0
   },
   {
    "id": "cam_rev:de40:1790073000",
@@ -687,15 +687,13 @@
    "expiry_ts": 1790103600,
    "state": "triggered",
    "cofire": [
-    "mmove",
     "twob"
    ],
    "cofire_dirs": [
-    "mmove:bear",
     "twob:bear",
     "twob:bull"
    ],
-   "suppressed": 2
+   "suppressed": 1
   },
   {
    "id": "twob:suiusd:1790056800",
