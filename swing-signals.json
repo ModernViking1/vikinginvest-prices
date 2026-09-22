@@ -2,9 +2,38 @@
  "schema_version": 1,
  "generated": "2026-09-22T13:00:00+00:00",
  "data_end_ts": 1790082000,
- "raw_signal_count": 55,
+ "raw_signal_count": 56,
  "count": 33,
  "signals": [
+  {
+   "id": "cam_rev:natgas:1790082900",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "natgas",
+   "symbol": "NATGAS",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 2.87158,
+   "ref_entry": 2.838,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790082900,
+   "created_ts": 1790082000,
+   "expiry_ts": 1790114400,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "holygrail_cm_m15"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "holygrail_cm_m15:bear"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "cam_rev:usdchf:1790082000",
    "strategy": "cam_rev",
@@ -874,33 +903,6 @@
     "twob_ix:bull"
    ],
    "suppressed": 1
-  },
-  {
-   "id": "holygrail_cm_m15:natgas:1790001000",
-   "strategy": "holygrail_cm_m15",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "natgas",
-   "symbol": "NATGAS",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 2.87749286,
-   "ref_entry": 2.848,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790001000,
-   "created_ts": 1790082000,
-   "expiry_ts": 1790044200,
-   "state": "triggered",
-   "cofire": [
-    "holygrail_cm_m15"
-   ],
-   "cofire_dirs": [
-    "holygrail_cm_m15:bear"
-   ],
-   "suppressed": 0
   },
   {
    "id": "cam_rev:eursgd:1789997400",
