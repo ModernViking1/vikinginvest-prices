@@ -212,9 +212,12 @@ jobs:
         # The detector reads the data files we just committed above,
         # so we don't need a separate checkout step.
         if: steps.push.outputs.pushed == '1'
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+        # Telegram creds intentionally NOT passed here (user 2026-09-22): detect_triggers.py still runs
+        # and updates directions.json / alerts-state.json, but send_telegram no-ops without creds — so
+        # ALL RSI/SR setup alerts (every pair, incl. crypto) are silenced. Re-enable by restoring env.
+        # env:
+        #   TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        #   TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           set +e  # don't fail the workflow on alert errors — data already pushed
           python detect_triggers.py
