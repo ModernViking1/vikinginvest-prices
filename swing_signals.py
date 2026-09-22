@@ -18,7 +18,7 @@ inheriting the intraday cBot's pullback-limit / 45-min-expiry logic.
 Writes swing-signals.json ONLY (nothing the intraday cBot or dashboard reads).
 """
 import json, os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
 from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob, detect_cam_rev, detect_mmove, detect_holygrail, detect_holygrail_m15, CAM_CRYPTO_PILOT
@@ -29,6 +29,18 @@ HIST = os.path.join(_HERE, 'historical-ohlc.json')
 OUT = os.path.join(_HERE, 'swing-signals.json')
 FRESH_HOURS = 24          # look-back window for emitting signals (>= data latency + feed interval)
 EXPIRY_HOURS = 12         # a signal is valid to fill for this long after its bar (tolerates data-publish lag)
+CAM_SESS_CLOSE_H = 22     # cam_rev limit self-expires at this UTC hour (== detect_cam_rev's CAM_SESS_CLOSE)
+
+
+def _session_close_ts(entry_ts):
+    """Epoch seconds of the trigger day's session close (CAM_SESS_CLOSE_H:00 UTC). If the entry is
+    already at/after the close, roll to the next day's close. Used to cap the cam_rev resting limit
+    so it can only fill in-session (thin-liquidity guardrail)."""
+    dt = datetime.fromtimestamp(entry_ts, timezone.utc)
+    close = dt.replace(hour=CAM_SESS_CLOSE_H, minute=0, second=0, microsecond=0)
+    if entry_ts >= close.timestamp():
+        close += timedelta(days=1)
+    return int(close.timestamp())
 RR = 2.0
 R_PCT = 1.0               # % of demo balance risked per swing trade
 # Validated class scope: S5-rsi positive on all classes; H&S weak on minor.
@@ -438,7 +450,14 @@ def main():
                              or (s['strategy'] == 'cam_rev' and pk in CAM_CRYPTO_PILOT),
                 'trigger_ts': int(s['entry_ts']),
                 'created_ts': int(data_end),
-                'expiry_ts': int(s['entry_ts'] + EXPIRY_HOURS * 3600),
+                # cam_rev rests a LIMIT at ref_entry. The resting order is capped to the trigger
+                # day's session close (22:00 UTC) so it can only fill in-session — a thin-liquidity
+                # guardrail. The 3-yr backtest showed off-session fills convert far worse (54% vs 76%
+                # WR) though EV-neutral in aggregate; capping expiry removes those ugly overnight fills
+                # (e.g. the midnight EURSGD stop) at no cost. Market strategies keep the full 12h window.
+                'expiry_ts': (min(int(s['entry_ts'] + EXPIRY_HOURS * 3600), _session_close_ts(s['entry_ts']))
+                              if s['strategy'] == 'cam_rev'
+                              else int(s['entry_ts'] + EXPIRY_HOURS * 3600)),
                 'state': 'triggered',
             })
 
