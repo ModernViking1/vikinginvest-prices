@@ -2,9 +2,39 @@
  "schema_version": 1,
  "generated": "2026-09-22T12:00:00+00:00",
  "data_end_ts": 1790078400,
- "raw_signal_count": 57,
+ "raw_signal_count": 58,
  "count": 33,
  "signals": [
+  {
+   "id": "cam_rev:usoil:1790079300",
+   "strategy": "cam_rev",
+   "regime": "strong",
+   "risk_mult": 1.5,
+   "pair": "usoil",
+   "symbol": "USOIL",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 98.0673975,
+   "ref_entry": 99.642,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790079300,
+   "created_ts": 1790078400,
+   "expiry_ts": 1790114400,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "twob_cm"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "twob_cm:bear"
+   ],
+   "suppressed": 2
+  },
   {
    "id": "cam_rev:fra40:1790078400",
    "strategy": "cam_rev",
@@ -498,35 +528,6 @@
     "cam_rev:bull"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "cam_rev:usoil:1790063100",
-   "strategy": "cam_rev",
-   "regime": "strong",
-   "risk_mult": 1.5,
-   "pair": "usoil",
-   "symbol": "USOIL",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 103.5086025,
-   "ref_entry": 102.023,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790063100,
-   "created_ts": 1790078400,
-   "expiry_ts": 1790106300,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob_cm"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "twob_cm:bear"
-   ],
-   "suppressed": 1
   },
   {
    "id": "cam_rev:ethusd:1790061300",
