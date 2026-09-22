@@ -75,9 +75,14 @@ jobs:
               except Exception: return str(x)
           pair = str(row.get('pair', '')).upper()
           strat = row.get('strategy', '?')
-          txt = (f"{arrow} <b>{strat}</b> executed — {pair} {side}\n"
+          # Regime-tiered sizing tag (cam_rev): R+ = strong-trend (up-sized 1.5x), R- = rangey (0.75x).
+          reg = str(row.get('regime') or '')
+          reg_tag = ' (R+)' if reg == 'strong' else (' (R-)' if reg == 'range' else '')
+          reg_note = {'strong': ' · regime R+ (strong-trend ×1.5)',
+                      'range': ' · regime R- (rangey ×0.75)'}.get(reg, '')
+          txt = (f"{arrow} <b>{strat}{reg_tag}</b> executed — {pair} {side}\n"
                  f"entry {f(row.get('entry_filled'))} · SL {f(row.get('stop'))} · TP {f(row.get('target'))}\n"
-                 f"{f(row.get('volume_units'))} units · {row.get('account_mode', '?')}")
+                 f"{f(row.get('volume_units'))} units · {row.get('account_mode', '?')}{reg_note}")
           data = urllib.parse.urlencode({'chat_id': chat, 'text': txt,
                                          'parse_mode': 'HTML', 'disable_web_page_preview': 'true'}).encode()
           try:

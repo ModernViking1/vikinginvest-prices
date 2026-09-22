@@ -22,7 +22,7 @@ from datetime import datetime, timezone, timedelta
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
 from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob, detect_cam_rev, detect_mmove, detect_holygrail, detect_holygrail_m15, CAM_CRYPTO_PILOT
-from trend_regime import build_regime, passes_gate
+from trend_regime import build_regime, passes_gate, _at, CHOP_LO
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
 HIST = os.path.join(_HERE, 'historical-ohlc.json')
@@ -30,6 +30,14 @@ OUT = os.path.join(_HERE, 'swing-signals.json')
 FRESH_HOURS = 24          # look-back window for emitting signals (>= data latency + feed interval)
 EXPIRY_HOURS = 12         # a signal is valid to fill for this long after its bar (tolerates data-publish lag)
 CAM_SESS_CLOSE_H = 22     # cam_rev limit self-expires at this UTC hour (== detect_cam_rev's CAM_SESS_CLOSE)
+# Regime-tiered sizing for cam_rev (2026-09-22). The 3-yr backtest (cam_gap_session_backtest.py, C1)
+# found cam_rev converts far better in a strongly-trending h1 regime (chop < CHOP_LO): +0.682R / 84% WR,
+# OOS-stable, vs +0.486R / 74% in a rangey regime. Rather than GATE (which would forfeit the bulk of the
+# total-R that the many rangey trades still earn), tilt the risk: up-size strong-trend fades, down-size
+# rangey ones. Emitted per-signal as risk_mult; the cBot multiplies its base RiskPct by it and tags the
+# trade comment / Telegram alert with the regime (R+ = strong / R- = range).
+CAM_REGIME_STRONG_MULT = 1.5   # strong-trend h1 regime (chop < CHOP_LO): up-size
+CAM_REGIME_RANGE_MULT = 0.75   # rangey h1 regime (chop >= CHOP_LO): down-size
 
 
 def _session_close_ts(entry_ts):
@@ -423,10 +431,21 @@ def main():
                 lc = loss_closes.get((s['strategy'], pk.upper()))
                 if lc is not None and s['entry_ts'] < lc + REENTRY_COOLOFF_H * 3600:
                     continue
+            # Regime-tiered sizing for cam_rev: classify the h1 trend-quality regime at the signal's
+            # entry (causal), tag it, and scale risk. Non-cam_rev strategies keep neutral sizing.
+            _regime = None
+            _risk_mult = 1.0
+            if s['strategy'] == 'cam_rev':
+                _chop = _at(h1_regime, s['entry_ts'])[1]
+                if _chop is not None:
+                    _regime = 'strong' if _chop < CHOP_LO else 'range'
+                    _risk_mult = CAM_REGIME_STRONG_MULT if _chop < CHOP_LO else CAM_REGIME_RANGE_MULT
             sid = f"{s['strategy']}:{pk}:{int(s['entry_ts'])}"
             rows.append({
                 'id': sid,
                 'strategy': s['strategy'],
+                'regime': _regime,          # 'strong' | 'range' | None (cam_rev only)
+                'risk_mult': round(_risk_mult, 3),
                 'pair': pk,
                 'symbol': pk.upper(),
                 'class': cls,

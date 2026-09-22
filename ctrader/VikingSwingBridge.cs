@@ -617,7 +617,7 @@ namespace cAlgo.Robots
                 _posPeak[pos.Id] = pos.EntryPrice;
                 if (_placedWritten.Add(pos.Id))
                     WriteExec("placed", s.Id, pos.Id, symbol.Name, s.Dir, pos.VolumeInUnits,
-                              pos.EntryPrice, 0, pos.StopLoss ?? s.Stop, pos.TakeProfit ?? 0, 0, 0, 0, 0, "placed", s.Strategy);
+                              pos.EntryPrice, 0, pos.StopLoss ?? s.Stop, pos.TakeProfit ?? 0, 0, 0, 0, 0, "placed", s.Strategy, s.Regime);
             }
             else
             {
@@ -672,14 +672,20 @@ namespace cAlgo.Robots
             }
             var rr = s.Rr > 0 ? s.Rr : 2.0;
             var tpPips = rr * slPips;
-            var volume = ComputeVolume(symbol, refPx, s.Stop, RiskPct);
+            // Regime-tiered sizing: the feed emits risk_mult (cam_rev: 1.5 strong-trend / 0.75 rangey;
+            // 1.0 otherwise). Scale the base RiskPct by it. The absolute size is still bounded by MaxLots.
+            var riskMult = s.RiskMult > 0 ? s.RiskMult : 1.0;
+            var volume = ComputeVolume(symbol, refPx, s.Stop, RiskPct * riskMult);
             if (volume <= 0)
             {
                 Print($"[VikingSwing] limit: volume computed 0 for {symbol.Name} — skipping {s.Id}");
                 MarkSeen(s.Id); return;
             }
             var direction = isBuy ? TradeType.Buy : TradeType.Sell;
-            var comment = $"SwingTrade | {s.Strategy} | {s.Id}";
+            // Regime tag travels in the order comment so cTrader + Telegram show the zone, and so the
+            // 'placed'/'closed' rows can recover it after a restart (RegimeOf parses this back).
+            var regTag = s.Regime == "strong" ? " (R+)" : (s.Regime == "range" ? " (R-)" : "");
+            var comment = $"SwingTrade | {s.Strategy}{regTag} | {s.Id}";
             // Self-expire the resting order with the signal, so a stale level never fills days later.
             DateTime? expiry = s.ExpiryTs > 0 ? DateTimeOffset.FromUnixTimeSeconds(s.ExpiryTs).UtcDateTime : (DateTime?)null;
             var targetPrice = Math.Round(refPx, symbol.Digits);
@@ -702,7 +708,7 @@ namespace cAlgo.Robots
                 _pendingLimitIds.Add(s.Id);   // OnPositionOpened writes 'placed' + bookkeeping when/if it fills
                 Print($"⏳ [VikingSwing] LIMIT {direction} {symbol.Name} {volume:F0}u @ {targetPrice:F5} " +
                       $"SLp={slPips:F1} TPp={tpPips:F1} exp={(expiry.HasValue ? expiry.Value.ToString("u") : "none")} " +
-                      $"strat={s.Strategy} id={s.Id}");
+                      $"strat={s.Strategy}{regTag} risk={RiskPct * riskMult:F3}% (x{riskMult:F2}) id={s.Id}");
             }
             else
             {
@@ -737,7 +743,7 @@ namespace cAlgo.Robots
                 Print($"✅ [VikingSwing] FILLED {p.TradeType} {p.SymbolName} {p.VolumeInUnits:F0}u " +
                       $"@{p.EntryPrice:F5} SL={p.StopLoss:F5} id={sid} pid={p.Id}");
                 WriteExec("placed", sid, p.Id, p.SymbolName, dir, p.VolumeInUnits,
-                          p.EntryPrice, 0, p.StopLoss ?? 0, p.TakeProfit ?? 0, 0, 0, 0, 0, "placed", null);
+                          p.EntryPrice, 0, p.StopLoss ?? 0, p.TakeProfit ?? 0, 0, 0, 0, 0, "placed", null, RegimeOf(p));
             }
             catch (Exception ex) { Print($"[VikingSwing] OnPositionOpened threw: {ex.Message}"); }
         }
@@ -987,16 +993,27 @@ namespace cAlgo.Robots
 
             WriteExec("closed", sigId, p.Id, p.SymbolName, p.TradeType == TradeType.Buy ? "bull" : "bear",
                       p.VolumeInUnits, p.EntryPrice, p.Symbol?.Bid ?? 0, p.StopLoss ?? 0, p.TakeProfit ?? 0,
-                      p.NetProfit, p.Commissions, p.Swap, realizedR, reason, StrategyOf(p));
+                      p.NetProfit, p.Commissions, p.Swap, realizedR, reason, StrategyOf(p), RegimeOf(p));
             if (sigId != null) _positionIdToSignalId.Remove(p.Id);
             _posR.Remove(p.Id); _posPair.Remove(p.Id); _posPeak.Remove(p.Id);   // trailing-state cleanup
             Print($"📒 [VikingSwing] closed {p.SymbolName} {p.TradeType} net={p.NetProfit:F2} R={realizedR:F2} reason={reason} id={sigId ?? "(unlinked)"}");
         }
 
+        // Recover the regime tag ("strong"/"range") from an order comment written at placement, so
+        // 'placed'/'closed' rows carry it even across a bot restart (no in-memory state needed).
+        private static string RegimeOf(Position p)
+        {
+            var c = p?.Comment;
+            if (string.IsNullOrEmpty(c)) return null;
+            if (c.Contains("(R+)")) return "strong";
+            if (c.Contains("(R-)")) return "range";
+            return null;
+        }
+
         private void WriteExec(string ev, string sigId, long posId, string symbol, string dir, double vol,
                                double entry, double exit, double stop, double target,
                                double net, double comm, double swap, double realizedR, string reason,
-                               string strategy = null)
+                               string strategy = null, string regime = null)
         {
             long tsMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             // Strategy travels with every row even when the in-memory signal-id map was lost to a
@@ -1027,6 +1044,7 @@ namespace cAlgo.Robots
                 F(sb, "reason", reason); sb.Append(',');
                 F(sb, "account_mode", Account.IsLive ? "live" : "demo"); sb.Append(',');
                 F(sb, "account", (long)Account.Number);
+                if (!string.IsNullOrEmpty(regime)) { sb.Append(','); F(sb, "regime", regime); }
                 sb.Append('}');
                 var line = sb.ToString();
                 lock (_execFileLock)
@@ -1107,8 +1125,8 @@ namespace cAlgo.Robots
         // ---- swing-signals.json parse (mirrors intraday bot's manual parser) ----
         private class Sig
         {
-            public string Id, Pair, State, Dir, Strategy, EntryMode;
-            public double Stop, Rr, RefEntry;
+            public string Id, Pair, State, Dir, Strategy, EntryMode, Regime;
+            public double Stop, Rr, RefEntry, RiskMult;
             public long ExpiryTs, TriggerTs;
             public bool DemoOnly;
         }
@@ -1135,6 +1153,7 @@ namespace cAlgo.Robots
                     Stop = JsonNum(o, "stop"), Rr = JsonNum(o, "rr"), RefEntry = JsonNum(o, "ref_entry"),
                     ExpiryTs = (long)JsonNum(o, "expiry_ts"), TriggerTs = (long)JsonNum(o, "trigger_ts"),
                     DemoOnly = JsonBool(o, "demo_only"), EntryMode = JsonStr(o, "entry_mode"),
+                    Regime = JsonStr(o, "regime"), RiskMult = JsonNum(o, "risk_mult"),
                 });
                 pos = oe + 1;
             }
