@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-22T11:46:35.399174+00:00",
-  "generated_ms": 1790077592665,
-  "detector_last_check": "2026-09-22T11:46:31.276482+00:00",
+  "generated": "2026-09-22T11:51:10.392786+00:00",
+  "generated_ms": 1790077867853,
+  "detector_last_check": "2026-09-22T11:51:06.555486+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
-    "armed": 0,
+    "total": 4,
+    "armed": 2,
     "triggered": 2,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "taousd:1790077500000:wick",
+      "pair": "taousd",
+      "sym": "TAOUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 318.89,
+      "stop": 310.93,
+      "target": 326.84999999999997,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790077500000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790077867853,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "xagusd:1790075700000:mmove_m15",
       "pair": "xagusd",
@@ -34,10 +57,10 @@
       "cl": null,
       "armedAt": 1790075700000,
       "triggeredAt": 1790075700000,
-      "lastSeenAt": 1790077592665,
+      "lastSeenAt": 1790077867853,
       "source": "server-detector-mmove",
       "event_aligned": null,
-      "held": false
+      "held": true
     },
     {
       "id": "xagusd:1790075700000:fma_sweep_cm",
@@ -57,10 +80,32 @@
       "cl": null,
       "armedAt": 1790075700000,
       "triggeredAt": 1790075700000,
-      "lastSeenAt": 1790077592665,
+      "lastSeenAt": 1790077867853,
       "source": "server-detector-fma",
       "event_aligned": null,
-      "held": false
+      "held": true
+    },
+    {
+      "id": "taousd:1780254900000:fib",
+      "pair": "taousd",
+      "sym": "TAOUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 320.16926,
+      "stop": 310.93,
+      "target": 329.40852,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780254900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790077867853,
+      "source": "server-detector",
+      "event_aligned": null
     }
   ]
 }
