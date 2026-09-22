@@ -11249,10 +11249,10 @@
    "cap_ts": 1790027100.0,
    "state_at_capture": "armed",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
-   "limit_r": null
+   "market_status": "resolved",
+   "market_r": 1.0,
+   "limit_status": "resolved",
+   "limit_r": 1.0
   },
   "taousd:1790031600000:wick": {
    "id": "taousd:1790031600000:wick",
@@ -11266,10 +11266,10 @@
    "cap_ts": 1790028000.0,
    "state_at_capture": "invalidated",
    "nowick_aligned": true,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
-   "limit_r": null
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "resolved",
+   "limit_r": 1.0
   },
   "nearusd:1790030700000:wick": {
    "id": "nearusd:1790030700000:wick",
@@ -11283,10 +11283,10 @@
    "cap_ts": 1790028000.0,
    "state_at_capture": "armed",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
-   "limit_r": null
+   "market_status": "resolved",
+   "market_r": 1.0,
+   "limit_status": "resolved",
+   "limit_r": 1.0
   },
   "audusd:1790041500000:wick": {
    "id": "audusd:1790041500000:wick",
@@ -11300,9 +11300,9 @@
    "cap_ts": 1790026200.0,
    "state_at_capture": "armed",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "nearusd:1790039700000:wick": {
@@ -11317,10 +11317,10 @@
    "cap_ts": 1790028000.0,
    "state_at_capture": "armed",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
-   "limit_r": null
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "resolved",
+   "limit_r": -1.0
   },
   "eurnzd:1790038800000:wick": {
    "id": "eurnzd:1790038800000:wick",
@@ -11334,9 +11334,9 @@
    "cap_ts": 1790026200.0,
    "state_at_capture": "invalidated",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": 1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "gbpnzd:1790038800000:wick": {
@@ -11351,9 +11351,9 @@
    "cap_ts": 1790026200.0,
    "state_at_capture": "invalidated",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": 1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "nzdchf:1790038800000:wick": {
@@ -11368,9 +11368,9 @@
    "cap_ts": 1790026200.0,
    "state_at_capture": "invalidated",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": 1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "nzdjpy:1790038800000:wick": {
@@ -11385,9 +11385,9 @@
    "cap_ts": 1790026200.0,
    "state_at_capture": "armed",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
+   "market_status": "resolved",
+   "market_r": 1.0,
+   "limit_status": "nofill",
    "limit_r": null
   },
   "suiusd:1790037000000:wick": {
@@ -11400,6 +11400,57 @@
    "stop": 1.0223,
    "market_entry": 1.0174,
    "cap_ts": 1790027100.0,
+   "state_at_capture": "invalidated",
+   "nowick_aligned": false,
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "nofill",
+   "limit_r": null
+  },
+  "xauusd:1790062200000:wick": {
+   "id": "xauusd:1790062200000:wick",
+   "pair": "xauusd",
+   "dir": "bear",
+   "method": "fib",
+   "cls": "comm",
+   "limit_entry": 4315.76,
+   "stop": 4341.83375,
+   "market_entry": 4340.34,
+   "cap_ts": 1790051400.0,
+   "state_at_capture": "armed",
+   "nowick_aligned": false,
+   "market_status": "pending",
+   "market_r": null,
+   "limit_status": "pending",
+   "limit_r": null
+  },
+  "usdjpy:1790060400000:wick": {
+   "id": "usdjpy:1790060400000:wick",
+   "pair": "usdjpy",
+   "dir": "bull",
+   "method": "wick",
+   "cls": "major",
+   "limit_entry": 157.61,
+   "stop": 157.353,
+   "market_entry": 157.492,
+   "cap_ts": 1790051400.0,
+   "state_at_capture": "armed",
+   "nowick_aligned": false,
+   "market_status": "pending",
+   "market_r": null,
+   "limit_status": "pending",
+   "limit_r": null
+  },
+  "nearusd:1790056800000:wick": {
+   "id": "nearusd:1790056800000:wick",
+   "pair": "nearusd",
+   "dir": "bull",
+   "method": "wick",
+   "cls": "crypto",
+   "limit_entry": 4.3992,
+   "stop": 4.2513,
+   "market_entry": 4.2919,
+   "cap_ts": 1790052300.0,
    "state_at_capture": "invalidated",
    "nowick_aligned": false,
    "market_status": "pending",
