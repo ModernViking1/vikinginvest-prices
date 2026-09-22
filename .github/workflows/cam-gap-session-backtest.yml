@@ -1,0 +1,67 @@
+name: cam_rev Gap-Veto + Off-Session Backtest (3yr)
+
+# On-demand confirmation of two cam_rev hypotheses over the full 3-year m15 history:
+#   A) gap-proximity veto  — does skipping fades run into an unfilled adverse FVG improve
+#      expectancy without gutting trade count? (selection filter, geometry untouched)
+#   D) off-session fill     — do resting-limit fills OUTSIDE 07-22 UTC underperform, and does
+#      a session-only fill rule help? (the "not best fill" / thin-liquidity case)
+# Heavy deep-m15 fetch (throwaway, not committed). Prints to the job log; commits NOTHING.
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Daily/H1 context window in days'
+        default: '1095'
+      m15_days:
+        description: 'm15 depth in days (the 3-year test surface)'
+        default: '1095'
+
+concurrency:
+  group: cam-gap-session-backtest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: python -m pip install --upgrade pip requests
+
+      - name: Guard — required files present
+        run: |
+          for f in cam_gap_session_backtest.py unified_shadow_harness.py detect_triggers.py \
+                   fetch_historical_ohlc.py; do
+            [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }
+          done
+
+      - name: Fetch deep-m15 OHLC (throwaway — not committed)
+        env:
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+        run: |
+          DAYS="${{ github.event.inputs.days || '1095' }}"
+          M15="${{ github.event.inputs.m15_days || '1095' }}"
+          echo "Fetching ${DAYS}d (m15 ${M15}d) to deep-ohlc.json ..."
+          python fetch_historical_ohlc.py --days "$DAYS" --m15-days "$M15" --output deep-ohlc.json
+          ls -lh deep-ohlc.json
+
+      - name: Run gap-veto + off-session backtest (result in this log)
+        run: |
+          echo "================ RESULT ================"
+          python cam_gap_session_backtest.py --hist deep-ohlc.json
+          echo "========================================"
+          rm -f deep-ohlc.json
