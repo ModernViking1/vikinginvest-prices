@@ -54,7 +54,7 @@ jobs:
       # loop above, so no duplicate alerts. Fail-open: a Telegram hiccup never fails
       # the ingest. Extend WATCH by adding strategy names to the `if:` condition.
       - name: Telegram alert on watched-strategy execution
-        if: ${{ github.event.client_payload.row.event == 'placed' && github.event.client_payload.row.strategy == 'cam_rev' }}
+        if: ${{ always() && github.event.client_payload.row.event == 'placed' && github.event.client_payload.row.strategy == 'cam_rev' }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

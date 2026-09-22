@@ -141,6 +141,10 @@ namespace cAlgo.Robots
         // Positions.Closed can fire more than once for the same position — dedup so a close is
         // logged (and its R added to the daily-loss tally) exactly once.
         private readonly HashSet<long> _closedIds = new HashSet<long>();
+        // 'placed' must be written exactly once per position, whichever path sees the open first —
+        // the inline market path OR OnPositionOpened. This also recovers a limit that filled AFTER a
+        // restart (its id is gone from _pendingLimitIds), which otherwise never logged/alerted 'placed'.
+        private readonly HashSet<long> _placedWritten = new HashSet<long>();
         // Serialise appends to the local exec log; an external reader (ingest/publish) can hold a
         // transient lock, so writes are also retried under this lock.
         private readonly object _execFileLock = new object();
@@ -611,8 +615,9 @@ namespace cAlgo.Robots
                 _posR[pos.Id] = Math.Abs(pos.EntryPrice - (pos.StopLoss ?? s.Stop));
                 _posPair[pos.Id] = s.Pair;
                 _posPeak[pos.Id] = pos.EntryPrice;
-                WriteExec("placed", s.Id, pos.Id, symbol.Name, s.Dir, pos.VolumeInUnits,
-                          pos.EntryPrice, 0, pos.StopLoss ?? s.Stop, pos.TakeProfit ?? 0, 0, 0, 0, 0, "placed", s.Strategy);
+                if (_placedWritten.Add(pos.Id))
+                    WriteExec("placed", s.Id, pos.Id, symbol.Name, s.Dir, pos.VolumeInUnits,
+                              pos.EntryPrice, 0, pos.StopLoss ?? s.Stop, pos.TakeProfit ?? 0, 0, 0, 0, 0, "placed", s.Strategy);
             }
             else
             {
@@ -716,14 +721,20 @@ namespace cAlgo.Robots
                 var p = args?.Position;
                 if (p == null || p.Label != OrderLabel) return;
                 var sid = SignalIdOf(p);
-                if (string.IsNullOrEmpty(sid) || !_pendingLimitIds.Remove(sid)) return;   // only our limit fills
+                if (string.IsNullOrEmpty(sid)) return;
+                _pendingLimitIds.Remove(sid);            // cleanup if this was a tracked limit
+                // Record 'placed' exactly once. The inline market path may have logged it already
+                // (then _placedWritten has the id and we skip); if not — a limit fill, INCLUDING one
+                // whose id was lost from _pendingLimitIds by a restart — we log it here so it always
+                // reaches the repo + Telegram alert.
+                if (!_placedWritten.Add(p.Id)) return;
                 _positionIdToSignalId[p.Id] = sid;
                 _posR[p.Id] = Math.Abs(p.EntryPrice - (p.StopLoss ?? p.EntryPrice));
                 var seg = sid.Split(':');
                 if (seg.Length >= 2) _posPair[p.Id] = seg[1];
                 _posPeak[p.Id] = p.EntryPrice;
                 var dir = p.TradeType == TradeType.Buy ? "bull" : "bear";
-                Print($"✅ [VikingSwing] LIMIT FILLED {p.TradeType} {p.SymbolName} {p.VolumeInUnits:F0}u " +
+                Print($"✅ [VikingSwing] FILLED {p.TradeType} {p.SymbolName} {p.VolumeInUnits:F0}u " +
                       $"@{p.EntryPrice:F5} SL={p.StopLoss:F5} id={sid} pid={p.Id}");
                 WriteExec("placed", sid, p.Id, p.SymbolName, dir, p.VolumeInUnits,
                           p.EntryPrice, 0, p.StopLoss ?? 0, p.TakeProfit ?? 0, 0, 0, 0, 0, "placed", null);
