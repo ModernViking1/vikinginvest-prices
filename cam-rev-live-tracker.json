@@ -1,5 +1,5 @@
 {
- "updated": "2026-09-21T15:06:43Z",
+ "updated": "2026-09-22T17:29:10Z",
  "strategy": "cam_rev",
  "backtest_benchmark": {
   "exp_r": 0.525,
@@ -7,34 +7,67 @@
   "note": "3-yr FX/index/comm gated, frictionless"
  },
  "overall_live": {
-  "n": 4,
-  "wr": 25.0,
-  "avg_r": -0.627,
-  "total_r": -2.51,
-  "avg_win": 0.918,
-  "avg_loss": -1.142,
-  "slip_beyond_1R": 3,
-  "avg_slip_excess": -0.142,
-  "worst_r": -1.264
+  "n": 10,
+  "wr": 50.0,
+  "avg_r": -0.168,
+  "total_r": -1.68,
+  "avg_win": 0.964,
+  "avg_loss": -1.301,
+  "slip_beyond_1R": 5,
+  "avg_slip_excess": -0.301,
+  "worst_r": -2
+ },
+ "overall_raw_incl_artifacts": {
+  "n": 11,
+  "wr": 45.5,
+  "avg_r": -0.161,
+  "total_r": -1.77,
+  "avg_win": 0.964,
+  "avg_loss": -1.098,
+  "slip_beyond_1R": 5,
+  "avg_slip_excess": -0.301,
+  "worst_r": -2
+ },
+ "restart_artifacts_excluded": {
+  "n": 1,
+  "note": "cam_rev trail-scratch/trail-hit fills (pre-fix restart break-even lock) excluded from the headline WR/RR; cam_rev no longer trails (fixed 1:1). See overall_raw for all fills.",
+  "rows": [
+   {
+    "pair": "cadjpy",
+    "r": -0.085,
+    "reason": "trail-scratch"
+   }
+  ]
  },
  "gap_vs_backtest": {
-  "exp_r": -1.152,
-  "wr_pct": -51.3
+  "exp_r": -0.693,
+  "wr_pct": -26.3
  },
  "by_account_mode": {
   "demo": {
-   "n": 4,
-   "wr": 25.0,
-   "avg_r": -0.627,
-   "total_r": -2.51,
-   "avg_win": 0.918,
-   "avg_loss": -1.142,
-   "slip_beyond_1R": 3,
-   "avg_slip_excess": -0.142,
-   "worst_r": -1.264
+   "n": 10,
+   "wr": 50.0,
+   "avg_r": -0.168,
+   "total_r": -1.68,
+   "avg_win": 0.964,
+   "avg_loss": -1.301,
+   "slip_beyond_1R": 5,
+   "avg_slip_excess": -0.301,
+   "worst_r": -2
   }
  },
  "by_class": {
+  "comm": {
+   "n": 2,
+   "wr": 100.0,
+   "avg_r": 0.992,
+   "total_r": 1.98,
+   "avg_win": 0.992,
+   "avg_loss": 0.0,
+   "slip_beyond_1R": 0,
+   "avg_slip_excess": 0.0,
+   "worst_r": 0.99
+  },
   "crypto": {
    "n": 1,
    "wr": 0.0,
@@ -45,6 +78,17 @@
    "slip_beyond_1R": 1,
    "avg_slip_excess": -0.008,
    "worst_r": -1.008
+  },
+  "index": {
+   "n": 1,
+   "wr": 100.0,
+   "avg_r": 1.004,
+   "total_r": 1.0,
+   "avg_win": 1.004,
+   "avg_loss": 0.0,
+   "slip_beyond_1R": 0,
+   "avg_slip_excess": 0.0,
+   "worst_r": 1.004
   },
   "major": {
    "n": 1,
@@ -58,18 +102,74 @@
    "worst_r": -1.153
   },
   "minor": {
-   "n": 2,
+   "n": 5,
+   "wr": 40.0,
+   "avg_r": -0.502,
+   "total_r": -2.51,
+   "avg_win": 0.917,
+   "avg_loss": -1.448,
+   "slip_beyond_1R": 3,
+   "avg_slip_excess": -0.448,
+   "worst_r": -2
+  }
+ },
+ "by_regime": {
+  "untagged": {
+   "n": 10,
    "wr": 50.0,
-   "avg_r": -0.173,
-   "total_r": -0.35,
-   "avg_win": 0.918,
-   "avg_loss": -1.264,
-   "slip_beyond_1R": 1,
-   "avg_slip_excess": -0.264,
-   "worst_r": -1.264
+   "avg_r": -0.168,
+   "total_r": -1.68,
+   "avg_win": 0.964,
+   "avg_loss": -1.301,
+   "slip_beyond_1R": 5,
+   "avg_slip_excess": -0.301,
+   "worst_r": -2
+  }
+ },
+ "regime_benchmark": {
+  "strong": {
+   "exp": 0.682,
+   "wr": 84.0
+  },
+  "range": {
+   "exp": 0.486,
+   "wr": 74.0
   }
  },
  "by_pair": {
+  "fra40": {
+   "n": 1,
+   "wr": 100.0,
+   "avg_r": 1.004,
+   "total_r": 1.0,
+   "avg_win": 1.004,
+   "avg_loss": 0.0,
+   "slip_beyond_1R": 0,
+   "avg_slip_excess": 0.0,
+   "worst_r": 1.004
+  },
+  "xagusd": {
+   "n": 1,
+   "wr": 100.0,
+   "avg_r": 0.99,
+   "total_r": 0.99,
+   "avg_win": 0.99,
+   "avg_loss": 0.0,
+   "slip_beyond_1R": 0,
+   "avg_slip_excess": 0.0,
+   "worst_r": 0.99
+  },
+  "xauusd": {
+   "n": 1,
+   "wr": 100.0,
+   "avg_r": 0.993,
+   "total_r": 0.99,
+   "avg_win": 0.993,
+   "avg_loss": 0.0,
+   "slip_beyond_1R": 0,
+   "avg_slip_excess": 0.0,
+   "worst_r": 0.993
+  },
   "cadjpy": {
    "n": 1,
    "wr": 100.0,
@@ -81,6 +181,17 @@
    "avg_slip_excess": 0.0,
    "worst_r": 0.918
   },
+  "euraud": {
+   "n": 1,
+   "wr": 100.0,
+   "avg_r": 0.916,
+   "total_r": 0.92,
+   "avg_win": 0.916,
+   "avg_loss": 0.0,
+   "slip_beyond_1R": 0,
+   "avg_slip_excess": 0.0,
+   "worst_r": 0.916
+  },
   "solusd": {
    "n": 1,
    "wr": 0.0,
@@ -91,6 +202,17 @@
    "slip_beyond_1R": 1,
    "avg_slip_excess": -0.008,
    "worst_r": -1.008
+  },
+  "gbpcad": {
+   "n": 1,
+   "wr": 0.0,
+   "avg_r": -1.079,
+   "total_r": -1.08,
+   "avg_win": 0.0,
+   "avg_loss": -1.079,
+   "slip_beyond_1R": 1,
+   "avg_slip_excess": -0.079,
+   "worst_r": -1.079
   },
   "usdchf": {
    "n": 1,
@@ -113,6 +235,17 @@
    "slip_beyond_1R": 1,
    "avg_slip_excess": -0.264,
    "worst_r": -1.264
+  },
+  "eursgd": {
+   "n": 1,
+   "wr": 0.0,
+   "avg_r": -2.0,
+   "total_r": -2,
+   "avg_win": 0.0,
+   "avg_loss": -2.0,
+   "slip_beyond_1R": 1,
+   "avg_slip_excess": -1.0,
+   "worst_r": -2
   }
  },
  "recent": [
@@ -147,6 +280,62 @@
    "mode": "demo",
    "r": -1.153,
    "reason": "stop-hit"
+  },
+  {
+   "when": "2026-09-22 01:46",
+   "pair": "xagusd",
+   "class": "comm",
+   "mode": "demo",
+   "r": 0.99,
+   "reason": "target-hit"
+  },
+  {
+   "when": "2026-09-22 01:48",
+   "pair": "xauusd",
+   "class": "comm",
+   "mode": "demo",
+   "r": 0.993,
+   "reason": "target-hit"
+  },
+  {
+   "when": "2026-09-22 07:58",
+   "pair": "eursgd",
+   "class": "minor",
+   "mode": "demo",
+   "r": -2,
+   "reason": "stop-hit"
+  },
+  {
+   "when": "2026-09-22 08:24",
+   "pair": "gbpcad",
+   "class": "minor",
+   "mode": "demo",
+   "r": -1.079,
+   "reason": "stop-hit"
+  },
+  {
+   "when": "2026-09-22 08:51",
+   "pair": "euraud",
+   "class": "minor",
+   "mode": "demo",
+   "r": 0.916,
+   "reason": "target-hit"
+  },
+  {
+   "when": "2026-09-22 08:56",
+   "pair": "fra40",
+   "class": "index",
+   "mode": "demo",
+   "r": 1.004,
+   "reason": "target-hit"
+  },
+  {
+   "when": "2026-09-22 11:47",
+   "pair": "cadjpy",
+   "class": "minor",
+   "mode": "demo",
+   "r": -0.085,
+   "reason": "trail-scratch"
   }
  ]
 }
