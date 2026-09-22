@@ -66,10 +66,20 @@ def main():
          and isinstance(e.get("realized_r"), (int, float))],
         key=_ts)
 
-    overall = _agg(closed)
+    # cam_rev is a FIXED 1:1 fade — post-2026-09-22 it never trails or break-even-locks. Fills closed
+    # by the PRE-FIX restart break-even lock show reason "trail-scratch"/"trail-hit" and scratched
+    # would-be winners (e.g. XBRUSD 2026-09-22). Exclude them so the headline WR/RR reflects the
+    # fixed-stop/target strategy, not one-off restart artifacts. The raw figure is kept for honesty.
+    def _is_trail_artifact(e):
+        return str(e.get("reason") or "").lower().replace("_", "-") in ("trail-scratch", "trail-hit")
+    artifacts = [e for e in closed if _is_trail_artifact(e)]
+    clean = [e for e in closed if not _is_trail_artifact(e)]
+
+    overall = _agg(clean)              # headline: fixed-RR outcomes only (restart artifacts excluded)
+    overall_raw = _agg(closed)         # everything, incl. trailing/restart artifacts
     by_mode = defaultdict(list); by_class = defaultdict(list); by_pair = defaultdict(list)
     by_regime = defaultdict(list)
-    for e in closed:
+    for e in clean:
         by_mode[e.get("account_mode") or "?"].append(e)
         by_class[_cls(e.get("pair"))].append(e)
         by_pair[e.get("pair")].append(e)
@@ -91,6 +101,14 @@ def main():
         "backtest_benchmark": {"exp_r": BT_EXP, "wr_pct": BT_WR,
                                "note": "3-yr FX/index/comm gated, frictionless"},
         "overall_live": overall,
+        "overall_raw_incl_artifacts": overall_raw,
+        "restart_artifacts_excluded": {
+            "n": len(artifacts),
+            "note": "cam_rev trail-scratch/trail-hit fills (pre-fix restart break-even lock) excluded "
+                    "from the headline WR/RR; cam_rev no longer trails (fixed 1:1). See overall_raw for all fills.",
+            "rows": [{"pair": e.get("pair"), "r": round(e.get("realized_r", 0), 3),
+                      "reason": e.get("reason")} for e in artifacts],
+        },
         "gap_vs_backtest": ({"exp_r": round(overall["avg_r"] - BT_EXP, 3),
                              "wr_pct": round(overall["wr"] - BT_WR, 1)} if overall else None),
         "by_account_mode": {m: _agg(v) for m, v in sorted(by_mode.items())},
@@ -117,6 +135,10 @@ def main():
         print(f"cam_rev LIVE — {overall['n']} fills | WR {overall['wr']}% (bt {BT_WR}%, "
               f"gap {g['wr_pct']:+}) | avg {overall['avg_r']:+}R (bt {BT_EXP:+}, gap {g['exp_r']:+}R) "
               f"| total {overall['total_r']:+}R", flush=True)
+        if artifacts:
+            print(f"  ({len(artifacts)} restart/trailing-artifact fill(s) excluded — raw incl. them: "
+                  f"WR {overall_raw['wr']}%  avg {overall_raw['avg_r']:+}R  total {overall_raw['total_r']:+}R)",
+                  flush=True)
         print(f"  stop-slippage: {overall['slip_beyond_1R']} loss(es) beyond -1R, "
               f"avg excess {overall['avg_slip_excess']:+}R, worst {overall['worst_r']}R", flush=True)
         for c, v in out["by_class"].items():

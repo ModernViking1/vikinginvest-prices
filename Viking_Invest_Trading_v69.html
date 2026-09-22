@@ -1569,6 +1569,18 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
           if(!gpr.length) return; gpr.sort(function(a,b){return a-b;}); var med=gpr[Math.floor(gpr.length/2)];
           if(!(med>0)) return;
           closed.forEach(function(e){ if(typeof e.realized_r==='number' && Math.abs(e.realized_r)>4 && typeof e.net_profit==='number') e.realized_r=e.net_profit/med; }); })();
+        // cam_rev is a FIXED 1:1 fade — post-2026-09-22 it never trails / break-even-locks. Legacy
+        // fills closed by the pre-fix restart break-even lock carry reason "trail-scratch"/"trail-hit"
+        // and scratched would-be winners (e.g. XBRUSD 2026-09-22); exclude them so cam_rev's win-rate /
+        // RR reflects the strategy, not one-off restart artifacts. Scoped to cam_rev — other strategies
+        // legitimately trail. Count exposed for a visible "excluded" note.
+        window._swCamTrailExcl=0;
+        closed=closed.filter(function(e){
+          var st=e.strategy||(e.signal_id||'').split(':')[0]||'';
+          var rs=(e.reason||'').toLowerCase().replace(/_/g,'-');
+          if(st==='cam_rev' && (rs==='trail-scratch'||rs==='trail-hit')){ window._swCamTrailExcl++; return false; }
+          return true;
+        });
         var placed = execs.filter(function(e){return e.event==='placed' && inWin(e);});
         // OPEN = a 'placed' with no matching 'closed' anywhere in the log (a position stays open
         // regardless of the display window). Keyed by signal_id, else position_id. This is why a
@@ -1770,6 +1782,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         var liveRows=strats.filter(function(st){return LIVE_SWING[st] && (byStratD[st]||byStratM[st]);}).sort(function(a,b){return _swExp(b)-_swExp(a);}).map(_swRow).join('');
         var obsRows=strats.filter(function(st){return !LIVE_SWING[st] && (byStratD[st]||byStratM[st]);}).sort(function(a,b){return _swExp(b)-_swExp(a);}).map(_swRow).join('');
         h+='<div style="background:rgba(200,134,10,0.06);border:1px solid rgba(200,134,10,0.28);border-radius:3px;padding:5px 8px;margin:4px 0 6px;color:#7a5c0a;font-size:8px;line-height:1.45;">These edges target ~2:1 reward:risk — so a win rate near 40% is <b>profitable</b>. <b>Expectancy (R per trade)</b> is what matters here, not win rate alone. Only <b style="color:'+C.g+';">● LIVE</b> rows execute on cTrader; <b>○ OBSERVING</b> rows are shadow-tracked candidates that have not yet qualified for live capital.</div>';
+        if(window._swCamTrailExcl>0){ h+='<div style="background:rgba(200,40,26,0.05);border:1px solid rgba(200,40,26,0.22);border-radius:3px;padding:4px 8px;margin:0 0 6px;color:#8a2a1e;font-size:8px;line-height:1.4;"><b>'+window._swCamTrailExcl+'</b> cam_rev fill(s) closed by the pre-fix restart break-even lock (trailing artifact) are excluded from cam_rev’s win-rate / RR above — cam_rev is a fixed 1:1 fade and no longer trails.</div>'; }
         if(liveRows){ h+='<div style="color:'+C.g+';font-weight:700;letter-spacing:0.5px;margin:2px 0 2px;">● LIVE · executing on cTrader</div><table style="width:100%;border-collapse:collapse;font-size:8.5px;">'+_hdr+liveRows+'</table>'; }
         if(obsRows){ h+='<div style="color:'+C.mut+';font-weight:700;letter-spacing:0.5px;margin:9px 0 2px;">○ OBSERVING · shadow-only · not yet qualified for live</div>'
           + window._viPromotionBanner(shadow, function(tf){return tf!=='m15'&&tf!=='m5';}, LIVE_SWING)
