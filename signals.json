@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-22T22:21:12.211923+00:00",
-  "generated_ms": 1790115669494,
-  "detector_last_check": "2026-09-22T22:21:08.526013+00:00",
+  "generated": "2026-09-22T22:25:55.342600+00:00",
+  "generated_ms": 1790115952646,
+  "detector_last_check": "2026-09-22T22:25:51.256947+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
-    "armed": 0,
+    "total": 4,
+    "armed": 2,
     "triggered": 1,
     "invalidated": 1
   },
   "signals": [
+    {
+      "id": "suiusd:1790115300000:wick",
+      "pair": "suiusd",
+      "sym": "SUIUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 1.0084,
+      "stop": 1.0032,
+      "target": 1.0135999999999998,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790115300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790115952646,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "natgas:1790108100000:wick",
       "pair": "natgas",
@@ -34,7 +57,7 @@
       "cl": "bull",
       "armedAt": 1790108100000,
       "triggeredAt": null,
-      "lastSeenAt": 1790115669494,
+      "lastSeenAt": 1790115952646,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -57,10 +80,32 @@
       "cl": null,
       "armedAt": 1790095500000,
       "triggeredAt": 1790095500000,
-      "lastSeenAt": 1790115669494,
+      "lastSeenAt": 1790115952646,
       "source": "server-detector-absorb",
       "event_aligned": null,
       "held": true
+    },
+    {
+      "id": "suiusd:1780424100000:fib",
+      "pair": "suiusd",
+      "sym": "SUIUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 1.014889,
+      "stop": 1.0032,
+      "target": 1.0265779999999998,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780424100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790115952646,
+      "source": "server-detector",
+      "event_aligned": null
     }
   ]
 }
