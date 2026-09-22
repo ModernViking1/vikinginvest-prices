@@ -244,13 +244,14 @@ jobs:
           if [ $BS_EXIT -ne 0 ]; then
             echo "::warning::build_signals_json.py exited $BS_EXIT — signals.json not refreshed this cycle"
           fi
-          # Crypto Telegram alert — one message per fresh crypto signal from a
-          # proven, currently-profitable (non-demoted) strategy. Fail-open: a
-          # non-zero exit must never block the data push.
-          set +e
-          python crypto_alert.py
-          echo "crypto_alert.py exited $?"
-          set -e
+          # Crypto Telegram alert — DISABLED per user (2026-09-22): no crypto alerts wanted.
+          # The script is retained; re-enable by uncommenting the three lines below.
+          # crypto-alerts-state.json simply stops updating while disabled. Fail-open when on.
+          # set +e
+          # python crypto_alert.py
+          # echo "crypto_alert.py exited $?"
+          # set -e
+          echo "crypto_alert.py skipped (crypto Telegram alerts disabled per user 2026-09-22)"
           # Commit alerts-state.json + directions.json + signals.json
           # together so the broker-bridge view always matches what the
           # detector just published. Race-retry pattern matches the

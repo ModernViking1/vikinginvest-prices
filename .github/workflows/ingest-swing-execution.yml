@@ -54,7 +54,9 @@ jobs:
       # loop above, so no duplicate alerts. Fail-open: a Telegram hiccup never fails
       # the ingest. Extend WATCH by adding strategy names to the `if:` condition.
       - name: Telegram alert on watched-strategy execution
-        if: ${{ always() && github.event.client_payload.row.event == 'placed' && github.event.client_payload.row.strategy == 'cam_rev' }}
+        # User 2026-09-22: alert ONLY on cam_rev (R+) = strong-trend regime, and never crypto.
+        # R- (rangey) and crypto cam_rev executions no longer send. Other ingest messages unaffected.
+        if: ${{ always() && github.event.client_payload.row.event == 'placed' && github.event.client_payload.row.strategy == 'cam_rev' && github.event.client_payload.row.regime == 'strong' && !contains(fromJSON('["btcusd","ethusd","xrpusd","solusd"]'), github.event.client_payload.row.pair) }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
