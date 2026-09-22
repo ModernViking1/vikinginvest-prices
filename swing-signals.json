@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-09-22T00:00:00+00:00",
  "data_end_ts": 1790035200,
- "raw_signal_count": 56,
+ "raw_signal_count": 55,
  "count": 33,
  "signals": [
   {
@@ -236,6 +236,32 @@
    "suppressed": 1
   },
   {
+   "id": "twob_cm:xagusd:1790013600",
+   "strategy": "twob_cm",
+   "pair": "xagusd",
+   "symbol": "XAGUSD",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 65.67478929,
+   "ref_entry": 65.8695,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790013600,
+   "created_ts": 1790035200,
+   "expiry_ts": 1790056800,
+   "state": "triggered",
+   "cofire": [
+    "twob_cm"
+   ],
+   "cofire_dirs": [
+    "twob_cm:bear",
+    "twob_cm:bull"
+   ],
+   "suppressed": 2
+  },
+  {
    "id": "hs:de40:1790010000",
    "strategy": "hs",
    "pair": "de40",
@@ -361,34 +387,6 @@
     "cam_rev:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "cam_rev:xagusd:1789998300",
-   "strategy": "cam_rev",
-   "pair": "xagusd",
-   "symbol": "XAGUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 66.79501875,
-   "ref_entry": 66.391,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1789998300,
-   "created_ts": 1790035200,
-   "expiry_ts": 1790041500,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob_cm"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "twob_cm:bear",
-    "twob_cm:bull"
-   ],
-   "suppressed": 3
   },
   {
    "id": "cam_rev:nzdjpy:1789997400",
