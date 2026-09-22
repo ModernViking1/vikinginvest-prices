@@ -1153,12 +1153,17 @@ namespace cAlgo.Robots
                     Stop = JsonNum(o, "stop"), Rr = JsonNum(o, "rr"), RefEntry = JsonNum(o, "ref_entry"),
                     ExpiryTs = (long)JsonNum(o, "expiry_ts"), TriggerTs = (long)JsonNum(o, "trigger_ts"),
                     DemoOnly = JsonBool(o, "demo_only"), EntryMode = JsonStr(o, "entry_mode"),
-                    Regime = JsonStr(o, "regime"), RiskMult = JsonNum(o, "risk_mult"),
+                    Regime = NormRegime(JsonStr(o, "regime")), RiskMult = JsonNum(o, "risk_mult"),
                 });
                 pos = oe + 1;
             }
             return outp;
         }
+
+        // The feed emits "regime":null for every non-cam_rev signal; the naive JsonStr parser then
+        // returns the NEXT key ("risk_mult") instead of an empty string. Accept only the two real
+        // values so a null never leaks a bogus regime onto an execution row.
+        private static string NormRegime(string r) => (r == "strong" || r == "range") ? r : "";
 
         private static string JsonStr(string obj, string key)
         {
