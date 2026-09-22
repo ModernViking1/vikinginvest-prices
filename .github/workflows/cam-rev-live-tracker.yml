@@ -32,6 +32,9 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install deps
+        run: python -m pip install --upgrade pip requests   # detect_triggers (imported for PAIR_CLASS) hard-exits without it
+
       - name: Guard — required files present
         run: |
           for f in cam_rev_live_tracker.py swing-executions.json detect_triggers.py; do
