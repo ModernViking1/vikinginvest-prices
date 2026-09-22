@@ -3,8 +3,37 @@
  "generated": "2026-09-22T16:00:00+00:00",
  "data_end_ts": 1790092800,
  "raw_signal_count": 51,
- "count": 33,
+ "count": 32,
  "signals": [
+  {
+   "id": "cam_rev:ftse100:1790092800",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "ftse100",
+   "symbol": "FTSE100",
+   "class": "index",
+   "dir": "bull",
+   "stop": 10684.47825,
+   "ref_entry": 10731.8,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790092800,
+   "created_ts": 1790092800,
+   "expiry_ts": 1790114400,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull",
+    "twob_ix:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "cam_rev:nzdusd:1790091900",
    "strategy": "cam_rev",
@@ -142,33 +171,6 @@
    "suppressed": 1
   },
   {
-   "id": "twob_ix:ftse100:1790089200",
-   "strategy": "twob_ix",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "ftse100",
-   "symbol": "FTSE100",
-   "class": "index",
-   "dir": "bull",
-   "stop": 10720.32,
-   "ref_entry": 10738.6,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790089200,
-   "created_ts": 1790092800,
-   "expiry_ts": 1790132400,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bull"
-   ],
-   "suppressed": 0
-  },
-  {
    "id": "cam_rev:usdsgd:1790088300",
    "strategy": "cam_rev",
    "regime": "range",
@@ -247,33 +249,6 @@
    ],
    "cofire_dirs": [
     "cam_rev:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob:asterusd:1790085600",
-   "strategy": "twob",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "asterusd",
-   "symbol": "ASTERUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 0.71533,
-   "ref_entry": 0.7263,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790085600,
-   "created_ts": 1790092800,
-   "expiry_ts": 1790128800,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bull"
    ],
    "suppressed": 0
   },
