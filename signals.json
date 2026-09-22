@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-22T16:06:18.065207+00:00",
-  "generated_ms": 1790093175337,
-  "detector_last_check": "2026-09-22T16:06:14.090214+00:00",
+  "generated": "2026-09-22T16:11:20.169642+00:00",
+  "generated_ms": 1790093478187,
+  "detector_last_check": "2026-09-22T16:11:17.239554+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 6,
+    "total": 5,
     "armed": 2,
-    "triggered": 3,
+    "triggered": 2,
     "invalidated": 1
   },
   "signals": [
+    {
+      "id": "usdjpy:1790092800000:wick",
+      "pair": "usdjpy",
+      "sym": "USDJPY",
+      "cls": "major",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 157.55,
+      "stop": 156.822,
+      "target": 158.27800000000002,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790092800000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790093478187,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "gbpusd:1790091900000:wick",
       "pair": "gbpusd",
@@ -34,30 +57,7 @@
       "cl": "bear",
       "armedAt": 1790091900000,
       "triggeredAt": null,
-      "lastSeenAt": 1790093175337,
-      "source": "server-detector",
-      "event_aligned": null,
-      "demo_only": true
-    },
-    {
-      "id": "btcusd:1790091000000:wick",
-      "pair": "btcusd",
-      "sym": "BTCUSD",
-      "cls": "crypto",
-      "method": "wick",
-      "r_size": 1.0,
-      "dir": "bull",
-      "state": "armed",
-      "entry": 86236.92,
-      "stop": 85450.0,
-      "target": 87023.84,
-      "ew": "bull",
-      "tl": "bull",
-      "nw": "bull",
-      "cl": "bull",
-      "armedAt": 1790091000000,
-      "triggeredAt": null,
-      "lastSeenAt": 1790093175337,
+      "lastSeenAt": 1790093478187,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -80,7 +80,7 @@
       "cl": "bear",
       "armedAt": 1790087400000,
       "triggeredAt": null,
-      "lastSeenAt": 1790093175337,
+      "lastSeenAt": 1790093478187,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -103,7 +103,7 @@
       "cl": null,
       "armedAt": 1790075700000,
       "triggeredAt": 1790075700000,
-      "lastSeenAt": 1790093175337,
+      "lastSeenAt": 1790093478187,
       "source": "server-detector-mmove",
       "event_aligned": null,
       "held": true
@@ -126,32 +126,10 @@
       "cl": null,
       "armedAt": 1790075700000,
       "triggeredAt": 1790075700000,
-      "lastSeenAt": 1790093175337,
+      "lastSeenAt": 1790093478187,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
-    },
-    {
-      "id": "btcusd:1780440300000:fib",
-      "pair": "btcusd",
-      "sym": "BTCUSD",
-      "cls": "crypto",
-      "method": "fib",
-      "r_size": 0.5,
-      "dir": "bull",
-      "state": "triggered",
-      "entry": 86457.2061,
-      "stop": 85450.0,
-      "target": 87464.41219999999,
-      "ew": "bull",
-      "tl": "bull",
-      "nw": "bull",
-      "cl": "bull",
-      "armedAt": 1780440300000,
-      "triggeredAt": 1790092800000,
-      "lastSeenAt": 1790093175337,
-      "source": "server-detector",
-      "event_aligned": null
     }
   ]
 }
