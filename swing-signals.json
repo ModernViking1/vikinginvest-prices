@@ -2,9 +2,34 @@
  "schema_version": 1,
  "generated": "2026-09-22T07:00:00+00:00",
  "data_end_ts": 1790060400,
- "raw_signal_count": 48,
+ "raw_signal_count": 49,
  "count": 26,
  "signals": [
+  {
+   "id": "cam_rev:ethusd:1790061300",
+   "strategy": "cam_rev",
+   "pair": "ethusd",
+   "symbol": "ETHUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 2680.32715,
+   "ref_entry": 2731.98,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": true,
+   "trigger_ts": 1790061300,
+   "created_ts": 1790060400,
+   "expiry_ts": 1790104500,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "twob:btcusd:1790060400",
    "strategy": "twob",
@@ -402,31 +427,6 @@
    "suppressed": 0
   },
   {
-   "id": "cam_rev:cadjpy:1789992900",
-   "strategy": "cam_rev",
-   "pair": "cadjpy",
-   "symbol": "CADJPY",
-   "class": "minor",
-   "dir": "bear",
-   "stop": 112.46616,
-   "ref_entry": 112.29,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1789992900,
-   "created_ts": 1790060400,
-   "expiry_ts": 1790036100,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
-   ],
-   "suppressed": 0
-  },
-  {
    "id": "cam_rev:jp225:1789992900",
    "strategy": "cam_rev",
    "pair": "jp225",
@@ -504,9 +504,10 @@
    "cofire_dirs": [
     "cam_rev:bear",
     "holygrail_cm_m15:bear",
+    "holygrail_cm_m15:bull",
     "twob_cm:bear"
    ],
-   "suppressed": 2
+   "suppressed": 3
   },
   {
    "id": "cam_rev:usdchf:1789990200",
