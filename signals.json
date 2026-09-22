@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-22T12:41:16.336642+00:00",
-  "generated_ms": 1790080873613,
-  "detector_last_check": "2026-09-22T12:41:12.059201+00:00",
+  "generated": "2026-09-22T12:46:27.652529+00:00",
+  "generated_ms": 1790081185689,
+  "detector_last_check": "2026-09-22T12:46:24.282856+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 5,
+    "total": 6,
     "armed": 2,
-    "triggered": 2,
+    "triggered": 3,
     "invalidated": 1
   },
   "signals": [
+    {
+      "id": "btcusd:1790080200000:absorb_btc",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "absorb_btc",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 86104.01,
+      "stop": 85757.77664286,
+      "target": 86796.47671429,
+      "ew": null,
+      "tl": null,
+      "nw": null,
+      "cl": null,
+      "armedAt": 1790080200000,
+      "triggeredAt": 1790080200000,
+      "lastSeenAt": 1790081185689,
+      "source": "server-detector-absorb",
+      "event_aligned": null,
+      "held": false
+    },
     {
       "id": "taousd:1790079300000:wick",
       "pair": "taousd",
@@ -34,7 +57,7 @@
       "cl": "bull",
       "armedAt": 1790079300000,
       "triggeredAt": null,
-      "lastSeenAt": 1790080873613,
+      "lastSeenAt": 1790081185689,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -57,7 +80,7 @@
       "cl": "bear",
       "armedAt": 1790077500000,
       "triggeredAt": null,
-      "lastSeenAt": 1790080873613,
+      "lastSeenAt": 1790081185689,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -80,7 +103,7 @@
       "cl": null,
       "armedAt": 1790075700000,
       "triggeredAt": 1790075700000,
-      "lastSeenAt": 1790080873613,
+      "lastSeenAt": 1790081185689,
       "source": "server-detector-mmove",
       "event_aligned": null,
       "held": true
@@ -103,7 +126,7 @@
       "cl": null,
       "armedAt": 1790075700000,
       "triggeredAt": 1790075700000,
-      "lastSeenAt": 1790080873613,
+      "lastSeenAt": 1790081185689,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
@@ -126,7 +149,7 @@
       "cl": "bull",
       "armedAt": 1780254900000,
       "triggeredAt": null,
-      "lastSeenAt": 1790080873613,
+      "lastSeenAt": 1790081185689,
       "source": "server-detector",
       "event_aligned": null
     }
