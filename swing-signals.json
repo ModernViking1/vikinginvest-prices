@@ -2,9 +2,40 @@
  "schema_version": 1,
  "generated": "2026-09-22T18:00:00+00:00",
  "data_end_ts": 1790100000,
- "raw_signal_count": 51,
+ "raw_signal_count": 52,
  "count": 31,
  "signals": [
+  {
+   "id": "cam_rev:xagusd:1790101800",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "xagusd",
+   "symbol": "XAGUSD",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 67.42401875,
+   "ref_entry": 66.919,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790101800,
+   "created_ts": 1790100000,
+   "expiry_ts": 1790114400,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "twob_cm"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "twob_cm:bear",
+    "twob_cm:bull"
+   ],
+   "suppressed": 3
+  },
   {
    "id": "cam_rev:xauusd:1790100900",
    "strategy": "cam_rev",
@@ -31,36 +62,6 @@
     "cam_rev:bull"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "cam_rev:xagusd:1790100000",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "xagusd",
-   "symbol": "XAGUSD",
-   "class": "comm",
-   "dir": "bull",
-   "stop": 65.88498125,
-   "ref_entry": 66.4635,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790100000,
-   "created_ts": 1790100000,
-   "expiry_ts": 1790114400,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob_cm"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull",
-    "twob_cm:bear",
-    "twob_cm:bull"
-   ],
-   "suppressed": 2
   },
   {
    "id": "twob:solusd:1790100000",
