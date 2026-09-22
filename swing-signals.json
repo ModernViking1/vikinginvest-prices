@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-09-22T11:00:00+00:00",
  "data_end_ts": 1790074800,
- "raw_signal_count": 63,
+ "raw_signal_count": 64,
  "count": 35,
  "signals": [
   {
@@ -76,34 +76,6 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790073000,
-   "created_ts": 1790074800,
-   "expiry_ts": 1790114400,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "cam_rev:bull"
-   ],
-   "suppressed": 1
-  },
-  {
-   "id": "cam_rev:usdzar:1790072100",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "usdzar",
-   "symbol": "USDZAR",
-   "class": "minor",
-   "dir": "bull",
-   "stop": 16.19743438,
-   "ref_entry": 16.22976,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790072100,
    "created_ts": 1790074800,
    "expiry_ts": 1790114400,
    "state": "triggered",
@@ -989,6 +961,36 @@
     "twob_cm:bull"
    ],
    "suppressed": 3
+  },
+  {
+   "id": "s5_rsi:usdzar:1789988400",
+   "strategy": "s5_rsi",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "usdzar",
+   "symbol": "USDZAR",
+   "class": "minor",
+   "dir": "bull",
+   "stop": 16.20222,
+   "ref_entry": 16.269,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1789988400,
+   "created_ts": 1790074800,
+   "expiry_ts": 1790031600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "s5_rsi"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "s5_rsi:bull"
+   ],
+   "suppressed": 2
   }
  ]
 }
