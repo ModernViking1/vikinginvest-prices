@@ -19,6 +19,9 @@ except Exception:
 EXEC = "swing-executions.json"
 OUT = "cam-rev-live-tracker.json"
 BT_EXP, BT_WR = 0.525, 76.3         # 3-yr backtest benchmark (FX/index/comm, gated)
+# Per-regime 3-yr benchmarks (cam_gap_session_backtest.py, C1) — what regime-tiered sizing bets on.
+# The live split should track these once enough tagged fills accrue; if it doesn't, the tilt is wrong.
+BT_REGIME = {"strong": {"exp": 0.682, "wr": 84.0}, "range": {"exp": 0.486, "wr": 74.0}}
 
 
 def _ts(e):
@@ -65,10 +68,21 @@ def main():
 
     overall = _agg(closed)
     by_mode = defaultdict(list); by_class = defaultdict(list); by_pair = defaultdict(list)
+    by_regime = defaultdict(list)
     for e in closed:
         by_mode[e.get("account_mode") or "?"].append(e)
         by_class[_cls(e.get("pair"))].append(e)
         by_pair[e.get("pair")].append(e)
+        by_regime[e.get("regime") or "untagged"].append(e)   # regime tag added 2026-09-22; old fills = untagged
+
+    def _regime_block(name, rows):
+        a = _agg(rows)
+        if a and name in BT_REGIME:
+            a = dict(a, bt_exp=BT_REGIME[name]["exp"], bt_wr=BT_REGIME[name]["wr"],
+                     gap_exp=round(a["avg_r"] - BT_REGIME[name]["exp"], 3),
+                     gap_wr=round(a["wr"] - BT_REGIME[name]["wr"], 1))
+        return a
+    regime_out = {r: _regime_block(r, v) for r, v in sorted(by_regime.items())}
 
     now = datetime.now(timezone.utc)
     out = {
@@ -81,6 +95,8 @@ def main():
                              "wr_pct": round(overall["wr"] - BT_WR, 1)} if overall else None),
         "by_account_mode": {m: _agg(v) for m, v in sorted(by_mode.items())},
         "by_class": {c: _agg(v) for c, v in sorted(by_class.items())},
+        "by_regime": regime_out,
+        "regime_benchmark": BT_REGIME,
         "by_pair": dict(sorted(({p: _agg(v) for p, v in by_pair.items()}).items(),
                                key=lambda kv: -(kv[1]["total_r"] if kv[1] else 0))),
         "recent": [{
@@ -106,6 +122,14 @@ def main():
         for c, v in out["by_class"].items():
             if v:
                 print(f"  {c:7} n={v['n']:<4} WR={v['wr']:>4}%  avg={v['avg_r']:+.3f}R  tot={v['total_r']:+.1f}", flush=True)
+        print("  regime-tiered sizing (R+ strong x1.5 / R- range x0.75) — live vs 3-yr benchmark:", flush=True)
+        for r in ("strong", "range", "untagged"):
+            v = out["by_regime"].get(r)
+            if v:
+                extra = (f"  bt {v['bt_exp']:+.3f}R/{v['bt_wr']:.0f}% (gap {v['gap_exp']:+.3f}R)"
+                         if "bt_exp" in v else "  (pre-tag fills)")
+                print(f"    {('R+ '+r) if r=='strong' else ('R- '+r) if r=='range' else r:12} "
+                      f"n={v['n']:<4} WR={v['wr']:>4}%  avg={v['avg_r']:+.3f}R  tot={v['total_r']:+.1f}{extra}", flush=True)
     return 0
 
 
