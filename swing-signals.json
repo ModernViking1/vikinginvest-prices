@@ -2,9 +2,34 @@
  "schema_version": 1,
  "generated": "2026-09-22T08:00:00+00:00",
  "data_end_ts": 1790064000,
- "raw_signal_count": 51,
- "count": 26,
+ "raw_signal_count": 50,
+ "count": 27,
  "signals": [
+  {
+   "id": "cam_rev:solusd:1790064900",
+   "strategy": "cam_rev",
+   "pair": "solusd",
+   "symbol": "SOLUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 113.50615,
+   "ref_entry": 116.49,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": true,
+   "trigger_ts": 1790064900,
+   "created_ts": 1790064000,
+   "expiry_ts": 1790108100,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "cam_rev:usoil:1790063100",
    "strategy": "cam_rev",
@@ -420,14 +445,12 @@
    "expiry_ts": 1790049600,
    "state": "triggered",
    "cofire": [
-    "cam_rev",
     "s5_rsi"
    ],
    "cofire_dirs": [
-    "cam_rev:bull",
     "s5_rsi:bear"
    ],
-   "suppressed": 2
+   "suppressed": 0
   },
   {
    "id": "cam_rev:spx500:1790003700",
