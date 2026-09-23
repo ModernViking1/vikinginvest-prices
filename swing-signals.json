@@ -1,10 +1,122 @@
 {
  "schema_version": 1,
- "generated": "2026-09-23T08:00:00+00:00",
- "data_end_ts": 1790150400,
- "raw_signal_count": 68,
- "count": 35,
+ "generated": "2026-09-23T09:00:00+00:00",
+ "data_end_ts": 1790154000,
+ "raw_signal_count": 62,
+ "count": 32,
  "signals": [
+  {
+   "id": "cam_rev:xrpusd:1790154000",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "xrpusd",
+   "symbol": "XRPUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 1.6401675,
+   "ref_entry": 1.5973,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": true,
+   "trigger_ts": 1790154000,
+   "created_ts": 1790154000,
+   "expiry_ts": 1790197200,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "twob:taousd:1790154000",
+   "strategy": "twob",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "taousd",
+   "symbol": "TAOUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 307.24235714,
+   "ref_entry": 310.04,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790154000,
+   "created_ts": 1790154000,
+   "expiry_ts": 1790197200,
+   "state": "triggered",
+   "cofire": [
+    "twob"
+   ],
+   "cofire_dirs": [
+    "twob:bull"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "cam_rev:euraud:1790153100",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "euraud",
+   "symbol": "EURAUD",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 1.61343727,
+   "ref_entry": 1.61126,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790153100,
+   "created_ts": 1790154000,
+   "expiry_ts": 1790196300,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:usoil:1790153100",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "usoil",
+   "symbol": "USOIL",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 102.25268,
+   "ref_entry": 100.46,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790153100,
+   "created_ts": 1790154000,
+   "expiry_ts": 1790196300,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "holygrail_cm",
+    "twob_cm"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "holygrail_cm:bear",
+    "twob_cm:bear"
+   ],
+   "suppressed": 3
+  },
   {
    "id": "cam_rev:eurgbp:1790151300",
    "strategy": "cam_rev",
@@ -21,7 +133,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790151300,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790194500,
    "state": "triggered",
    "cofire": [
@@ -31,35 +143,6 @@
     "cam_rev:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "cam_rev:de40:1790150400",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "de40",
-   "symbol": "DE40",
-   "class": "index",
-   "dir": "bull",
-   "stop": 25488.48,
-   "ref_entry": 25618.0,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790150400,
-   "created_ts": 1790150400,
-   "expiry_ts": 1790193600,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull",
-    "twob_ix:bear"
-   ],
-   "suppressed": 3
   },
   {
    "id": "twob:ethusd:1790150400",
@@ -77,7 +160,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790150400,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790193600,
    "state": "triggered",
    "cofire": [
@@ -105,35 +188,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790150400,
-   "created_ts": 1790150400,
-   "expiry_ts": 1790193600,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bear",
-    "twob:bull"
-   ],
-   "suppressed": 1
-  },
-  {
-   "id": "twob:solusd:1790150400",
-   "strategy": "twob",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "solusd",
-   "symbol": "SOLUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 117.42535714,
-   "ref_entry": 117.89,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790150400,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790193600,
    "state": "triggered",
    "cofire": [
@@ -161,17 +216,16 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790149500,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790192700,
    "state": "triggered",
    "cofire": [
     "cam_rev"
    ],
    "cofire_dirs": [
-    "cam_rev:bear",
-    "cam_rev:bull"
+    "cam_rev:bear"
    ],
-   "suppressed": 2
+   "suppressed": 1
   },
   {
    "id": "cam_rev:ftse100:1790149500",
@@ -189,7 +243,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790149500,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790192700,
    "state": "triggered",
    "cofire": [
@@ -219,17 +273,16 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790147700,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790190900,
    "state": "triggered",
    "cofire": [
     "cam_rev"
    ],
    "cofire_dirs": [
-    "cam_rev:bear",
     "cam_rev:bull"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "cam_rev:jp225:1790147700",
@@ -247,7 +300,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790147700,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790190900,
    "state": "triggered",
    "cofire": [
@@ -277,7 +330,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790146800,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790190000,
    "state": "triggered",
    "cofire": [
@@ -286,6 +339,33 @@
    "cofire_dirs": [
     "twob:bear",
     "twob:bull"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "twob_ix:de40:1790146800",
+   "strategy": "twob_ix",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "de40",
+   "symbol": "DE40",
+   "class": "index",
+   "dir": "bear",
+   "stop": 25769.70285714,
+   "ref_entry": 25721.6,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790146800,
+   "created_ts": 1790154000,
+   "expiry_ts": 1790190000,
+   "state": "triggered",
+   "cofire": [
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "twob_ix:bear"
    ],
    "suppressed": 1
   },
@@ -305,7 +385,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790143200,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790186400,
    "state": "triggered",
    "cofire": [
@@ -332,7 +412,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790143200,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790186400,
    "state": "triggered",
    "cofire": [
@@ -361,7 +441,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790137800,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790181000,
    "state": "triggered",
    "cofire": [
@@ -388,7 +468,34 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790136000,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
+   "expiry_ts": 1790179200,
+   "state": "triggered",
+   "cofire": [
+    "twob"
+   ],
+   "cofire_dirs": [
+    "twob:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "twob:solusd:1790136000",
+   "strategy": "twob",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "solusd",
+   "symbol": "SOLUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 119.739,
+   "ref_entry": 119.13,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790136000,
+   "created_ts": 1790154000,
    "expiry_ts": 1790179200,
    "state": "triggered",
    "cofire": [
@@ -415,7 +522,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790118000,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790161200,
    "state": "triggered",
    "cofire": [
@@ -445,7 +552,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790100000,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790114400,
    "state": "triggered",
    "cofire": [
@@ -473,7 +580,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790097300,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790114400,
    "state": "triggered",
    "cofire": [
@@ -485,33 +592,6 @@
     "holygrail_cm_m15:bull"
    ],
    "suppressed": 1
-  },
-  {
-   "id": "twob:taousd:1790096400",
-   "strategy": "twob",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "taousd",
-   "symbol": "TAOUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 305.52157143,
-   "ref_entry": 312.13,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790096400,
-   "created_ts": 1790150400,
-   "expiry_ts": 1790139600,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bull"
-   ],
-   "suppressed": 0
   },
   {
    "id": "twob_ix:dj30:1790085600",
@@ -529,7 +609,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790085600,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790128800,
    "state": "triggered",
    "cofire": [
@@ -556,7 +636,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790084700,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790114400,
    "state": "triggered",
    "cofire": [
@@ -586,7 +666,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790079300,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790114400,
    "state": "triggered",
    "cofire": [
@@ -613,7 +693,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790078400,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790121600,
    "state": "triggered",
    "cofire": [
@@ -642,7 +722,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790072100,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790114400,
    "state": "triggered",
    "cofire": [
@@ -651,7 +731,6 @@
    ],
    "cofire_dirs": [
     "cam_rev:bear",
-    "cam_rev:bull",
     "twob_ix:bear",
     "twob_ix:bull"
    ],
@@ -673,7 +752,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790072100,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790114400,
    "state": "triggered",
    "cofire": [
@@ -700,7 +779,7 @@
    "entry_mode": "market",
    "demo_only": true,
    "trigger_ts": 1790071200,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790114400,
    "state": "triggered",
    "cofire": [
@@ -727,7 +806,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790068500,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790111700,
    "state": "triggered",
    "cofire": [
@@ -754,47 +833,18 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790067600,
-   "created_ts": 1790150400,
-   "expiry_ts": 1790110800,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:usoil:1790067600",
-   "strategy": "cam_rev",
-   "regime": "strong",
-   "risk_mult": 1.5,
-   "pair": "usoil",
-   "symbol": "USOIL",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 102.27868,
-   "ref_entry": 99.673,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790067600,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790110800,
    "state": "triggered",
    "cofire": [
     "cam_rev",
-    "holygrail_cm",
-    "twob_cm"
+    "twob_ix"
    ],
    "cofire_dirs": [
-    "cam_rev:bear",
-    "holygrail_cm:bear",
-    "twob_cm:bear"
+    "cam_rev:bull",
+    "twob_ix:bear"
    ],
-   "suppressed": 2
+   "suppressed": 1
   },
   {
    "id": "cam_rev:wtiusd:1790067600",
@@ -812,22 +862,20 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790067600,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790110800,
    "state": "triggered",
    "cofire": [
     "cam_rev",
     "holygrail_cm",
-    "holygrail_cm_m15",
     "twob_cm"
    ],
    "cofire_dirs": [
     "cam_rev:bear",
     "holygrail_cm:bear",
-    "holygrail_cm_m15:bear",
     "twob_cm:bull"
    ],
-   "suppressed": 5
+   "suppressed": 4
   },
   {
    "id": "twob_cm:xagusd:1790067600",
@@ -845,7 +893,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790067600,
-   "created_ts": 1790150400,
+   "created_ts": 1790154000,
    "expiry_ts": 1790110800,
    "state": "triggered",
    "cofire": [
@@ -853,141 +901,6 @@
    ],
    "cofire_dirs": [
     "twob_cm:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:cadjpy:1790066700",
-   "strategy": "cam_rev",
-   "regime": "strong",
-   "risk_mult": 1.5,
-   "pair": "cadjpy",
-   "symbol": "CADJPY",
-   "class": "minor",
-   "dir": "bear",
-   "stop": 112.3242925,
-   "ref_entry": 111.892,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790066700,
-   "created_ts": 1790150400,
-   "expiry_ts": 1790109900,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:usdjpy:1790066700",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "usdjpy",
-   "symbol": "USDJPY",
-   "class": "major",
-   "dir": "bear",
-   "stop": 157.94509,
-   "ref_entry": 157.084,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790066700,
-   "created_ts": 1790150400,
-   "expiry_ts": 1790109900,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:solusd:1790064900",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "solusd",
-   "symbol": "SOLUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 113.50615,
-   "ref_entry": 116.49,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": true,
-   "trigger_ts": 1790064900,
-   "created_ts": 1790150400,
-   "expiry_ts": 1790108100,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:gbpusd:1790064000",
-   "strategy": "cam_rev",
-   "regime": "strong",
-   "risk_mult": 1.5,
-   "pair": "gbpusd",
-   "symbol": "GBPUSD",
-   "class": "major",
-   "dir": "bear",
-   "stop": 1.33817417,
-   "ref_entry": 1.33546,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790064000,
-   "created_ts": 1790150400,
-   "expiry_ts": 1790107200,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:nzdjpy:1790064000",
-   "strategy": "cam_rev",
-   "regime": "strong",
-   "risk_mult": 1.5,
-   "pair": "nzdjpy",
-   "symbol": "NZDJPY",
-   "class": "minor",
-   "dir": "bear",
-   "stop": 90.690215,
-   "ref_entry": 90.348,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790064000,
-   "created_ts": 1790150400,
-   "expiry_ts": 1790107200,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
    ],
    "suppressed": 0
   }
