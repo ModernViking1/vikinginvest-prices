@@ -2235,6 +2235,49 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         <div style="color:var(--inkd);">Loading 3-year backtest…</div>
       </div>
     </div>
+    <div class="logsect" id="btTrafficSect" style="margin-bottom:12px;">
+      <div class="loghdr"><h3>▸ Traffic &amp; Visitor Stats</h3></div>
+      <div id="viTrafficPanel" style="padding:12px 14px;font-size:11px;color:var(--inkm);font-family:'Mukta',sans-serif;">
+        <div style="color:var(--inkd);">Loading visitor stats…</div>
+      </div>
+    </div>
+    <script>
+    /* Traffic panel — reads the PII-free visitor-stats.json (aggregated from Supabase usage_events
+       by the visitor-stats workflow) and renders KPIs + per-tab opens. Self-contained; no PII. */
+    (function(){
+      var URL='https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/visitor-stats.json';
+      var el=document.getElementById('viTrafficPanel'); if(!el) return;
+      var n=function(x){ return (x==null)?'—':String(x); };
+      var kpi=function(label,val,sub){
+        return '<div style="background:var(--sf,#fff);border:1px solid var(--rule,#ddd);border-radius:4px;padding:8px 6px;text-align:center;min-width:82px;flex:1;">'
+          +'<div style="font-size:9px;color:var(--inkd);">'+label+'</div>'
+          +'<div style="font-family:Orbitron,monospace;font-size:16px;font-weight:700;color:var(--ink);margin:2px 0;">'+val+'</div>'
+          +'<div style="font-size:8px;color:var(--inkd);">'+(sub||'')+'</div></div>';
+      };
+      fetch(URL+'?t='+Date.now()).then(function(r){return r.json();}).then(function(d){
+        var w=d.window||{}, bt=d.backtest_tab||{}, at=d.all_time||{};
+        var last=bt.last_opened?bt.last_opened.replace('T',' ').replace('Z',' UTC'):'never';
+        var tiles=[
+          kpi('Visitors ('+(d.window_days||30)+'d)', n(w.unique_visitors), n(w.page_loads)+' loads'),
+          kpi('Backtest opens', n(bt.opens), n(bt.unique_sessions)+' sessions'),
+          kpi('Signed-in', n(w.signed_in_visitors), 'of '+n(w.unique_visitors)),
+          kpi('All-time', n(at.unique_visitors), n(at.events)+' events')
+        ].join('');
+        var tabs=d.tab_opens||{}, TN={dash:'Dashboard',performance:'Performance',investor:'Investor',bt:'Backtest'};
+        var rows=Object.keys(tabs).sort(function(a,b){return tabs[b].opens-tabs[a].opens;}).map(function(t){
+          return '<tr><td style="padding:3px 6px;">'+(TN[t]||t)+'</td>'
+            +'<td style="padding:3px 6px;text-align:right;font-weight:700;">'+tabs[t].opens+'</td>'
+            +'<td style="padding:3px 6px;text-align:right;">'+n(tabs[t].sessions)+'</td></tr>';
+        }).join('');
+        var tbl=rows?('<table style="width:100%;border-collapse:collapse;font-size:9.5px;margin-top:8px;"><tr style="color:var(--inkd);"><td style="padding:3px 6px;">Tab</td><td style="padding:3px 6px;text-align:right;">Opens</td><td style="padding:3px 6px;text-align:right;">Sessions</td></tr>'+rows+'</table>'):'';
+        var upd=d.updated?('<div style="font-size:8px;color:var(--inkd);margin-top:6px;">Backtest tab last opened: '+last+' &middot; updated '+d.updated.replace('T',' ').replace('Z',' UTC')+'</div>'):'';
+        var note=d.seeded?'<div style="font-size:8px;color:#a6790f;margin-top:2px;">Seeded placeholder — refreshes automatically once the visitor-stats job runs.</div>':'';
+        el.innerHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;">'+tiles+'</div>'+tbl+upd+note;
+      }).catch(function(){
+        el.innerHTML='<div style="color:var(--inkd);">Visitor stats unavailable right now.</div>';
+      });
+    })();
+    </script>
     <script>
     /* 3-Year Track Record panel — reads the small server-side backtest-summary.json
        (published by the weekly deep-backtest job) and renders book stats + equity curve +
