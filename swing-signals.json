@@ -3,7 +3,7 @@
  "generated": "2026-09-23T11:00:00+00:00",
  "data_end_ts": 1790161200,
  "raw_signal_count": 48,
- "count": 29,
+ "count": 30,
  "signals": [
   {
    "id": "twob:btcusd:1790161200",
@@ -616,33 +616,58 @@
    "suppressed": 0
   },
   {
-   "id": "engulf_manip:nearusd:1790118000",
-   "strategy": "engulf_manip",
+   "id": "twob:nearusd:1790110800",
+   "strategy": "twob",
    "regime": null,
    "risk_mult": 1.0,
    "pair": "nearusd",
    "symbol": "NEARUSD",
    "class": "crypto",
    "dir": "bull",
-   "stop": 4.157295,
-   "ref_entry": 4.395,
+   "stop": 4.17412143,
+   "ref_entry": 4.2941,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
    "demo_only": false,
-   "trigger_ts": 1790118000,
+   "trigger_ts": 1790110800,
    "created_ts": 1790161200,
-   "expiry_ts": 1790161200,
+   "expiry_ts": 1790154000,
    "state": "triggered",
    "cofire": [
-    "engulf_manip",
     "twob"
    ],
    "cofire_dirs": [
-    "engulf_manip:bull",
     "twob:bull"
    ],
-   "suppressed": 1
+   "suppressed": 0
+  },
+  {
+   "id": "engulf_manip:taousd:1790100000",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "taousd",
+   "symbol": "TAOUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 331.09121429,
+   "ref_entry": 313.32,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790100000,
+   "created_ts": 1790161200,
+   "expiry_ts": 1790143200,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear"
+   ],
+   "suppressed": 0
   },
   {
    "id": "cam_rev:natgas:1790097300",
@@ -786,7 +811,7 @@
    "suppressed": 0
   },
   {
-   "id": "s5_rsi:usdzar:1790078400",
+   "id": "s5_rsi:usdzar:1790074800",
    "strategy": "s5_rsi",
    "regime": null,
    "risk_mult": 1.0,
@@ -795,14 +820,14 @@
    "class": "minor",
    "dir": "bear",
    "stop": 16.34498,
-   "ref_entry": 16.23905,
+   "ref_entry": 16.21602,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
    "demo_only": false,
-   "trigger_ts": 1790078400,
+   "trigger_ts": 1790074800,
    "created_ts": 1790161200,
-   "expiry_ts": 1790121600,
+   "expiry_ts": 1790118000,
    "state": "triggered",
    "cofire": [
     "s5_rsi"
