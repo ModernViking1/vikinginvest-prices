@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-09-23T11:00:00+00:00",
  "data_end_ts": 1790161200,
- "raw_signal_count": 52,
- "count": 31,
+ "raw_signal_count": 50,
+ "count": 30,
  "signals": [
   {
    "id": "twob:btcusd:1790161200",
@@ -286,33 +286,6 @@
    "suppressed": 4
   },
   {
-   "id": "cam_rev:euraud:1790153100",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "euraud",
-   "symbol": "EURAUD",
-   "class": "minor",
-   "dir": "bear",
-   "stop": 1.61343727,
-   "ref_entry": 1.61126,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790153100,
-   "created_ts": 1790161200,
-   "expiry_ts": 1790196300,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
-   ],
-   "suppressed": 0
-  },
-  {
    "id": "cam_rev:usoil:1790153100",
    "strategy": "cam_rev",
    "regime": "range",
@@ -394,35 +367,6 @@
     "cam_rev:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "cam_rev:ftse100:1790149500",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "ftse100",
-   "symbol": "FTSE100",
-   "class": "index",
-   "dir": "bull",
-   "stop": 10719.113,
-   "ref_entry": 10762.6,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790149500,
-   "created_ts": 1790161200,
-   "expiry_ts": 1790192700,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull",
-    "twob_ix:bear"
-   ],
-   "suppressed": 1
   },
   {
    "id": "cam_rev:eursgd:1790147700",
@@ -534,6 +478,33 @@
     "twob_ix:bear"
    ],
    "suppressed": 1
+  },
+  {
+   "id": "twob_ix:ftse100:1790146800",
+   "strategy": "twob_ix",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "ftse100",
+   "symbol": "FTSE100",
+   "class": "index",
+   "dir": "bear",
+   "stop": 10788.08428571,
+   "ref_entry": 10766.0,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790146800,
+   "created_ts": 1790161200,
+   "expiry_ts": 1790190000,
+   "state": "triggered",
+   "cofire": [
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "twob_ix:bear"
+   ],
+   "suppressed": 0
   },
   {
    "id": "twob:xrpusd:1790143200",
