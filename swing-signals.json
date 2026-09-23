@@ -2,9 +2,67 @@
  "schema_version": 1,
  "generated": "2026-09-23T13:00:00+00:00",
  "data_end_ts": 1790168400,
- "raw_signal_count": 42,
- "count": 26,
+ "raw_signal_count": 44,
+ "count": 27,
  "signals": [
+  {
+   "id": "cam_rev:wtiusd:1790169300",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "wtiusd",
+   "symbol": "WTIUSD",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 96.2819225,
+   "ref_entry": 94.624,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790169300,
+   "created_ts": 1790168400,
+   "expiry_ts": 1790200800,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "holygrail_cm",
+    "twob_cm"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "holygrail_cm:bear",
+    "twob_cm:bull"
+   ],
+   "suppressed": 3
+  },
+  {
+   "id": "holygrail_cm_m15:xagusd:1790169300",
+   "strategy": "holygrail_cm_m15",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "xagusd",
+   "symbol": "XAGUSD",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 65.37560714,
+   "ref_entry": 64.99,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790169300,
+   "created_ts": 1790168400,
+   "expiry_ts": 1790212500,
+   "state": "triggered",
+   "cofire": [
+    "holygrail_cm_m15"
+   ],
+   "cofire_dirs": [
+    "holygrail_cm_m15:bear"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "cam_rev:nas100:1790164800",
    "strategy": "cam_rev",
@@ -420,35 +478,6 @@
     "twob:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "twob_cm:wtiusd:1790139600",
-   "strategy": "twob_cm",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "wtiusd",
-   "symbol": "WTIUSD",
-   "class": "comm",
-   "dir": "bull",
-   "stop": 92.15218571,
-   "ref_entry": 92.45,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790139600,
-   "created_ts": 1790168400,
-   "expiry_ts": 1790182800,
-   "state": "triggered",
-   "cofire": [
-    "holygrail_cm",
-    "twob_cm"
-   ],
-   "cofire_dirs": [
-    "holygrail_cm:bear",
-    "twob_cm:bull"
-   ],
-   "suppressed": 2
   },
   {
    "id": "holygrail_cm_m15:xauusd:1790137800",
