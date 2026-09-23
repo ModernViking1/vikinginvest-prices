@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-23T16:46:19.237161+00:00",
-  "generated_ms": 1790181976524,
-  "detector_last_check": "2026-09-23T16:46:15.039903+00:00",
+  "generated": "2026-09-23T16:51:12.998275+00:00",
+  "generated_ms": 1790182270290,
+  "detector_last_check": "2026-09-23T16:51:08.890282+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,10 +10,57 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 0,
-    "armed": 0,
+    "total": 2,
+    "armed": 1,
     "triggered": 0,
-    "invalidated": 0
+    "invalidated": 1
   },
-  "signals": []
+  "signals": [
+    {
+      "id": "gbpusd:1790181900000:wick",
+      "pair": "gbpusd",
+      "sym": "GBPUSD",
+      "cls": "major",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 1.32466,
+      "stop": 1.32962,
+      "target": 1.3196999999999999,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1790181900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790182270290,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
+    {
+      "id": "usdzar:1790181900000:wick",
+      "pair": "usdzar",
+      "sym": "USDZAR",
+      "cls": "minor",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 16.40241,
+      "stop": 16.29502,
+      "target": 16.5098,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790181900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790182270290,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    }
+  ]
 }
