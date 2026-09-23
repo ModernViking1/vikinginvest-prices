@@ -2,61 +2,34 @@
  "schema_version": 1,
  "generated": "2026-09-23T17:00:00+00:00",
  "data_end_ts": 1790182800,
- "raw_signal_count": 31,
- "count": 25,
+ "raw_signal_count": 29,
+ "count": 24,
  "signals": [
   {
-   "id": "twob_ix:dj30:1790175600",
-   "strategy": "twob_ix",
+   "id": "twob:suiusd:1790182800",
+   "strategy": "twob",
    "regime": null,
    "risk_mult": 1.0,
-   "pair": "dj30",
-   "symbol": "DJ30",
-   "class": "index",
+   "pair": "suiusd",
+   "symbol": "SUIUSD",
+   "class": "crypto",
    "dir": "bull",
-   "stop": 51734.54428571,
-   "ref_entry": 51783.8,
+   "stop": 0.93077357,
+   "ref_entry": 0.962,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
    "demo_only": false,
-   "trigger_ts": 1790175600,
+   "trigger_ts": 1790182800,
    "created_ts": 1790182800,
-   "expiry_ts": 1790218800,
+   "expiry_ts": 1790226000,
    "state": "triggered",
    "cofire": [
-    "twob_ix"
+    "twob"
    ],
    "cofire_dirs": [
-    "twob_ix:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob_ix:fra40:1790175600",
-   "strategy": "twob_ix",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "fra40",
-   "symbol": "FRA40",
-   "class": "index",
-   "dir": "bull",
-   "stop": 8113.0,
-   "ref_entry": 8132.5,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790175600,
-   "created_ts": 1790182800,
-   "expiry_ts": 1790218800,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bear",
-    "twob_ix:bull"
+    "twob:bear",
+    "twob:bull"
    ],
    "suppressed": 1
   },
@@ -291,34 +264,6 @@
    "suppressed": 0
   },
   {
-   "id": "twob_ix:ftse100:1790168400",
-   "strategy": "twob_ix",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "ftse100",
-   "symbol": "FTSE100",
-   "class": "index",
-   "dir": "bull",
-   "stop": 10690.76857143,
-   "ref_entry": 10721.3,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790168400,
-   "created_ts": 1790182800,
-   "expiry_ts": 1790211600,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bear",
-    "twob_ix:bull"
-   ],
-   "suppressed": 1
-  },
-  {
    "id": "cam_rev:nzdjpy:1790164800",
    "strategy": "cam_rev",
    "regime": "range",
@@ -401,6 +346,33 @@
    "suppressed": 0
   },
   {
+   "id": "twob_ix:fra40:1790150400",
+   "strategy": "twob_ix",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "fra40",
+   "symbol": "FRA40",
+   "class": "index",
+   "dir": "bear",
+   "stop": 8206.38285714,
+   "ref_entry": 8195.5,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790150400,
+   "created_ts": 1790182800,
+   "expiry_ts": 1790193600,
+   "state": "triggered",
+   "cofire": [
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "twob_ix:bear"
+   ],
+   "suppressed": 0
+  },
+  {
    "id": "twob_ix:spx500:1790150400",
    "strategy": "twob_ix",
    "regime": null,
@@ -428,33 +400,6 @@
    "suppressed": 0
   },
   {
-   "id": "twob:suiusd:1790146800",
-   "strategy": "twob",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "suiusd",
-   "symbol": "SUIUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 1.039625,
-   "ref_entry": 1.0276,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790146800,
-   "created_ts": 1790182800,
-   "expiry_ts": 1790190000,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bear"
-   ],
-   "suppressed": 0
-  },
-  {
    "id": "twob_ix:de40:1790146800",
    "strategy": "twob_ix",
    "regime": null,
@@ -465,6 +410,33 @@
    "dir": "bear",
    "stop": 25769.70285714,
    "ref_entry": 25721.6,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790146800,
+   "created_ts": 1790182800,
+   "expiry_ts": 1790190000,
+   "state": "triggered",
+   "cofire": [
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "twob_ix:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "twob_ix:ftse100:1790146800",
+   "strategy": "twob_ix",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "ftse100",
+   "symbol": "FTSE100",
+   "class": "index",
+   "dir": "bear",
+   "stop": 10788.08428571,
+   "ref_entry": 10766.0,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
