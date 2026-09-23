@@ -1,5 +1,5 @@
 {
- "updated": "2026-09-23T05:07:03Z",
+ "updated": "2026-09-23T12:04:14Z",
  "strategy": "cam_rev",
  "backtest_benchmark": {
   "exp_r": 0.525,
@@ -7,50 +7,55 @@
   "note": "3-yr FX/index/comm gated, frictionless"
  },
  "overall_live": {
-  "n": 11,
-  "wr": 45.5,
-  "avg_r": -0.253,
+  "n": 12,
+  "wr": 41.7,
+  "avg_r": -0.232,
   "total_r": -2.78,
   "avg_win": 0.964,
-  "avg_loss": -1.267,
+  "avg_loss": -1.086,
   "slip_beyond_1R": 6,
   "avg_slip_excess": -0.267,
   "worst_r": -2
  },
  "overall_raw_incl_artifacts": {
-  "n": 12,
-  "wr": 41.7,
-  "avg_r": -0.239,
-  "total_r": -2.86,
-  "avg_win": 0.964,
-  "avg_loss": -1.098,
+  "n": 14,
+  "wr": 42.9,
+  "avg_r": -0.169,
+  "total_r": -2.36,
+  "avg_win": 0.887,
+  "avg_loss": -0.961,
   "slip_beyond_1R": 6,
   "avg_slip_excess": -0.267,
   "worst_r": -2
  },
  "restart_artifacts_excluded": {
-  "n": 1,
+  "n": 2,
   "note": "cam_rev trail-scratch/trail-hit fills (pre-fix restart break-even lock) excluded from the headline WR/RR; cam_rev no longer trails (fixed 1:1). See overall_raw for all fills.",
   "rows": [
    {
     "pair": "cadjpy",
     "r": -0.085,
     "reason": "trail-scratch"
+   },
+   {
+    "pair": "gbpcad",
+    "r": 0.501,
+    "reason": "trail-hit"
    }
   ]
  },
  "gap_vs_backtest": {
-  "exp_r": -0.778,
-  "wr_pct": -30.8
+  "exp_r": -0.757,
+  "wr_pct": -34.6
  },
  "by_account_mode": {
   "demo": {
-   "n": 11,
-   "wr": 45.5,
-   "avg_r": -0.253,
+   "n": 12,
+   "wr": 41.7,
+   "avg_r": -0.232,
    "total_r": -2.78,
    "avg_win": 0.964,
-   "avg_loss": -1.267,
+   "avg_loss": -1.086,
    "slip_beyond_1R": 6,
    "avg_slip_excess": -0.267,
    "worst_r": -2
@@ -69,12 +74,12 @@
    "worst_r": 0.99
   },
   "crypto": {
-   "n": 1,
+   "n": 2,
    "wr": 0.0,
-   "avg_r": -1.008,
+   "avg_r": -0.504,
    "total_r": -1.01,
    "avg_win": 0.0,
-   "avg_loss": -1.008,
+   "avg_loss": -0.504,
    "slip_beyond_1R": 1,
    "avg_slip_excess": -0.008,
    "worst_r": -1.008
@@ -115,18 +120,18 @@
  },
  "by_regime": {
   "range": {
-   "n": 1,
+   "n": 2,
    "wr": 0.0,
-   "avg_r": -1.095,
+   "avg_r": -0.548,
    "total_r": -1.1,
    "avg_win": 0.0,
-   "avg_loss": -1.095,
+   "avg_loss": -0.548,
    "slip_beyond_1R": 1,
    "avg_slip_excess": -0.095,
    "worst_r": -1.095,
    "bt_exp": 0.486,
    "bt_wr": 74.0,
-   "gap_exp": -1.581,
+   "gap_exp": -1.034,
    "gap_wr": -74.0
   },
   "untagged": {
@@ -195,6 +200,17 @@
    "slip_beyond_1R": 0,
    "avg_slip_excess": 0.0,
    "worst_r": 0.918
+  },
+  "xrpusd": {
+   "n": 1,
+   "wr": 0.0,
+   "avg_r": 0.0,
+   "total_r": 0,
+   "avg_win": 0.0,
+   "avg_loss": 0.0,
+   "slip_beyond_1R": 0,
+   "avg_slip_excess": 0.0,
+   "worst_r": 0
   },
   "euraud": {
    "n": 2,
@@ -359,6 +375,22 @@
    "mode": "demo",
    "r": -1.095,
    "reason": "stop-hit"
+  },
+  {
+   "when": "2026-09-23 00:11",
+   "pair": "xrpusd",
+   "class": "crypto",
+   "mode": "demo",
+   "r": 0,
+   "reason": "manual-or-broker"
+  },
+  {
+   "when": "2026-09-23 06:50",
+   "pair": "gbpcad",
+   "class": "minor",
+   "mode": "demo",
+   "r": 0.501,
+   "reason": "trail-hit"
   }
  ]
 }
