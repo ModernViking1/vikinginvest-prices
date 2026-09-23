@@ -31,6 +31,16 @@ def _ts(e):
     return t if isinstance(t, (int, float)) else 0
 
 
+def _strat(e):
+    """Tag-tolerant strategy: prefer the signal_id prefix; else strip a " (R+)"/" (R-)" regime tag off
+    the strategy field. The pre-StrategyOf-fix cBot leaks the comment tag ("cam_rev (R-)") into closed
+    rows of positions that survived a restart — this keeps them counted as cam_rev."""
+    sid = e.get("signal_id") or ""
+    if ":" in sid:
+        return sid.split(":")[0]
+    return str(e.get("strategy") or "").split(" ")[0]
+
+
 def _cls(pair):
     return PAIR_CLASS.get(pair) or ("crypto" if pair in CAM_CRYPTO_PILOT else "other")
 
@@ -62,7 +72,7 @@ def main():
         return 1
     ex = d.get("executions") or d.get("rows") or (d if isinstance(d, list) else [])
     closed = sorted(
-        [e for e in ex if e.get("strategy") == "cam_rev" and e.get("event") == "closed"
+        [e for e in ex if _strat(e) == "cam_rev" and e.get("event") == "closed"
          and isinstance(e.get("realized_r"), (int, float))],
         key=_ts)
 

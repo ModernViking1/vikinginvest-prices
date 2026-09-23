@@ -1576,7 +1576,9 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // legitimately trail. Count exposed for a visible "excluded" note.
         window._swCamTrailExcl=0;
         closed=closed.filter(function(e){
-          var st=e.strategy||(e.signal_id||'').split(':')[0]||'';
+          // tag-tolerant: prefer the tag-free signal_id prefix, else strip a " (R+)"/" (R-)" tag the
+          // pre-fix cBot leaks into the strategy field of restart-surviving closes.
+          var st=((e.signal_id||'').split(':')[0]) || String(e.strategy||'').split(' ')[0];
           var rs=(e.reason||'').toLowerCase().replace(/_/g,'-');
           if(st==='cam_rev' && (rs==='trail-scratch'||rs==='trail-hit')){ window._swCamTrailExcl++; return false; }
           return true;
