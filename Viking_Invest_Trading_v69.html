@@ -1590,7 +1590,18 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // only enters the closed stats below once it actually hits target or stop.
         var _swKey=function(e){ var pid=e.position_id; return (pid!=null&&pid!==''&&pid!==0)?('#'+pid):(e.signal_id||''); };  // position_id links placed↔closed even if signal_id was lost on a restart
         var _swClosedKeys={}; (execs||[]).forEach(function(e){ if(e.event==='closed') _swClosedKeys[_swKey(e)]=1; });
-        var _swOpenMap={}; (execs||[]).forEach(function(e){ if(e.event==='placed' && !_swClosedKeys[_swKey(e)]) _swOpenMap[_swKey(e)]=e; });
+        // Reconciliation guard: a 'placed' with no matching 'closed' that is OLDER than _swMaxOpenMs
+        // is almost certainly a broker close whose 'closed' event was never recorded (a bot-off /
+        // publish-down window), NOT a genuinely-open position — no swing strategy holds >7 days
+        // (cam_rev <=24h). Excluding these stops the phantom-open count drifting up over time. The
+        // authoritative fix is cBot-side position reconciliation on start (see VPS_SETUP.md).
+        var _swMaxOpenMs=7*24*3600*1000, _swNow=Date.now();
+        var _swOpenMap={}; (execs||[]).forEach(function(e){
+          if(e.event!=='placed' || _swClosedKeys[_swKey(e)]) return;
+          var t=e.ts||0; if(t>0 && t<1e11) t*=1000;               // secs -> ms
+          if(t>0 && (_swNow-t)>_swMaxOpenMs) return;               // stale placed, unrecorded close
+          _swOpenMap[_swKey(e)]=e;
+        });
         var openList=Object.keys(_swOpenMap).map(function(k){return _swOpenMap[k];});
         // Currently-demoted swing strategies (mirror swing_signals.py DEMOTED). Their fills were
         // live when they filled but the strategy is now observer-only, so they are excluded from

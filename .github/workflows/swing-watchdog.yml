@@ -1,0 +1,48 @@
+name: Swing Bot Watchdog
+
+# Alerts on Telegram if the swing cBot goes silent mid-session while intraday is still publishing
+# (the zombie-after-disconnect failure mode). Interim liveness check until the cBot heartbeat lands.
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'      # every 30 min; the script no-ops outside 07-22 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: swing-watchdog
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run watchdog
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python swing_watchdog.py
+
+      - name: Commit state (retry on race)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add swing-watchdog-state.json
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          git commit -m "chore: update swing-watchdog state [skip ci]"
+          for i in 1 2 3 4 5; do
+            if git push origin HEAD:main 2>&1; then echo pushed; break; fi
+            git fetch origin main && git rebase origin/main || git rebase --abort
+            sleep $((2 ** i))
+          done
