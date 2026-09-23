@@ -1,5 +1,5 @@
 {
- "updated": "2026-09-23T17:26:15Z",
+ "updated": "2026-09-23T21:44:42Z",
  "strategy": "cam_rev",
  "backtest_benchmark": {
   "exp_r": 0.525,
@@ -7,25 +7,25 @@
   "note": "3-yr FX/index/comm gated, frictionless"
  },
  "overall_live": {
-  "n": 15,
-  "wr": 40.0,
-  "avg_r": -0.26,
-  "total_r": -3.9,
-  "avg_win": 0.967,
-  "avg_loss": -1.078,
-  "slip_beyond_1R": 8,
-  "avg_slip_excess": -0.212,
+  "n": 17,
+  "wr": 41.2,
+  "avg_r": -0.232,
+  "total_r": -3.95,
+  "avg_win": 0.965,
+  "avg_loss": -1.071,
+  "slip_beyond_1R": 9,
+  "avg_slip_excess": -0.189,
   "worst_r": -2
  },
  "overall_raw_incl_artifacts": {
-  "n": 17,
-  "wr": 41.2,
-  "avg_r": -0.205,
-  "total_r": -3.48,
-  "avg_win": 0.9,
-  "avg_loss": -0.978,
-  "slip_beyond_1R": 8,
-  "avg_slip_excess": -0.212,
+  "n": 19,
+  "wr": 42.1,
+  "avg_r": -0.186,
+  "total_r": -3.53,
+  "avg_win": 0.907,
+  "avg_loss": -0.981,
+  "slip_beyond_1R": 9,
+  "avg_slip_excess": -0.189,
   "worst_r": -2
  },
  "restart_artifacts_excluded": {
@@ -45,33 +45,33 @@
   ]
  },
  "gap_vs_backtest": {
-  "exp_r": -0.785,
-  "wr_pct": -36.3
+  "exp_r": -0.757,
+  "wr_pct": -35.1
  },
  "by_account_mode": {
   "demo": {
-   "n": 15,
-   "wr": 40.0,
-   "avg_r": -0.26,
-   "total_r": -3.9,
-   "avg_win": 0.967,
-   "avg_loss": -1.078,
-   "slip_beyond_1R": 8,
-   "avg_slip_excess": -0.212,
+   "n": 17,
+   "wr": 41.2,
+   "avg_r": -0.232,
+   "total_r": -3.95,
+   "avg_win": 0.965,
+   "avg_loss": -1.071,
+   "slip_beyond_1R": 9,
+   "avg_slip_excess": -0.189,
    "worst_r": -2
   }
  },
  "by_class": {
   "comm": {
-   "n": 2,
-   "wr": 100.0,
-   "avg_r": 0.992,
-   "total_r": 1.98,
+   "n": 3,
+   "wr": 66.7,
+   "avg_r": 0.326,
+   "total_r": 0.98,
    "avg_win": 0.992,
-   "avg_loss": 0.0,
-   "slip_beyond_1R": 0,
-   "avg_slip_excess": 0.0,
-   "worst_r": 0.99
+   "avg_loss": -1.006,
+   "slip_beyond_1R": 1,
+   "avg_slip_excess": -0.006,
+   "worst_r": -1.006
   },
   "crypto": {
    "n": 2,
@@ -107,11 +107,11 @@
    "worst_r": -1.153
   },
   "minor": {
-   "n": 9,
-   "wr": 33.3,
-   "avg_r": -0.525,
-   "total_r": -4.72,
-   "avg_win": 0.938,
+   "n": 10,
+   "wr": 40.0,
+   "avg_r": -0.377,
+   "total_r": -3.77,
+   "avg_win": 0.942,
    "avg_loss": -1.256,
    "slip_beyond_1R": 6,
    "avg_slip_excess": -0.256,
@@ -120,19 +120,19 @@
  },
  "by_regime": {
   "range": {
-   "n": 5,
-   "wr": 20.0,
-   "avg_r": -0.443,
-   "total_r": -2.22,
-   "avg_win": 0.98,
-   "avg_loss": -0.799,
-   "slip_beyond_1R": 3,
-   "avg_slip_excess": -0.065,
+   "n": 7,
+   "wr": 28.6,
+   "avg_r": -0.324,
+   "total_r": -2.27,
+   "avg_win": 0.967,
+   "avg_loss": -0.84,
+   "slip_beyond_1R": 4,
+   "avg_slip_excess": -0.05,
    "worst_r": -1.095,
    "bt_exp": 0.486,
    "bt_wr": 74.0,
-   "gap_exp": -0.929,
-   "gap_wr": -54.0
+   "gap_exp": -0.81,
+   "gap_wr": -45.4
   },
   "untagged": {
    "n": 10,
@@ -157,6 +157,17 @@
   }
  },
  "by_pair": {
+  "eurnok": {
+   "n": 2,
+   "wr": 100.0,
+   "avg_r": 0.967,
+   "total_r": 1.93,
+   "avg_win": 0.967,
+   "avg_loss": 0.0,
+   "slip_beyond_1R": 0,
+   "avg_slip_excess": 0.0,
+   "worst_r": 0.954
+  },
   "fra40": {
    "n": 1,
    "wr": 100.0,
@@ -189,17 +200,6 @@
    "slip_beyond_1R": 0,
    "avg_slip_excess": 0.0,
    "worst_r": 0.993
-  },
-  "eurnok": {
-   "n": 1,
-   "wr": 100.0,
-   "avg_r": 0.98,
-   "total_r": 0.98,
-   "avg_win": 0.98,
-   "avg_loss": 0.0,
-   "slip_beyond_1R": 0,
-   "avg_slip_excess": 0.0,
-   "worst_r": 0.98
   },
   "xrpusd": {
    "n": 1,
@@ -244,6 +244,17 @@
    "slip_beyond_1R": 1,
    "avg_slip_excess": -0.008,
    "worst_r": -1.008
+  },
+  "wtiusd": {
+   "n": 1,
+   "wr": 0.0,
+   "avg_r": -1.006,
+   "total_r": -1.01,
+   "avg_win": 0.0,
+   "avg_loss": -1.006,
+   "slip_beyond_1R": 1,
+   "avg_slip_excess": -0.006,
+   "worst_r": -1.006
   },
   "gbpcad": {
    "n": 1,
@@ -426,6 +437,22 @@
    "mode": "demo",
    "r": -1.06,
    "reason": "stop-hit"
+  },
+  {
+   "when": "2026-09-23 20:02",
+   "pair": "eurnok",
+   "class": "minor",
+   "mode": "demo",
+   "r": 0.954,
+   "reason": "target-hit"
+  },
+  {
+   "when": "2026-09-23 20:32",
+   "pair": "wtiusd",
+   "class": "comm",
+   "mode": "demo",
+   "r": -1.006,
+   "reason": "manual-or-broker"
   }
  ]
 }
