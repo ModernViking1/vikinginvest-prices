@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-24T07:01:51.387610+00:00",
-  "generated_ms": 1790233309576,
-  "detector_last_check": "2026-09-24T07:01:48.412569+00:00",
+  "generated": "2026-09-24T07:06:15.291260+00:00",
+  "generated_ms": 1790233572795,
+  "detector_last_check": "2026-09-24T07:06:11.803243+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 3,
-    "armed": 1,
+    "total": 4,
+    "armed": 2,
     "triggered": 1,
     "invalidated": 1
   },
   "signals": [
+    {
+      "id": "ftse100:1790233200000:wick",
+      "pair": "ftse100",
+      "sym": "FTSE100",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "armed",
+      "entry": 10696.0,
+      "stop": 10703.3,
+      "target": 10688.7,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1790233200000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790233572795,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "usdjpy:1790231400000:wick",
       "pair": "usdjpy",
@@ -34,7 +57,7 @@
       "cl": "bull",
       "armedAt": 1790231400000,
       "triggeredAt": null,
-      "lastSeenAt": 1790233309576,
+      "lastSeenAt": 1790233572795,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -57,7 +80,7 @@
       "cl": null,
       "armedAt": 1790231400000,
       "triggeredAt": 1790231400000,
-      "lastSeenAt": 1790233309576,
+      "lastSeenAt": 1790233572795,
       "source": "server-detector-absorb",
       "event_aligned": null,
       "held": true
@@ -80,7 +103,7 @@
       "cl": "bear",
       "armedAt": 1790228700000,
       "triggeredAt": null,
-      "lastSeenAt": 1790233309576,
+      "lastSeenAt": 1790233572795,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
