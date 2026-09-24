@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-24T05:01:46.242120+00:00",
-  "generated_ms": 1790226104470,
-  "detector_last_check": "2026-09-24T05:01:43.315761+00:00",
+  "generated": "2026-09-24T05:06:22.425955+00:00",
+  "generated_ms": 1790226379699,
+  "detector_last_check": "2026-09-24T05:06:18.209315+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 1,
-    "armed": 0,
+    "total": 3,
+    "armed": 2,
     "triggered": 1,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "nearusd:1790225100000:wick",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 4.4146,
+      "stop": 4.3284,
+      "target": 4.5008,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790225100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790226379699,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "natgas:1790222400000:wick",
       "pair": "natgas",
@@ -34,10 +57,32 @@
       "cl": "bull",
       "armedAt": 1790222400000,
       "triggeredAt": 1790224200000,
-      "lastSeenAt": 1790226104470,
+      "lastSeenAt": 1790226379699,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
+    },
+    {
+      "id": "nearusd:1780433100000:fib",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 4.4920972,
+      "stop": 4.3284,
+      "target": 4.6557943999999996,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780433100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790226379699,
+      "source": "server-detector",
+      "event_aligned": null
     }
   ]
 }
