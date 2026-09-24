@@ -6,6 +6,61 @@
  "count": 32,
  "signals": [
   {
+   "id": "cam_rev:eursgd:1790259300",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "eursgd",
+   "symbol": "EURSGD",
+   "class": "minor",
+   "dir": "bull",
+   "stop": 1.4552158,
+   "ref_entry": 1.45622,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790259300,
+   "created_ts": 1790258400,
+   "expiry_ts": 1790287200,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:nzdchf:1790259300",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "nzdchf",
+   "symbol": "NZDCHF",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 0.46971262,
+   "ref_entry": 0.46889,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790259300,
+   "created_ts": 1790258400,
+   "expiry_ts": 1790287200,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 2
+  },
+  {
    "id": "cam_rev:eurusd:1790257500",
    "strategy": "cam_rev",
    "regime": "range",
@@ -141,7 +196,7 @@
     "twob:bear",
     "twob:bull"
    ],
-   "suppressed": 2
+   "suppressed": 1
   },
   {
    "id": "twob:suiusd:1790247600",
@@ -537,33 +592,6 @@
    "suppressed": 1
   },
   {
-   "id": "cam_rev:nzdchf:1790235900",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "nzdchf",
-   "symbol": "NZDCHF",
-   "class": "minor",
-   "dir": "bull",
-   "stop": 0.46676737,
-   "ref_entry": 0.46997,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790235900,
-   "created_ts": 1790258400,
-   "expiry_ts": 1790279100,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull"
-   ],
-   "suppressed": 1
-  },
-  {
    "id": "cam_rev:nzdjpy:1790235900",
    "strategy": "cam_rev",
    "regime": "range",
@@ -702,33 +730,6 @@
     "twob:bear"
    ],
    "suppressed": 2
-  },
-  {
-   "id": "twob:xrpusd:1790229600",
-   "strategy": "twob",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "xrpusd",
-   "symbol": "XRPUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 1.52157143,
-   "ref_entry": 1.5044,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790229600,
-   "created_ts": 1790258400,
-   "expiry_ts": 1790272800,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bear"
-   ],
-   "suppressed": 0
   },
   {
    "id": "engulf_manip:lighterusd:1790226000",
