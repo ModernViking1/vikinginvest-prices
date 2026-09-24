@@ -50,7 +50,7 @@ namespace cAlgo.Robots
         [Parameter("Daily loss limit (% of equity)", DefaultValue = 3.0, MinValue = 0.0, MaxValue = 15.0, Group = "Risk")]
         public double DailyLossPctLimit { get; set; }
 
-        [Parameter("Max concurrent swing positions", DefaultValue = 12, MinValue = 1, MaxValue = 50, Group = "Risk")]
+        [Parameter("Max concurrent swing positions", DefaultValue = 20, MinValue = 1, MaxValue = 50, Group = "Risk")]
         public int MaxConcurrent { get; set; }
 
         [Parameter("Min stop (pips)", DefaultValue = 5.0, MinValue = 0.0, Group = "Risk")]
