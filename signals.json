@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-24T06:56:03.274096+00:00",
-  "generated_ms": 1790232960995,
-  "detector_last_check": "2026-09-24T06:55:59.679362+00:00",
+  "generated": "2026-09-24T07:01:51.387610+00:00",
+  "generated_ms": 1790233309576,
+  "detector_last_check": "2026-09-24T07:01:48.412569+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
-    "armed": 0,
+    "total": 3,
+    "armed": 1,
     "triggered": 1,
     "invalidated": 1
   },
   "signals": [
+    {
+      "id": "usdjpy:1790231400000:wick",
+      "pair": "usdjpy",
+      "sym": "USDJPY",
+      "cls": "major",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 158.369,
+      "stop": 157.796,
+      "target": 158.942,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790231400000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790233309576,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "btcusd:1790231400000:absorb_btc",
       "pair": "btcusd",
@@ -34,7 +57,7 @@
       "cl": null,
       "armedAt": 1790231400000,
       "triggeredAt": 1790231400000,
-      "lastSeenAt": 1790232960995,
+      "lastSeenAt": 1790233309576,
       "source": "server-detector-absorb",
       "event_aligned": null,
       "held": true
@@ -57,7 +80,7 @@
       "cl": "bear",
       "armedAt": 1790228700000,
       "triggeredAt": null,
-      "lastSeenAt": 1790232960995,
+      "lastSeenAt": 1790233309576,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
