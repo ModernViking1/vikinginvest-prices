@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-24T06:31:37.808115+00:00",
-  "generated_ms": 1790231495109,
-  "detector_last_check": "2026-09-24T06:31:33.510265+00:00",
+  "generated": "2026-09-24T06:36:07.584539+00:00",
+  "generated_ms": 1790231764866,
+  "detector_last_check": "2026-09-24T06:36:03.687372+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
-    "armed": 0,
+    "total": 5,
+    "armed": 2,
     "triggered": 1,
-    "invalidated": 1
+    "invalidated": 2
   },
   "signals": [
+    {
+      "id": "dj30:1790231400000:wick",
+      "pair": "dj30",
+      "sym": "DJ30",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "invalidated",
+      "entry": 51421.9,
+      "stop": 51517.9,
+      "target": 51325.9,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1790231400000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790231764866,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "gbpusd:1790228700000:wick",
       "pair": "gbpusd",
@@ -34,7 +57,7 @@
       "cl": "bear",
       "armedAt": 1790228700000,
       "triggeredAt": null,
-      "lastSeenAt": 1790231495109,
+      "lastSeenAt": 1790231764866,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -57,10 +80,55 @@
       "cl": "bull",
       "armedAt": 1790227800000,
       "triggeredAt": 1790230500000,
-      "lastSeenAt": 1790231495109,
+      "lastSeenAt": 1790231764866,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
+    },
+    {
+      "id": "ethusd:1790226000000:wick",
+      "pair": "ethusd",
+      "sym": "ETHUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 2681.26,
+      "stop": 2663.01,
+      "target": 2699.51,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790226000000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790231764866,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
+    {
+      "id": "ethusd:1780287300000:fib",
+      "pair": "ethusd",
+      "sym": "ETHUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 2695.14028,
+      "stop": 2663.01,
+      "target": 2727.27056,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780287300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790231764866,
+      "source": "server-detector",
+      "event_aligned": null
     }
   ]
 }
