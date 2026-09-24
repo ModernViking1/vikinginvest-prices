@@ -2,9 +2,37 @@
  "schema_version": 1,
  "generated": "2026-09-24T12:00:00+00:00",
  "data_end_ts": 1790251200,
- "raw_signal_count": 65,
+ "raw_signal_count": 66,
  "count": 35,
  "signals": [
+  {
+   "id": "cam_rev:natgas:1790253000",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "natgas",
+   "symbol": "NATGAS",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 2.9518975,
+   "ref_entry": 2.998,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790253000,
+   "created_ts": 1790251200,
+   "expiry_ts": 1790287200,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 2
+  },
   {
    "id": "mmove:taousd:1790251200",
    "strategy": "mmove",
@@ -456,34 +484,6 @@
     "holygrail_cm_m15:bear"
    ],
    "suppressed": 2
-  },
-  {
-   "id": "cam_rev:natgas:1790239500",
-   "strategy": "cam_rev",
-   "regime": "strong",
-   "risk_mult": 1.5,
-   "pair": "natgas",
-   "symbol": "NATGAS",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 3.0801025,
-   "ref_entry": 3.035,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790239500,
-   "created_ts": 1790251200,
-   "expiry_ts": 1790282700,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "cam_rev:bull"
-   ],
-   "suppressed": 1
   },
   {
    "id": "cam_rev:cadjpy:1790236800",
