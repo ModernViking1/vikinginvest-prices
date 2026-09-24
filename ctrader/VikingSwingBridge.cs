@@ -125,6 +125,7 @@ namespace cAlgo.Robots
         public string GhRepoName { get; set; }
 
         private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        private DateTime _lastBeat = DateTime.MinValue;   // last liveness heartbeat dispatch
         private readonly HashSet<string> _seenIds = new HashSet<string>();
         // In-flight guard: a signal id is CLAIMED here at the very top of Consider (right after the
         // triggered/dir checks), and removed when it becomes _seenIds or on a transient retry.
@@ -269,6 +270,15 @@ namespace cAlgo.Robots
             // Trailing runs on the bot thread every poll, independent of the (async) signal fetch.
             try { ManageTrailingStops(); } catch (Exception ex) { Print($"[VikingSwing] trail error: {ex.Message}"); }
             try { SweepNakedStops(); } catch (Exception ex) { Print($"[VikingSwing] naked-sweep error: {ex.Message}"); }
+            // Liveness heartbeat: fire a repository_dispatch every ~10 min while the poll thread is alive.
+            // When the bot zombies/stops, the heartbeat stops — the watchdog detects that regardless of
+            // market activity or intraday. Best-effort; reuses the publish PAT, never disrupts trading.
+            if (AutoPublishToRepo && !string.IsNullOrEmpty(GhPersonalAccessToken)
+                && (DateTime.UtcNow - _lastBeat).TotalMinutes >= 10)
+            {
+                _lastBeat = DateTime.UtcNow;
+                try { _ = HeartbeatAsync(); } catch { }
+            }
             if (_busy) return;
             _busy = true;
             PollAsync().ContinueWith(_ => _busy = false);
@@ -1074,6 +1084,24 @@ namespace cAlgo.Robots
                     _ = DispatchAsync(line);
             }
             catch (Exception ex) { Print($"[VikingSwing] write execution failed: {ex.Message}"); }
+        }
+
+        // Liveness ping — a repository_dispatch the heartbeat.yml workflow records. The watchdog reads
+        // that workflow's last-run time; if it goes stale the bot has stopped. No git commits.
+        private async Task HeartbeatAsync()
+        {
+            try
+            {
+                var url = $"https://api.github.com/repos/{GhRepoOwner}/{GhRepoName}/dispatches";
+                var body = "{\"event_type\":\"swing-cbot-heartbeat\",\"client_payload\":{\"acct\":" + (long)Account.Number + "}}";
+                using var req = new HttpRequestMessage(HttpMethod.Post, url);
+                req.Headers.Add("Accept", "application/vnd.github+json");
+                req.Headers.Add("User-Agent", "VikingSwing-cTrader-Bot/1.0");
+                req.Headers.Add("Authorization", $"Bearer {GhPersonalAccessToken}");
+                req.Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
+                await _http.SendAsync(req);
+            }
+            catch { }   // best-effort; a heartbeat hiccup must never disrupt trading
         }
 
         private async Task DispatchAsync(string jsonLine)

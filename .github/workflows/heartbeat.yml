@@ -1,0 +1,24 @@
+name: Swing Heartbeat
+
+# Records the swing cBot's liveness ping. The cBot POSTs a `swing-cbot-heartbeat` repository_dispatch
+# every ~10 min while its poll thread is alive; this workflow just runs (no commit) so its LAST-RUN
+# time is the heartbeat record the watchdog reads. When the bot zombies/stops, the pings stop and the
+# last-run time goes stale — definitive down-detection, independent of market activity.
+
+on:
+  repository_dispatch:
+    types: [swing-cbot-heartbeat]
+
+concurrency:
+  group: swing-heartbeat
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  beat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo "swing heartbeat received $(date -u +%FT%TZ) acct=${{ github.event.client_payload.acct }}"

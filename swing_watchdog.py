@@ -26,6 +26,27 @@ INTRADAY_FRESH_MIN = 90                 # ... while intraday published within th
 # hours a dual silence this long is a near-certain terminal outage, not a market lull.
 CORE_OPEN, CORE_CLOSE = 8, 20           # peak London+NY hours (UTC)
 DUAL_STALE_MIN = 150                    # BOTH feeds silent longer than this in core hours = terminal down
+HEARTBEAT_STALE_MIN = 25                # cBot pings every ~10 min; no ping this long = bot stopped (definitive)
+
+
+def _heartbeat_age_min():
+    """Minutes since the swing cBot's last heartbeat, via the heartbeat.yml workflow's last run.
+    None when unavailable (no token, no runs yet — e.g. before the cBot rebuild ships the heartbeat)."""
+    tok = os.environ.get("GITHUB_TOKEN"); repo = os.environ.get("GITHUB_REPOSITORY")
+    if not tok or not repo:
+        return None
+    url = f"https://api.github.com/repos/{repo}/actions/workflows/heartbeat.yml/runs?per_page=1"
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {tok}",
+                                "Accept": "application/vnd.github+json", "User-Agent": "viking-watchdog"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            runs = json.load(r).get("workflow_runs") or []
+        if not runs:
+            return None
+        dt = datetime.fromisoformat(str(runs[0]["created_at"]).replace("Z", "+00:00"))
+        return (datetime.now(timezone.utc) - dt).total_seconds() / 60.0
+    except Exception:
+        return None
 
 
 def _latest_ts(fn):
@@ -71,14 +92,21 @@ def main():
     in_session = SESS_OPEN <= now.hour < SESS_CLOSE
     f = lambda t: datetime.fromtimestamp(t, timezone.utc).strftime("%H:%MZ") if t else "never"
 
+    hb_min = _heartbeat_age_min()          # None until the heartbeat cBot build ships
+    hb_down = hb_min is not None and in_session and hb_min > HEARTBEAT_STALE_MIN
     swing_specific = in_session and swing_min > SWING_STALE_MIN and intra_min < INTRADAY_FRESH_MIN
     both_down = (now.weekday() < 5 and CORE_OPEN <= now.hour < CORE_CLOSE
                 and swing_min > DUAL_STALE_MIN and intra_min > DUAL_STALE_MIN)
-    down = swing_specific or both_down
-    recovered = st.get("alerted") and swing > st.get("last_swing_ts", 0)
+    down = hb_down or swing_specific or both_down
+    hb_fresh = hb_min is not None and hb_min <= HEARTBEAT_STALE_MIN
+    recovered = st.get("alerted") and (hb_fresh or swing > st.get("last_swing_ts", 0))
 
     if down and not st.get("alerted"):
-        if both_down:
+        if hb_down:
+            msg = (f"🔴 <b>Swing cBot STOPPED</b>\nNo heartbeat for <b>{hb_min:.0f} min</b> — the poll thread "
+                   f"is dead (zombie/disconnect). Restart cTrader + the VikingSwingBridge instance and "
+                   f"re-enter the Publish params.")
+        elif both_down:
             msg = (f"🔴 <b>Both cBots silent — cTrader likely DOWN</b>\nNo swing ({swing_min:.0f} min, last "
                    f"{f(swing)}) AND no intraday ({intra_min:.0f} min, last {f(intra)}) — a whole-terminal "
                    f"zombie/disconnect. Restart cTrader + both cBots and re-enter the Publish params.")

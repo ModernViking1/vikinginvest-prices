@@ -14,6 +14,7 @@ concurrency:
 
 permissions:
   contents: write
+  actions: read        # read heartbeat.yml's last-run time
 
 jobs:
   watch:
@@ -32,6 +33,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python swing_watchdog.py
 
       - name: Commit state (retry on race)
