@@ -21,6 +21,11 @@ STATE = "swing-watchdog-state.json"
 SESS_OPEN, SESS_CLOSE = 7, 22          # UTC session (matches the swing feed)
 SWING_STALE_MIN = 90                    # swing silent longer than this ...
 INTRADAY_FRESH_MIN = 90                 # ... while intraday published within this = swing-specific outage
+# Whole-terminal fallback: both bots run in the SAME cTrader terminal, so a disconnect/zombie kills
+# BOTH — and the swing-specific rule above stays silent (intraday isn't "fresh"). During core weekday
+# hours a dual silence this long is a near-certain terminal outage, not a market lull.
+CORE_OPEN, CORE_CLOSE = 8, 20           # peak London+NY hours (UTC)
+DUAL_STALE_MIN = 150                    # BOTH feeds silent longer than this in core hours = terminal down
 
 
 def _latest_ts(fn):
@@ -66,13 +71,22 @@ def main():
     in_session = SESS_OPEN <= now.hour < SESS_CLOSE
     f = lambda t: datetime.fromtimestamp(t, timezone.utc).strftime("%H:%MZ") if t else "never"
 
-    down = in_session and swing_min > SWING_STALE_MIN and intra_min < INTRADAY_FRESH_MIN
+    swing_specific = in_session and swing_min > SWING_STALE_MIN and intra_min < INTRADAY_FRESH_MIN
+    both_down = (now.weekday() < 5 and CORE_OPEN <= now.hour < CORE_CLOSE
+                and swing_min > DUAL_STALE_MIN and intra_min > DUAL_STALE_MIN)
+    down = swing_specific or both_down
     recovered = st.get("alerted") and swing > st.get("last_swing_ts", 0)
 
     if down and not st.get("alerted"):
-        _tg(f"🟠 <b>Swing cBot may be DOWN</b>\nNo swing execution for <b>{swing_min:.0f} min</b> "
-            f"(last {f(swing)}) while intraday is live (last {f(intra)}).\nLikely a zombie-after-disconnect "
-            f"— restart the VikingSwingBridge instance and re-enter the Publish params.")
+        if both_down:
+            msg = (f"🔴 <b>Both cBots silent — cTrader likely DOWN</b>\nNo swing ({swing_min:.0f} min, last "
+                   f"{f(swing)}) AND no intraday ({intra_min:.0f} min, last {f(intra)}) — a whole-terminal "
+                   f"zombie/disconnect. Restart cTrader + both cBots and re-enter the Publish params.")
+        else:
+            msg = (f"🟠 <b>Swing cBot may be DOWN</b>\nNo swing execution for <b>{swing_min:.0f} min</b> "
+                   f"(last {f(swing)}) while intraday is live (last {f(intra)}).\nLikely a zombie-after-disconnect "
+                   f"— restart the VikingSwingBridge instance and re-enter the Publish params.")
+        _tg(msg)
         st = {"alerted": True, "last_swing_ts": swing, "updated": now.strftime("%Y-%m-%dT%H:%M:%SZ")}
     elif recovered:
         _tg(f"🟢 <b>Swing cBot back up</b>\nPublishing resumed (row at {f(swing)}).")
