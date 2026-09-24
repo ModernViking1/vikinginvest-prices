@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-24T03:36:03.598529+00:00",
-  "generated_ms": 1790220961320,
-  "detector_last_check": "2026-09-24T03:36:00.217287+00:00",
+  "generated": "2026-09-24T03:41:13.596060+00:00",
+  "generated_ms": 1790221271095,
+  "detector_last_check": "2026-09-24T03:41:09.794355+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 3,
-    "armed": 0,
+    "total": 2,
+    "armed": 1,
     "triggered": 1,
-    "invalidated": 2
+    "invalidated": 0
   },
   "signals": [
+    {
+      "id": "usdjpy:1790220600000:wick",
+      "pair": "usdjpy",
+      "sym": "USDJPY",
+      "cls": "major",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 158.02,
+      "stop": 157.796,
+      "target": 158.24400000000003,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790220600000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790221271095,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "xauusd:1790214300000:wick",
       "pair": "xauusd",
@@ -34,55 +57,10 @@
       "cl": "bear",
       "armedAt": 1790214300000,
       "triggeredAt": 1790217000000,
-      "lastSeenAt": 1790220961320,
+      "lastSeenAt": 1790221271095,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
-    },
-    {
-      "id": "lighterusd:1790213400000:wick",
-      "pair": "lighterusd",
-      "sym": "LIGHTERUSD",
-      "cls": "crypto",
-      "method": "wick",
-      "r_size": 1.0,
-      "dir": "bull",
-      "state": "invalidated",
-      "entry": 5.416,
-      "stop": 5.292,
-      "target": 5.540000000000001,
-      "ew": "bull",
-      "tl": "bull",
-      "nw": "bull",
-      "cl": "bull",
-      "armedAt": 1790213400000,
-      "triggeredAt": null,
-      "lastSeenAt": 1790220961320,
-      "source": "server-detector",
-      "event_aligned": null,
-      "demo_only": true
-    },
-    {
-      "id": "lighterusd:1788805800000:fib",
-      "pair": "lighterusd",
-      "sym": "LIGHTERUSD",
-      "cls": "crypto",
-      "method": "fib",
-      "r_size": 0.5,
-      "dir": "bull",
-      "state": "invalidated",
-      "entry": 5.45926,
-      "stop": 5.292,
-      "target": 5.626519999999999,
-      "ew": "bull",
-      "tl": "bull",
-      "nw": "bull",
-      "cl": "bull",
-      "armedAt": 1788805800000,
-      "triggeredAt": null,
-      "lastSeenAt": 1790220961320,
-      "source": "server-detector",
-      "event_aligned": null
     }
   ]
 }
