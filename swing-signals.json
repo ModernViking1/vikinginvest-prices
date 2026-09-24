@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-09-24T19:00:00+00:00",
  "data_end_ts": 1790276400,
- "raw_signal_count": 51,
+ "raw_signal_count": 52,
  "count": 35,
  "signals": [
   {
@@ -164,13 +164,15 @@
    "state": "triggered",
    "cofire": [
     "holygrail_cm",
+    "holygrail_cm_m15",
     "twob_cm"
    ],
    "cofire_dirs": [
     "holygrail_cm:bull",
+    "holygrail_cm_m15:bull",
     "twob_cm:bear"
    ],
-   "suppressed": 1
+   "suppressed": 2
   },
   {
    "id": "twob_cm:wtiusd:1790269200",
@@ -201,7 +203,7 @@
     "holygrail_cm_m15:bull",
     "twob_cm:bear"
    ],
-   "suppressed": 3
+   "suppressed": 4
   },
   {
    "id": "twob_ix:ftse100:1790269200",
@@ -451,34 +453,6 @@
    "suppressed": 2
   },
   {
-   "id": "twob:nearusd:1790262000",
-   "strategy": "twob",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "nearusd",
-   "symbol": "NEARUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 4.76855214,
-   "ref_entry": 4.4993,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790262000,
-   "created_ts": 1790276400,
-   "expiry_ts": 1790305200,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bear",
-    "twob:bull"
-   ],
-   "suppressed": 1
-  },
-  {
    "id": "cam_rev:nas100:1790260200",
    "strategy": "cam_rev",
    "regime": "range",
@@ -613,6 +587,33 @@
    ],
    "cofire_dirs": [
     "cam_rev:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "twob:nearusd:1790247600",
+   "strategy": "twob",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "nearusd",
+   "symbol": "NEARUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 4.14128286,
+   "ref_entry": 4.191,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790247600,
+   "created_ts": 1790276400,
+   "expiry_ts": 1790290800,
+   "state": "triggered",
+   "cofire": [
+    "twob"
+   ],
+   "cofire_dirs": [
+    "twob:bull"
    ],
    "suppressed": 0
   },
