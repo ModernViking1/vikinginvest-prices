@@ -2,9 +2,37 @@
  "schema_version": 1,
  "generated": "2026-09-24T11:00:00+00:00",
  "data_end_ts": 1790247600,
- "raw_signal_count": 65,
+ "raw_signal_count": 67,
  "count": 39,
  "signals": [
+  {
+   "id": "cam_rev:eurnok:1790249400",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "eurnok",
+   "symbol": "EURNOK",
+   "class": "minor",
+   "dir": "bull",
+   "stop": 10.76800075,
+   "ref_entry": 10.78674,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790249400,
+   "created_ts": 1790247600,
+   "expiry_ts": 1790287200,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "cam_rev:usdcad:1790247600",
    "strategy": "cam_rev",
@@ -397,7 +425,7 @@
     "gbreak:bear",
     "holygrail_cm_m15:bear"
    ],
-   "suppressed": 3
+   "suppressed": 4
   },
   {
    "id": "cam_rev:natgas:1790239500",
@@ -428,33 +456,6 @@
     "holygrail_cm_m15:bull"
    ],
    "suppressed": 3
-  },
-  {
-   "id": "cam_rev:eurnok:1790237700",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "eurnok",
-   "symbol": "EURNOK",
-   "class": "minor",
-   "dir": "bear",
-   "stop": 10.82655925,
-   "ref_entry": 10.76758,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790237700,
-   "created_ts": 1790247600,
-   "expiry_ts": 1790280900,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
-   ],
-   "suppressed": 0
   },
   {
    "id": "cam_rev:cadjpy:1790236800",
