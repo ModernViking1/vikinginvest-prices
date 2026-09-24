@@ -2,9 +2,37 @@
  "schema_version": 1,
  "generated": "2026-09-24T14:00:00+00:00",
  "data_end_ts": 1790258400,
- "raw_signal_count": 53,
+ "raw_signal_count": 54,
  "count": 32,
  "signals": [
+  {
+   "id": "cam_rev:nas100:1790260200",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "nas100",
+   "symbol": "NAS100",
+   "class": "index",
+   "dir": "bull",
+   "stop": 30239.77425,
+   "ref_entry": 30377.4,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790260200,
+   "created_ts": 1790258400,
+   "expiry_ts": 1790287200,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "cam_rev:eursgd:1790259300",
    "strategy": "cam_rev",
@@ -828,33 +856,6 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790172900,
-   "created_ts": 1790258400,
-   "expiry_ts": 1790200800,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:nas100:1790172000",
-   "strategy": "cam_rev",
-   "regime": "strong",
-   "risk_mult": 1.5,
-   "pair": "nas100",
-   "symbol": "NAS100",
-   "class": "index",
-   "dir": "bear",
-   "stop": 30779.22575,
-   "ref_entry": 30591.4,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790172000,
    "created_ts": 1790258400,
    "expiry_ts": 1790200800,
    "state": "triggered",
