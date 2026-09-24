@@ -2,9 +2,36 @@
  "schema_version": 1,
  "generated": "2026-09-24T15:00:00+00:00",
  "data_end_ts": 1790262000,
- "raw_signal_count": 50,
- "count": 31,
+ "raw_signal_count": 49,
+ "count": 32,
  "signals": [
+  {
+   "id": "cam_rev:nzdusd:1790262000",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "nzdusd",
+   "symbol": "NZDUSD",
+   "class": "major",
+   "dir": "bull",
+   "stop": 0.5638071,
+   "ref_entry": 0.56592,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790262000,
+   "created_ts": 1790262000,
+   "expiry_ts": 1790287200,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "twob:btcusd:1790262000",
    "strategy": "twob",
@@ -332,10 +359,9 @@
     "cam_rev"
    ],
    "cofire_dirs": [
-    "cam_rev:bear",
     "cam_rev:bull"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "holygrail_cm_m15:wtiusd:1790248500",
@@ -749,36 +775,6 @@
    "suppressed": 0
   },
   {
-   "id": "cam_rev:dj30:1790234100",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "dj30",
-   "symbol": "DJ30",
-   "class": "index",
-   "dir": "bull",
-   "stop": 51216.784,
-   "ref_entry": 51456.4,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790234100,
-   "created_ts": 1790262000,
-   "expiry_ts": 1790277300,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "cam_rev:bull",
-    "twob_ix:bear"
-   ],
-   "suppressed": 2
-  },
-  {
    "id": "cam_rev:jp225:1790234100",
    "strategy": "cam_rev",
    "regime": "range",
@@ -862,6 +858,35 @@
    "cofire_dirs": [
     "engulf_manip:bear",
     "twob:bear"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "cam_rev:dj30:1790177400",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "dj30",
+   "symbol": "DJ30",
+   "class": "index",
+   "dir": "bear",
+   "stop": 51858.29725,
+   "ref_entry": 51656.8,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790177400,
+   "created_ts": 1790262000,
+   "expiry_ts": 1790200800,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "twob_ix:bear"
    ],
    "suppressed": 1
   }
