@@ -2,9 +2,37 @@
  "schema_version": 1,
  "generated": "2026-09-24T11:00:00+00:00",
  "data_end_ts": 1790247600,
- "raw_signal_count": 63,
+ "raw_signal_count": 64,
  "count": 39,
  "signals": [
+  {
+   "id": "cam_rev:usdcad:1790247600",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "usdcad",
+   "symbol": "USDCAD",
+   "class": "major",
+   "dir": "bear",
+   "stop": 1.41307918,
+   "ref_entry": 1.4115,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790247600,
+   "created_ts": 1790247600,
+   "expiry_ts": 1790287200,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "twob:btcusd:1790247600",
    "strategy": "twob",
@@ -894,33 +922,6 @@
    ],
    "cofire_dirs": [
     "cam_rev:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:usdcad:1790166600",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "usdcad",
-   "symbol": "USDCAD",
-   "class": "major",
-   "dir": "bull",
-   "stop": 1.40754405,
-   "ref_entry": 1.40932,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790166600,
-   "created_ts": 1790247600,
-   "expiry_ts": 1790200800,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull"
    ],
    "suppressed": 0
   },
