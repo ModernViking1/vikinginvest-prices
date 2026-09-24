@@ -1,0 +1,54 @@
+name: cam_rev 24h-Exit + Correlation-Cap Backtest (3yr)
+
+# Tests the 24h time-exit and the correlation cap over the full 3-yr m15 history, restoring the
+# gzipped deep-ohlc cache (seconds) with a fresh-fetch fallback. Prints to the log; commits NOTHING.
+
+on:
+  workflow_dispatch:
+    inputs:
+      days: { description: 'Daily/H1 context window in days', default: '1095' }
+      m15_days: { description: 'm15 depth in days', default: '1095' }
+
+concurrency:
+  group: cam-exit-corr-backtest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Install deps
+        run: python -m pip install --upgrade pip requests
+      - name: Guard — required files present
+        run: |
+          for f in cam_exit_corr_backtest.py unified_shadow_harness.py detect_triggers.py fetch_historical_ohlc.py; do
+            [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }
+          done
+      - name: Restore deep m15 from cache release (else fetch fresh)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+          CACHE_TAG: deep-ohlc-cache
+        run: |
+          if gh release download "$CACHE_TAG" --repo "$GITHUB_REPOSITORY" -p deep-ohlc.json.gz --clobber 2>/dev/null; then
+            gunzip -c deep-ohlc.json.gz > deep-ohlc.json
+            echo "✅ restored deep-ohlc.json ($(ls -lh deep-ohlc.json | awk '{print $5}'))"
+          else
+            echo "cache miss — fetching fresh deep m15 (slow)"
+            python fetch_historical_ohlc.py --days "${{ github.event.inputs.days || '1095' }}" --m15-days "${{ github.event.inputs.m15_days || '1095' }}" --output deep-ohlc.json
+          fi
+          ls -lh deep-ohlc.json
+      - name: Run 24h-exit + correlation-cap backtest (result in this log)
+        run: |
+          echo "================ RESULT ================"
+          python cam_exit_corr_backtest.py --hist deep-ohlc.json
+          echo "========================================"
+          rm -f deep-ohlc.json
