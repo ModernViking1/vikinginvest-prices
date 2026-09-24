@@ -2,9 +2,92 @@
  "schema_version": 1,
  "generated": "2026-09-24T07:00:00+00:00",
  "data_end_ts": 1790233200,
- "raw_signal_count": 59,
- "count": 38,
+ "raw_signal_count": 61,
+ "count": 39,
  "signals": [
+  {
+   "id": "cam_rev:cadjpy:1790234100",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "cadjpy",
+   "symbol": "CADJPY",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 112.51975,
+   "ref_entry": 112.306,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790234100,
+   "created_ts": 1790233200,
+   "expiry_ts": 1790277300,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:dj30:1790234100",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "dj30",
+   "symbol": "DJ30",
+   "class": "index",
+   "dir": "bull",
+   "stop": 51216.784,
+   "ref_entry": 51456.4,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790234100,
+   "created_ts": 1790233200,
+   "expiry_ts": 1790277300,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "cam_rev:jp225:1790234100",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "jp225",
+   "symbol": "JP225",
+   "class": "index",
+   "dir": "bull",
+   "stop": 65217.95075,
+   "ref_entry": 65862.5,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790234100,
+   "created_ts": 1790233200,
+   "expiry_ts": 1790277300,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "twob:taousd:1790233200",
    "strategy": "twob",
@@ -167,14 +250,12 @@
    "expiry_ts": 1790265600,
    "state": "triggered",
    "cofire": [
-    "mmove",
     "twob"
    ],
    "cofire_dirs": [
-    "mmove:bear",
     "twob:bear"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "cam_rev:eurnok:1790199900",
@@ -230,33 +311,6 @@
     "cam_rev:bull"
    ],
    "suppressed": 1
-  },
-  {
-   "id": "cam_rev:dj30:1790177400",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "dj30",
-   "symbol": "DJ30",
-   "class": "index",
-   "dir": "bear",
-   "stop": 51858.29725,
-   "ref_entry": 51656.8,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790177400,
-   "created_ts": 1790233200,
-   "expiry_ts": 1790200800,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
-   ],
-   "suppressed": 0
   },
   {
    "id": "cam_rev:natgas:1790176500",
@@ -451,33 +505,6 @@
    ],
    "cofire_dirs": [
     "cam_rev:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:jp225:1790171100",
-   "strategy": "cam_rev",
-   "regime": "strong",
-   "risk_mult": 1.5,
-   "pair": "jp225",
-   "symbol": "JP225",
-   "class": "index",
-   "dir": "bear",
-   "stop": 66962.14925,
-   "ref_entry": 66498.8,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790171100,
-   "created_ts": 1790233200,
-   "expiry_ts": 1790200800,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
    ],
    "suppressed": 0
   },
