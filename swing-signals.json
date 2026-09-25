@@ -2,9 +2,63 @@
  "schema_version": 1,
  "generated": "2026-09-25T11:00:00+00:00",
  "data_end_ts": 1790334000,
- "raw_signal_count": 43,
- "count": 27,
+ "raw_signal_count": 46,
+ "count": 28,
  "signals": [
+  {
+   "id": "cam_rev:btcusd:1790335800",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "btcusd",
+   "symbol": "BTCUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 85667.98355,
+   "ref_entry": 84930.44,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": true,
+   "trigger_ts": 1790335800,
+   "created_ts": 1790334000,
+   "expiry_ts": 1790373600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:audnzd:1790334900",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "audnzd",
+   "symbol": "AUDNZD",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 1.24156117,
+   "ref_entry": 1.23978,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790334900,
+   "created_ts": 1790334000,
+   "expiry_ts": 1790373600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "twob:xrpusd:1790334000",
    "strategy": "twob",
@@ -277,15 +331,17 @@
    "state": "triggered",
    "cofire": [
     "cam_rev",
+    "holygrail_cm_m15",
     "twob_cm"
    ],
    "cofire_dirs": [
     "cam_rev:bear",
     "cam_rev:bull",
+    "holygrail_cm_m15:bear",
     "twob_cm:bear",
     "twob_cm:bull"
    ],
-   "suppressed": 3
+   "suppressed": 4
   },
   {
    "id": "twob:btcusd:1790319600",
@@ -589,33 +645,6 @@
    ],
    "cofire_dirs": [
     "cam_rev:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:audnzd:1790257500",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "audnzd",
-   "symbol": "AUDNZD",
-   "class": "minor",
-   "dir": "bear",
-   "stop": 1.24226108,
-   "ref_entry": 1.24006,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790257500,
-   "created_ts": 1790334000,
-   "expiry_ts": 1790287200,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
    ],
    "suppressed": 0
   },
