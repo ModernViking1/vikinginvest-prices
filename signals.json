@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-25T15:11:21.828093+00:00",
-  "generated_ms": 1790349078938,
-  "detector_last_check": "2026-09-25T15:11:17.935442+00:00",
+  "generated": "2026-09-25T15:16:37.162728+00:00",
+  "generated_ms": 1790349394458,
+  "detector_last_check": "2026-09-25T15:16:33.063495+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 6,
+    "total": 8,
     "armed": 2,
     "triggered": 2,
-    "invalidated": 2
+    "invalidated": 4
   },
   "signals": [
+    {
+      "id": "solusd:1790348400000:wick",
+      "pair": "solusd",
+      "sym": "SOLUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 120.13,
+      "stop": 118.3,
+      "target": 121.96,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790348400000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790349394458,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "eurnzd:1790345700000:wick",
       "pair": "eurnzd",
@@ -34,7 +57,7 @@
       "cl": "bull",
       "armedAt": 1790345700000,
       "triggeredAt": null,
-      "lastSeenAt": 1790349078938,
+      "lastSeenAt": 1790349394458,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -47,7 +70,7 @@
       "method": "wick",
       "r_size": 1.0,
       "dir": "bull",
-      "state": "armed",
+      "state": "invalidated",
       "entry": 5.0344,
       "stop": 4.8988,
       "target": 5.17,
@@ -57,7 +80,7 @@
       "cl": "bull",
       "armedAt": 1790343900000,
       "triggeredAt": null,
-      "lastSeenAt": 1790349078938,
+      "lastSeenAt": 1790349394458,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -80,7 +103,7 @@
       "cl": "bear",
       "armedAt": 1790342100000,
       "triggeredAt": null,
-      "lastSeenAt": 1790349078938,
+      "lastSeenAt": 1790349394458,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -103,7 +126,7 @@
       "cl": null,
       "armedAt": 1790268300000,
       "triggeredAt": 1790268300000,
-      "lastSeenAt": 1790349078938,
+      "lastSeenAt": 1790349394458,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
@@ -126,7 +149,7 @@
       "cl": null,
       "armedAt": 1790267400000,
       "triggeredAt": 1790267400000,
-      "lastSeenAt": 1790349078938,
+      "lastSeenAt": 1790349394458,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
@@ -139,7 +162,7 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bull",
-      "state": "armed",
+      "state": "invalidated",
       "entry": 5.1295101999999995,
       "stop": 4.8988,
       "target": 5.360220399999999,
@@ -149,7 +172,29 @@
       "cl": "bull",
       "armedAt": 1780433100000,
       "triggeredAt": null,
-      "lastSeenAt": 1790349078938,
+      "lastSeenAt": 1790349394458,
+      "source": "server-detector",
+      "event_aligned": null
+    },
+    {
+      "id": "solusd:1780326900000:fib",
+      "pair": "solusd",
+      "sym": "SOLUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 120.77890000000001,
+      "stop": 118.3,
+      "target": 123.25780000000002,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780326900000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790349394458,
       "source": "server-detector",
       "event_aligned": null
     }
