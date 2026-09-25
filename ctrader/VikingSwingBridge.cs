@@ -65,6 +65,16 @@ namespace cAlgo.Robots
         [Parameter("Max position size (lots), 0=off", DefaultValue = 0.0, MinValue = 0.0, Group = "Risk")]
         public double MaxLots { get; set; }
 
+        // 2026-09-25 — cam_rev 24h TIME-EXIT. The 3yr backtest (cam_exit_corr_backtest.py) holds a
+        // fade 24h and excludes unresolved trades; live holds indefinitely until stop/TP, so a loser
+        // can ride for days (the multi-day drawdown positions we saw). Force-close any cam_rev
+        // position still open this many hours after entry — EV-neutral on the backtest (+11,811R vs
+        // +11,833R hold; only ~7% linger past 24h) but it aligns live to the backtest and kills the
+        // long drawdown-riders. Applies to cam_rev ONLY; other strategies hold to their own logic.
+        // 0 = off. Default 24h = 96 m15 bars (CAM_HOLD).
+        [Parameter("cam_rev max hold (hours), 0=off", DefaultValue = 24.0, MinValue = 0.0, Group = "Risk")]
+        public double CamMaxHoldHours { get; set; }
+
         // 2026-09-10 — MAX SIGNAL AGE (direct staleness cap). The drift / stop-invalidation guards
         // only catch the CONSEQUENCES of a late fill; a signal can still be hours stale yet sit near
         // ref_entry with its stop intact and slip through (observed: a 5h-late fma_gold fill). Swing
@@ -126,6 +136,7 @@ namespace cAlgo.Robots
 
         private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         private DateTime _lastBeat = DateTime.MinValue;   // last liveness heartbeat dispatch
+        private readonly HashSet<long> _timeExitIds = new HashSet<long>();  // cam_rev positions closed by the 24h time-exit (tag the close reason)
         private readonly HashSet<string> _seenIds = new HashSet<string>();
         // In-flight guard: a signal id is CLAIMED here at the very top of Consider (right after the
         // triggered/dir checks), and removed when it becomes _seenIds or on a transient retry.
@@ -270,6 +281,7 @@ namespace cAlgo.Robots
             // Trailing runs on the bot thread every poll, independent of the (async) signal fetch.
             try { ManageTrailingStops(); } catch (Exception ex) { Print($"[VikingSwing] trail error: {ex.Message}"); }
             try { SweepNakedStops(); } catch (Exception ex) { Print($"[VikingSwing] naked-sweep error: {ex.Message}"); }
+            try { EnforceCamRevMaxHold(); } catch (Exception ex) { Print($"[VikingSwing] time-exit error: {ex.Message}"); }
             // Liveness heartbeat: fire a repository_dispatch every ~10 min while the poll thread is alive.
             // When the bot zombies/stops, the heartbeat stops — the watchdog detects that regardless of
             // market activity or intraday. Best-effort; reuses the publish PAT, never disrupts trading.
@@ -412,6 +424,26 @@ namespace cAlgo.Robots
                 Print($"🩹 [VikingSwing] naked position {p.SymbolName} pid={p.Id} — applying protective SL {slN}.");
                 try { p.ModifyStopLossPrice(slN); if (!_posR.ContainsKey(p.Id)) _posR[p.Id] = distPx; }
                 catch (Exception ex) { Print($"   naked-sweep SL pid={p.Id} failed: {ex.Message}"); }
+            }
+        }
+
+        // 24h TIME-EXIT for cam_rev — force-close any cam_rev position still open past CamMaxHoldHours,
+        // mirroring the backtest's 24h hold window (see the CamMaxHoldHours param note). Uses EntryTime
+        // vs Server.Time (both server-side), so it survives restarts (no reliance on in-memory state).
+        // Positions is snapshotted before closing because ClosePosition mutates the collection.
+        private void EnforceCamRevMaxHold()
+        {
+            if (CamMaxHoldHours <= 0) return;
+            var cutoff = Server.Time - TimeSpan.FromHours(CamMaxHoldHours);
+            var stale = Positions.Where(p => p.Label == OrderLabel && StrategyOf(p) == "cam_rev"
+                                             && p.EntryTime <= cutoff).ToList();   // snapshot first
+            foreach (var p in stale)
+            {
+                double ageH = (Server.Time - p.EntryTime).TotalHours;
+                Print($"⏱️ [VikingSwing] cam_rev {p.SymbolName} pid={p.Id} held {ageH:F1}h (cap {CamMaxHoldHours}h) — time-exit at market.");
+                _timeExitIds.Add(p.Id);   // tag the close reason (checked in OnPositionClosed)
+                try { ClosePosition(p); }
+                catch (Exception ex) { _timeExitIds.Remove(p.Id); Print($"   time-exit close pid={p.Id} failed: {ex.Message}"); }
             }
         }
 
@@ -996,6 +1028,13 @@ namespace cAlgo.Robots
             CheckDailyLimit();
 
             string reason;
+            // A 24h time-exit is our own market close, so it never hits stop/TP — tag it explicitly
+            // before the price-based inference below (which would otherwise read it as manual-or-broker).
+            if (_timeExitIds.Remove(p.Id))
+            {
+                reason = "cam-time-exit";
+            }
+            else
             try
             {
                 var exit = p.Symbol?.Bid ?? p.EntryPrice; var tol = (p.Symbol?.PipSize ?? 0) * 2;
