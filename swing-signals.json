@@ -3,7 +3,7 @@
  "generated": "2026-09-25T11:00:00+00:00",
  "data_end_ts": 1790334000,
  "raw_signal_count": 43,
- "count": 28,
+ "count": 27,
  "signals": [
   {
    "id": "twob:xrpusd:1790334000",
@@ -135,15 +135,17 @@
    "state": "triggered",
    "cofire": [
     "cam_rev",
+    "holygrail_cm_m15",
     "twob_cm"
    ],
    "cofire_dirs": [
     "cam_rev:bear",
     "cam_rev:bull",
+    "holygrail_cm_m15:bear",
     "twob_cm:bear",
     "twob_cm:bull"
    ],
-   "suppressed": 3
+   "suppressed": 4
   },
   {
    "id": "cam_rev:eurgbp:1790326800",
@@ -587,33 +589,6 @@
    ],
    "cofire_dirs": [
     "cam_rev:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:audusd:1790260200",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "audusd",
-   "symbol": "AUDUSD",
-   "class": "major",
-   "dir": "bear",
-   "stop": 0.70346958,
-   "ref_entry": 0.70208,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790260200,
-   "created_ts": 1790334000,
-   "expiry_ts": 1790287200,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
    ],
    "suppressed": 0
   },
