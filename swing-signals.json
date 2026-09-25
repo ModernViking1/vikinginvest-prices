@@ -2,9 +2,41 @@
  "schema_version": 1,
  "generated": "2026-09-25T05:00:00+00:00",
  "data_end_ts": 1790312400,
- "raw_signal_count": 67,
+ "raw_signal_count": 69,
  "count": 40,
  "signals": [
+  {
+   "id": "hs:btcusd:1790308800",
+   "strategy": "hs",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "btcusd",
+   "symbol": "BTCUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 84882.18,
+   "ref_entry": 84216.01,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790308800,
+   "created_ts": 1790312400,
+   "expiry_ts": 1790352000,
+   "state": "triggered",
+   "cofire": [
+    "hs",
+    "mmove",
+    "twob"
+   ],
+   "cofire_dirs": [
+    "hs:bear",
+    "mmove:bear",
+    "twob:bear",
+    "twob:bull"
+   ],
+   "suppressed": 3
+  },
   {
    "id": "twob:asterusd:1790308800",
    "strategy": "twob",
@@ -451,9 +483,10 @@
     "cam_rev:bear",
     "cam_rev:bull",
     "holygrail_cm_m15:bull",
-    "twob_cm:bear"
+    "twob_cm:bear",
+    "twob_cm:bull"
    ],
-   "suppressed": 3
+   "suppressed": 4
   },
   {
    "id": "cam_rev:nzdusd:1790263800",
@@ -509,36 +542,6 @@
     "cam_rev:bull"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "twob:btcusd:1790262000",
-   "strategy": "twob",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "btcusd",
-   "symbol": "BTCUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 84995.12857143,
-   "ref_entry": 83644.95,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790262000,
-   "created_ts": 1790312400,
-   "expiry_ts": 1790305200,
-   "state": "triggered",
-   "cofire": [
-    "mmove",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "mmove:bear",
-    "twob:bear",
-    "twob:bull"
-   ],
-   "suppressed": 2
   },
   {
    "id": "cam_rev:audusd:1790260200",
