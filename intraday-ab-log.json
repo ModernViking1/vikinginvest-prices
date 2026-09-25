@@ -12441,7 +12441,7 @@
    "nowick_aligned": false,
    "market_status": "pending",
    "market_r": null,
-   "limit_status": "pending",
+   "limit_status": "nofill",
    "limit_r": null
   },
   "taousd:1790334900000:wick": {
@@ -12456,10 +12456,10 @@
    "cap_ts": 1790336700.0,
    "state_at_capture": "invalidated",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
-   "limit_r": null
+   "market_status": "resolved",
+   "market_r": 1.0,
+   "limit_status": "resolved",
+   "limit_r": -1.0
   },
   "ethusd:1790334000000:wick": {
    "id": "ethusd:1790334000000:wick",
@@ -12473,10 +12473,10 @@
    "cap_ts": 1790336700.0,
    "state_at_capture": "triggered",
    "nowick_aligned": false,
-   "market_status": "pending",
-   "market_r": null,
-   "limit_status": "pending",
-   "limit_r": null
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "resolved",
+   "limit_r": -1.0
   },
   "solusd:1790334000000:wick": {
    "id": "solusd:1790334000000:wick",
@@ -12489,6 +12489,40 @@
    "market_entry": 121.06,
    "cap_ts": 1790336700.0,
    "state_at_capture": "armed",
+   "nowick_aligned": false,
+   "market_status": "pending",
+   "market_r": null,
+   "limit_status": "pending",
+   "limit_r": null
+  },
+  "fra40:1790354700000:mmove_m15": {
+   "id": "fra40:1790354700000:mmove_m15",
+   "pair": "fra40",
+   "dir": "bull",
+   "method": "mmove_m15",
+   "cls": "index",
+   "limit_entry": 8119.6,
+   "stop": 8101.31785714,
+   "market_entry": 8118.0,
+   "cap_ts": 1790354700.0,
+   "state_at_capture": "triggered",
+   "nowick_aligned": false,
+   "market_status": "pending",
+   "market_r": null,
+   "limit_status": "pending",
+   "limit_r": null
+  },
+  "usoil:1790352900000:wick": {
+   "id": "usoil:1790352900000:wick",
+   "pair": "usoil",
+   "dir": "bear",
+   "method": "fib",
+   "cls": "comm",
+   "limit_entry": 101.85,
+   "stop": 103.472,
+   "market_entry": 101.486,
+   "cap_ts": 1790354700.0,
+   "state_at_capture": "triggered",
    "nowick_aligned": false,
    "market_status": "pending",
    "market_r": null,
