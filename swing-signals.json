@@ -2,9 +2,92 @@
  "schema_version": 1,
  "generated": "2026-09-25T14:00:00+00:00",
  "data_end_ts": 1790344800,
- "raw_signal_count": 45,
- "count": 25,
+ "raw_signal_count": 48,
+ "count": 27,
  "signals": [
+  {
+   "id": "cam_rev:nas100:1790345700",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "nas100",
+   "symbol": "NAS100",
+   "class": "index",
+   "dir": "bear",
+   "stop": 30707.7205,
+   "ref_entry": 30494.2,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790345700,
+   "created_ts": 1790344800,
+   "expiry_ts": 1790373600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "twob_ix:bear"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "cam_rev:nzdchf:1790345700",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "nzdchf",
+   "symbol": "NZDCHF",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 0.47013095,
+   "ref_entry": 0.46906,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790345700,
+   "created_ts": 1790344800,
+   "expiry_ts": 1790373600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:spx500:1790345700",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "spx500",
+   "symbol": "SPX500",
+   "class": "index",
+   "dir": "bear",
+   "stop": 7742.3435,
+   "ref_entry": 7706.9,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790345700,
+   "created_ts": 1790344800,
+   "expiry_ts": 1790373600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "cam_rev:xagusd:1790343000",
    "strategy": "cam_rev",
@@ -145,33 +228,6 @@
     "twob:bull"
    ],
    "suppressed": 1
-  },
-  {
-   "id": "twob_ix:nas100:1790337600",
-   "strategy": "twob_ix",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "nas100",
-   "symbol": "NAS100",
-   "class": "index",
-   "dir": "bear",
-   "stop": 30757.21,
-   "ref_entry": 30714.0,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790337600,
-   "created_ts": 1790344800,
-   "expiry_ts": 1790380800,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bear"
-   ],
-   "suppressed": 0
   },
   {
    "id": "cam_rev:euraud:1790336700",
