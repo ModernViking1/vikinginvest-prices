@@ -4,8 +4,10 @@ name: Swing Bot Watchdog
 # (the zombie-after-disconnect failure mode). Interim liveness check until the cBot heartbeat lands.
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'      # every 30 min; the script no-ops outside 07-22 UTC
+  # 2026-09-25 — the live liveness path is now INLINED in fetch-data.yml, which runs on the reliable
+  # external-pinger (~5-min) cadence. GitHub throttled this standalone schedule to multi-hour gaps
+  # (it missed a ~5h outage on 09-25), so the scheduled trigger is retired to avoid a second writer
+  # racing on swing-watchdog-state.json. Kept as a manual catch-up / debugging entry point.
   workflow_dispatch:
 
 concurrency:

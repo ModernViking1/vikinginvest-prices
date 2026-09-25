@@ -92,13 +92,24 @@ def main():
     in_session = SESS_OPEN <= now.hour < SESS_CLOSE
     f = lambda t: datetime.fromtimestamp(t, timezone.utc).strftime("%H:%MZ") if t else "never"
 
-    hb_min = _heartbeat_age_min()          # None until the heartbeat cBot build ships
-    hb_down = hb_min is not None and in_session and hb_min > HEARTBEAT_STALE_MIN
-    swing_specific = in_session and swing_min > SWING_STALE_MIN and intra_min < INTRADAY_FRESH_MIN
-    both_down = (now.weekday() < 5 and CORE_OPEN <= now.hour < CORE_CLOSE
-                and swing_min > DUAL_STALE_MIN and intra_min > DUAL_STALE_MIN)
-    down = hb_down or swing_specific or both_down
-    hb_fresh = hb_min is not None and hb_min <= HEARTBEAT_STALE_MIN
+    hb_min = _heartbeat_age_min()          # None if unavailable (no token / API error / no runs yet)
+    hb_avail = hb_min is not None
+    hb_fresh = hb_avail and hb_min <= HEARTBEAT_STALE_MIN
+    hb_down = hb_avail and in_session and hb_min > HEARTBEAT_STALE_MIN
+    # The heartbeat is DEFINITIVE liveness (the cBot pings every ~10 min while its poll thread is
+    # alive). When it's available, trust ONLY it: the silence-based heuristics below are false-
+    # positive-prone — a quiet session legitimately has no fills for >90 min while the bot is fine —
+    # and exist only as a fallback for when the heartbeat can't be read (pre-heartbeat build / API
+    # blip). This matters now the watchdog runs every ~5 min inline: without it, quiet spells would
+    # spam a false "cBot DOWN".
+    if hb_avail:
+        swing_specific = both_down = False
+        down = hb_down
+    else:
+        swing_specific = in_session and swing_min > SWING_STALE_MIN and intra_min < INTRADAY_FRESH_MIN
+        both_down = (now.weekday() < 5 and CORE_OPEN <= now.hour < CORE_CLOSE
+                    and swing_min > DUAL_STALE_MIN and intra_min > DUAL_STALE_MIN)
+        down = swing_specific or both_down
     recovered = st.get("alerted") and (hb_fresh or swing > st.get("last_swing_ts", 0))
 
     if down and not st.get("alerted"):
