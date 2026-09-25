@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-09-25T11:00:00+00:00",
  "data_end_ts": 1790334000,
- "raw_signal_count": 46,
- "count": 28,
+ "raw_signal_count": 47,
+ "count": 29,
  "signals": [
   {
    "id": "cam_rev:btcusd:1790335800",
@@ -20,6 +20,33 @@
    "r_pct": 1.0,
    "entry_mode": "limit",
    "demo_only": true,
+   "trigger_ts": 1790335800,
+   "created_ts": 1790334000,
+   "expiry_ts": 1790373600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:eursgd:1790335800",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "eursgd",
+   "symbol": "EURSGD",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 1.457779,
+   "ref_entry": 1.45656,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
    "trigger_ts": 1790335800,
    "created_ts": 1790334000,
    "expiry_ts": 1790373600,
