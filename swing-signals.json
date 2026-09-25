@@ -2,9 +2,37 @@
  "schema_version": 1,
  "generated": "2026-09-25T17:00:00+00:00",
  "data_end_ts": 1790355600,
- "raw_signal_count": 40,
+ "raw_signal_count": 39,
  "count": 27,
  "signals": [
+  {
+   "id": "twob:btcusd:1790352000",
+   "strategy": "twob",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "btcusd",
+   "symbol": "BTCUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 83277.85514286,
+   "ref_entry": 83783.99,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790352000,
+   "created_ts": 1790355600,
+   "expiry_ts": 1790395200,
+   "state": "triggered",
+   "cofire": [
+    "twob"
+   ],
+   "cofire_dirs": [
+    "twob:bear",
+    "twob:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "cam_rev:eurnzd:1790350200",
    "strategy": "cam_rev",
@@ -310,36 +338,6 @@
     "cam_rev:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "engulf_manip:btcusd:1790344800",
-   "strategy": "engulf_manip",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "btcusd",
-   "symbol": "BTCUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 85364.39985714,
-   "ref_entry": 83902.77,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790344800,
-   "created_ts": 1790355600,
-   "expiry_ts": 1790388000,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bear",
-    "twob:bear",
-    "twob:bull"
-   ],
-   "suppressed": 2
   },
   {
    "id": "cam_rev:gbpnzd:1790342100",
