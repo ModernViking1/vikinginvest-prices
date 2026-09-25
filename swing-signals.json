@@ -2,9 +2,37 @@
  "schema_version": 1,
  "generated": "2026-09-25T07:00:00+00:00",
  "data_end_ts": 1790319600,
- "raw_signal_count": 72,
+ "raw_signal_count": 73,
  "count": 38,
  "signals": [
+  {
+   "id": "cam_rev:nzdusd:1790321400",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "nzdusd",
+   "symbol": "NZDUSD",
+   "class": "major",
+   "dir": "bear",
+   "stop": 0.56766633,
+   "ref_entry": 0.56632,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790321400,
+   "created_ts": 1790319600,
+   "expiry_ts": 1790364600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 2
+  },
   {
    "id": "cam_rev:eurusd:1790320500",
    "strategy": "cam_rev",
@@ -517,34 +545,6 @@
     "twob_cm:bear"
    ],
    "suppressed": 3
-  },
-  {
-   "id": "cam_rev:nzdusd:1790263800",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "nzdusd",
-   "symbol": "NZDUSD",
-   "class": "major",
-   "dir": "bull",
-   "stop": 0.56410368,
-   "ref_entry": 0.56534,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790263800,
-   "created_ts": 1790319600,
-   "expiry_ts": 1790287200,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "cam_rev:bull"
-   ],
-   "suppressed": 1
   },
   {
    "id": "cam_rev:euraud:1790262900",
