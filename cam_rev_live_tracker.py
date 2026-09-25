@@ -23,6 +23,15 @@ BT_EXP, BT_WR = 0.525, 76.3         # 3-yr backtest benchmark (FX/index/comm, ga
 # The live split should track these once enough tagged fills accrue; if it doesn't, the tilt is wrong.
 BT_REGIME = {"strong": {"exp": 0.682, "wr": 84.0}, "range": {"exp": 0.486, "wr": 74.0}}
 
+# cBot dead windows (epoch seconds, UTC). A cam_rev position OPEN across one of these rode UNMANAGED
+# (no trailing, no time-exit, no stop management) while the poll thread was a zombie, then closed by
+# the broker or flushed on restart. Such fills don't reflect the strategy, so they're excluded from
+# the headline WR/RR (kept in overall_raw). Add a window as (start, end) whenever an outage is
+# confirmed — see swing-watchdog / heartbeat. Times below verified from the execution feed + heartbeat.
+OUTAGE_WINDOWS = [
+    (1790330982, 1790349600),   # 2026-09-25 10:09:41→15:20 UTC — zombie-after-disconnect; resumed on restart
+]
+
 
 def _ts(e):
     t = e.get("ts")
@@ -43,6 +52,31 @@ def _strat(e):
 
 def _cls(pair):
     return PAIR_CLASS.get(pair) or ("crypto" if pair in CAM_CRYPTO_PILOT else "other")
+
+
+def _entry_ts(e):
+    """Trigger-bar epoch from the signal_id trailing token (cam_rev:<pair>:<entry_ts>). None if absent."""
+    sid = e.get("signal_id") or ""
+    try:
+        return int(sid.rsplit(":", 1)[-1])
+    except Exception:
+        return None
+
+
+def _outage_contaminated(e):
+    """True if this fill's open interval [entry, close] overlapped a known cBot dead window — i.e. it
+    rode unmanaged through an outage. With no entry_ts, fall back to 'closed inside the window'."""
+    ct = _ts(e)
+    if not ct:
+        return False
+    et = _entry_ts(e)
+    for a, b in OUTAGE_WINDOWS:
+        if et is not None:
+            if et <= b and ct >= a:        # open interval overlaps [a, b]
+                return True
+        elif a <= ct <= b:                 # unknown entry: only if it closed within the window
+            return True
+    return False
 
 
 def _agg(rows):
@@ -83,10 +117,11 @@ def main():
     def _is_trail_artifact(e):
         return str(e.get("reason") or "").lower().replace("_", "-") in ("trail-scratch", "trail-hit")
     artifacts = [e for e in closed if _is_trail_artifact(e)]
-    clean = [e for e in closed if not _is_trail_artifact(e)]
+    outage = [e for e in closed if not _is_trail_artifact(e) and _outage_contaminated(e)]
+    clean = [e for e in closed if not _is_trail_artifact(e) and not _outage_contaminated(e)]
 
-    overall = _agg(clean)              # headline: fixed-RR outcomes only (restart artifacts excluded)
-    overall_raw = _agg(closed)         # everything, incl. trailing/restart artifacts
+    overall = _agg(clean)              # headline: fixed-RR, outage-free outcomes only
+    overall_raw = _agg(closed)         # everything, incl. trailing/restart artifacts + outage-riders
     by_mode = defaultdict(list); by_class = defaultdict(list); by_pair = defaultdict(list)
     by_regime = defaultdict(list)
     for e in clean:
@@ -119,6 +154,13 @@ def main():
             "rows": [{"pair": e.get("pair"), "r": round(e.get("realized_r", 0), 3),
                       "reason": e.get("reason")} for e in artifacts],
         },
+        "outage_excluded": {
+            "n": len(outage),
+            "note": "cam_rev fills open across a known cBot dead window (rode unmanaged, closed by "
+                    "broker/restart-flush) — excluded from the headline WR/RR. See OUTAGE_WINDOWS.",
+            "rows": [{"pair": e.get("pair"), "r": round(e.get("realized_r", 0), 3),
+                      "reason": e.get("reason")} for e in outage],
+        },
         "gap_vs_backtest": ({"exp_r": round(overall["avg_r"] - BT_EXP, 3),
                              "wr_pct": round(overall["wr"] - BT_WR, 1)} if overall else None),
         "by_account_mode": {m: _agg(v) for m, v in sorted(by_mode.items())},
@@ -149,6 +191,10 @@ def main():
             print(f"  ({len(artifacts)} restart/trailing-artifact fill(s) excluded — raw incl. them: "
                   f"WR {overall_raw['wr']}%  avg {overall_raw['avg_r']:+}R  total {overall_raw['total_r']:+}R)",
                   flush=True)
+        if outage:
+            oa = _agg(outage)
+            print(f"  ({len(outage)} outage-rider fill(s) excluded — unmanaged across a cBot dead window; "
+                  f"their own WR {oa['wr']}%  total {oa['total_r']:+}R)", flush=True)
         print(f"  stop-slippage: {overall['slip_beyond_1R']} loss(es) beyond -1R, "
               f"avg excess {overall['avg_slip_excess']:+}R, worst {overall['worst_r']}R", flush=True)
         for c, v in out["by_class"].items():

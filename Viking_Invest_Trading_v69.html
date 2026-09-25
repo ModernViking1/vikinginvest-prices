@@ -1575,12 +1575,25 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // RR reflects the strategy, not one-off restart artifacts. Scoped to cam_rev — other strategies
         // legitimately trail. Count exposed for a visible "excluded" note.
         window._swCamTrailExcl=0;
+        window._swCamOutageExcl=0;
+        // cBot dead windows (ms UTC): a cam_rev fill OPEN across one rode unmanaged (no trail/exit/stop
+        // mgmt) while the poll thread was a zombie, then closed by the broker or flushed on restart — it
+        // doesn't reflect the strategy, so it's excluded from the win-rate/RR. Mirror OUTAGE_WINDOWS in
+        // cam_rev_live_tracker.py; add a pair on every confirmed outage.
+        var _swOutageWins=[[1790330982000,1790349600000]]; // 2026-09-25 10:09:41→15:20 UTC (zombie-after-disconnect)
         closed=closed.filter(function(e){
           // tag-tolerant: prefer the tag-free signal_id prefix, else strip a " (R+)"/" (R-)" tag the
           // pre-fix cBot leaks into the strategy field of restart-surviving closes.
           var st=((e.signal_id||'').split(':')[0]) || String(e.strategy||'').split(' ')[0];
           var rs=(e.reason||'').toLowerCase().replace(/_/g,'-');
           if(st==='cam_rev' && (rs==='trail-scratch'||rs==='trail-hit')){ window._swCamTrailExcl++; return false; }
+          if(st==='cam_rev'){
+            var ct=e.ts||0; if(ct>0&&ct<1e11) ct*=1000;                       // secs -> ms
+            var _sp=(e.signal_id||'').split(':'); var et=parseInt(_sp[_sp.length-1],10);
+            et=isFinite(et)?(et<1e11?et*1000:et):null;                        // entry ts (ms) from signal_id
+            for(var _wi=0;_wi<_swOutageWins.length;_wi++){ var a=_swOutageWins[_wi][0],b=_swOutageWins[_wi][1];
+              if(ct>0 && ((et!=null && et<=b && ct>=a) || (et==null && ct>=a && ct<=b))){ window._swCamOutageExcl++; return false; } }
+          }
           return true;
         });
         var placed = execs.filter(function(e){return e.event==='placed' && inWin(e);});
@@ -1796,6 +1809,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         var obsRows=strats.filter(function(st){return !LIVE_SWING[st] && (byStratD[st]||byStratM[st]);}).sort(function(a,b){return _swExp(b)-_swExp(a);}).map(_swRow).join('');
         h+='<div style="background:rgba(200,134,10,0.06);border:1px solid rgba(200,134,10,0.28);border-radius:3px;padding:5px 8px;margin:4px 0 6px;color:#7a5c0a;font-size:8px;line-height:1.45;">These edges target ~2:1 reward:risk — so a win rate near 40% is <b>profitable</b>. <b>Expectancy (R per trade)</b> is what matters here, not win rate alone. Only <b style="color:'+C.g+';">● LIVE</b> rows execute on cTrader; <b>○ OBSERVING</b> rows are shadow-tracked candidates that have not yet qualified for live capital.</div>';
         if(window._swCamTrailExcl>0){ h+='<div style="background:rgba(200,40,26,0.05);border:1px solid rgba(200,40,26,0.22);border-radius:3px;padding:4px 8px;margin:0 0 6px;color:#8a2a1e;font-size:8px;line-height:1.4;"><b>'+window._swCamTrailExcl+'</b> cam_rev fill(s) closed by the pre-fix restart break-even lock (trailing artifact) are excluded from cam_rev’s win-rate / RR above — cam_rev is a fixed 1:1 fade and no longer trails.</div>'; }
+        if(window._swCamOutageExcl>0){ h+='<div style="background:rgba(200,40,26,0.05);border:1px solid rgba(200,40,26,0.22);border-radius:3px;padding:4px 8px;margin:0 0 6px;color:#8a2a1e;font-size:8px;line-height:1.4;"><b>'+window._swCamOutageExcl+'</b> cam_rev fill(s) that rode <b>unmanaged through a cBot outage</b> (poll thread down; closed by broker/restart) are excluded from cam_rev’s win-rate / RR above — they don’t reflect the strategy.</div>'; }
         if(liveRows){ h+='<div style="color:'+C.g+';font-weight:700;letter-spacing:0.5px;margin:2px 0 2px;">● LIVE · executing on cTrader</div><table style="width:100%;border-collapse:collapse;font-size:8.5px;">'+_hdr+liveRows+'</table>'; }
         if(obsRows){ h+='<div style="color:'+C.mut+';font-weight:700;letter-spacing:0.5px;margin:9px 0 2px;">○ OBSERVING · shadow-only · not yet qualified for live</div>'
           + window._viPromotionBanner(shadow, function(tf){return tf!=='m15'&&tf!=='m5';}, LIVE_SWING)
