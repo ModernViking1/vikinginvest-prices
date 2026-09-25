@@ -1,5 +1,5 @@
 {
- "updated": "2026-09-25T05:19:50Z",
+ "updated": "2026-09-25T12:09:07Z",
  "strategy": "cam_rev",
  "backtest_benchmark": {
   "exp_r": 0.525,
@@ -7,25 +7,25 @@
   "note": "3-yr FX/index/comm gated, frictionless"
  },
  "overall_live": {
-  "n": 19,
-  "wr": 47.4,
-  "avg_r": -0.152,
-  "total_r": -2.9,
-  "avg_win": 0.868,
-  "avg_loss": -1.071,
-  "slip_beyond_1R": 9,
-  "avg_slip_excess": -0.189,
+  "n": 24,
+  "wr": 45.8,
+  "avg_r": -0.213,
+  "total_r": -5.12,
+  "avg_win": 0.842,
+  "avg_loss": -1.106,
+  "slip_beyond_1R": 12,
+  "avg_slip_excess": -0.198,
   "worst_r": -2
  },
  "overall_raw_incl_artifacts": {
-  "n": 21,
-  "wr": 47.6,
-  "avg_r": -0.118,
-  "total_r": -2.48,
-  "avg_win": 0.831,
-  "avg_loss": -0.981,
-  "slip_beyond_1R": 9,
-  "avg_slip_excess": -0.189,
+  "n": 26,
+  "wr": 46.2,
+  "avg_r": -0.181,
+  "total_r": -4.7,
+  "avg_win": 0.813,
+  "avg_loss": -1.033,
+  "slip_beyond_1R": 12,
+  "avg_slip_excess": -0.198,
   "worst_r": -2
  },
  "restart_artifacts_excluded": {
@@ -45,29 +45,29 @@
   ]
  },
  "gap_vs_backtest": {
-  "exp_r": -0.677,
-  "wr_pct": -28.9
+  "exp_r": -0.738,
+  "wr_pct": -30.5
  },
  "by_account_mode": {
   "demo": {
-   "n": 19,
-   "wr": 47.4,
-   "avg_r": -0.152,
-   "total_r": -2.9,
-   "avg_win": 0.868,
-   "avg_loss": -1.071,
-   "slip_beyond_1R": 9,
-   "avg_slip_excess": -0.189,
+   "n": 24,
+   "wr": 45.8,
+   "avg_r": -0.213,
+   "total_r": -5.12,
+   "avg_win": 0.842,
+   "avg_loss": -1.106,
+   "slip_beyond_1R": 12,
+   "avg_slip_excess": -0.198,
    "worst_r": -2
   }
  },
  "by_class": {
   "comm": {
-   "n": 3,
-   "wr": 66.7,
-   "avg_r": 0.326,
-   "total_r": 0.98,
-   "avg_win": 0.992,
+   "n": 4,
+   "wr": 75.0,
+   "avg_r": 0.494,
+   "total_r": 1.97,
+   "avg_win": 0.993,
    "avg_loss": -1.006,
    "slip_beyond_1R": 1,
    "avg_slip_excess": -0.006,
@@ -96,43 +96,58 @@
    "worst_r": 0.991
   },
   "major": {
-   "n": 1,
-   "wr": 0.0,
-   "avg_r": -1.153,
-   "total_r": -1.15,
-   "avg_win": 0.0,
-   "avg_loss": -1.153,
-   "slip_beyond_1R": 1,
-   "avg_slip_excess": -0.153,
+   "n": 4,
+   "wr": 25.0,
+   "avg_r": -0.705,
+   "total_r": -2.82,
+   "avg_win": 0.454,
+   "avg_loss": -1.091,
+   "slip_beyond_1R": 3,
+   "avg_slip_excess": -0.091,
    "worst_r": -1.153
   },
   "minor": {
-   "n": 11,
-   "wr": 45.5,
-   "avg_r": -0.337,
-   "total_r": -3.71,
+   "n": 12,
+   "wr": 41.7,
+   "avg_r": -0.438,
+   "total_r": -5.26,
    "avg_win": 0.766,
-   "avg_loss": -1.256,
-   "slip_beyond_1R": 6,
-   "avg_slip_excess": -0.256,
+   "avg_loss": -1.298,
+   "slip_beyond_1R": 7,
+   "avg_slip_excess": -0.298,
    "worst_r": -2
   }
  },
  "by_regime": {
   "range": {
-   "n": 9,
-   "wr": 44.4,
-   "avg_r": -0.135,
-   "total_r": -1.21,
-   "avg_win": 0.747,
-   "avg_loss": -0.84,
-   "slip_beyond_1R": 4,
-   "avg_slip_excess": -0.05,
+   "n": 13,
+   "wr": 46.2,
+   "avg_r": -0.145,
+   "total_r": -1.88,
+   "avg_win": 0.74,
+   "avg_loss": -0.903,
+   "slip_beyond_1R": 6,
+   "avg_slip_excess": -0.053,
    "worst_r": -1.095,
    "bt_exp": 0.486,
    "bt_wr": 74.0,
-   "gap_exp": -0.621,
-   "gap_wr": -29.6
+   "gap_exp": -0.631,
+   "gap_wr": -27.8
+  },
+  "strong": {
+   "n": 1,
+   "wr": 0.0,
+   "avg_r": -1.551,
+   "total_r": -1.55,
+   "avg_win": 0.0,
+   "avg_loss": -1.551,
+   "slip_beyond_1R": 1,
+   "avg_slip_excess": -0.551,
+   "worst_r": -1.551,
+   "bt_exp": 0.682,
+   "bt_wr": 84.0,
+   "gap_exp": -2.233,
+   "gap_wr": -84.0
   },
   "untagged": {
    "n": 10,
@@ -157,6 +172,17 @@
   }
  },
  "by_pair": {
+  "xagusd": {
+   "n": 2,
+   "wr": 100.0,
+   "avg_r": 0.994,
+   "total_r": 1.99,
+   "avg_win": 0.994,
+   "avg_loss": 0.0,
+   "slip_beyond_1R": 0,
+   "avg_slip_excess": 0.0,
+   "worst_r": 0.99
+  },
   "eurnok": {
    "n": 2,
    "wr": 100.0,
@@ -178,17 +204,6 @@
    "slip_beyond_1R": 0,
    "avg_slip_excess": 0.0,
    "worst_r": 1.004
-  },
-  "xagusd": {
-   "n": 1,
-   "wr": 100.0,
-   "avg_r": 0.99,
-   "total_r": 0.99,
-   "avg_win": 0.99,
-   "avg_loss": 0.0,
-   "slip_beyond_1R": 0,
-   "avg_slip_excess": 0.0,
-   "worst_r": 0.99
   },
   "xauusd": {
    "n": 1,
@@ -245,6 +260,17 @@
    "avg_slip_excess": -0.095,
    "worst_r": -1.095
   },
+  "eurusd": {
+   "n": 2,
+   "wr": 50.0,
+   "avg_r": -0.308,
+   "total_r": -0.62,
+   "avg_win": 0.454,
+   "avg_loss": -1.069,
+   "slip_beyond_1R": 1,
+   "avg_slip_excess": -0.069,
+   "worst_r": -1.069
+  },
   "solusd": {
    "n": 1,
    "wr": 0.0,
@@ -266,6 +292,17 @@
    "slip_beyond_1R": 1,
    "avg_slip_excess": -0.006,
    "worst_r": -1.006
+  },
+  "gbpusd": {
+   "n": 1,
+   "wr": 0.0,
+   "avg_r": -1.05,
+   "total_r": -1.05,
+   "avg_win": 0.0,
+   "avg_loss": -1.05,
+   "slip_beyond_1R": 1,
+   "avg_slip_excess": -0.05,
+   "worst_r": -1.05
   },
   "gbpcad": {
    "n": 1,
@@ -300,6 +337,17 @@
    "avg_slip_excess": -0.264,
    "worst_r": -1.264
   },
+  "nzdjpy": {
+   "n": 1,
+   "wr": 0.0,
+   "avg_r": -1.551,
+   "total_r": -1.55,
+   "avg_win": 0.0,
+   "avg_loss": -1.551,
+   "slip_beyond_1R": 1,
+   "avg_slip_excess": -0.551,
+   "worst_r": -1.551
+  },
   "eursgd": {
    "n": 2,
    "wr": 0.0,
@@ -313,14 +361,6 @@
   }
  },
  "recent": [
-  {
-   "when": "2026-09-21 07:54",
-   "pair": "gbpnzd",
-   "class": "minor",
-   "mode": "demo",
-   "r": -1.264,
-   "reason": "stop-hit"
-  },
   {
    "when": "2026-09-21 08:28",
    "pair": "solusd",
@@ -480,6 +520,46 @@
    "mode": "demo",
    "r": 0.991,
    "reason": "manual-or-broker"
+  },
+  {
+   "when": "2026-09-25 07:33",
+   "pair": "eurusd",
+   "class": "major",
+   "mode": "demo",
+   "r": 0.454,
+   "reason": "manual-or-broker"
+  },
+  {
+   "when": "2026-09-25 08:16",
+   "pair": "gbpusd",
+   "class": "major",
+   "mode": "demo",
+   "r": -1.05,
+   "reason": "stop-hit"
+  },
+  {
+   "when": "2026-09-25 08:44",
+   "pair": "xagusd",
+   "class": "comm",
+   "mode": "demo",
+   "r": 0.997,
+   "reason": "target-hit"
+  },
+  {
+   "when": "2026-09-25 09:18",
+   "pair": "nzdjpy",
+   "class": "minor",
+   "mode": "demo",
+   "r": -1.551,
+   "reason": "stop-hit"
+  },
+  {
+   "when": "2026-09-25 10:09",
+   "pair": "eurusd",
+   "class": "major",
+   "mode": "demo",
+   "r": -1.069,
+   "reason": "stop-hit"
   }
  ]
 }
