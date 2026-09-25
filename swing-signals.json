@@ -2,9 +2,96 @@
  "schema_version": 1,
  "generated": "2026-09-25T07:00:00+00:00",
  "data_end_ts": 1790319600,
- "raw_signal_count": 69,
+ "raw_signal_count": 72,
  "count": 38,
  "signals": [
+  {
+   "id": "cam_rev:eurusd:1790320500",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "eurusd",
+   "symbol": "EURUSD",
+   "class": "major",
+   "dir": "bear",
+   "stop": 1.13968,
+   "ref_entry": 1.13826,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790320500,
+   "created_ts": 1790319600,
+   "expiry_ts": 1790363700,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 2
+  },
+  {
+   "id": "cam_rev:gbpusd:1790320500",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "gbpusd",
+   "symbol": "GBPUSD",
+   "class": "major",
+   "dir": "bear",
+   "stop": 1.32393722,
+   "ref_entry": 1.32214,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790320500,
+   "created_ts": 1790319600,
+   "expiry_ts": 1790363700,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 2
+  },
+  {
+   "id": "cam_rev:usoil:1790320500",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "usoil",
+   "symbol": "USOIL",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 101.770765,
+   "ref_entry": 103.568,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790320500,
+   "created_ts": 1790319600,
+   "expiry_ts": 1790363700,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "twob_cm"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "twob_cm:bear",
+    "twob_cm:bull"
+   ],
+   "suppressed": 4
+  },
   {
    "id": "twob:ethusd:1790319600",
    "strategy": "twob",
@@ -232,34 +319,6 @@
    "suppressed": 0
   },
   {
-   "id": "cam_rev:gbpusd:1790273700",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "gbpusd",
-   "symbol": "GBPUSD",
-   "class": "major",
-   "dir": "bull",
-   "stop": 1.31888278,
-   "ref_entry": 1.32168,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790273700,
-   "created_ts": 1790319600,
-   "expiry_ts": 1790287200,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "cam_rev:bull"
-   ],
-   "suppressed": 1
-  },
-  {
    "id": "cam_rev:natgas:1790272800",
    "strategy": "cam_rev",
    "regime": "strong",
@@ -370,37 +429,6 @@
     "cam_rev:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "cam_rev:usoil:1790267400",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "usoil",
-   "symbol": "USOIL",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 108.365235,
-   "ref_entry": 104.228,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790267400,
-   "created_ts": 1790319600,
-   "expiry_ts": 1790287200,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob_cm"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "cam_rev:bull",
-    "twob_cm:bear",
-    "twob_cm:bull"
-   ],
-   "suppressed": 3
   },
   {
    "id": "cam_rev:dj30:1790266500",
@@ -679,34 +707,6 @@
     "cam_rev:bull"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "cam_rev:eurusd:1790246700",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "eurusd",
-   "symbol": "EURUSD",
-   "class": "major",
-   "dir": "bull",
-   "stop": 1.13571,
-   "ref_entry": 1.13705,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790246700,
-   "created_ts": 1790319600,
-   "expiry_ts": 1790287200,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "cam_rev:bull"
-   ],
-   "suppressed": 1
   },
   {
    "id": "cam_rev:solusd:1790246700",
