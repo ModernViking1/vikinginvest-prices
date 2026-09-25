@@ -2,9 +2,41 @@
  "schema_version": 1,
  "generated": "2026-09-25T09:00:00+00:00",
  "data_end_ts": 1790326800,
- "raw_signal_count": 62,
+ "raw_signal_count": 60,
  "count": 36,
  "signals": [
+  {
+   "id": "cam_rev:wtiusd:1790327700",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "wtiusd",
+   "symbol": "WTIUSD",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 94.19287,
+   "ref_entry": 96.09,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790327700,
+   "created_ts": 1790326800,
+   "expiry_ts": 1790370900,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "holygrail_cm",
+    "twob_cm"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "holygrail_cm:bull",
+    "twob_cm:bear"
+   ],
+   "suppressed": 3
+  },
   {
    "id": "cam_rev:eurgbp:1790326800",
    "strategy": "cam_rev",
@@ -253,10 +285,9 @@
     "twob"
    ],
    "cofire_dirs": [
-    "twob:bear",
     "twob:bull"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "twob:solusd:1790319600",
@@ -281,10 +312,9 @@
     "twob"
    ],
    "cofire_dirs": [
-    "twob:bear",
     "twob:bull"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "twob:xrpusd:1790319600",
@@ -309,10 +339,9 @@
     "twob"
    ],
    "cofire_dirs": [
-    "twob:bear",
     "twob:bull"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "hs:btcusd:1790308800",
@@ -569,37 +598,6 @@
     "cam_rev:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "cam_rev:wtiusd:1790264700",
-   "strategy": "cam_rev",
-   "regime": "strong",
-   "risk_mult": 1.5,
-   "pair": "wtiusd",
-   "symbol": "WTIUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 101.62513,
-   "ref_entry": 99.868,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790264700,
-   "created_ts": 1790326800,
-   "expiry_ts": 1790287200,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "holygrail_cm",
-    "twob_cm"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "holygrail_cm:bull",
-    "twob_cm:bear"
-   ],
-   "suppressed": 2
   },
   {
    "id": "cam_rev:euraud:1790262900",
