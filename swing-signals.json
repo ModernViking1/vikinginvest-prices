@@ -2,9 +2,39 @@
  "schema_version": 1,
  "generated": "2026-09-25T15:00:00+00:00",
  "data_end_ts": 1790348400,
- "raw_signal_count": 47,
+ "raw_signal_count": 48,
  "count": 29,
  "signals": [
+  {
+   "id": "cam_rev:ftse100:1790349300",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "ftse100",
+   "symbol": "FTSE100",
+   "class": "index",
+   "dir": "bull",
+   "stop": 10674.5545,
+   "ref_entry": 10706.8,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790349300,
+   "created_ts": 1790348400,
+   "expiry_ts": 1790373600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "twob_ix:bull"
+   ],
+   "suppressed": 2
+  },
   {
    "id": "cam_rev:btcusd:1790348400",
    "strategy": "cam_rev",
@@ -529,35 +559,6 @@
     "cam_rev:bull"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "cam_rev:ftse100:1790322300",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "ftse100",
-   "symbol": "FTSE100",
-   "class": "index",
-   "dir": "bear",
-   "stop": 10781.0455,
-   "ref_entry": 10730.6,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790322300,
-   "created_ts": 1790348400,
-   "expiry_ts": 1790365500,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "twob_ix:bull"
-   ],
-   "suppressed": 1
   },
   {
    "id": "cam_rev:nzdusd:1790321400",
