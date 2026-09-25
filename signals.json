@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-25T08:16:14.745213+00:00",
-  "generated_ms": 1790324172001,
-  "detector_last_check": "2026-09-25T08:16:11.006267+00:00",
+  "generated": "2026-09-25T08:21:19.265673+00:00",
+  "generated_ms": 1790324476532,
+  "detector_last_check": "2026-09-25T08:21:15.332178+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 3,
-    "armed": 0,
+    "total": 5,
+    "armed": 2,
     "triggered": 3,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "suiusd:1790324100000:wick",
+      "pair": "suiusd",
+      "sym": "SUIUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 1.019,
+      "stop": 1.0059,
+      "target": 1.0320999999999998,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790324100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790324476532,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "btcusd:1790323200000:absorb_btc",
       "pair": "btcusd",
@@ -34,10 +57,10 @@
       "cl": null,
       "armedAt": 1790323200000,
       "triggeredAt": 1790323200000,
-      "lastSeenAt": 1790324172001,
+      "lastSeenAt": 1790324476532,
       "source": "server-detector-absorb",
       "event_aligned": null,
-      "held": false
+      "held": true
     },
     {
       "id": "wtiusd:1790268300000:fma_sweep_cm",
@@ -57,7 +80,7 @@
       "cl": null,
       "armedAt": 1790268300000,
       "triggeredAt": 1790268300000,
-      "lastSeenAt": 1790324172001,
+      "lastSeenAt": 1790324476532,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
@@ -80,10 +103,32 @@
       "cl": null,
       "armedAt": 1790267400000,
       "triggeredAt": 1790267400000,
-      "lastSeenAt": 1790324172001,
+      "lastSeenAt": 1790324476532,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
+    },
+    {
+      "id": "suiusd:1780424100000:fib",
+      "pair": "suiusd",
+      "sym": "SUIUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 1.0235113999999998,
+      "stop": 1.0059,
+      "target": 1.0411227999999997,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780424100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790324476532,
+      "source": "server-detector",
+      "event_aligned": null
     }
   ]
 }
