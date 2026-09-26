@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-09-26T11:00:00+00:00",
  "data_end_ts": 1790420400,
- "raw_signal_count": 55,
+ "raw_signal_count": 54,
  "count": 33,
  "signals": [
   {
@@ -189,16 +189,14 @@
    "expiry_ts": 1790431200,
    "state": "triggered",
    "cofire": [
-    "engulf_manip",
     "hs",
     "twob"
    ],
    "cofire_dirs": [
-    "engulf_manip:bull",
     "hs:bear",
     "twob:bull"
    ],
-   "suppressed": 2
+   "suppressed": 1
   },
   {
    "id": "twob_ix:spx500:1790366400",
@@ -483,36 +481,6 @@
    "suppressed": 0
   },
   {
-   "id": "engulf_manip:btcusd:1790348400",
-   "strategy": "engulf_manip",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "btcusd",
-   "symbol": "BTCUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 85368.10164286,
-   "ref_entry": 84002.66,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790348400,
-   "created_ts": 1790420400,
-   "expiry_ts": 1790391600,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bear",
-    "twob:bear",
-    "twob:bull"
-   ],
-   "suppressed": 3
-  },
-  {
    "id": "hs:natgas:1790348400",
    "strategy": "hs",
    "regime": null,
@@ -679,6 +647,36 @@
     "cam_rev:bull"
    ],
    "suppressed": 1
+  },
+  {
+   "id": "engulf_manip:btcusd:1790344800",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "btcusd",
+   "symbol": "BTCUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 85364.39985714,
+   "ref_entry": 83902.77,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790344800,
+   "created_ts": 1790420400,
+   "expiry_ts": 1790388000,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip",
+    "twob"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear",
+    "twob:bear",
+    "twob:bull"
+   ],
+   "suppressed": 3
   },
   {
    "id": "twob_ix:ftse100:1790344800",
