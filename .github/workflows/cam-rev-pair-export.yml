@@ -1,0 +1,62 @@
+name: cam_rev Per-Pair + Per-Trade Export (3yr)
+
+# Runs cam_rev_pair_export.py over the full 3-yr m15 history (restores the gzipped deep-ohlc cache,
+# fresh-fetch fallback) to emit per-trade + per-pair GROSS and NET-of-cost data, then uploads it as a
+# build artifact for the workbook. Prints reconciliation vs backtest-summary to the log. Commits NOTHING.
+
+on:
+  workflow_dispatch:
+    inputs:
+      days: { description: 'Daily/H1 context window in days', default: '1095' }
+      m15_days: { description: 'm15 depth in days', default: '1095' }
+
+concurrency:
+  group: cam-rev-pair-export
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Install deps
+        run: python -m pip install --upgrade pip requests
+      - name: Guard — required files present
+        run: |
+          for f in cam_rev_pair_export.py unified_shadow_harness.py detect_triggers.py trend_regime.py fetch_historical_ohlc.py backtest-summary.json; do
+            [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }
+          done
+      - name: Restore deep m15 from cache release (else fetch fresh)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+          CACHE_TAG: deep-ohlc-cache
+        run: |
+          if gh release download "$CACHE_TAG" --repo "$GITHUB_REPOSITORY" -p deep-ohlc.json.gz --clobber 2>/dev/null; then
+            gunzip -c deep-ohlc.json.gz > deep-ohlc.json
+            echo "✅ restored deep-ohlc.json ($(ls -lh deep-ohlc.json | awk '{print $5}'))"
+          else
+            echo "cache miss — fetching fresh deep m15 (slow)"
+            python fetch_historical_ohlc.py --days "${{ github.event.inputs.days || '1095' }}" --m15-days "${{ github.event.inputs.m15_days || '1095' }}" --output deep-ohlc.json
+          fi
+          ls -lh deep-ohlc.json
+      - name: Run per-pair + per-trade export
+        run: |
+          echo "================ RESULT ================"
+          python cam_rev_pair_export.py --hist deep-ohlc.json --out cam-rev-pair-export.json
+          echo "========================================"
+          ls -lh cam-rev-pair-export.json
+          rm -f deep-ohlc.json deep-ohlc.json.gz
+      - name: Upload export artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cam-rev-pair-export
+          path: cam-rev-pair-export.json
+          retention-days: 7
