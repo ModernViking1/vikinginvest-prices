@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-26T01:50:55.270005+00:00",
-  "generated_ms": 1790387452498,
-  "detector_last_check": "2026-09-26T01:50:51.504196+00:00",
+  "generated": "2026-09-26T01:55:55.886354+00:00",
+  "generated_ms": 1790387753367,
+  "detector_last_check": "2026-09-26T01:55:52.378678+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 5,
-    "armed": 2,
+    "total": 7,
+    "armed": 4,
     "triggered": 3,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "lighterusd:1790387100000:wick",
+      "pair": "lighterusd",
+      "sym": "LIGHTERUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 4.881,
+      "stop": 4.783,
+      "target": 4.979,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790387100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790387753367,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "xrpusd:1790386200000:wick",
       "pair": "xrpusd",
@@ -34,7 +57,7 @@
       "cl": "bull",
       "armedAt": 1790386200000,
       "triggeredAt": null,
-      "lastSeenAt": 1790387452498,
+      "lastSeenAt": 1790387753367,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -57,7 +80,7 @@
       "cl": null,
       "armedAt": 1790354700000,
       "triggeredAt": 1790354700000,
-      "lastSeenAt": 1790387452498,
+      "lastSeenAt": 1790387753367,
       "source": "server-detector-mmove",
       "event_aligned": null,
       "held": true
@@ -80,7 +103,7 @@
       "cl": null,
       "armedAt": 1790268300000,
       "triggeredAt": 1790268300000,
-      "lastSeenAt": 1790387452498,
+      "lastSeenAt": 1790387753367,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
@@ -103,10 +126,32 @@
       "cl": null,
       "armedAt": 1790267400000,
       "triggeredAt": 1790267400000,
-      "lastSeenAt": 1790387452498,
+      "lastSeenAt": 1790387753367,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
+    },
+    {
+      "id": "lighterusd:1788805800000:fib",
+      "pair": "lighterusd",
+      "sym": "LIGHTERUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 4.898922,
+      "stop": 4.783,
+      "target": 5.014843999999999,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1788805800000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790387753367,
+      "source": "server-detector",
+      "event_aligned": null
     },
     {
       "id": "xrpusd:1780326900000:fib",
@@ -126,7 +171,7 @@
       "cl": "bull",
       "armedAt": 1780326900000,
       "triggeredAt": null,
-      "lastSeenAt": 1790387452498,
+      "lastSeenAt": 1790387753367,
       "source": "server-detector",
       "event_aligned": null
     }
