@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-27T13:55:47.982776+00:00",
-  "generated_ms": 1790517345211,
-  "detector_last_check": "2026-09-27T13:55:43.801012+00:00",
+  "generated": "2026-09-27T14:01:25.355923+00:00",
+  "generated_ms": 1790517682646,
+  "detector_last_check": "2026-09-27T14:01:21.685354+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 5,
-    "armed": 0,
+    "total": 7,
+    "armed": 2,
     "triggered": 5,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "nearusd:1790516700000:wick",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 5.1364,
+      "stop": 5.0999,
+      "target": 5.1729,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790516700000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790517682646,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "suiusd:1790511300000:wick",
       "pair": "suiusd",
@@ -34,7 +57,7 @@
       "cl": "bull",
       "armedAt": 1790511300000,
       "triggeredAt": 1790513100000,
-      "lastSeenAt": 1790517345211,
+      "lastSeenAt": 1790517682646,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -57,7 +80,7 @@
       "cl": null,
       "armedAt": 1790354700000,
       "triggeredAt": 1790354700000,
-      "lastSeenAt": 1790517345211,
+      "lastSeenAt": 1790517682646,
       "source": "server-detector-mmove",
       "event_aligned": null,
       "held": true
@@ -80,7 +103,7 @@
       "cl": null,
       "armedAt": 1790268300000,
       "triggeredAt": 1790268300000,
-      "lastSeenAt": 1790517345211,
+      "lastSeenAt": 1790517682646,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
@@ -103,10 +126,32 @@
       "cl": null,
       "armedAt": 1790267400000,
       "triggeredAt": 1790267400000,
-      "lastSeenAt": 1790517345211,
+      "lastSeenAt": 1790517682646,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
+    },
+    {
+      "id": "nearusd:1780433100000:fib",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 5.211177999999999,
+      "stop": 5.0999,
+      "target": 5.322455999999999,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1780433100000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790517682646,
+      "source": "server-detector",
+      "event_aligned": null
     },
     {
       "id": "suiusd:1780424100000:fib",
@@ -126,7 +171,7 @@
       "cl": "bull",
       "armedAt": 1780424100000,
       "triggeredAt": 1790513100000,
-      "lastSeenAt": 1790517345211,
+      "lastSeenAt": 1790517682646,
       "source": "server-detector",
       "event_aligned": null
     }
