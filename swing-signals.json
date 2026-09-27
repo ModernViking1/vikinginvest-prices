@@ -1,37 +1,36 @@
 {
  "schema_version": 1,
- "generated": "2026-09-27T07:00:00+00:00",
- "data_end_ts": 1790492400,
- "raw_signal_count": 12,
+ "generated": "2026-09-27T08:00:00+00:00",
+ "data_end_ts": 1790496000,
+ "raw_signal_count": 11,
  "count": 9,
  "signals": [
   {
-   "id": "twob:btcusd:1790492400",
-   "strategy": "twob",
+   "id": "mmove:xrpusd:1790496000",
+   "strategy": "mmove",
    "regime": null,
    "risk_mult": 1.0,
-   "pair": "btcusd",
-   "symbol": "BTCUSD",
+   "pair": "xrpusd",
+   "symbol": "XRPUSD",
    "class": "crypto",
    "dir": "bear",
-   "stop": 84634.6365,
-   "ref_entry": 84494.5,
+   "stop": 1.54541714,
+   "ref_entry": 1.5387,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
    "demo_only": false,
-   "trigger_ts": 1790492400,
-   "created_ts": 1790492400,
-   "expiry_ts": 1790535600,
+   "trigger_ts": 1790496000,
+   "created_ts": 1790496000,
+   "expiry_ts": 1790539200,
    "state": "triggered",
    "cofire": [
-    "twob"
+    "mmove"
    ],
    "cofire_dirs": [
-    "twob:bear",
-    "twob:bull"
+    "mmove:bear"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "twob:lighterusd:1790485200",
@@ -49,7 +48,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790485200,
-   "created_ts": 1790492400,
+   "created_ts": 1790496000,
    "expiry_ts": 1790528400,
    "state": "triggered",
    "cofire": [
@@ -77,7 +76,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790467200,
-   "created_ts": 1790492400,
+   "created_ts": 1790496000,
    "expiry_ts": 1790510400,
    "state": "triggered",
    "cofire": [
@@ -106,7 +105,7 @@
    "entry_mode": "limit",
    "demo_only": true,
    "trigger_ts": 1790456400,
-   "created_ts": 1790492400,
+   "created_ts": 1790496000,
    "expiry_ts": 1790460000,
    "state": "triggered",
    "cofire": [
@@ -133,7 +132,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790456400,
-   "created_ts": 1790492400,
+   "created_ts": 1790496000,
    "expiry_ts": 1790499600,
    "state": "triggered",
    "cofire": [
@@ -160,7 +159,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790456400,
-   "created_ts": 1790492400,
+   "created_ts": 1790496000,
    "expiry_ts": 1790499600,
    "state": "triggered",
    "cofire": [
@@ -187,7 +186,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790445600,
-   "created_ts": 1790492400,
+   "created_ts": 1790496000,
    "expiry_ts": 1790488800,
    "state": "triggered",
    "cofire": [
@@ -195,6 +194,33 @@
    ],
    "cofire_dirs": [
     "twob:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "twob:btcusd:1790431200",
+   "strategy": "twob",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "btcusd",
+   "symbol": "BTCUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 83790.45164286,
+   "ref_entry": 83935.32,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790431200,
+   "created_ts": 1790496000,
+   "expiry_ts": 1790474400,
+   "state": "triggered",
+   "cofire": [
+    "twob"
+   ],
+   "cofire_dirs": [
+    "twob:bull"
    ],
    "suppressed": 0
   },
@@ -214,7 +240,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790420400,
-   "created_ts": 1790492400,
+   "created_ts": 1790496000,
    "expiry_ts": 1790463600,
    "state": "triggered",
    "cofire": [
@@ -222,33 +248,6 @@
    ],
    "cofire_dirs": [
     "twob:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:solusd:1790406900",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "solusd",
-   "symbol": "SOLUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 118.0082,
-   "ref_entry": 120.58,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": true,
-   "trigger_ts": 1790406900,
-   "created_ts": 1790492400,
-   "expiry_ts": 1790450100,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull"
    ],
    "suppressed": 0
   }
