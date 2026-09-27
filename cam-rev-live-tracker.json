@@ -1,5 +1,5 @@
 {
- "updated": "2026-09-27T17:14:59Z",
+ "updated": "2026-09-27T21:34:40Z",
  "strategy": "cam_rev",
  "backtest_benchmark": {
   "exp_r": 0.525,
@@ -7,25 +7,25 @@
   "note": "3-yr FX/index/comm gated, frictionless"
  },
  "overall_live": {
-  "n": 27,
-  "wr": 48.1,
-  "avg_r": -0.166,
-  "total_r": -4.49,
+  "n": 29,
+  "wr": 44.8,
+  "avg_r": -0.225,
+  "total_r": -6.54,
   "avg_win": 0.837,
-  "avg_loss": -1.098,
-  "slip_beyond_1R": 13,
-  "avg_slip_excess": -0.183,
+  "avg_loss": -1.089,
+  "slip_beyond_1R": 15,
+  "avg_slip_excess": -0.161,
   "worst_r": -2
  },
  "overall_raw_incl_artifacts": {
-  "n": 31,
-  "wr": 48.4,
-  "avg_r": -0.132,
-  "total_r": -4.09,
-  "avg_win": 0.788,
-  "avg_loss": -0.995,
-  "slip_beyond_1R": 13,
-  "avg_slip_excess": -0.183,
+  "n": 35,
+  "wr": 45.7,
+  "avg_r": -0.216,
+  "total_r": -7.57,
+  "avg_win": 0.746,
+  "avg_loss": -1.026,
+  "slip_beyond_1R": 16,
+  "avg_slip_excess": -0.185,
   "worst_r": -2
  },
  "restart_artifacts_excluded": {
@@ -45,7 +45,7 @@
   ]
  },
  "outage_excluded": {
-  "n": 2,
+  "n": 4,
   "note": "cam_rev fills open across a known cBot dead window (rode unmanaged, closed by broker/restart-flush) \u2014 excluded from the headline WR/RR. See OUTAGE_WINDOWS.",
   "rows": [
    {
@@ -57,23 +57,33 @@
     "pair": "usdchf",
     "r": 0.443,
     "reason": "cam-time-exit"
+   },
+   {
+    "pair": "eurgbp",
+    "r": -1.532,
+    "reason": "cam-time-exit"
+   },
+   {
+    "pair": "audnzd",
+    "r": 0.106,
+    "reason": "cam-time-exit"
    }
   ]
  },
  "gap_vs_backtest": {
-  "exp_r": -0.691,
-  "wr_pct": -28.2
+  "exp_r": -0.75,
+  "wr_pct": -31.5
  },
  "by_account_mode": {
   "demo": {
-   "n": 27,
-   "wr": 48.1,
-   "avg_r": -0.166,
-   "total_r": -4.49,
+   "n": 29,
+   "wr": 44.8,
+   "avg_r": -0.225,
+   "total_r": -6.54,
    "avg_win": 0.837,
-   "avg_loss": -1.098,
-   "slip_beyond_1R": 13,
-   "avg_slip_excess": -0.183,
+   "avg_loss": -1.089,
+   "slip_beyond_1R": 15,
+   "avg_slip_excess": -0.161,
    "worst_r": -2
   }
  },
@@ -90,15 +100,15 @@
    "worst_r": -1.006
   },
   "crypto": {
-   "n": 5,
-   "wr": 40.0,
-   "avg_r": -0.077,
-   "total_r": -0.38,
+   "n": 7,
+   "wr": 28.6,
+   "avg_r": -0.347,
+   "total_r": -2.43,
    "avg_win": 0.812,
-   "avg_loss": -0.669,
-   "slip_beyond_1R": 2,
-   "avg_slip_excess": -0.004,
-   "worst_r": -1.008
+   "avg_loss": -0.811,
+   "slip_beyond_1R": 4,
+   "avg_slip_excess": -0.013,
+   "worst_r": -1.036
   },
   "index": {
    "n": 2,
@@ -136,19 +146,19 @@
  },
  "by_regime": {
   "range": {
-   "n": 16,
-   "wr": 50.0,
-   "avg_r": -0.079,
-   "total_r": -1.26,
+   "n": 18,
+   "wr": 44.4,
+   "avg_r": -0.184,
+   "total_r": -3.3,
    "avg_win": 0.758,
-   "avg_loss": -0.915,
-   "slip_beyond_1R": 7,
-   "avg_slip_excess": -0.046,
+   "avg_loss": -0.937,
+   "slip_beyond_1R": 9,
+   "avg_slip_excess": -0.041,
    "worst_r": -1.095,
    "bt_exp": 0.486,
    "bt_wr": 74.0,
-   "gap_exp": -0.565,
-   "gap_wr": -24.0
+   "gap_exp": -0.67,
+   "gap_wr": -29.6
   },
   "strong": {
    "n": 1,
@@ -276,17 +286,6 @@
    "avg_slip_excess": -0.095,
    "worst_r": -1.095
   },
-  "solusd": {
-   "n": 2,
-   "wr": 50.0,
-   "avg_r": -0.256,
-   "total_r": -0.51,
-   "avg_win": 0.496,
-   "avg_loss": -1.008,
-   "slip_beyond_1R": 1,
-   "avg_slip_excess": -0.008,
-   "worst_r": -1.008
-  },
   "eurusd": {
    "n": 2,
    "wr": 50.0,
@@ -319,6 +318,17 @@
    "slip_beyond_1R": 1,
    "avg_slip_excess": -0.006,
    "worst_r": -1.006
+  },
+  "btcusd": {
+   "n": 1,
+   "wr": 0.0,
+   "avg_r": -1.009,
+   "total_r": -1.01,
+   "avg_win": 0.0,
+   "avg_loss": -1.009,
+   "slip_beyond_1R": 1,
+   "avg_slip_excess": -0.009,
+   "worst_r": -1.009
   },
   "gbpusd": {
    "n": 1,
@@ -364,6 +374,17 @@
    "avg_slip_excess": -0.264,
    "worst_r": -1.264
   },
+  "solusd": {
+   "n": 3,
+   "wr": 33.3,
+   "avg_r": -0.516,
+   "total_r": -1.55,
+   "avg_win": 0.496,
+   "avg_loss": -1.022,
+   "slip_beyond_1R": 2,
+   "avg_slip_excess": -0.022,
+   "worst_r": -1.036
+  },
   "nzdjpy": {
    "n": 1,
    "wr": 0.0,
@@ -388,38 +409,6 @@
   }
  },
  "recent": [
-  {
-   "when": "2026-09-22 07:58",
-   "pair": "eursgd",
-   "class": "minor",
-   "mode": "demo",
-   "r": -2,
-   "reason": "stop-hit"
-  },
-  {
-   "when": "2026-09-22 08:24",
-   "pair": "gbpcad",
-   "class": "minor",
-   "mode": "demo",
-   "r": -1.079,
-   "reason": "stop-hit"
-  },
-  {
-   "when": "2026-09-22 08:51",
-   "pair": "euraud",
-   "class": "minor",
-   "mode": "demo",
-   "r": 0.916,
-   "reason": "target-hit"
-  },
-  {
-   "when": "2026-09-22 08:56",
-   "pair": "fra40",
-   "class": "index",
-   "mode": "demo",
-   "r": 1.004,
-   "reason": "target-hit"
-  },
   {
    "when": "2026-09-22 11:47",
    "pair": "cadjpy",
@@ -587,6 +576,38 @@
    "mode": "demo",
    "r": 1.128,
    "reason": "target-hit"
+  },
+  {
+   "when": "2026-09-27 18:21",
+   "pair": "solusd",
+   "class": "crypto",
+   "mode": "demo",
+   "r": -1.036,
+   "reason": "manual-or-broker"
+  },
+  {
+   "when": "2026-09-27 18:58",
+   "pair": "btcusd",
+   "class": "crypto",
+   "mode": "demo",
+   "r": -1.009,
+   "reason": "manual-or-broker"
+  },
+  {
+   "when": "2026-09-27 21:01",
+   "pair": "eurgbp",
+   "class": "minor",
+   "mode": "demo",
+   "r": -1.532,
+   "reason": "cam-time-exit"
+  },
+  {
+   "when": "2026-09-27 21:01",
+   "pair": "audnzd",
+   "class": "minor",
+   "mode": "demo",
+   "r": 0.106,
+   "reason": "cam-time-exit"
   }
  ]
 }
