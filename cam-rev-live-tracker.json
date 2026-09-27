@@ -1,5 +1,5 @@
 {
- "updated": "2026-09-27T21:34:40Z",
+ "updated": "2026-09-27T23:56:40Z",
  "strategy": "cam_rev",
  "backtest_benchmark": {
   "exp_r": 0.525,
@@ -7,25 +7,25 @@
   "note": "3-yr FX/index/comm gated, frictionless"
  },
  "overall_live": {
-  "n": 29,
-  "wr": 44.8,
-  "avg_r": -0.225,
-  "total_r": -6.54,
+  "n": 30,
+  "wr": 43.3,
+  "avg_r": -0.253,
+  "total_r": -7.59,
   "avg_win": 0.837,
-  "avg_loss": -1.089,
-  "slip_beyond_1R": 15,
-  "avg_slip_excess": -0.161,
+  "avg_loss": -1.087,
+  "slip_beyond_1R": 16,
+  "avg_slip_excess": -0.155,
   "worst_r": -2
  },
  "overall_raw_incl_artifacts": {
-  "n": 35,
-  "wr": 45.7,
-  "avg_r": -0.216,
-  "total_r": -7.57,
-  "avg_win": 0.746,
-  "avg_loss": -1.026,
-  "slip_beyond_1R": 16,
-  "avg_slip_excess": -0.185,
+  "n": 38,
+  "wr": 44.7,
+  "avg_r": -0.222,
+  "total_r": -8.42,
+  "avg_win": 0.721,
+  "avg_loss": -0.985,
+  "slip_beyond_1R": 17,
+  "avg_slip_excess": -0.177,
   "worst_r": -2
  },
  "restart_artifacts_excluded": {
@@ -45,7 +45,7 @@
   ]
  },
  "outage_excluded": {
-  "n": 4,
+  "n": 6,
   "note": "cam_rev fills open across a known cBot dead window (rode unmanaged, closed by broker/restart-flush) \u2014 excluded from the headline WR/RR. See OUTAGE_WINDOWS.",
   "rows": [
    {
@@ -67,23 +67,33 @@
     "pair": "audnzd",
     "r": 0.106,
     "reason": "cam-time-exit"
+   },
+   {
+    "pair": "wtiusd",
+    "r": 0.331,
+    "reason": "cam-time-exit"
+   },
+   {
+    "pair": "nas100",
+    "r": -0.128,
+    "reason": "cam-time-exit"
    }
   ]
  },
  "gap_vs_backtest": {
-  "exp_r": -0.75,
-  "wr_pct": -31.5
+  "exp_r": -0.778,
+  "wr_pct": -33.0
  },
  "by_account_mode": {
   "demo": {
-   "n": 29,
-   "wr": 44.8,
-   "avg_r": -0.225,
-   "total_r": -6.54,
+   "n": 30,
+   "wr": 43.3,
+   "avg_r": -0.253,
+   "total_r": -7.59,
    "avg_win": 0.837,
-   "avg_loss": -1.089,
-   "slip_beyond_1R": 15,
-   "avg_slip_excess": -0.161,
+   "avg_loss": -1.087,
+   "slip_beyond_1R": 16,
+   "avg_slip_excess": -0.155,
    "worst_r": -2
   }
  },
@@ -100,15 +110,15 @@
    "worst_r": -1.006
   },
   "crypto": {
-   "n": 7,
-   "wr": 28.6,
-   "avg_r": -0.347,
-   "total_r": -2.43,
+   "n": 8,
+   "wr": 25.0,
+   "avg_r": -0.436,
+   "total_r": -3.49,
    "avg_win": 0.812,
-   "avg_loss": -0.811,
-   "slip_beyond_1R": 4,
-   "avg_slip_excess": -0.013,
-   "worst_r": -1.036
+   "avg_loss": -0.852,
+   "slip_beyond_1R": 5,
+   "avg_slip_excess": -0.022,
+   "worst_r": -1.057
   },
   "index": {
    "n": 2,
@@ -146,19 +156,19 @@
  },
  "by_regime": {
   "range": {
-   "n": 18,
-   "wr": 44.4,
-   "avg_r": -0.184,
-   "total_r": -3.3,
+   "n": 19,
+   "wr": 42.1,
+   "avg_r": -0.23,
+   "total_r": -4.36,
    "avg_win": 0.758,
-   "avg_loss": -0.937,
-   "slip_beyond_1R": 9,
-   "avg_slip_excess": -0.041,
+   "avg_loss": -0.948,
+   "slip_beyond_1R": 10,
+   "avg_slip_excess": -0.042,
    "worst_r": -1.095,
    "bt_exp": 0.486,
    "bt_wr": 74.0,
-   "gap_exp": -0.67,
-   "gap_wr": -29.6
+   "gap_exp": -0.716,
+   "gap_wr": -31.9
   },
   "strong": {
    "n": 1,
@@ -220,17 +230,6 @@
    "avg_slip_excess": 0.0,
    "worst_r": 0.954
   },
-  "ethusd": {
-   "n": 1,
-   "wr": 100.0,
-   "avg_r": 1.128,
-   "total_r": 1.13,
-   "avg_win": 1.128,
-   "avg_loss": 0.0,
-   "slip_beyond_1R": 0,
-   "avg_slip_excess": 0.0,
-   "worst_r": 1.128
-  },
   "fra40": {
    "n": 1,
    "wr": 100.0,
@@ -263,6 +262,17 @@
    "slip_beyond_1R": 0,
    "avg_slip_excess": 0.0,
    "worst_r": 0.991
+  },
+  "ethusd": {
+   "n": 2,
+   "wr": 50.0,
+   "avg_r": 0.035,
+   "total_r": 0.07,
+   "avg_win": 1.128,
+   "avg_loss": -1.057,
+   "slip_beyond_1R": 1,
+   "avg_slip_excess": -0.057,
+   "worst_r": -1.057
   },
   "cadjpy": {
    "n": 3,
@@ -409,30 +419,6 @@
   }
  },
  "recent": [
-  {
-   "when": "2026-09-22 11:47",
-   "pair": "cadjpy",
-   "class": "minor",
-   "mode": "demo",
-   "r": -0.085,
-   "reason": "trail-scratch"
-  },
-  {
-   "when": "2026-09-22 21:04",
-   "pair": "euraud",
-   "class": "minor",
-   "mode": "demo",
-   "r": -1.095,
-   "reason": "stop-hit"
-  },
-  {
-   "when": "2026-09-23 00:11",
-   "pair": "xrpusd",
-   "class": "crypto",
-   "mode": "demo",
-   "r": 0,
-   "reason": "manual-or-broker"
-  },
   {
    "when": "2026-09-23 06:50",
    "pair": "gbpcad",
@@ -607,6 +593,30 @@
    "class": "minor",
    "mode": "demo",
    "r": 0.106,
+   "reason": "cam-time-exit"
+  },
+  {
+   "when": "2026-09-27 21:36",
+   "pair": "ethusd",
+   "class": "crypto",
+   "mode": "demo",
+   "r": -1.057,
+   "reason": "stop-hit"
+  },
+  {
+   "when": "2026-09-27 22:01",
+   "pair": "wtiusd",
+   "class": "comm",
+   "mode": "demo",
+   "r": 0.331,
+   "reason": "cam-time-exit"
+  },
+  {
+   "when": "2026-09-27 22:01",
+   "pair": "nas100",
+   "class": "index",
+   "mode": "demo",
+   "r": -0.128,
    "reason": "cam-time-exit"
   }
  ]
