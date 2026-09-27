@@ -1,10 +1,37 @@
 {
  "schema_version": 1,
- "generated": "2026-09-27T21:00:00+00:00",
- "data_end_ts": 1790542800,
- "raw_signal_count": 22,
- "count": 14,
+ "generated": "2026-09-27T22:00:00+00:00",
+ "data_end_ts": 1790546400,
+ "raw_signal_count": 19,
+ "count": 13,
  "signals": [
+  {
+   "id": "cam_rev:euraud:1790545500",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "euraud",
+   "symbol": "EURAUD",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 1.624583,
+   "ref_entry": 1.62276,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790545500,
+   "created_ts": 1790546400,
+   "expiry_ts": 1790546400,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "cam_rev:audusd:1790544600",
    "strategy": "cam_rev",
@@ -21,7 +48,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790544600,
-   "created_ts": 1790542800,
+   "created_ts": 1790546400,
    "expiry_ts": 1790546400,
    "state": "triggered",
    "cofire": [
@@ -48,7 +75,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790544600,
-   "created_ts": 1790542800,
+   "created_ts": 1790546400,
    "expiry_ts": 1790546400,
    "state": "triggered",
    "cofire": [
@@ -75,7 +102,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1790543700,
-   "created_ts": 1790542800,
+   "created_ts": 1790546400,
    "expiry_ts": 1790546400,
    "state": "triggered",
    "cofire": [
@@ -85,36 +112,6 @@
     "cam_rev:bull"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "twob:nearusd:1790542800",
-   "strategy": "twob",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "nearusd",
-   "symbol": "NEARUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 5.50306857,
-   "ref_entry": 5.4589,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790542800,
-   "created_ts": 1790542800,
-   "expiry_ts": 1790586000,
-   "state": "triggered",
-   "cofire": [
-    "mmove",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "mmove:bull",
-    "twob:bear",
-    "twob:bull"
-   ],
-   "suppressed": 2
   },
   {
    "id": "twob:suiusd:1790542800",
@@ -132,7 +129,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790542800,
-   "created_ts": 1790542800,
+   "created_ts": 1790546400,
    "expiry_ts": 1790586000,
    "state": "triggered",
    "cofire": [
@@ -161,7 +158,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790528400,
-   "created_ts": 1790542800,
+   "created_ts": 1790546400,
    "expiry_ts": 1790571600,
    "state": "triggered",
    "cofire": [
@@ -171,7 +168,7 @@
     "twob:bear",
     "twob:bull"
    ],
-   "suppressed": 2
+   "suppressed": 1
   },
   {
    "id": "engulf_manip:btcusd:1790524800",
@@ -189,7 +186,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790524800,
-   "created_ts": 1790542800,
+   "created_ts": 1790546400,
    "expiry_ts": 1790568000,
    "state": "triggered",
    "cofire": [
@@ -218,7 +215,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790524800,
-   "created_ts": 1790542800,
+   "created_ts": 1790546400,
    "expiry_ts": 1790568000,
    "state": "triggered",
    "cofire": [
@@ -229,33 +226,6 @@
     "twob:bull"
    ],
    "suppressed": 1
-  },
-  {
-   "id": "cam_rev:ethusd:1790522100",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "ethusd",
-   "symbol": "ETHUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 2675.970075,
-   "ref_entry": 2687.91,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": true,
-   "trigger_ts": 1790522100,
-   "created_ts": 1790542800,
-   "expiry_ts": 1790546400,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull"
-   ],
-   "suppressed": 0
   },
   {
    "id": "cam_rev:ethusd:1790514900",
@@ -273,7 +243,7 @@
    "entry_mode": "limit",
    "demo_only": true,
    "trigger_ts": 1790514900,
-   "created_ts": 1790542800,
+   "created_ts": 1790546400,
    "expiry_ts": 1790546400,
    "state": "triggered",
    "cofire": [
@@ -300,7 +270,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790514000,
-   "created_ts": 1790542800,
+   "created_ts": 1790546400,
    "expiry_ts": 1790557200,
    "state": "triggered",
    "cofire": [
@@ -308,6 +278,33 @@
    ],
    "cofire_dirs": [
     "twob:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "mmove:nearusd:1790499600",
+   "strategy": "mmove",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "nearusd",
+   "symbol": "NEARUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 5.09198214,
+   "ref_entry": 5.3319,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790499600,
+   "created_ts": 1790546400,
+   "expiry_ts": 1790542800,
+   "state": "triggered",
+   "cofire": [
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "mmove:bull"
    ],
    "suppressed": 0
   },
@@ -327,7 +324,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790467200,
-   "created_ts": 1790542800,
+   "created_ts": 1790546400,
    "expiry_ts": 1790510400,
    "state": "triggered",
    "cofire": [
@@ -338,7 +335,7 @@
     "engulf_manip:bull",
     "twob:bull"
    ],
-   "suppressed": 1
+   "suppressed": 2
   },
   {
    "id": "twob:lighterusd:1790463600",
@@ -356,7 +353,7 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1790463600,
-   "created_ts": 1790542800,
+   "created_ts": 1790546400,
    "expiry_ts": 1790506800,
    "state": "triggered",
    "cofire": [
@@ -364,33 +361,6 @@
    ],
    "cofire_dirs": [
     "twob:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:ethusd:1790456400",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "ethusd",
-   "symbol": "ETHUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 2647.573525,
-   "ref_entry": 2676.26,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": true,
-   "trigger_ts": 1790456400,
-   "created_ts": 1790542800,
-   "expiry_ts": 1790460000,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull"
    ],
    "suppressed": 0
   }
