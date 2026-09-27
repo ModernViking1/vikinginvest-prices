@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-27T05:31:13.598232+00:00",
-  "generated_ms": 1790487071592,
-  "detector_last_check": "2026-09-27T05:31:10.619028+00:00",
+  "generated": "2026-09-27T05:35:49.463329+00:00",
+  "generated_ms": 1790487347151,
+  "detector_last_check": "2026-09-27T05:35:46.012247+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 3,
+    "total": 5,
     "armed": 0,
     "triggered": 3,
-    "invalidated": 0
+    "invalidated": 2
   },
   "signals": [
+    {
+      "id": "asterusd:1790487000000:wick",
+      "pair": "asterusd",
+      "sym": "ASTERUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": null,
+      "stop": 0.7304,
+      "target": null,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790487000000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790487347151,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "fra40:1790354700000:mmove_m15",
       "pair": "fra40",
@@ -34,7 +57,7 @@
       "cl": null,
       "armedAt": 1790354700000,
       "triggeredAt": 1790354700000,
-      "lastSeenAt": 1790487071592,
+      "lastSeenAt": 1790487347151,
       "source": "server-detector-mmove",
       "event_aligned": null,
       "held": true
@@ -57,7 +80,7 @@
       "cl": null,
       "armedAt": 1790268300000,
       "triggeredAt": 1790268300000,
-      "lastSeenAt": 1790487071592,
+      "lastSeenAt": 1790487347151,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
@@ -80,10 +103,32 @@
       "cl": null,
       "armedAt": 1790267400000,
       "triggeredAt": 1790267400000,
-      "lastSeenAt": 1790487071592,
+      "lastSeenAt": 1790487347151,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
+    },
+    {
+      "id": "asterusd:1788769800000:fib",
+      "pair": "asterusd",
+      "sym": "ASTERUSD",
+      "cls": "crypto",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": null,
+      "stop": 0.7304,
+      "target": null,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1788769800000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790487347151,
+      "source": "server-detector",
+      "event_aligned": null
     }
   ]
 }
