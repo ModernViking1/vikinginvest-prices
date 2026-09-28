@@ -7,6 +7,8 @@ from collections import defaultdict
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.chart import BarChart, LineChart, ScatterChart, Reference, Series
+from openpyxl.chart.marker import Marker
 from detect_triggers import PAIR_CLASS
 
 ap = argparse.ArgumentParser()
@@ -329,6 +331,82 @@ for label,bv,lvv,fmt in kpirows:
     r+=1
 ws6.freeze_panes=f'A{s6+1}'
 for i,x in enumerate([10,8,7,8,9,8,9,7,8,9,8,9,8,9],1): ws6.column_dimensions[get_column_letter(i)].width=x
+
+# ---------------- TAB 7: CHARTS (native Excel, real data points) ----------------
+if export is not None:
+    wsc=wb.create_sheet('Charts')
+    wsc['A1']='cam_rev — Backtest vs Live (charts)'; wsc['A1'].font=TITLE
+    wsc['A2']='Backtest = last 3 months (net R). Live = month-to-date (demo, real fills). Bracket is fixed 1:1 → SL −1R, entry 0, TP +1R.'; wsc['A2'].font=SMALL
+    now=dt.datetime.utcnow(); cut90=(now-dt.timedelta(days=90)).timestamp(); ym=now.strftime('%Y-%m')
+    bt3=[t['r_net'] for t in sorted(export['trades'],key=lambda x:x['entry_ts']) if t['entry_ts']>=cut90 and t['cls']!='crypto']
+    lv=sorted([(_ts_days:=_t(e),e['realized_r'],(e.get('pair') or '').upper()) for e in clean
+               if dt.datetime.utcfromtimestamp(_t(e)).strftime('%Y-%m')==ym])
+    # ---- data block: outcome distribution (cols T,U,V = 20,21,22) ----
+    edges=[round(-2.0+0.25*i,2) for i in range(13)]   # -2.0 .. +1.0
+    def distpct(vals):
+        n=len(vals) or 1; out=[]
+        for i in range(len(edges)-1):
+            lo,hi=edges[i],edges[i+1]
+            c=sum(1 for v in vals if (lo<=v<hi) or (i==len(edges)-2 and v>=hi))
+            out.append(round(100.0*c/n,1))
+        return out
+    bd=distpct(bt3); ld=distpct(lv and [r for _,r,_ in lv] or [])
+    wsc.cell(1,20,'R bucket'); wsc.cell(1,21,'Backtest %'); wsc.cell(1,22,'Live %')
+    for i in range(len(edges)-1):
+        wsc.cell(2+i,20,f"{(edges[i]+edges[i+1])/2:+.2f}R"); wsc.cell(2+i,21,bd[i]); wsc.cell(2+i,22,ld[i])
+    nb=len(edges)-1
+    # ---- data block: backtest cumulative R (col X=24) ----
+    wsc.cell(1,24,'Backtest cumR (3mo)'); c=0.0
+    for i,r in enumerate(bt3): c+=r; wsc.cell(2+i,24,round(c,1))
+    nbt=len(bt3)
+    # ---- data block: live per-trade (AA=27 idx, AB=28 realizedR, AC=29 cumR, AD=30 TP, AE=31 entry, AF=32 SL) ----
+    for j,h in [(27,'Live #'),(28,'Realized R'),(29,'Live cumR'),(30,'TP +1'),(31,'Entry 0'),(32,'SL -1')]:
+        wsc.cell(1,j,h)
+    cc=0.0
+    for i,(ts,r,pk) in enumerate(lv):
+        cc+=r
+        wsc.cell(2+i,27,i+1); wsc.cell(2+i,28,round(r,3)); wsc.cell(2+i,29,round(cc,2))
+        wsc.cell(2+i,30,1); wsc.cell(2+i,31,0); wsc.cell(2+i,32,-1)
+    nlv=len(lv)
+
+    # Chart 1 — outcome distribution backtest vs live (clustered column, %)
+    ch1=BarChart(); ch1.type='col'; ch1.grouping='clustered'; ch1.title='Where trades land (R) — Backtest vs Live'
+    ch1.y_axis.title='% of trades'; ch1.x_axis.title='outcome in R (SL −1 · entry 0 · TP +1)'; ch1.height=8.2; ch1.width=17
+    ch1.add_data(Reference(wsc,min_col=21,max_col=22,min_row=1,max_row=1+nb),titles_from_data=True)
+    ch1.set_categories(Reference(wsc,min_col=20,min_row=2,max_row=1+nb))
+    ch1.series[0].graphicalProperties.solidFill='37D07A'; ch1.series[1].graphicalProperties.solidFill='E0574A'
+    wsc.add_chart(ch1,'A4')
+
+    # Chart 2 — live fills vs the 1:1 bracket (scatter with SL/entry/TP lines)
+    if nlv>=1:
+        sc=ScatterChart(); sc.title='Live fills vs the 1:1 bracket'; sc.height=8.2; sc.width=17
+        sc.y_axis.title='R'; sc.x_axis.title='live fill # (month to date)'
+        xref=Reference(wsc,min_col=27,min_row=2,max_row=1+nlv)
+        # realized R (markers only)
+        s0=Series(Reference(wsc,min_col=28,min_row=1,max_row=1+nlv),xref,title_from_data=True)
+        s0.marker=Marker(symbol='circle',size=6); s0.graphicalProperties.line.noFill=True
+        sc.series.append(s0)
+        for col,color in [(30,'37D07A'),(31,'8A968F'),(32,'C8503A')]:
+            s=Series(Reference(wsc,min_col=col,min_row=1,max_row=1+nlv),xref,title_from_data=True)
+            s.marker=Marker(symbol='none'); s.graphicalProperties.line.solidFill=color; s.graphicalProperties.line.width=18000
+            sc.series.append(s)
+        wsc.add_chart(sc,'A22')
+
+    # Chart 3 — backtest cumulative R (equity)
+    lc=LineChart(); lc.title='Backtest cumulative R (last 3 months)'; lc.height=8.2; lc.width=17
+    lc.y_axis.title='cumulative R'; lc.x_axis.title='trade #'
+    lc.add_data(Reference(wsc,min_col=24,min_row=1,max_row=1+nbt),titles_from_data=True)
+    lc.series[0].graphicalProperties.line.solidFill='37D07A'; lc.series[0].graphicalProperties.line.width=20000
+    wsc.add_chart(lc,'A40')
+
+    # Chart 4 — live cumulative R (equity)
+    if nlv>=1:
+        lc2=LineChart(); lc2.title='Live cumulative R (month to date)'; lc2.height=8.2; lc2.width=17
+        lc2.y_axis.title='cumulative R'; lc2.x_axis.title='live fill #'
+        lc2.add_data(Reference(wsc,min_col=29,min_row=1,max_row=1+nlv),titles_from_data=True)
+        lc2.series[0].graphicalProperties.line.solidFill='E0574A'; lc2.series[0].graphicalProperties.line.width=20000
+        wsc.add_chart(lc2,'A58')
+    for col in ('T','U','V','X','AA','AB','AC','AD','AE','AF'): wsc.column_dimensions[col].width=12
 
 try: wb.calculation.fullCalcOnLoad=True
 except Exception: pass
