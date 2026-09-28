@@ -369,43 +369,68 @@ if export is not None:
         wsc.cell(2+i,30,1); wsc.cell(2+i,31,0); wsc.cell(2+i,32,-1)
     nlv=len(lv)
 
-    # Chart 1 — outcome distribution backtest vs live (clustered column, %)
-    ch1=BarChart(); ch1.type='col'; ch1.grouping='clustered'; ch1.title='Where trades land (R) — Backtest vs Live'
-    ch1.y_axis.title='% of trades'; ch1.x_axis.title='outcome in R (SL −1 · entry 0 · TP +1)'; ch1.height=8.2; ch1.width=17
-    ch1.add_data(Reference(wsc,min_col=21,max_col=22,min_row=1,max_row=1+nb),titles_from_data=True)
-    ch1.set_categories(Reference(wsc,min_col=20,min_row=2,max_row=1+nb))
-    ch1.series[0].graphicalProperties.solidFill='37D07A'; ch1.series[1].graphicalProperties.solidFill='E0574A'
-    wsc.add_chart(ch1,'A4')
-
-    # Chart 2 — live fills vs the 1:1 bracket (scatter with SL/entry/TP lines)
-    if nlv>=1:
-        sc=ScatterChart(); sc.title='Live fills vs the 1:1 bracket'; sc.height=8.2; sc.width=17
-        sc.y_axis.title='R'; sc.x_axis.title='live fill # (month to date)'
-        xref=Reference(wsc,min_col=27,min_row=2,max_row=1+nlv)
-        # realized R (markers only)
-        s0=Series(Reference(wsc,min_col=28,min_row=1,max_row=1+nlv),xref,title_from_data=True)
-        s0.marker=Marker(symbol='circle',size=6); s0.graphicalProperties.line.noFill=True
-        sc.series.append(s0)
-        for col,color in [(30,'37D07A'),(31,'8A968F'),(32,'C8503A')]:
-            s=Series(Reference(wsc,min_col=col,min_row=1,max_row=1+nlv),xref,title_from_data=True)
-            s.marker=Marker(symbol='none'); s.graphicalProperties.line.solidFill=color; s.graphicalProperties.line.width=18000
-            sc.series.append(s)
-        wsc.add_chart(sc,'A22')
-
-    # Chart 3 — backtest cumulative R (equity)
-    lc=LineChart(); lc.title='Backtest cumulative R (last 3 months)'; lc.height=8.2; lc.width=17
-    lc.y_axis.title='cumulative R'; lc.x_axis.title='trade #'
-    lc.add_data(Reference(wsc,min_col=24,min_row=1,max_row=1+nbt),titles_from_data=True)
-    lc.series[0].graphicalProperties.line.solidFill='37D07A'; lc.series[0].graphicalProperties.line.width=20000
-    wsc.add_chart(lc,'A40')
-
-    # Chart 4 — live cumulative R (equity)
-    if nlv>=1:
-        lc2=LineChart(); lc2.title='Live cumulative R (month to date)'; lc2.height=8.2; lc2.width=17
-        lc2.y_axis.title='cumulative R'; lc2.x_axis.title='live fill #'
-        lc2.add_data(Reference(wsc,min_col=29,min_row=1,max_row=1+nlv),titles_from_data=True)
-        lc2.series[0].graphicalProperties.line.solidFill='E0574A'; lc2.series[0].graphicalProperties.line.width=20000
-        wsc.add_chart(lc2,'A58')
+    # Charts as a rendered PNG image (native Excel charts don't render in mobile / preview viewers).
+    centers=[(edges[i]+edges[i+1])/2 for i in range(nb)]
+    lvr=[r for _,r,_ in lv]
+    try:
+        import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+        from openpyxl.drawing.image import Image as XLImage
+        BG='#0e1513'; GRID='#243029'; GRN='#37d07a'; RED='#e0574a'; AMB='#d9a441'; MUT='#9aa8a1'
+        fig,axs=plt.subplots(2,2,figsize=(12,8.6),dpi=120); fig.patch.set_facecolor(BG)
+        fig.suptitle('cam_rev — Backtest (last 3 months) vs Live (month to date)',color='#e8efec',fontsize=15,fontweight='bold')
+        def sty(ax,title):
+            ax.set_facecolor(BG); ax.set_title(title,color='#e8efec',fontsize=11,pad=8)
+            ax.tick_params(colors=MUT,labelsize=8)
+            for sp in ax.spines.values(): sp.set_color(GRID)
+            ax.grid(True,color=GRID,linewidth=.6,alpha=.7); ax.yaxis.label.set_color(MUT); ax.xaxis.label.set_color(MUT)
+        # A: distribution
+        ax=axs[0,0]; xs=list(range(nb))
+        ax.bar([i-0.2 for i in xs],bd,width=0.4,color=GRN,label='Backtest %')
+        ax.bar([i+0.2 for i in xs],ld,width=0.4,color=AMB,label='Live %')
+        ax.set_xticks(xs); ax.set_xticklabels([f'{c:+.2f}' for c in centers],rotation=45,fontsize=6.5)
+        for xv,c in [(-1,RED),(0,MUT),(1,GRN)]:
+            # map R value to bar index position
+            pos=(xv-centers[0])/(centers[1]-centers[0]) if len(centers)>1 else 0
+            ax.axvline(pos,color=c,ls='--',lw=1,alpha=.7)
+        sty(ax,'Where trades land (R) — SL −1 · entry 0 · TP +1'); ax.set_ylabel('% of trades')
+        ax.legend(facecolor=BG,edgecolor=GRID,labelcolor='#e8efec',fontsize=8)
+        # B: live fills vs bracket
+        ax=axs[0,1]
+        if nlv:
+            xs=list(range(1,nlv+1))
+            ax.scatter(xs,lvr,c=[GRN if r>0 else RED for r in lvr],s=42,edgecolors=BG,zorder=3)
+            for yv,c,lab in [(1,GRN,'TP +1'),(0,MUT,'entry'),(-1,RED,'SL −1')]:
+                ax.axhline(yv,color=c,ls='--',lw=1,alpha=.8); ax.text(nlv+0.2,yv,lab,color=c,fontsize=7,va='center')
+            ax.set_xlim(0.5,nlv+1.5)
+        else:
+            ax.text(.5,.5,'no live fills this month yet',color=MUT,ha='center',va='center',transform=ax.transAxes)
+        sty(ax,'Live fills vs the 1:1 bracket'); ax.set_xlabel('live fill # (MTD)'); ax.set_ylabel('realized R')
+        # C: backtest cumulative R
+        ax=axs[1,0]; cum=[]; s=0.0
+        for r in bt3: s+=r; cum.append(s)
+        ax.plot(range(1,len(cum)+1),cum,color=GRN,lw=1.6); ax.fill_between(range(1,len(cum)+1),cum,color=GRN,alpha=.12)
+        sty(ax,f'Backtest cumulative R ({len(bt3)} trades)'); ax.set_xlabel('trade #'); ax.set_ylabel('cumulative R')
+        # D: live cumulative R
+        ax=axs[1,1]
+        if nlv:
+            lc=[]; s=0.0
+            for r in lvr: s+=r; lc.append(s)
+            col=GRN if lc[-1]>=0 else RED
+            ax.plot(range(1,nlv+1),lc,color=col,lw=1.8,marker='o',ms=4); ax.axhline(0,color=MUT,lw=.8,alpha=.6)
+        else:
+            ax.text(.5,.5,'no live fills this month yet',color=MUT,ha='center',va='center',transform=ax.transAxes)
+        sty(ax,'Live cumulative R (MTD)'); ax.set_xlabel('live fill #'); ax.set_ylabel('cumulative R')
+        fig.tight_layout(rect=[0,0,1,0.96])
+        png=os.path.splitext(args.out)[0]+'_charts.png'; fig.savefig(png,facecolor=BG,bbox_inches='tight'); plt.close(fig)
+        img=XLImage(png); img.anchor='A4'; wsc.add_image(img)
+        wsc['A3']='(Charts rendered as an image so they display in every viewer, including mobile. Underlying data in columns T onward.)'; wsc['A3'].font=SMALL
+    except Exception as _ce:
+        # Fallback: native Excel charts (render in desktop Excel; blank in some mobile viewers)
+        ch1=BarChart(); ch1.type='col'; ch1.grouping='clustered'; ch1.title='Where trades land (R) — Backtest vs Live'
+        ch1.add_data(Reference(wsc,min_col=21,max_col=22,min_row=1,max_row=1+nb),titles_from_data=True)
+        ch1.set_categories(Reference(wsc,min_col=20,min_row=2,max_row=1+nb)); wsc.add_chart(ch1,'A4')
+        lc=LineChart(); lc.title='Backtest cumulative R'; lc.add_data(Reference(wsc,min_col=24,min_row=1,max_row=1+nbt),titles_from_data=True); wsc.add_chart(lc,'A24')
+        print(f"(matplotlib unavailable: {_ce} — used native charts)")
     for col in ('T','U','V','X','AA','AB','AC','AD','AE','AF'): wsc.column_dimensions[col].width=12
 
 try: wb.calculation.fullCalcOnLoad=True
