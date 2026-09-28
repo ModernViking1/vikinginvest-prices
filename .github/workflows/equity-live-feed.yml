@@ -1,0 +1,59 @@
+name: Equity Live Feed (holygrail_eq_m15 demo pilot)
+
+# Generates the equity execution feed (equity-signals.json) that the equity cTrader cBot polls.
+# holygrail_eq_m15 is promotion-ready (weekly observer review) but equities aren't on the swing/OANDA
+# cBot, so this is a SEPARATE demo-only path. During the US cash session it fetches fresh m15 for the
+# 5 pilot symbols (TwelveData, m15 only to stay inside the free tier) and rebuilds equity-signals.json.
+#
+# Free tier: 5 symbols x m15 = 5 credits/run; every 15 min over 14-20 UTC weekdays ~= 140 credits/day
+# (under the 800/day cap; the Saturday research pull is separate). GitHub throttles scheduled crons, so
+# some bars will be missed — acceptable for a demo forward-test; move to the external pinger if promoted.
+#
+# Only equity-signals.json is committed (small, CDN-served). The fetched m15 OHLC is transient (not
+# committed) and written to equity-intraday-ohlc.json so it never clobbers the weekly equity-ohlc.json
+# (h1/daily) that the research + backtest baseline depend on.
+
+on:
+  schedule:
+    - cron: '*/15 14-20 * * 1-5'      # every 15 min, 14:00-20:59 UTC, Mon-Fri (US cash session)
+  workflow_dispatch:
+
+concurrency:
+  group: equity-live-feed
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  feed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Install deps
+        run: pip install requests
+      - name: Fetch m15 (5 pilot symbols, free-tier friendly)
+        env:
+          TWELVEDATA_API_KEY: ${{ secrets.TD_API_KEY }}
+        run: python fetch_equity_ohlc.py --intervals m15 --no-earnings --output equity-intraday-ohlc.json
+      - name: Build equity signals (demo-only)
+        run: python build_equity_signals.py --hist equity-intraday-ohlc.json --out equity-signals.json --demo 1
+      - name: Commit equity-signals.json (retry on race)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add equity-signals.json
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          git commit -m "chore: update equity-signals feed [skip ci]"
+          for i in 1 2 3 4 5; do
+            if git push origin HEAD:main 2>&1; then echo pushed; break; fi
+            git fetch origin main && git rebase origin/main || git rebase --abort
+            sleep $((2 ** i))
+          done
+      - name: Purge jsDelivr cache (non-fatal)
+        run: |
+          curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/equity-signals.json" || echo "purge gh failed"
