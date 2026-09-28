@@ -2,9 +2,40 @@
  "schema_version": 1,
  "generated": "2026-09-28T20:00:00+00:00",
  "data_end_ts": 1790625600,
- "raw_signal_count": 49,
+ "raw_signal_count": 50,
  "count": 30,
  "signals": [
+  {
+   "id": "cam_rev:usoil:1790627400",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "usoil",
+   "symbol": "USOIL",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 102.289185,
+   "ref_entry": 102.614,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790627400,
+   "created_ts": 1790625600,
+   "expiry_ts": 1790632800,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "holygrail_cm_m15",
+    "twob_cm"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull",
+    "holygrail_cm_m15:bear",
+    "twob_cm:bear"
+   ],
+   "suppressed": 2
+  },
   {
    "id": "cam_rev:wtiusd:1790625600",
    "strategy": "cam_rev",
@@ -545,35 +576,6 @@
    "cofire_dirs": [
     "engulf_manip:bull",
     "twob:bull"
-   ],
-   "suppressed": 1
-  },
-  {
-   "id": "twob_cm:usoil:1790596800",
-   "strategy": "twob_cm",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "usoil",
-   "symbol": "USOIL",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 105.56771429,
-   "ref_entry": 104.791,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790596800,
-   "created_ts": 1790625600,
-   "expiry_ts": 1790640000,
-   "state": "triggered",
-   "cofire": [
-    "holygrail_cm_m15",
-    "twob_cm"
-   ],
-   "cofire_dirs": [
-    "holygrail_cm_m15:bear",
-    "twob_cm:bear"
    ],
    "suppressed": 1
   },
