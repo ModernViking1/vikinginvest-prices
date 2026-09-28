@@ -12405,9 +12405,9 @@
    "cap_ts": 1790335800.0,
    "state_at_capture": "armed",
    "nowick_aligned": false,
-   "market_status": "pending",
+   "market_status": "expired",
    "market_r": null,
-   "limit_status": "pending",
+   "limit_status": "expired",
    "limit_r": null
   },
   "xrpusd:1790337600000:wick": {
@@ -12524,9 +12524,9 @@
    "cap_ts": 1790354700.0,
    "state_at_capture": "triggered",
    "nowick_aligned": false,
-   "market_status": "pending",
+   "market_status": "expired",
    "market_r": null,
-   "limit_status": "pending",
+   "limit_status": "expired",
    "limit_r": null
   },
   "suiusd:1790368200000:wick": {
@@ -12917,8 +12917,8 @@
    "nowick_aligned": false,
    "market_status": "resolved",
    "market_r": 1.0,
-   "limit_status": "pending",
-   "limit_r": null
+   "limit_status": "resolved",
+   "limit_r": -1.0
   },
   "btcusd:1790567100000:absorb_btc": {
    "id": "btcusd:1790567100000:absorb_btc",
@@ -12932,6 +12932,23 @@
    "cap_ts": 1790543700.0,
    "state_at_capture": "triggered",
    "nowick_aligned": false,
+   "market_status": "resolved",
+   "market_r": -1.0,
+   "limit_status": "nofill",
+   "limit_r": null
+  },
+  "btcusd:1790584200000:absorb_btc": {
+   "id": "btcusd:1790584200000:absorb_btc",
+   "pair": "btcusd",
+   "dir": "bear",
+   "method": "absorb_btc",
+   "cls": "crypto",
+   "limit_entry": 82844.01,
+   "stop": 83091.89228571,
+   "market_entry": 83115.14,
+   "cap_ts": 1790572500.0,
+   "state_at_capture": "triggered",
+   "nowick_aligned": true,
    "market_status": "pending",
    "market_r": null,
    "limit_status": "pending",
