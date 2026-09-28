@@ -626,7 +626,9 @@ namespace cAlgo.Robots
             var rr = s.Rr > 0 ? s.Rr : 2.0;
             var tpPips = rr * slPips;
 
-            var volume = ComputeVolume(symbol, entry, s.Stop, RiskPct);
+            // r_pct = per-signal risk fraction (1.0 normally; 1/3 for each scaled gbreak/gtrend leg).
+            var rPct = s.RPct > 0 ? s.RPct : 1.0;
+            var volume = ComputeVolume(symbol, entry, s.Stop, RiskPct * rPct);
             if (volume <= 0)
             {
                 Print($"[VikingSwing] volume computed 0 for {symbol.Name} — skipping {s.Id}");
@@ -721,7 +723,9 @@ namespace cAlgo.Robots
             // Regime-tiered sizing: the feed emits risk_mult (cam_rev: 1.5 strong-trend / 0.75 rangey;
             // 1.0 otherwise). Scale the base RiskPct by it. The absolute size is still bounded by MaxLots.
             var riskMult = s.RiskMult > 0 ? s.RiskMult : 1.0;
-            var volume = ComputeVolume(symbol, refPx, s.Stop, RiskPct * riskMult);
+            // r_pct = per-signal risk fraction (1.0 normally; 1/3 for each scaled gbreak/gtrend leg).
+            var rPct = s.RPct > 0 ? s.RPct : 1.0;
+            var volume = ComputeVolume(symbol, refPx, s.Stop, RiskPct * riskMult * rPct);
             if (volume <= 0)
             {
                 Print($"[VikingSwing] limit: volume computed 0 for {symbol.Name} — skipping {s.Id}");
@@ -754,7 +758,7 @@ namespace cAlgo.Robots
                 _pendingLimitIds.Add(s.Id);   // OnPositionOpened writes 'placed' + bookkeeping when/if it fills
                 Print($"⏳ [VikingSwing] LIMIT {direction} {symbol.Name} {volume:F0}u @ {targetPrice:F5} " +
                       $"SLp={slPips:F1} TPp={tpPips:F1} exp={(expiry.HasValue ? expiry.Value.ToString("u") : "none")} " +
-                      $"strat={s.Strategy}{regTag} risk={RiskPct * riskMult:F3}% (x{riskMult:F2}) id={s.Id}");
+                      $"strat={s.Strategy}{regTag} risk={RiskPct * riskMult * rPct:F3}% (x{riskMult:F2} frac{rPct:F2}) id={s.Id}");
             }
             else
             {
@@ -1208,7 +1212,7 @@ namespace cAlgo.Robots
         private class Sig
         {
             public string Id, Pair, State, Dir, Strategy, EntryMode, Regime;
-            public double Stop, Rr, RefEntry, RiskMult;
+            public double Stop, Rr, RefEntry, RiskMult, RPct;
             public long ExpiryTs, TriggerTs;
             public bool DemoOnly;
         }
@@ -1236,6 +1240,10 @@ namespace cAlgo.Robots
                     ExpiryTs = (long)JsonNum(o, "expiry_ts"), TriggerTs = (long)JsonNum(o, "trigger_ts"),
                     DemoOnly = JsonBool(o, "demo_only"), EntryMode = JsonStr(o, "entry_mode"),
                     Regime = NormRegime(JsonStr(o, "regime")), RiskMult = JsonNum(o, "risk_mult"),
+                    // r_pct = per-signal risk FRACTION (1.0 normally; 0.333 for each of gbreak/gtrend's
+                    // three scaled legs). Without honouring it the 3 legs each size at full risk = 3x the
+                    // intended exposure on gold. Missing => 0 from JsonNum, treated as 1.0 at use sites.
+                    RPct = JsonNum(o, "r_pct"),
                 });
                 pos = oe + 1;
             }
