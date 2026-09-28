@@ -317,7 +317,7 @@ def pipeline_health():
     ln, med, prompt = fill_latency_7d()
     if ln:
         ok_lat = med is not None and med <= 60
-        out.append(('fill latency 7d', ok_lat, f'median {_fmt_age(med)} · {prompt:.0f}% <1h (n={ln})'))
+        out.append(('fill latency 7d', ok_lat, f'median {_fmt_age(med)} · {prompt:.0f}% under 1h (n={ln})'))
     return out, all(o for _, o, _ in out)
 
 
@@ -374,14 +374,25 @@ def send_telegram(text):
     if not token or not chat:
         print("(no TELEGRAM_BOT_TOKEN/CHAT_ID — skipping digest send)")
         return
-    try:
-        data = urllib.parse.urlencode({'chat_id': chat, 'text': text, 'parse_mode': 'HTML',
-                                       'disable_web_page_preview': 'true'}).encode()
+    def _post(payload):
+        data = urllib.parse.urlencode(payload).encode()
         req = urllib.request.Request(f'https://api.telegram.org/bot{token}/sendMessage', data=data)
         with urllib.request.urlopen(req, timeout=20) as r:
-            print("telegram digest sent" if r.status == 200 else f"telegram HTTP {r.status}")
+            return r.status
+    try:
+        st = _post({'chat_id': chat, 'text': text, 'parse_mode': 'HTML', 'disable_web_page_preview': 'true'})
+        print("telegram digest sent" if st == 200 else f"telegram HTTP {st}")
     except Exception as e:
-        print(f"telegram send failed: {e}")
+        # HTML parse errors (a stray < / > / & in a dynamic field) return HTTP 400 and would
+        # silently drop the whole digest. Fall back to plain text so the list always gets through.
+        print(f"telegram HTML send failed ({e}); retrying as plain text")
+        try:
+            import re as _re
+            plain = _re.sub(r'</?b>', '', text)
+            _post({'chat_id': chat, 'text': plain, 'disable_web_page_preview': 'true'})
+            print("telegram digest sent (plain text)")
+        except Exception as e2:
+            print(f"telegram plain send also failed: {e2}")
 
 
 def main():
