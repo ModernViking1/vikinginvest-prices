@@ -2,35 +2,66 @@
  "schema_version": 1,
  "generated": "2026-09-28T09:00:00+00:00",
  "data_end_ts": 1790586000,
- "raw_signal_count": 37,
- "count": 27,
+ "raw_signal_count": 38,
+ "count": 26,
  "signals": [
   {
-   "id": "twob:nearusd:1790586000",
-   "strategy": "twob",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "nearusd",
-   "symbol": "NEARUSD",
-   "class": "crypto",
+   "id": "cam_rev:dj30:1790587800",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "dj30",
+   "symbol": "DJ30",
+   "class": "index",
    "dir": "bull",
-   "stop": 5.07844643,
-   "ref_entry": 5.1592,
-   "rr": 2.0,
+   "stop": 51579.60875,
+   "ref_entry": 51653.6,
+   "rr": 1.0,
    "r_pct": 1.0,
-   "entry_mode": "market",
+   "entry_mode": "limit",
    "demo_only": false,
-   "trigger_ts": 1790586000,
+   "trigger_ts": 1790587800,
    "created_ts": 1790586000,
-   "expiry_ts": 1790629200,
+   "expiry_ts": 1790631000,
    "state": "triggered",
    "cofire": [
-    "twob"
+    "cam_rev",
+    "twob_ix"
    ],
    "cofire_dirs": [
-    "twob:bull"
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "twob_ix:bull"
    ],
-   "suppressed": 0
+   "suppressed": 2
+  },
+  {
+   "id": "cam_rev:nzdjpy:1790587800",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "nzdjpy",
+   "symbol": "NZDJPY",
+   "class": "minor",
+   "dir": "bull",
+   "stop": 88.82757,
+   "ref_entry": 88.93,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790587800,
+   "created_ts": 1790586000,
+   "expiry_ts": 1790631000,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 1
   },
   {
    "id": "twob:xrpusd:1790586000",
@@ -57,35 +88,6 @@
    "cofire_dirs": [
     "twob:bear",
     "twob:bull"
-   ],
-   "suppressed": 1
-  },
-  {
-   "id": "cam_rev:dj30:1790585100",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "dj30",
-   "symbol": "DJ30",
-   "class": "index",
-   "dir": "bear",
-   "stop": 51754.59125,
-   "ref_entry": 51680.1,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790585100,
-   "created_ts": 1790586000,
-   "expiry_ts": 1790628300,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "twob_ix:bull"
    ],
    "suppressed": 1
   },
@@ -169,33 +171,6 @@
    ],
    "cofire_dirs": [
     "cam_rev:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:nzdjpy:1790583300",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "nzdjpy",
-   "symbol": "NZDJPY",
-   "class": "minor",
-   "dir": "bear",
-   "stop": 89.07243,
-   "ref_entry": 88.793,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790583300,
-   "created_ts": 1790586000,
-   "expiry_ts": 1790626500,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
    ],
    "suppressed": 0
   },
