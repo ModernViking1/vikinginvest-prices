@@ -2,9 +2,40 @@
  "schema_version": 1,
  "generated": "2026-09-28T20:00:00+00:00",
  "data_end_ts": 1790625600,
- "raw_signal_count": 47,
+ "raw_signal_count": 48,
  "count": 30,
  "signals": [
+  {
+   "id": "cam_rev:wtiusd:1790625600",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "wtiusd",
+   "symbol": "WTIUSD",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 95.96444,
+   "ref_entry": 96.19,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790625600,
+   "created_ts": 1790625600,
+   "expiry_ts": 1790632800,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "twob_cm"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "twob_cm:bear",
+    "twob_cm:bull"
+   ],
+   "suppressed": 3
+  },
   {
    "id": "hs:nearusd:1790625600",
    "strategy": "hs",
@@ -308,36 +339,6 @@
     "cam_rev:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "cam_rev:wtiusd:1790613000",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "wtiusd",
-   "symbol": "WTIUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 96.77756,
-   "ref_entry": 95.215,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790613000,
-   "created_ts": 1790625600,
-   "expiry_ts": 1790632800,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob_cm"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "twob_cm:bear",
-    "twob_cm:bull"
-   ],
-   "suppressed": 2
   },
   {
    "id": "twob_ix:jp225:1790611200",
