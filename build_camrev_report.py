@@ -369,6 +369,46 @@ if export is not None:
         wsc.cell(2+i,30,1); wsc.cell(2+i,31,0); wsc.cell(2+i,32,-1)
     nlv=len(lv)
 
+    # ---- IN-CELL text-bar charts (rows 4+). Plain cell content, so they render in EVERY viewer,
+    #      including mobile previewers that strip the drawing layer (native charts + embedded images). ----
+    GFILL=PatternFill('solid',fgColor='C6EFCE'); RFILL=PatternFill('solid',fgColor='FFC7CE')
+    AFILL=PatternFill('solid',fgColor='FFEB9C'); MONO=Font(name='Consolas',size=9)
+    def barstr(v, blocks):
+        return '█'*max(0,min(60,int(round(v*blocks))))
+    r=4
+    wsc.cell(r,1,'DISTRIBUTION — % of trades by outcome (R). Backtest concentrates at ±1; live is scattered.').font=BOLD; r+=1
+    for j,h in enumerate(['R bucket','Backtest %','','Live %',''],1):
+        c=wsc.cell(r,j,h); c.font=HD; c.fill=HDRFILL; c.alignment=CEN
+    r+=1
+    for i in range(nb):
+        ctr=(edges[i]+edges[i+1])/2
+        wsc.cell(r,1,f'{ctr:+.2f}R').font=NORM
+        wsc.cell(r,2,bd[i]).number_format='0.0'; wsc.cell(r,2).font=NORM
+        cb=wsc.cell(r,3,barstr(bd[i],0.5)); cb.font=MONO; cb.fill=GFILL
+        wsc.cell(r,4,ld[i]).number_format='0.0'; wsc.cell(r,4).font=NORM
+        cl=wsc.cell(r,5,barstr(ld[i],0.5)); cl.font=MONO; cl.fill=AFILL
+        r+=1
+    r+=1
+    wsc.cell(r,1,f'LIVE FILLS — realized R each ({nlv} MTD). WIN ≥0 green, LOSS red; bar length = |R|.').font=BOLD; r+=1
+    for j,h in enumerate(['Pair','Date','W/L','R','bar (|R|)'],1):
+        c=wsc.cell(r,j,h); c.font=HD; c.fill=HDRFILL; c.alignment=CEN
+    r+=1
+    if nlv:
+        cumv=0.0
+        for (ts,rr,pk) in lv:
+            cumv+=rr; win=rr>0
+            wsc.cell(r,1,pk).font=NORM
+            wsc.cell(r,2,dt.datetime.utcfromtimestamp(ts).strftime('%m-%d %H:%M')).font=NORM
+            wl=wsc.cell(r,3,'WIN' if win else 'LOSS'); wl.font=Font(name=AR,size=9,bold=True,color='2E7D32' if win else 'B00020'); wl.fill=GFILL if win else RFILL; wl.alignment=CEN
+            wsc.cell(r,4,round(rr,2)).number_format='+0.00;-0.00'; wsc.cell(r,4).font=NORM
+            cb=wsc.cell(r,5,barstr(abs(rr),12)); cb.font=MONO; cb.fill=GFILL if win else RFILL
+            r+=1
+        wsc.cell(r,1,'Live cumulative R:').font=BOLD; wc=wsc.cell(r,4,round(cumv,2)); wc.number_format='+0.00;-0.00'; wc.font=Font(name=AR,size=10,bold=True,color='B00020' if cumv<0 else '2E7D32'); r+=1
+    else:
+        wsc.cell(r,1,'no live fills this month yet').font=NORM; r+=1
+    for col,w in [('A',12),('B',13),('C',7),('D',9),('E',34)]: wsc.column_dimensions[col].width=w
+    _img_anchor='H4'   # PNG to the right of the in-cell tables (desktop; may be blank in mobile preview)
+
     # Charts as a rendered PNG image (native Excel charts don't render in mobile / preview viewers).
     centers=[(edges[i]+edges[i+1])/2 for i in range(nb)]
     lvr=[r for _,r,_ in lv]
@@ -422,8 +462,7 @@ if export is not None:
         sty(ax,'Live cumulative R (MTD)'); ax.set_xlabel('live fill #'); ax.set_ylabel('cumulative R')
         fig.tight_layout(rect=[0,0,1,0.96])
         png=os.path.splitext(args.out)[0]+'_charts.png'; fig.savefig(png,facecolor=BG,bbox_inches='tight'); plt.close(fig)
-        img=XLImage(png); img.anchor='A4'; wsc.add_image(img)
-        wsc['A3']='(Charts rendered as an image so they display in every viewer, including mobile. Underlying data in columns T onward.)'; wsc['A3'].font=SMALL
+        img=XLImage(png); img.anchor=_img_anchor; wsc.add_image(img)
     except Exception as _ce:
         # Fallback: native Excel charts (render in desktop Excel; blank in some mobile viewers)
         ch1=BarChart(); ch1.type='col'; ch1.grouping='clustered'; ch1.title='Where trades land (R) — Backtest vs Live'
