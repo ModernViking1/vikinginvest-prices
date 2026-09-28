@@ -472,6 +472,23 @@ if export is not None:
         print(f"(matplotlib unavailable: {_ce} — used native charts)")
     for col in ('T','U','V','X','AA','AB','AC','AD','AE','AF'): wsc.column_dimensions[col].width=12
 
+# ---------------- TAB 8: STRATEGY & TRADES (candlestick images, desktop viewing) ----------------
+try:
+    import subprocess, sys, tempfile
+    from openpyxl.drawing.image import Image as XLImage
+    _td=tempfile.mkdtemp()
+    subprocess.run([sys.executable,'make_trade_charts.py','--outdir',_td],check=True,capture_output=True,timeout=180)
+    wst=wb.create_sheet('Strategy & Trades')
+    wst['A1']='cam_rev — strategy & live trades'; wst['A1'].font=TITLE
+    wst['A2']='Idealised cam_rev setup (top) + the most recent live trades on real m15 candles (below). '\
+              'Images render in desktop Excel/Numbers/Sheets; on mobile use the PNGs sent to chat.'; wst['A2'].font=SMALL
+    for anchor,fn in [('A4','camrev_idealised.png'),('A54','trade_entries_exits.png')]:
+        p=os.path.join(_td,fn)
+        if os.path.exists(p): wst.add_image(XLImage(p),anchor)
+    print('added Strategy & Trades tab')
+except Exception as _te:
+    print(f'(Strategy & Trades tab skipped: {_te})')
+
 try: wb.calculation.fullCalcOnLoad=True
 except Exception: pass
 wb.save(args.out)
