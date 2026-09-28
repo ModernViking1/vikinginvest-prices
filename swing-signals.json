@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-09-28T11:00:00+00:00",
  "data_end_ts": 1790593200,
- "raw_signal_count": 38,
+ "raw_signal_count": 37,
  "count": 28,
  "signals": [
   {
@@ -172,36 +172,6 @@
    "suppressed": 0
   },
   {
-   "id": "cam_rev:dj30:1790587800",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "dj30",
-   "symbol": "DJ30",
-   "class": "index",
-   "dir": "bull",
-   "stop": 51579.60875,
-   "ref_entry": 51653.6,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790587800,
-   "created_ts": 1790593200,
-   "expiry_ts": 1790631000,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "cam_rev:bull",
-    "twob_ix:bull"
-   ],
-   "suppressed": 2
-  },
-  {
    "id": "twob:xrpusd:1790586000",
    "strategy": "twob",
    "regime": null,
@@ -226,6 +196,35 @@
    "cofire_dirs": [
     "twob:bear",
     "twob:bull"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "cam_rev:dj30:1790585100",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "dj30",
+   "symbol": "DJ30",
+   "class": "index",
+   "dir": "bear",
+   "stop": 51754.59125,
+   "ref_entry": 51680.1,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790585100,
+   "created_ts": 1790593200,
+   "expiry_ts": 1790628300,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "twob_ix:bull"
    ],
    "suppressed": 1
   },
