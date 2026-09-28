@@ -54,7 +54,12 @@ FIB_CLASSES = {"comm", "index"}
 # macdp/comm -0.47R post-gate, n~64); crypto is the only net-positive live cell
 # (wick/crypto +0.10R). Only crypto now reaches the cBot; comm reverts to
 # observer/tracking (directions.json + dashboard), same as index/major/minor.
-LIVE_CLASSES = {"crypto"}
+# 2026-09-28 — CRYPTO DEMOTED to observer-only (user). Live crypto turned net-negative
+# across every intraday method — realised n=125, 41% WR, -0.142R/trade, -17.8R total
+# (btcusd -9.5, solusd -3.6, xrpusd -2.4, ethusd -1.2). No class now routes live; the
+# intraday bridge is observer-only. Harness + directions.json keep tracking crypto, so it
+# can re-earn a live slot on a durable positive turn. Re-enable: LIVE_CLASSES = {"crypto"}.
+LIVE_CLASSES = set()
 
 # 2026-08-08 — macdp (MACD-cross) and wick (wick-reversal) DEMOTED from the cBot feed:
 # live realised fills were clearly negative (macdp -44.4R / 45% WR, wick -18.0R / 31% WR
