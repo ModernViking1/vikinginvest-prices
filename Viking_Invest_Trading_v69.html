@@ -1791,7 +1791,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // ⚠ SYNC: hardcoded mirror of observer_review.LIVE (swing members) — update in lockstep on
         // every promote/demote. m15 members (cam_rev, holygrail_cm_m15, fma_gold) only surface here
         // once they have demo fills; their model is tracked in the intraday panel (see SWING_LIVE_M15).
-        var LIVE_SWING={hs:1,s5_rsi:1,engulf_manip:1,fred_tl:1,gbreak:1,fma_gold:1,twob:1,twob_cm:1,twob_ix:1,cam_rev:1,mmove:1,holygrail_cm:1,holygrail_cm_m15:1};
+        var LIVE_SWING={hs:1,s5_rsi:1,engulf_manip:1,gbreak:1,twob:1,twob_cm:1,twob_ix:1,cam_rev:1,mmove:1,holygrail_cm:1,holygrail_cm_m15:1};  /* fred_tl + fma_gold demoted 2026-09-28 (weekly review) */
         var _hdr='<tr style="color:'+C.mut+';text-align:left;"><th>strategy</th><th>tracked</th><th>demo n</th><th>demo WR</th><th>demo R</th><th>model WR</th><th>model exp</th></tr>';
         function _swRow(st){
           var d=byStratD[st]?agg(byStratD[st]):null, m=byStratM[st]?agg(byStratM[st]):null;
@@ -21452,7 +21452,7 @@ function _renderCCIVariantPanel(host, commodityKeys){
     // ⚠ SYNC with observer_review.LIVE: m15 methods that are PROMOTED and execute on the SWING
     // cBot (not the intraday feed). They surface here via the m15 shadow log, so without this they
     // wrongly read as ○ OBSERVING / "ready to promote". Shown as ● LIVE (swing feed) instead.
-    var SWING_LIVE_M15 = { cam_rev:1, holygrail_cm_m15:1, fma_gold:1 };
+    var SWING_LIVE_M15 = { cam_rev:1, holygrail_cm_m15:1 };  /* fma_gold demoted 2026-09-28 (weekly review) */
     var _isDemotedMethod = function(r){ return !!INTRADAY_DEMOTED[_stratOf(r)]; };
 
     // Aggregate per-pair.

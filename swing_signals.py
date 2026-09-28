@@ -164,8 +164,12 @@ DEMO_ONLY = {'fma_gold'}
 # come off the cBot feed — live AND demo. The harness keeps observing them, so they can
 # re-earn a slot if the forward record turns durable. mmove_c4 was already the concentration-
 # flagged (silver-only) pilot; the 3-year window confirms it isn't robust.
+# 2026-09-28 — weekly observer-review demotions. Both meet the DROP gate (expectancy <0 with a
+# collapsing 2nd OOS half): fred_tl fwd -0.052R [OOS +0.241/-0.322]; fma_gold fwd -0.070R
+# [OOS +0.043/-0.180]. Off the cBot feed (fred_tl was live xauusd; fma_gold was the demo-only
+# gold pilot). The harness keeps observing both, so they can re-earn a slot on a durable turn.
 DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback', 'gtrend', 'threepush', 'ob', 's5_rsi_wide',
-           'asianglitch', 'obfvg', 'mmove_c4'}
+           'asianglitch', 'obfvg', 'mmove_c4', 'fred_tl', 'fma_gold'}
 
 # 2026-09-18 — per-(strategy, pair) demotions from the 3-year deep backtest. Each pair is
 # net-negative in BOTH OOS halves over 3yr on that strategy, while the strategy is healthy
