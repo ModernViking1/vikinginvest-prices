@@ -444,6 +444,9 @@ def main():
                 if _chop is not None:
                     _regime = 'strong' if _chop < CHOP_LO else 'range'
                     _risk_mult = CAM_REGIME_STRONG_MULT if _chop < CHOP_LO else CAM_REGIME_RANGE_MULT
+                # momentum-of-break trim: half-size the 1.5-2.0x-ATR rejection band (>2.0x is already
+                # dropped by the detector). mombreak_mult defaults to 1.0 when absent.
+                _risk_mult *= s.get('mombreak_mult', 1.0)
             sid = f"{s['strategy']}:{pk}:{int(s['entry_ts'])}"
             rows.append({
                 'id': sid,

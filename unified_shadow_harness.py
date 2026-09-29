@@ -2236,6 +2236,27 @@ CAM_CRYPTO_PILOT = {'btcusd', 'ethusd', 'xrpusd', 'solusd'}
 CAM_BUF = 0.10
 CAM_RR = 1.0
 CAM_HOLD = 96          # ~1 trading day on m15
+# MOMENTUM-OF-BREAK guard (cam_mombreak_backtest, 3-yr, 23.5k fills). A cam_rev rejection candle whose
+# range is a large ATR multiple = the level was hit with force = a fade likely to get run over. Two
+# tiers off the trigger candle's range / ATR14:
+#   > SKIP (2.0x)  -> drop the fade entirely (WR 76->78%, exp +0.525->+0.561R, retain 80%, both OOS +).
+#   > TRIM (1.5x)  -> keep but half-size (the weaker 1.5-2.0x band, ~+0.50R; risk overlay, not a drop).
+# The skip is in the DETECTOR (backtest + live identical); the trim rides in mombreak_mult -> risk_mult.
+CAM_MOMBREAK_SKIP = 2.0
+CAM_MOMBREAK_TRIM = 1.5
+CAM_MOMBREAK_TRIM_MULT = 0.5
+
+
+def _cam_mombreak_mult(m15, i, b):
+    """cam_rev momentum-of-break: risk multiplier from the rejection candle range vs ATR14, or None to
+    SKIP (range > CAM_MOMBREAK_SKIP x ATR). 1.0 normally; CAM_MOMBREAK_TRIM_MULT in the 1.5-2.0x band."""
+    a = atr(m15, 14, i)
+    if not a or a <= 0:
+        return 1.0
+    ratio = (b['h'] - b['l']) / a
+    if ratio > CAM_MOMBREAK_SKIP:
+        return None
+    return CAM_MOMBREAK_TRIM_MULT if ratio > CAM_MOMBREAK_TRIM else 1.0
 # Intraday entry filter: London+US session, 07:00-22:00 UTC (skips the thin Asian hours 22-07).
 # Originally London-only 07-16; the 3-year deep-m15 test (cam_session_research, 2026-09-19)
 # extended it to include the US session across ALL classes — overall expectancy +0.510->+0.525R,
@@ -2272,19 +2293,25 @@ def detect_cam_rev(pk, m15, daily):
             entry = b['c']; stop = L['R4'] + CAM_BUF * (L['R4'] - L['R3'])
             if stop > entry:
                 R = stop - entry
-                # entry at THIS bar's close -> score from the NEXT bar (avoid the lookahead
-                # that would let score_sess re-read the confirmation bar).
-                out.append({'strategy': 'cam_rev', 'tf': 'm15', 'pair': pk, 'dir': 'bear',
-                            'entry_ts': m15[i + 1]['_ts'], 'entry': entry, 'stop': stop,
-                            'target': entry - CAM_RR * R, 'rr': CAM_RR})
+                # momentum-of-break: this side/day is now spent whether or not we fade (mult None
+                # = SKIP the runaway rejection; matches the backtest's first-rejection-per-day pick).
+                mm = _cam_mombreak_mult(m15, i, b)
+                if mm is not None:
+                    # entry at THIS bar's close -> score from the NEXT bar (avoid the lookahead
+                    # that would let score_sess re-read the confirmation bar).
+                    out.append({'strategy': 'cam_rev', 'tf': 'm15', 'pair': pk, 'dir': 'bear',
+                                'entry_ts': m15[i + 1]['_ts'], 'entry': entry, 'stop': stop,
+                                'target': entry - CAM_RR * R, 'rr': CAM_RR, 'mombreak_mult': mm})
                 done.add((day, 'S'))
         if (day, 'L') not in done and b['l'] <= L['S3'] and b['c'] > L['S3'] and b['c'] > b['o']:
             entry = b['c']; stop = L['S4'] - CAM_BUF * (L['S3'] - L['S4'])
             if stop < entry:
                 R = entry - stop
-                out.append({'strategy': 'cam_rev', 'tf': 'm15', 'pair': pk, 'dir': 'bull',
-                            'entry_ts': m15[i + 1]['_ts'], 'entry': entry, 'stop': stop,
-                            'target': entry + CAM_RR * R, 'rr': CAM_RR})
+                mm = _cam_mombreak_mult(m15, i, b)
+                if mm is not None:
+                    out.append({'strategy': 'cam_rev', 'tf': 'm15', 'pair': pk, 'dir': 'bull',
+                                'entry_ts': m15[i + 1]['_ts'], 'entry': entry, 'stop': stop,
+                                'target': entry + CAM_RR * R, 'rr': CAM_RR, 'mombreak_mult': mm})
                 done.add((day, 'L'))
     return out
 
