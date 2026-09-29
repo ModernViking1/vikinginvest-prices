@@ -30,6 +30,12 @@ OUT = os.path.join(_HERE, 'swing-signals.json')
 FRESH_HOURS = 24          # look-back window for emitting signals (>= data latency + feed interval)
 EXPIRY_HOURS = 12         # a signal is valid to fill for this long after its bar (tolerates data-publish lag)
 CAM_SESS_CLOSE_H = 22     # cam_rev limit self-expires at this UTC hour (== detect_cam_rev's CAM_SESS_CLOSE)
+CAM_FRESH_HOURS = 2       # cam_rev resting-limit FRESHNESS cap: cancel if unfilled 2h after the signal.
+# 3-yr limit-execution backtest (cam_reclaim_freshness_backtest): ~99% of cam_rev limits fill inside
+# 30min; fills later than this thin, weakening tail turn EV-neutral-to-negative past ~2h. Capping at 2h
+# sheds the stale-signal fills (a resting sell-limit filling hours later as price round-trips back up
+# through the level and runs to stop — e.g. EURAUD 2026-09-29) for a small give-up. Feed-side only: the
+# cBot already self-expires the resting order at expiry_ts (no rebuild).
 # Regime-tiered sizing for cam_rev (2026-09-22). The 3-yr backtest (cam_gap_session_backtest.py, C1)
 # found cam_rev converts far better in a strongly-trending h1 regime (chop < CHOP_LO): +0.682R / 84% WR,
 # OOS-stable, vs +0.486R / 74% in a rangey regime. Rather than GATE (which would forfeit the bulk of the
@@ -476,12 +482,12 @@ def main():
                              or (s['strategy'] == 'cam_rev' and pk in CAM_CRYPTO_PILOT),
                 'trigger_ts': int(s['entry_ts']),
                 'created_ts': int(data_end),
-                # cam_rev rests a LIMIT at ref_entry. The resting order is capped to the trigger
-                # day's session close (22:00 UTC) so it can only fill in-session — a thin-liquidity
-                # guardrail. The 3-yr backtest showed off-session fills convert far worse (54% vs 76%
-                # WR) though EV-neutral in aggregate; capping expiry removes those ugly overnight fills
-                # (e.g. the midnight EURSGD stop) at no cost. Market strategies keep the full 12h window.
-                'expiry_ts': (min(int(s['entry_ts'] + EXPIRY_HOURS * 3600), _session_close_ts(s['entry_ts']))
+                # cam_rev rests a LIMIT at ref_entry. Two guardrails on how long it may rest: (1) a 2h
+                # FRESHNESS cap (CAM_FRESH_HOURS) — stale-signal fills convert worse and produce the ugly
+                # round-trip-into-stop run-overs; and (2) the trigger day's session close (22:00 UTC) so it
+                # can only fill in-session (off-session fills convert 54% vs 76% WR). The order self-expires
+                # at whichever comes first. Market strategies keep the full 12h window.
+                'expiry_ts': (min(int(s['entry_ts'] + CAM_FRESH_HOURS * 3600), _session_close_ts(s['entry_ts']))
                               if s['strategy'] == 'cam_rev'
                               else int(s['entry_ts'] + EXPIRY_HOURS * 3600)),
                 'state': 'triggered',
