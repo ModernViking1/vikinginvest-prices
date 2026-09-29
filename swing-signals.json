@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-09-29T17:00:00+00:00",
  "data_end_ts": 1790701200,
- "raw_signal_count": 49,
+ "raw_signal_count": 50,
  "count": 28,
  "signals": [
   {
@@ -52,7 +52,7 @@
    "demo_only": false,
    "trigger_ts": 1790696700,
    "created_ts": 1790701200,
-   "expiry_ts": 1790719200,
+   "expiry_ts": 1790703900,
    "state": "triggered",
    "cofire": [
     "cam_rev"
@@ -80,7 +80,7 @@
    "demo_only": false,
    "trigger_ts": 1790695800,
    "created_ts": 1790701200,
-   "expiry_ts": 1790719200,
+   "expiry_ts": 1790703000,
    "state": "triggered",
    "cofire": [
     "cam_rev"
@@ -107,7 +107,7 @@
    "demo_only": true,
    "trigger_ts": 1790695800,
    "created_ts": 1790701200,
-   "expiry_ts": 1790719200,
+   "expiry_ts": 1790703000,
    "state": "triggered",
    "cofire": [
     "cam_rev"
@@ -134,7 +134,7 @@
    "demo_only": false,
    "trigger_ts": 1790694900,
    "created_ts": 1790701200,
-   "expiry_ts": 1790719200,
+   "expiry_ts": 1790702100,
    "state": "triggered",
    "cofire": [
     "cam_rev"
@@ -161,7 +161,7 @@
    "demo_only": true,
    "trigger_ts": 1790694000,
    "created_ts": 1790701200,
-   "expiry_ts": 1790719200,
+   "expiry_ts": 1790701200,
    "state": "triggered",
    "cofire": [
     "cam_rev"
@@ -270,7 +270,7 @@
    "demo_only": false,
    "trigger_ts": 1790693100,
    "created_ts": 1790701200,
-   "expiry_ts": 1790719200,
+   "expiry_ts": 1790700300,
    "state": "triggered",
    "cofire": [
     "cam_rev"
@@ -438,7 +438,7 @@
    "demo_only": false,
    "trigger_ts": 1790685000,
    "created_ts": 1790701200,
-   "expiry_ts": 1790719200,
+   "expiry_ts": 1790692200,
    "state": "triggered",
    "cofire": [
     "cam_rev",
@@ -467,7 +467,7 @@
    "demo_only": false,
    "trigger_ts": 1790685000,
    "created_ts": 1790701200,
-   "expiry_ts": 1790719200,
+   "expiry_ts": 1790692200,
    "state": "triggered",
    "cofire": [
     "cam_rev",
@@ -496,7 +496,7 @@
    "demo_only": false,
    "trigger_ts": 1790682300,
    "created_ts": 1790701200,
-   "expiry_ts": 1790719200,
+   "expiry_ts": 1790689500,
    "state": "triggered",
    "cofire": [
     "cam_rev",
@@ -526,7 +526,7 @@
    "demo_only": false,
    "trigger_ts": 1790681400,
    "created_ts": 1790701200,
-   "expiry_ts": 1790719200,
+   "expiry_ts": 1790688600,
    "state": "triggered",
    "cofire": [
     "cam_rev"
@@ -553,7 +553,7 @@
    "demo_only": true,
    "trigger_ts": 1790677800,
    "created_ts": 1790701200,
-   "expiry_ts": 1790719200,
+   "expiry_ts": 1790685000,
    "state": "triggered",
    "cofire": [
     "cam_rev"
@@ -580,7 +580,7 @@
    "demo_only": false,
    "trigger_ts": 1790676000,
    "created_ts": 1790701200,
-   "expiry_ts": 1790719200,
+   "expiry_ts": 1790683200,
    "state": "triggered",
    "cofire": [
     "cam_rev"
@@ -589,6 +589,35 @@
     "cam_rev:bull"
    ],
    "suppressed": 0
+  },
+  {
+   "id": "s5_rsi:asterusd:1790676000",
+   "strategy": "s5_rsi",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "asterusd",
+   "symbol": "ASTERUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 0.6944,
+   "ref_entry": 0.7224,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790676000,
+   "created_ts": 1790701200,
+   "expiry_ts": 1790719200,
+   "state": "triggered",
+   "cofire": [
+    "s5_rsi",
+    "twob"
+   ],
+   "cofire_dirs": [
+    "s5_rsi:bull",
+    "twob:bull"
+   ],
+   "suppressed": 1
   },
   {
    "id": "cam_rev:ftse100:1790667900",
@@ -607,7 +636,7 @@
    "demo_only": false,
    "trigger_ts": 1790667900,
    "created_ts": 1790701200,
-   "expiry_ts": 1790711100,
+   "expiry_ts": 1790675100,
    "state": "triggered",
    "cofire": [
     "cam_rev"
@@ -720,33 +749,6 @@
    "trigger_ts": 1790654400,
    "created_ts": 1790701200,
    "expiry_ts": 1790697600,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob:asterusd:1790647200",
-   "strategy": "twob",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "asterusd",
-   "symbol": "ASTERUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 0.69052643,
-   "ref_entry": 0.6984,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790647200,
-   "created_ts": 1790701200,
-   "expiry_ts": 1790690400,
    "state": "triggered",
    "cofire": [
     "twob"
