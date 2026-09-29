@@ -2,9 +2,36 @@
  "schema_version": 1,
  "generated": "2026-09-29T10:00:00+00:00",
  "data_end_ts": 1790676000,
- "raw_signal_count": 71,
- "count": 32,
+ "raw_signal_count": 70,
+ "count": 33,
  "signals": [
+  {
+   "id": "cam_rev:btcusd:1790677800",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "btcusd",
+   "symbol": "BTCUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 84889.881325,
+   "ref_entry": 84125.1,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": true,
+   "trigger_ts": 1790677800,
+   "created_ts": 1790676000,
+   "expiry_ts": 1790719200,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "cam_rev:eurgbp:1790676000",
    "strategy": "cam_rev",
@@ -36,7 +63,7 @@
    "id": "cam_rev:nzdjpy:1790676000",
    "strategy": "cam_rev",
    "regime": "range",
-   "risk_mult": 0.75,
+   "risk_mult": 0.375,
    "pair": "nzdjpy",
    "symbol": "NZDJPY",
    "class": "minor",
@@ -371,7 +398,7 @@
     "cam_rev:bull",
     "twob_ix:bull"
    ],
-   "suppressed": 3
+   "suppressed": 2
   },
   {
    "id": "cam_rev:nzdusd:1790666100",
@@ -454,12 +481,11 @@
    ],
    "cofire_dirs": [
     "cam_rev:bear",
-    "cam_rev:bull",
     "s5_rsi:bear",
     "twob_ix:bear",
     "twob_ix:bull"
    ],
-   "suppressed": 4
+   "suppressed": 3
   },
   {
    "id": "twob:asterusd:1790647200",
@@ -552,7 +578,7 @@
    "id": "cam_rev:wtiusd:1790616600",
    "strategy": "cam_rev",
    "regime": "range",
-   "risk_mult": 0.75,
+   "risk_mult": 0.375,
    "pair": "wtiusd",
    "symbol": "WTIUSD",
    "class": "comm",
@@ -583,7 +609,7 @@
    "id": "cam_rev:eurnzd:1790613900",
    "strategy": "cam_rev",
    "regime": "range",
-   "risk_mult": 0.75,
+   "risk_mult": 0.375,
    "pair": "eurnzd",
    "symbol": "EURNZD",
    "class": "minor",
@@ -639,7 +665,7 @@
    "id": "cam_rev:usdzar:1790613900",
    "strategy": "cam_rev",
    "regime": "range",
-   "risk_mult": 0.75,
+   "risk_mult": 0.375,
    "pair": "usdzar",
    "symbol": "USDZAR",
    "class": "minor",
@@ -847,7 +873,7 @@
    "id": "cam_rev:xagusd:1790598600",
    "strategy": "cam_rev",
    "regime": "strong",
-   "risk_mult": 1.5,
+   "risk_mult": 0.75,
    "pair": "xagusd",
    "symbol": "XAGUSD",
    "class": "comm",
