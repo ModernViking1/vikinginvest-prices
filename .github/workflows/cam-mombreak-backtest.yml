@@ -1,0 +1,37 @@
+name: cam_rev Momentum-of-Break Guard Backtest (3yr)
+
+on:
+  workflow_dispatch:
+    inputs:
+      days: { description: 'window days', default: '1095' }
+      m15_days: { description: 'm15 depth days', default: '1095' }
+
+concurrency: { group: cam-mombreak-backtest, cancel-in-progress: false }
+permissions: { contents: read }
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: python -m pip install --upgrade pip requests
+      - name: Guard files present
+        run: for f in cam_mombreak_backtest.py unified_shadow_harness.py detect_triggers.py fetch_historical_ohlc.py; do [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }; done
+      - name: Restore deep m15 cache (else fetch)
+        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}', OANDA_TOKEN: '${{ secrets.OANDA_TOKEN }}', CACHE_TAG: deep-ohlc-cache }
+        run: |
+          if gh release download "$CACHE_TAG" --repo "$GITHUB_REPOSITORY" -p deep-ohlc.json.gz --clobber 2>/dev/null; then
+            gunzip -c deep-ohlc.json.gz > deep-ohlc.json; echo "restored $(ls -lh deep-ohlc.json|awk '{print $5}')"
+          else
+            python fetch_historical_ohlc.py --days "${{ github.event.inputs.days || '1095' }}" --m15-days "${{ github.event.inputs.m15_days || '1095' }}" --output deep-ohlc.json
+          fi
+      - name: Run guard backtest (result in log)
+        run: |
+          echo "================ RESULT ================"
+          python cam_mombreak_backtest.py --hist deep-ohlc.json
+          echo "========================================"
+          rm -f deep-ohlc.json deep-ohlc.json.gz
