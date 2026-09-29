@@ -2,9 +2,66 @@
  "schema_version": 1,
  "generated": "2026-09-29T08:00:00+00:00",
  "data_end_ts": 1790668800,
- "raw_signal_count": 69,
- "count": 36,
+ "raw_signal_count": 71,
+ "count": 37,
  "signals": [
+  {
+   "id": "cam_rev:ethusd:1790671500",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "ethusd",
+   "symbol": "ETHUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 2736.85555,
+   "ref_entry": 2710.01,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": true,
+   "trigger_ts": 1790671500,
+   "created_ts": 1790668800,
+   "expiry_ts": 1790714700,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:ftse100:1790670600",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "ftse100",
+   "symbol": "FTSE100",
+   "class": "index",
+   "dir": "bull",
+   "stop": 10694.2845,
+   "ref_entry": 10719.9,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790670600,
+   "created_ts": 1790668800,
+   "expiry_ts": 1790713800,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "twob_ix:bull"
+   ],
+   "suppressed": 4
+  },
   {
    "id": "cam_rev:eursgd:1790668800",
    "strategy": "cam_rev",
@@ -32,36 +89,6 @@
     "cam_rev:bull"
    ],
    "suppressed": 1
-  },
-  {
-   "id": "cam_rev:ftse100:1790667900",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "ftse100",
-   "symbol": "FTSE100",
-   "class": "index",
-   "dir": "bear",
-   "stop": 10786.9155,
-   "ref_entry": 10752.2,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790667900,
-   "created_ts": 1790668800,
-   "expiry_ts": 1790711100,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "cam_rev:bull",
-    "twob_ix:bull"
-   ],
-   "suppressed": 3
   },
   {
    "id": "cam_rev:usdcad:1790667000",
