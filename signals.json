@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-29T11:41:05.557434+00:00",
-  "generated_ms": 1790682062838,
-  "detector_last_check": "2026-09-29T11:41:01.579503+00:00",
+  "generated": "2026-09-29T11:46:04.868356+00:00",
+  "generated_ms": 1790682362883,
+  "detector_last_check": "2026-09-29T11:46:01.918892+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,9 +10,9 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 5,
+    "total": 6,
     "armed": 4,
-    "triggered": 1,
+    "triggered": 2,
     "invalidated": 0
   },
   "signals": [
@@ -34,7 +34,30 @@
       "cl": "bull",
       "armedAt": 1790681400000,
       "triggeredAt": null,
-      "lastSeenAt": 1790682062838,
+      "lastSeenAt": 1790682362883,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
+    {
+      "id": "nearusd:1790681400000:wick",
+      "pair": "nearusd",
+      "sym": "NEARUSD",
+      "cls": "crypto",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "armed",
+      "entry": 4.7673,
+      "stop": 4.7368,
+      "target": 4.7978,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790681400000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790682362883,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -57,7 +80,7 @@
       "cl": "bull",
       "armedAt": 1790681400000,
       "triggeredAt": null,
-      "lastSeenAt": 1790682062838,
+      "lastSeenAt": 1790682362883,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -80,7 +103,7 @@
       "cl": "bull",
       "armedAt": 1790681400000,
       "triggeredAt": null,
-      "lastSeenAt": 1790682062838,
+      "lastSeenAt": 1790682362883,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -93,7 +116,7 @@
       "method": "fib",
       "r_size": 0.5,
       "dir": "bear",
-      "state": "armed",
+      "state": "triggered",
       "entry": 101.085,
       "stop": 102.10475,
       "target": 100.06524999999999,
@@ -102,8 +125,8 @@
       "nw": "bear",
       "cl": "bear",
       "armedAt": 1790679600000,
-      "triggeredAt": null,
-      "lastSeenAt": 1790682062838,
+      "triggeredAt": 1790681400000,
+      "lastSeenAt": 1790682362883,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -126,7 +149,7 @@
       "cl": null,
       "armedAt": 1790676900000,
       "triggeredAt": 1790676900000,
-      "lastSeenAt": 1790682062838,
+      "lastSeenAt": 1790682362883,
       "source": "server-detector-absorb",
       "event_aligned": null,
       "held": true
