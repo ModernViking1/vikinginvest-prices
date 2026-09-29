@@ -74,6 +74,55 @@ from public.usage_events
 where event = 'page_view' and target = 'bt'
 group by 1;
 
+-- Q7. NEW vs RETURNING visitors (last 30 days), across the whole site.
+--     visitor key = signed-in user_id when present, else the anonymous session_id.
+--     new       = first-ever event falls INSIDE the window (a genuinely first-time visitor)
+--     returning = active in the window but first seen BEFORE it (they came back)
+--     Caveat: the anon session_id is a localStorage id, so a cleared cache / new browser /
+--     private window reads as a NEW visitor — new-visitor counts are an UPPER bound.
+with first_seen as (
+  select coalesce(user_id::text, session_id) as visitor, min(created_at) as first_ts
+  from public.usage_events group by 1
+), active as (
+  select distinct coalesce(user_id::text, session_id) as visitor
+  from public.usage_events where created_at >= now() - interval '30 days'
+)
+select
+  count(*) filter (where fs.first_ts >= now() - interval '30 days') as new_visitors,
+  count(*) filter (where fs.first_ts <  now() - interval '30 days') as returning_visitors,
+  count(*)                                                          as active_visitors
+from active a join first_seen fs on fs.visitor = a.visitor;
+
+-- Q8. NEW vs RETURNING on the BACKTEST tab specifically (first-seen scoped to bt opens).
+with bt as (
+  select coalesce(user_id::text, session_id) as visitor, created_at
+  from public.usage_events where event = 'page_view' and target = 'bt'
+), first_seen as (
+  select visitor, min(created_at) as first_ts from bt group by 1
+), active as (
+  select distinct visitor from bt where created_at >= now() - interval '30 days'
+)
+select
+  count(*) filter (where fs.first_ts >= now() - interval '30 days') as new_bt_visitors,
+  count(*) filter (where fs.first_ts <  now() - interval '30 days') as returning_bt_visitors,
+  count(*)                                                          as active_bt_visitors
+from active a join first_seen fs on fs.visitor = a.visitor;
+
+-- Q9. REVISIT frequency: how many distinct DAYS each backtest visitor showed up
+--     (1 = one-and-done; >1 = came back on another day). Buckets the audience.
+with bt as (
+  select coalesce(user_id::text, session_id) as visitor,
+         date_trunc('day', created_at)::date as day
+  from public.usage_events where event = 'page_view' and target = 'bt'
+), days_per as (
+  select visitor, count(distinct day) as active_days from bt group by 1
+)
+select case when active_days = 1 then '1 day (one-off)'
+            when active_days between 2 and 3 then '2-3 days'
+            else '4+ days' end as revisit_bucket,
+       count(*) as visitors
+from days_per group by 1 order by min(active_days);
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- RPC for the in-dashboard owner-only "Usage Analytics" panel.
 -- Run this ONCE in the Supabase SQL editor. It is the ONLY read path into
