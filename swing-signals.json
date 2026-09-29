@@ -2,14 +2,14 @@
  "schema_version": 1,
  "generated": "2026-09-29T15:00:00+00:00",
  "data_end_ts": 1790694000,
- "raw_signal_count": 58,
- "count": 30,
+ "raw_signal_count": 59,
+ "count": 31,
  "signals": [
   {
    "id": "cam_rev:solusd:1790694000",
    "strategy": "cam_rev",
-   "regime": "strong",
-   "risk_mult": 1.5,
+   "regime": "range",
+   "risk_mult": 0.75,
    "pair": "solusd",
    "symbol": "SOLUSD",
    "class": "crypto",
@@ -29,6 +29,33 @@
    ],
    "cofire_dirs": [
     "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "twob:solusd:1790694000",
+   "strategy": "twob",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "solusd",
+   "symbol": "SOLUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 121.39285714,
+   "ref_entry": 120.19,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790694000,
+   "created_ts": 1790694000,
+   "expiry_ts": 1790737200,
+   "state": "triggered",
+   "cofire": [
+    "twob"
+   ],
+   "cofire_dirs": [
+    "twob:bear"
    ],
    "suppressed": 0
   },
@@ -455,6 +482,35 @@
    "suppressed": 0
   },
   {
+   "id": "s5_rsi:asterusd:1790676000",
+   "strategy": "s5_rsi",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "asterusd",
+   "symbol": "ASTERUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 0.6944,
+   "ref_entry": 0.7224,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790676000,
+   "created_ts": 1790694000,
+   "expiry_ts": 1790719200,
+   "state": "triggered",
+   "cofire": [
+    "s5_rsi",
+    "twob"
+   ],
+   "cofire_dirs": [
+    "s5_rsi:bull",
+    "twob:bull"
+   ],
+   "suppressed": 2
+  },
+  {
    "id": "cam_rev:gbpnzd:1790674200",
    "strategy": "cam_rev",
    "regime": "range",
@@ -617,41 +673,12 @@
    "expiry_ts": 1790697600,
    "state": "triggered",
    "cofire": [
-    "mmove",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "mmove:bull",
-    "twob:bull"
-   ],
-   "suppressed": 1
-  },
-  {
-   "id": "twob:asterusd:1790647200",
-   "strategy": "twob",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "asterusd",
-   "symbol": "ASTERUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 0.69052643,
-   "ref_entry": 0.6984,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790647200,
-   "created_ts": 1790694000,
-   "expiry_ts": 1790690400,
-   "state": "triggered",
-   "cofire": [
     "twob"
    ],
    "cofire_dirs": [
     "twob:bull"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "twob:xrpusd:1790647200",
