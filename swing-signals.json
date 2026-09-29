@@ -2,9 +2,38 @@
  "schema_version": 1,
  "generated": "2026-09-29T03:00:00+00:00",
  "data_end_ts": 1790650800,
- "raw_signal_count": 77,
+ "raw_signal_count": 78,
  "count": 40,
  "signals": [
+  {
+   "id": "twob:lighterusd:1790650800",
+   "strategy": "twob",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "lighterusd",
+   "symbol": "LIGHTERUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 4.31327143,
+   "ref_entry": 4.342,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790650800,
+   "created_ts": 1790650800,
+   "expiry_ts": 1790694000,
+   "state": "triggered",
+   "cofire": [
+    "mmove",
+    "twob"
+   ],
+   "cofire_dirs": [
+    "mmove:bear",
+    "twob:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "twob:asterusd:1790647200",
    "strategy": "twob",
@@ -290,33 +319,6 @@
     "twob_cm:bull"
    ],
    "suppressed": 4
-  },
-  {
-   "id": "mmove:lighterusd:1790614800",
-   "strategy": "mmove",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "lighterusd",
-   "symbol": "LIGHTERUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 4.61779286,
-   "ref_entry": 4.379,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790614800,
-   "created_ts": 1790650800,
-   "expiry_ts": 1790658000,
-   "state": "triggered",
-   "cofire": [
-    "mmove"
-   ],
-   "cofire_dirs": [
-    "mmove:bear"
-   ],
-   "suppressed": 0
   },
   {
    "id": "mmove:suiusd:1790614800",
