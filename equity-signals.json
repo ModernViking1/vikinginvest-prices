@@ -1,12 +1,33 @@
 {
  "schema_version": 1,
- "generated": "2026-09-29T19:16:08.979255+00:00",
- "generated_ms": 1790709368979,
+ "generated": "2026-09-29T23:08:51.924041+00:00",
+ "generated_ms": 1790723331924,
  "session": "14-21UTC",
  "demo_only_default": true,
  "note": "holygrail_eq_m15 equity pilot \u2014 trailing exit (arm +1R, trail 1R, 200-bar horizon). Fill BROKER_SYMBOL with exact cTrader names before live.",
  "counts": {
-  "emitted": 0
+  "emitted": 1
  },
- "signals": []
+ "signals": [
+  {
+   "id": "holygrail_eq_m15:amzn:1790710200",
+   "pair": "amzn",
+   "sym": "AMZN",
+   "cls": "equity",
+   "strategy": "holygrail_eq_m15",
+   "dir": "bear",
+   "state": "armed",
+   "entry": 247.06,
+   "stop": 248.9134,
+   "exit_mode": "trail",
+   "trail_arm_r": 1.0,
+   "trail_dist_r": 1.0,
+   "trail_hold_bars": 200,
+   "tf": "m15",
+   "entry_ts_ms": 1790710200000,
+   "age_min": 15.0,
+   "source": "server-detector",
+   "demo_only": true
+  }
+ ]
 }
