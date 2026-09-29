@@ -2,9 +2,37 @@
  "schema_version": 1,
  "generated": "2026-09-29T09:00:00+00:00",
  "data_end_ts": 1790672400,
- "raw_signal_count": 70,
+ "raw_signal_count": 71,
  "count": 33,
  "signals": [
+  {
+   "id": "cam_rev:gbpnzd:1790674200",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "gbpnzd",
+   "symbol": "GBPNZD",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 2.34636077,
+   "ref_entry": 2.34292,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790674200,
+   "created_ts": 1790672400,
+   "expiry_ts": 1790717400,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "twob:btcusd:1790672400",
    "strategy": "twob",
@@ -521,33 +549,6 @@
     "twob_ix:bull"
    ],
    "suppressed": 1
-  },
-  {
-   "id": "cam_rev:gbpnzd:1790613900",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "gbpnzd",
-   "symbol": "GBPNZD",
-   "class": "minor",
-   "dir": "bull",
-   "stop": 2.33309923,
-   "ref_entry": 2.33754,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790613900,
-   "created_ts": 1790672400,
-   "expiry_ts": 1790632800,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull"
-   ],
-   "suppressed": 0
   },
   {
    "id": "cam_rev:usdzar:1790613900",
