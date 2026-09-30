@@ -30,12 +30,13 @@ OUT = os.path.join(_HERE, 'swing-signals.json')
 FRESH_HOURS = 24          # look-back window for emitting signals (>= data latency + feed interval)
 EXPIRY_HOURS = 12         # a signal is valid to fill for this long after its bar (tolerates data-publish lag)
 CAM_SESS_CLOSE_H = 22     # cam_rev limit self-expires at this UTC hour (== detect_cam_rev's CAM_SESS_CLOSE)
-CAM_FRESH_HOURS = 2       # cam_rev resting-limit FRESHNESS cap: cancel if unfilled 2h after the signal.
-# 3-yr limit-execution backtest (cam_reclaim_freshness_backtest): ~99% of cam_rev limits fill inside
-# 30min; fills later than this thin, weakening tail turn EV-neutral-to-negative past ~2h. Capping at 2h
-# sheds the stale-signal fills (a resting sell-limit filling hours later as price round-trips back up
-# through the level and runs to stop — e.g. EURAUD 2026-09-29) for a small give-up. Feed-side only: the
-# cBot already self-expires the resting order at expiry_ts (no rebuild).
+CAM_FRESH_HOURS = 12      # cam_rev resting-limit fill window (still floored by the 22:00 session close).
+# Widened from 2h back to 12h when the entry moved to the PIVOT (2026-09-30). cam_rev now rests the
+# limit AT R3/S3 (not the rejection close), so it needs time to retrace to the level — the 3-yr A/B
+# (cam_pivot_entry_backtest) showed fill rising 74%->85% from 2h->12h, recovering nearly all the total R
+# while keeping the pivot's higher WR/expectancy. The 2h stale-fill cap targeted CLOSE-fills (which
+# filled at an arbitrary price mid-runaway); a pivot limit only fills on a genuine retest of the level,
+# so the longer window is not the same pathology. Feed-side only (cBot self-expires at expiry_ts).
 # Regime-tiered sizing for cam_rev (2026-09-22). The 3-yr backtest (cam_gap_session_backtest.py, C1)
 # found cam_rev converts far better in a strongly-trending h1 regime (chop < CHOP_LO): +0.682R / 84% WR,
 # OOS-stable, vs +0.486R / 74% in a rangey regime. Rather than GATE (which would forfeit the bulk of the
