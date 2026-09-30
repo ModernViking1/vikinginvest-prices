@@ -50,12 +50,16 @@ API; `switchPage()` calls it with the resolved route (after `log`→`bt`, `journ
 
 ## new vs returning
 
-- **Not a built-in tile** in the owner panel yet — the RPC returns unique/signed-in/anon
-  counts but not first-time-vs-revisit. Use **Q7/Q8** in `analytics-queries.sql` for it,
-  or wire those into the RPC + panel if it's wanted in-dashboard (owner ask 2026-09-29).
-- Definition used: visitor key = `coalesce(user_id, session_id)`; **new** = first-ever event
-  inside the window; **returning** = active in the window but first seen before it. Q9
-  buckets visitors by how many distinct days they showed up (one-off vs came back).
+- **Built into the owner panel** (2026-09-30): the `usage_analytics` RPC returns
+  `new_visitors` / `returning_visitors` and the Backtest-tab panel shows them as two tiles
+  ("New visitors · first-ever", "Returning · % of active"). **Re-run the RPC** from
+  `analytics-queries.sql` in the Supabase SQL editor after deploy or the tiles read 0.
+- Ad-hoc SQL for the same numbers: **Q7** (site-wide), **Q8** (backtest tab), **Q9**
+  (revisit-frequency buckets) in `analytics-queries.sql`.
+- Definition: visitor key = `coalesce(user_id, session_id)`; **new** = first-ever event
+  inside the window (from an ALL-TIME `first_seen`, not windowed); **returning** = active in
+  the window but first seen before it. Anon `session_id` resets on cleared storage / new
+  browser, so new-visitor counts are an upper bound.
 
 ## Constraint for agent sessions
 
