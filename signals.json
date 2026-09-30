@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-30T06:40:56.688088+00:00",
-  "generated_ms": 1790750454677,
-  "detector_last_check": "2026-09-30T06:40:53.510442+00:00",
+  "generated": "2026-09-30T06:46:01.889001+00:00",
+  "generated_ms": 1790750759170,
+  "detector_last_check": "2026-09-30T06:45:58.226669+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 1,
+    "total": 2,
     "armed": 0,
     "triggered": 1,
-    "invalidated": 0
+    "invalidated": 1
   },
   "signals": [
+    {
+      "id": "euraud:1790750700000:wick",
+      "pair": "euraud",
+      "sym": "EURAUD",
+      "cls": "minor",
+      "method": "wick",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 1.62826,
+      "stop": 1.6212,
+      "target": 1.63532,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790750700000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790750759170,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "xagusd:1790743500000:fma_sweep_cm",
       "pair": "xagusd",
@@ -34,7 +57,7 @@
       "cl": null,
       "armedAt": 1790743500000,
       "triggeredAt": 1790743500000,
-      "lastSeenAt": 1790750454677,
+      "lastSeenAt": 1790750759170,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
