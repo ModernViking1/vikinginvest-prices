@@ -2,9 +2,63 @@
  "schema_version": 1,
  "generated": "2026-09-30T07:00:00+00:00",
  "data_end_ts": 1790751600,
- "raw_signal_count": 69,
+ "raw_signal_count": 70,
  "count": 38,
  "signals": [
+  {
+   "id": "cam_rev:eurnzd:1790753400",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.375,
+   "pair": "eurnzd",
+   "symbol": "EURNZD",
+   "class": "minor",
+   "dir": "bull",
+   "stop": 2.00474555,
+   "ref_entry": 2.00797,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790753400,
+   "created_ts": 1790751600,
+   "expiry_ts": 1790760600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "cam_rev:nzdchf:1790753400",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.375,
+   "pair": "nzdchf",
+   "symbol": "NZDCHF",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 0.47194333,
+   "ref_entry": 0.47101,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790753400,
+   "created_ts": 1790751600,
+   "expiry_ts": 1790760600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "cam_rev:nas100:1790752500",
    "strategy": "cam_rev",
@@ -64,35 +118,6 @@
    "suppressed": 2
   },
   {
-   "id": "twob:asterusd:1790748000",
-   "strategy": "twob",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "asterusd",
-   "symbol": "ASTERUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 0.76464071,
-   "ref_entry": 0.756,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790748000,
-   "created_ts": 1790751600,
-   "expiry_ts": 1790791200,
-   "state": "triggered",
-   "cofire": [
-    "mmove",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "mmove:bull",
-    "twob:bear"
-   ],
-   "suppressed": 1
-  },
-  {
    "id": "twob:xrpusd:1790748000",
    "strategy": "twob",
    "regime": null,
@@ -146,6 +171,33 @@
     "twob_ix:bull"
    ],
    "suppressed": 2
+  },
+  {
+   "id": "mmove:asterusd:1790737200",
+   "strategy": "mmove",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "asterusd",
+   "symbol": "ASTERUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 0.72937429,
+   "ref_entry": 0.7456,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790737200,
+   "created_ts": 1790751600,
+   "expiry_ts": 1790780400,
+   "state": "triggered",
+   "cofire": [
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "mmove:bull"
+   ],
+   "suppressed": 0
   },
   {
    "id": "holygrail_cm:xagusd:1790733600",
@@ -908,33 +960,6 @@
    "suppressed": 0
   },
   {
-   "id": "cam_rev:eurnzd:1790667900",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "eurnzd",
-   "symbol": "EURNZD",
-   "class": "minor",
-   "dir": "bull",
-   "stop": 2.00434555,
-   "ref_entry": 2.00818,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790667900,
-   "created_ts": 1790751600,
-   "expiry_ts": 1790675100,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull"
-   ],
-   "suppressed": 0
-  },
-  {
    "id": "cam_rev:nzdjpy:1790667900",
    "strategy": "cam_rev",
    "regime": "range",
@@ -1026,33 +1051,6 @@
    "dir": "bear",
    "stop": 1.13779515,
    "ref_entry": 1.13582,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790666100,
-   "created_ts": 1790751600,
-   "expiry_ts": 1790673300,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:nzdchf:1790666100",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "nzdchf",
-   "symbol": "NZDCHF",
-   "class": "minor",
-   "dir": "bear",
-   "stop": 0.47182333,
-   "ref_entry": 0.47108,
    "rr": 1.0,
    "r_pct": 1.0,
    "entry_mode": "limit",
