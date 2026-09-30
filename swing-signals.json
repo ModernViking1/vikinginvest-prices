@@ -2,9 +2,37 @@
  "schema_version": 1,
  "generated": "2026-09-30T13:00:00+00:00",
  "data_end_ts": 1790773200,
- "raw_signal_count": 50,
+ "raw_signal_count": 51,
  "count": 28,
  "signals": [
+  {
+   "id": "cam_rev:xauusd:1790774100",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "xauusd",
+   "symbol": "XAUUSD",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 4227.8576125,
+   "ref_entry": 4205.413625,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790774100,
+   "created_ts": 1790773200,
+   "expiry_ts": 1790805600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "cam_rev:eursgd:1790773200",
    "strategy": "cam_rev",
@@ -699,33 +727,6 @@
    ],
    "cofire_dirs": [
     "twob:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:xauusd:1790691300",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bull",
-   "stop": 4140.4598625,
-   "ref_entry": 4162.211125,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790691300,
-   "created_ts": 1790773200,
-   "expiry_ts": 1790719200,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull"
    ],
    "suppressed": 0
   },
