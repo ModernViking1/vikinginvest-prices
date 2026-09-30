@@ -154,6 +154,21 @@ begin
   panel_sessions as (
     select distinct session_id from ev where event = 'panel_view' and target = 'backtest_3y'
   ),
+  -- NEW vs RETURNING. visitor = signed-in user_id when present, else the anon session_id.
+  -- first_seen is ALL-TIME (not windowed) so "new" means genuinely first-ever inside the window.
+  first_seen as (
+    select coalesce(user_id::text, session_id) as visitor, min(created_at) as first_ts
+    from public.usage_events group by 1
+  ),
+  active_win as (                              -- distinct visitors active in the window
+    select distinct coalesce(user_id::text, session_id) as visitor from ev
+  ),
+  newret as (
+    select
+      count(*) filter (where fs.first_ts >= v_from) as new_visitors,       -- first-ever in window
+      count(*) filter (where fs.first_ts <  v_from) as returning_visitors  -- came back (first seen earlier)
+    from active_win a join first_seen fs on fs.visitor = a.visitor
+  ),
   tiles as (
     select
       (select count(*) from bt)                                                  as bt_opens,
@@ -162,7 +177,9 @@ begin
       (select count(distinct session_id) from bt where user_id is null)          as anon_sessions,
       (select count(distinct session_id) from ev where event = 'page_load')      as sessions,
       (select count(distinct session_id) from bt)                                as opened_bt,
-      (select count(*) from panel_sessions)                                      as saw_panel
+      (select count(*) from panel_sessions)                                      as saw_panel,
+      (select new_visitors from newret)                                          as new_visitors,
+      (select returning_visitors from newret)                                    as returning_visitors
   ),
   trend as (
     select date_trunc('day', created_at)::date as day, count(*) as opens

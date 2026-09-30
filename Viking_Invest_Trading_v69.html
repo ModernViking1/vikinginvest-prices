@@ -23555,6 +23555,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
     var t=d.tiles||{}, trend=d.trend||[], tabs=d.tabs||[], investors=d.investors||[];
     var sessions=t.sessions||0, openedBt=t.opened_bt||0, sawPanel=t.saw_panel||0, btOpens=t.bt_opens||0;
     var conv=sessions?Math.round(100*openedBt/sessions):0;
+    var newV=t.new_visitors||0, retV=t.returning_visitors||0, actV=newV+retV;
+    var retRate=actV?Math.round(100*retV/actV):0;
     var maxTrend=Math.max.apply(null,trend.map(function(x){return x.opens;}).concat([1]));
     var maxTab=Math.max.apply(null,tabs.map(function(x){return x.views;}).concat([1]));
     var step=400/Math.max(trend.length,1);
@@ -23583,6 +23585,8 @@ function _renderCCIVariantPanel(host, commodityKeys){
       '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px;">'
         +tile(num(btOpens),'Backtest-page opens')
         +tile(num(t.unique_viewers),'Unique viewers',(t.signed_in_viewers||0)+' signed-in · '+(t.anon_sessions||0)+' anon')
+        +tile(num(newV),'New visitors',(d.range_days||days)+'d · first-ever')
+        +tile(num(retV),'Returning',retRate+'% of active')
         +tile(conv+'%','Sessions → backtest')
         +tile(num(sawPanel),'Saw 3-yr panel')
       +'</div>'
