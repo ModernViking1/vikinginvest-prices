@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-09-30T12:00:00+00:00",
  "data_end_ts": 1790769600,
- "raw_signal_count": 68,
+ "raw_signal_count": 66,
  "count": 33,
  "signals": [
   {
@@ -234,6 +234,34 @@
    "suppressed": 0
   },
   {
+   "id": "twob:solusd:1790758800",
+   "strategy": "twob",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "solusd",
+   "symbol": "SOLUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 117.67957143,
+   "ref_entry": 118.16,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790758800,
+   "created_ts": 1790769600,
+   "expiry_ts": 1790802000,
+   "state": "triggered",
+   "cofire": [
+    "twob"
+   ],
+   "cofire_dirs": [
+    "twob:bear",
+    "twob:bull"
+   ],
+   "suppressed": 1
+  },
+  {
    "id": "cam_rev:ftse100:1790757900",
    "strategy": "cam_rev",
    "regime": "range",
@@ -454,36 +482,6 @@
     "twob_ix:bear"
    ],
    "suppressed": 1
-  },
-  {
-   "id": "hs:solusd:1790751600",
-   "strategy": "hs",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "solusd",
-   "symbol": "SOLUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 120.06,
-   "ref_entry": 118.07,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790751600,
-   "created_ts": 1790769600,
-   "expiry_ts": 1790794800,
-   "state": "triggered",
-   "cofire": [
-    "hs",
-    "twob"
-   ],
-   "cofire_dirs": [
-    "hs:bear",
-    "twob:bear",
-    "twob:bull"
-   ],
-   "suppressed": 3
   },
   {
    "id": "holygrail_cm:xagusd:1790733600",
