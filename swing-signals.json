@@ -2,9 +2,67 @@
  "schema_version": 1,
  "generated": "2026-09-30T14:00:00+00:00",
  "data_end_ts": 1790776800,
- "raw_signal_count": 55,
- "count": 31,
+ "raw_signal_count": 57,
+ "count": 32,
  "signals": [
+  {
+   "id": "cam_rev:btcusd:1790778600",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "btcusd",
+   "symbol": "BTCUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 84690.053275,
+   "ref_entry": 84139.19775,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": true,
+   "trigger_ts": 1790778600,
+   "created_ts": 1790776800,
+   "expiry_ts": 1790805600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:natgas:1790777700",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "natgas",
+   "symbol": "NATGAS",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 2.82377,
+   "ref_entry": 2.8637,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790777700,
+   "created_ts": 1790776800,
+   "expiry_ts": 1790805600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "holygrail_cm_m15",
+    "twob_cm"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull",
+    "holygrail_cm_m15:bear",
+    "twob_cm:bear"
+   ],
+   "suppressed": 2
+  },
   {
    "id": "cam_rev:solusd:1790777700",
    "strategy": "cam_rev",
@@ -397,35 +455,6 @@
     "cam_rev:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "twob_cm:natgas:1790769600",
-   "strategy": "twob_cm",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "natgas",
-   "symbol": "NATGAS",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 2.92517143,
-   "ref_entry": 2.906,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790769600,
-   "created_ts": 1790776800,
-   "expiry_ts": 1790812800,
-   "state": "triggered",
-   "cofire": [
-    "holygrail_cm_m15",
-    "twob_cm"
-   ],
-   "cofire_dirs": [
-    "holygrail_cm_m15:bear",
-    "twob_cm:bear"
-   ],
-   "suppressed": 1
   },
   {
    "id": "engulf_manip:btcusd:1790766000",
