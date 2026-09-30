@@ -6,6 +6,33 @@
  "count": 32,
  "signals": [
   {
+   "id": "cam_rev:usdchf:1790785800",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "usdchf",
+   "symbol": "USDCHF",
+   "class": "major",
+   "dir": "bear",
+   "stop": 0.83657888,
+   "ref_entry": 0.83535375,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790785800,
+   "created_ts": 1790784000,
+   "expiry_ts": 1790805600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 1
+  },
+  {
    "id": "cam_rev:usdjpy:1790783100",
    "strategy": "cam_rev",
    "regime": "range",
@@ -594,10 +621,9 @@
    "cofire_dirs": [
     "engulf_manip:bull",
     "mmove:bull",
-    "twob:bear",
     "twob:bull"
    ],
-   "suppressed": 3
+   "suppressed": 2
   },
   {
    "id": "cam_rev:eurnok:1790759700",
@@ -869,33 +895,6 @@
    ],
    "cofire_dirs": [
     "cam_rev:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:usdchf:1790697600",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "usdchf",
-   "symbol": "USDCHF",
-   "class": "major",
-   "dir": "bear",
-   "stop": 0.83650228,
-   "ref_entry": 0.83510775,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790697600,
-   "created_ts": 1790784000,
-   "expiry_ts": 1790719200,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
    ],
    "suppressed": 0
   }
