@@ -2,9 +2,40 @@
  "schema_version": 1,
  "generated": "2026-09-30T10:00:00+00:00",
  "data_end_ts": 1790762400,
- "raw_signal_count": 72,
+ "raw_signal_count": 73,
  "count": 36,
  "signals": [
+  {
+   "id": "cam_rev:de40:1790762400",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "de40",
+   "symbol": "DE40",
+   "class": "index",
+   "dir": "bull",
+   "stop": 25290.65025,
+   "ref_entry": 25385.7,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790762400,
+   "created_ts": 1790762400,
+   "expiry_ts": 1790769600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "twob_ix:bear",
+    "twob_ix:bull"
+   ],
+   "suppressed": 3
+  },
   {
    "id": "cam_rev:usoil:1790761500",
    "strategy": "cam_rev",
@@ -144,36 +175,6 @@
     "twob_ix:bull"
    ],
    "suppressed": 3
-  },
-  {
-   "id": "cam_rev:de40:1790756100",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.375,
-   "pair": "de40",
-   "symbol": "DE40",
-   "class": "index",
-   "dir": "bear",
-   "stop": 25628.94975,
-   "ref_entry": 25518.2,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790756100,
-   "created_ts": 1790762400,
-   "expiry_ts": 1790763300,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "twob_ix:bear",
-    "twob_ix:bull"
-   ],
-   "suppressed": 2
   },
   {
    "id": "cam_rev:usdzar:1790756100",
