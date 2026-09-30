@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-09-30T05:35:49.190505+00:00",
-  "generated_ms": 1790746546469,
-  "detector_last_check": "2026-09-30T05:35:45.069209+00:00",
+  "generated": "2026-09-30T05:41:03.724831+00:00",
+  "generated_ms": 1790746860992,
+  "detector_last_check": "2026-09-30T05:40:59.890954+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,9 +10,9 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 1,
+    "total": 2,
     "armed": 0,
-    "triggered": 0,
+    "triggered": 1,
     "invalidated": 1
   },
   "signals": [
@@ -25,19 +25,42 @@
       "r_size": 1.0,
       "dir": "bull",
       "state": "invalidated",
-      "entry": 0.7588,
+      "entry": 0.7584,
       "stop": 0.742,
-      "target": 0.7756000000000001,
+      "target": 0.7747999999999999,
       "ew": "bull",
       "tl": "bull",
       "nw": "bull",
       "cl": "bull",
       "armedAt": 1790746200000,
       "triggeredAt": null,
-      "lastSeenAt": 1790746546469,
+      "lastSeenAt": 1790746860992,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
+    },
+    {
+      "id": "xagusd:1790743500000:fma_sweep_cm",
+      "pair": "xagusd",
+      "sym": "XAGUSD",
+      "cls": "comm",
+      "method": "fma_sweep_cm",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 61.1625,
+      "stop": 60.81427143,
+      "target": 61.85895714,
+      "ew": null,
+      "tl": null,
+      "nw": null,
+      "cl": null,
+      "armedAt": 1790743500000,
+      "triggeredAt": 1790743500000,
+      "lastSeenAt": 1790746860992,
+      "source": "server-detector-fma",
+      "event_aligned": null,
+      "held": false
     }
   ]
 }
