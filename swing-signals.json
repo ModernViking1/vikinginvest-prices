@@ -2,9 +2,37 @@
  "schema_version": 1,
  "generated": "2026-09-30T10:00:00+00:00",
  "data_end_ts": 1790762400,
- "raw_signal_count": 73,
+ "raw_signal_count": 74,
  "count": 36,
  "signals": [
+  {
+   "id": "cam_rev:jp225:1790763300",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "jp225",
+   "symbol": "JP225",
+   "class": "index",
+   "dir": "bear",
+   "stop": 67497.3125,
+   "ref_entry": 66958.8,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790763300,
+   "created_ts": 1790762400,
+   "expiry_ts": 1790770500,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "cam_rev:de40:1790762400",
    "strategy": "cam_rev",
@@ -939,33 +967,6 @@
     "hs:bear"
    ],
    "suppressed": 1
-  },
-  {
-   "id": "cam_rev:jp225:1790684100",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "jp225",
-   "symbol": "JP225",
-   "class": "index",
-   "dir": "bull",
-   "stop": 65243.075,
-   "ref_entry": 65761.3,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790684100,
-   "created_ts": 1790762400,
-   "expiry_ts": 1790691300,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull"
-   ],
-   "suppressed": 0
   },
   {
    "id": "cam_rev:euraud:1790682300",
