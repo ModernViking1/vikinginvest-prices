@@ -1,25 +1,24 @@
 """Feed-side cam_rev Telegram alerter — fires the moment a live cam_rev signal is published to
-swing-signals.json, INDEPENDENT of the cBot. So it alerts even during a cBot outage (the gap that
-let the 2026-09-30 EURNOK/NZDCHF fills go unseen). Dedupes on signal id via a committed state file
-so each signal alerts once, not every 5-min feed cycle.
+swing-signals.json, INDEPENDENT of the cBot (so it alerts even during a cBot outage, the gap that
+hid the 2026-09-30 EURNOK/NZDCHF fills).
 
-Scope: strategy == cam_rev, state == triggered, NOT demo_only (live FX / index / comm — the crypto
-pilot is demo/observer and stays silent). Fail-open: any error prints and exits 0, never breaking
-the feed. Env: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (same chat as the outage watchdog).
+Dedup is DIFF-BASED, not a separate state file: alert a cam_rev signal only if its id is in the NEW
+feed but was NOT in the PREVIOUS published feed (the checked-out swing-signals.json, snapshotted
+before swing_signals.py regenerates it). This rides the reliable swing-signals.json commit — no
+extra race-prone state file to drop — so each signal alerts exactly once (the cycle it first
+appears). A dropped publish at worst re-alerts once next cycle, never a storm.
 
-Wired into swing-signals-feed.yml after swing_signals.py; cam-alert-state.json is committed with the
-feed so dedup persists across runs.
+Scope: strategy == cam_rev, state == triggered, NOT demo_only (live FX / index / comm; the crypto
+pilot stays silent). Fail-open. Env: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (same chat as the outage
+watchdog).
+
+  python cam_rev_alert.py --prev <prev feed> --cur swing-signals.json
 """
+import argparse
 import json
 import os
-import time
 import urllib.parse
 import urllib.request
-
-_HERE = os.path.dirname(os.path.abspath(__file__))
-SWING = os.path.join(_HERE, 'swing-signals.json')
-STATE = os.path.join(_HERE, 'cam-alert-state.json')
-PRUNE_SECS = 3 * 24 * 3600          # forget alerted ids older than 3 days (keeps the file small)
 
 
 def _num(v):
@@ -29,21 +28,17 @@ def _num(v):
         return None
 
 
-def _load_state():
+def _live_cam_rev(path):
+    """{id: row} for live cam_rev signals in a feed file (empty on any error)."""
+    out = {}
     try:
-        d = json.load(open(STATE))
-        a = d.get('alerted') or {}
-        return {k: float(v) for k, v in a.items()}
-    except Exception:
-        return {}
-
-
-def _save_state(alerted):
-    try:
-        json.dump({'alerted': alerted, 'updated': int(time.time())},
-                  open(STATE, 'w'), separators=(',', ':'), sort_keys=True)
+        for r in json.load(open(path)).get('signals', []):
+            if (r.get('strategy') == 'cam_rev' and r.get('state') == 'triggered'
+                    and not r.get('demo_only') and r.get('id')):
+                out[r['id']] = r
     except Exception as e:
-        print(f"[cam_rev_alert] state save failed: {e}")
+        print(f"[cam_rev_alert] cannot read {path}: {e}")
+    return out
 
 
 def _fmt(r):
@@ -92,29 +87,24 @@ def _send(token, chat, text):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--cur', default='swing-signals.json')
+    ap.add_argument('--prev', default='')
+    args = ap.parse_args()
+    cur = _live_cam_rev(args.cur)
+    if not args.prev or not os.path.exists(args.prev):
+        # No previous feed to diff against — don't risk a backlog storm; alert nothing this cycle.
+        print(f"[cam_rev_alert] no prev feed ({args.prev!r}) — skipping (cur live cam_rev={len(cur)})")
+        return
+    prev = _live_cam_rev(args.prev)
+    new_ids = [sid for sid in cur if sid not in prev]
     token = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
     chat = os.environ.get('TELEGRAM_CHAT_ID', '').strip()
-    try:
-        rows = json.load(open(SWING)).get('signals', [])
-    except Exception as e:
-        print(f"[cam_rev_alert] cannot read feed: {e}")
-        return
-    live = [r for r in rows
-            if r.get('strategy') == 'cam_rev' and r.get('state') == 'triggered' and not r.get('demo_only')]
-    alerted = _load_state()
-    now = time.time()
     sent = 0
-    for r in live:
-        sid = r.get('id')
-        if not sid or sid in alerted:
-            continue
-        if _send(token, chat, _fmt(r)):
+    for sid in new_ids:
+        if _send(token, chat, _fmt(cur[sid])):
             sent += 1
-        alerted[sid] = now        # mark seen whether or not the send succeeded (no alert storms on an API blip)
-    # prune old ids so the state file stays small
-    alerted = {k: v for k, v in alerted.items() if now - v < PRUNE_SECS}
-    _save_state(alerted)
-    print(f"[cam_rev_alert] live cam_rev={len(live)} new_alerts_sent={sent} tracked_ids={len(alerted)}")
+    print(f"[cam_rev_alert] cur={len(cur)} prev={len(prev)} new={len(new_ids)} sent={sent}")
 
 
 if __name__ == '__main__':
