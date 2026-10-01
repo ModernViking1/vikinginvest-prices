@@ -2,9 +2,36 @@
  "schema_version": 1,
  "generated": "2026-10-01T01:00:00+00:00",
  "data_end_ts": 1790816400,
- "raw_signal_count": 59,
+ "raw_signal_count": 57,
  "count": 36,
  "signals": [
+  {
+   "id": "twob_ix:jp225:1790809200",
+   "strategy": "twob_ix",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "jp225",
+   "symbol": "JP225",
+   "class": "index",
+   "dir": "bull",
+   "stop": 66662.97857143,
+   "ref_entry": 67093.8,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790809200,
+   "created_ts": 1790816400,
+   "expiry_ts": 1790852400,
+   "state": "triggered",
+   "cofire": [
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "twob_ix:bull"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "twob_ix:spx500:1790805600",
    "strategy": "twob_ix",
@@ -441,14 +468,12 @@
    "expiry_ts": 1790805600,
    "state": "triggered",
    "cofire": [
-    "cam_rev",
-    "holygrail_cm_m15"
+    "cam_rev"
    ],
    "cofire_dirs": [
-    "cam_rev:bear",
-    "holygrail_cm_m15:bear"
+    "cam_rev:bear"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "cam_rev:natgas:1790777700",
@@ -867,35 +892,6 @@
     "cam_rev:bull"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "cam_rev:jp225:1790756100",
-   "strategy": "cam_rev",
-   "regime": "strong",
-   "risk_mult": 0.75,
-   "pair": "jp225",
-   "symbol": "JP225",
-   "class": "index",
-   "dir": "bear",
-   "stop": 67839.41875,
-   "ref_entry": 67363.7375,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790756100,
-   "created_ts": 1790816400,
-   "expiry_ts": 1790799300,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "twob_ix:bull"
-   ],
-   "suppressed": 1
   },
   {
    "id": "cam_rev:eurnok:1790755200",
