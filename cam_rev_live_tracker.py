@@ -30,6 +30,7 @@ BT_REGIME = {"strong": {"exp": 0.682, "wr": 84.0}, "range": {"exp": 0.486, "wr":
 # confirmed — see swing-watchdog / heartbeat. Times below verified from the execution feed + heartbeat.
 OUTAGE_WINDOWS = [
     (1790330982, 1790349600),   # 2026-09-25 10:09:41→15:20 UTC — zombie-after-disconnect; resumed on restart
+    (1790780400, 1790811000),   # 2026-09-30 15:00→23:30 UTC — quarter-end 8.5h outage; EURNOK/NZDCHF rode unmanaged
 ]
 
 

@@ -1580,7 +1580,8 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // mgmt) while the poll thread was a zombie, then closed by the broker or flushed on restart — it
         // doesn't reflect the strategy, so it's excluded from the win-rate/RR. Mirror OUTAGE_WINDOWS in
         // cam_rev_live_tracker.py; add a pair on every confirmed outage.
-        var _swOutageWins=[[1790330982000,1790349600000]]; // 2026-09-25 10:09:41→15:20 UTC (zombie-after-disconnect)
+        var _swOutageWins=[[1790330982000,1790349600000], // 2026-09-25 10:09:41→15:20 UTC (zombie-after-disconnect)
+                           [1790780400000,1790811000000]]; // 2026-09-30 15:00→23:30 UTC (quarter-end 8.5h outage; EURNOK/NZDCHF rode unmanaged)
         closed=closed.filter(function(e){
           // tag-tolerant: prefer the tag-free signal_id prefix, else strip a " (R+)"/" (R-)" tag the
           // pre-fix cBot leaks into the strategy field of restart-surviving closes.
