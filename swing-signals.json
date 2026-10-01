@@ -2,9 +2,38 @@
  "schema_version": 1,
  "generated": "2026-10-01T13:00:00+00:00",
  "data_end_ts": 1790859600,
- "raw_signal_count": 55,
+ "raw_signal_count": 56,
  "count": 33,
  "signals": [
+  {
+   "id": "cam_rev:nzdjpy:1790861400",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "nzdjpy",
+   "symbol": "NZDJPY",
+   "class": "minor",
+   "dir": "bull",
+   "stop": 88.44505,
+   "ref_entry": 88.628,
+   "pivot": 88.6205,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790861400,
+   "created_ts": 1790859600,
+   "expiry_ts": 1790868600,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "cam_rev:wtiusd:1790860500",
    "strategy": "cam_rev",
@@ -500,34 +529,6 @@
     "twob:bear"
    ],
    "suppressed": 1
-  },
-  {
-   "id": "cam_rev:nzdjpy:1790839800",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.375,
-   "pair": "nzdjpy",
-   "symbol": "NZDJPY",
-   "class": "minor",
-   "dir": "bear",
-   "stop": 89.11495,
-   "ref_entry": 88.852,
-   "pivot": 88.9395,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790839800,
-   "created_ts": 1790859600,
-   "expiry_ts": 1790847000,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear"
-   ],
-   "suppressed": 0
   },
   {
    "id": "cam_rev:xauusd:1790838900",
