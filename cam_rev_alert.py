@@ -8,9 +8,9 @@ before swing_signals.py regenerates it). This rides the reliable swing-signals.j
 extra race-prone state file to drop — so each signal alerts exactly once (the cycle it first
 appears). A dropped publish at worst re-alerts once next cycle, never a storm.
 
-Scope: strategy == cam_rev, state == triggered, NOT demo_only (live FX / index / comm; the crypto
-pilot stays silent). Fail-open. Env: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (same chat as the outage
-watchdog).
+Scope: strategy == cam_rev, state == triggered, NOT demo_only, regime == strong (R+ only — the
+higher-conviction 1.5x tier; R- range signals still trade but no longer alert, per owner 2026-10-01).
+Fail-open. Env: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (same chat as the outage watchdog).
 
   python cam_rev_alert.py --prev <prev feed> --cur swing-signals.json
 """
@@ -29,12 +29,15 @@ def _num(v):
 
 
 def _live_cam_rev(path):
-    """{id: row} for live cam_rev signals in a feed file (empty on any error)."""
+    """{id: row} for live, R+ (strong-trend) cam_rev signals in a feed file (empty on any error).
+    Alerts are filtered to regime=='strong' (R+) per the owner (2026-10-01) — the higher-conviction
+    1.5x tier — to cut the more numerous R- (range) alerts. NB: this is ALERT-ONLY; R- signals still
+    trade, they just don't ping."""
     out = {}
     try:
         for r in json.load(open(path)).get('signals', []):
             if (r.get('strategy') == 'cam_rev' and r.get('state') == 'triggered'
-                    and not r.get('demo_only') and r.get('id')):
+                    and not r.get('demo_only') and r.get('regime') == 'strong' and r.get('id')):
                 out[r['id']] = r
     except Exception as e:
         print(f"[cam_rev_alert] cannot read {path}: {e}")
