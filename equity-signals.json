@@ -1,12 +1,12 @@
 {
  "schema_version": 1,
- "generated": "2026-10-01T19:24:41.210013+00:00",
- "generated_ms": 1790882681210,
+ "generated": "2026-10-01T23:23:33.151316+00:00",
+ "generated_ms": 1790897013151,
  "session": "14-21UTC",
  "demo_only_default": true,
  "note": "holygrail_eq_m15 equity pilot \u2014 trailing exit (arm +1R, trail 1R, 200-bar horizon). Fill BROKER_SYMBOL with exact cTrader names before live.",
  "counts": {
-  "emitted": 1
+  "emitted": 3
  },
  "signals": [
   {
@@ -25,6 +25,46 @@
    "trail_hold_bars": 200,
    "tf": "m15",
    "entry_ts_ms": 1790882100000,
+   "age_min": 30.0,
+   "source": "server-detector",
+   "demo_only": true
+  },
+  {
+   "id": "holygrail_eq_m15:msft:1790883000",
+   "pair": "msft",
+   "sym": "MSFT",
+   "cls": "equity",
+   "strategy": "holygrail_eq_m15",
+   "dir": "bull",
+   "state": "armed",
+   "entry": 515.515,
+   "stop": 515.2214,
+   "exit_mode": "trail",
+   "trail_arm_r": 1.0,
+   "trail_dist_r": 1.0,
+   "trail_hold_bars": 200,
+   "tf": "m15",
+   "entry_ts_ms": 1790883000000,
+   "age_min": 15.0,
+   "source": "server-detector",
+   "demo_only": true
+  },
+  {
+   "id": "holygrail_eq_m15:amzn:1790883900",
+   "pair": "amzn",
+   "sym": "AMZN",
+   "cls": "equity",
+   "strategy": "holygrail_eq_m15",
+   "dir": "bear",
+   "state": "armed",
+   "entry": 248.57,
+   "stop": 249.5395,
+   "exit_mode": "trail",
+   "trail_arm_r": 1.0,
+   "trail_dist_r": 1.0,
+   "trail_hold_bars": 200,
+   "tf": "m15",
+   "entry_ts_ms": 1790883900000,
    "age_min": 0.0,
    "source": "server-detector",
    "demo_only": true
