@@ -2,9 +2,95 @@
  "schema_version": 1,
  "generated": "2026-10-01T12:00:00+00:00",
  "data_end_ts": 1790856000,
- "raw_signal_count": 52,
- "count": 31,
+ "raw_signal_count": 55,
+ "count": 33,
  "signals": [
+  {
+   "id": "cam_rev:gbpcad:1790856000",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "gbpcad",
+   "symbol": "GBPCAD",
+   "class": "minor",
+   "dir": "bull",
+   "stop": 1.88125973,
+   "ref_entry": 1.88536,
+   "pivot": 1.88483225,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790856000,
+   "created_ts": 1790856000,
+   "expiry_ts": 1790863200,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:gbpusd:1790856000",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "gbpusd",
+   "symbol": "GBPUSD",
+   "class": "major",
+   "dir": "bull",
+   "stop": 1.32136222,
+   "ref_entry": 1.32416,
+   "pivot": 1.32402725,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790856000,
+   "created_ts": 1790856000,
+   "expiry_ts": 1790863200,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "cam_rev:natgas:1790856000",
+   "strategy": "cam_rev",
+   "regime": "strong",
+   "risk_mult": 0.75,
+   "pair": "natgas",
+   "symbol": "NATGAS",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 2.8337575,
+   "ref_entry": 2.866,
+   "pivot": 2.860075,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790856000,
+   "created_ts": 1790856000,
+   "expiry_ts": 1790863200,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "twob_cm"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull",
+    "twob_cm:bear"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "twob:asterusd:1790852400",
    "strategy": "twob",
@@ -865,34 +951,6 @@
    ],
    "cofire_dirs": [
     "cam_rev:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob_cm:natgas:1790769600",
-   "strategy": "twob_cm",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "natgas",
-   "symbol": "NATGAS",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 2.92517143,
-   "ref_entry": 2.906,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790769600,
-   "created_ts": 1790856000,
-   "expiry_ts": 1790812800,
-   "state": "triggered",
-   "cofire": [
-    "twob_cm"
-   ],
-   "cofire_dirs": [
-    "twob_cm:bear"
    ],
    "suppressed": 0
   }
