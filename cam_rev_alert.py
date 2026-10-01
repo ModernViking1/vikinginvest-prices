@@ -51,6 +51,7 @@ def _fmt(r):
     reg = r.get('regime')
     rtag = ' · strong-trend (R+)' if reg == 'strong' else (' · range (R-)' if reg == 'range' else '')
     entry, stop = _num(r.get('ref_entry')), _num(r.get('stop'))
+    pivot = _num(r.get('pivot'))
     rr = _num(r.get('rr')) or 1.0
     tgt = None
     if entry is not None and stop is not None and entry != stop:
@@ -64,10 +65,12 @@ def _fmt(r):
         d = 2 if a >= 1000 else 4 if a >= 1 else 6 if a >= 0.01 else 8
         return f"{v:,.{d}f}".rstrip('0').rstrip('.')
 
+    pivot_line = f"Pivot (R3/S3): {px(pivot)}   (reference)\n" if pivot is not None else ""
     return (
         f"🚨 <b>cam_rev signal — {sym}</b>\n"
         f"{side}{rtag}\n\n"
-        f"Entry (limit @ pivot): <b>{px(entry)}</b>\n"
+        f"Entry (limit @ close): <b>{px(entry)}</b>\n"
+        f"{pivot_line}"
         f"Target: {px(tgt)}   (+{rr:g}R)\n"
         f"Stop:   {px(stop)}\n\n"
         f"<i>Camarilla reversal fade · demo/observed — not advice.</i>"

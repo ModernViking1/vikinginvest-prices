@@ -465,6 +465,7 @@ def main():
                 'dir': s['dir'],
                 'stop': round(s['stop'], 8),
                 'ref_entry': round(s['entry'], 8),   # reference only; cBot enters at market
+                'pivot': round(s['pivot'], 8) if s.get('pivot') is not None else None,  # cam_rev R3/S3 — informational (alert reference), not executed
                 'rr': s.get('rr', RR),   # per-signal RR (asianglitch=3.0); others default to RR (2.0)
                 'r_pct': R_PCT,
                 # cam_rev is a level FADE — it must fill AT the pivot (ref_entry), not chase the
