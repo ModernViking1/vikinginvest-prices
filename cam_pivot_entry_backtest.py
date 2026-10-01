@@ -29,7 +29,7 @@ from detect_triggers import PAIR_CLASS
 CLASSES = {'major', 'minor', 'index', 'comm'}
 CRYPTO = getattr(H, 'CAM_CRYPTO_PILOT', {'btcusd', 'ethusd', 'xrpusd', 'solusd'})
 BLACKLIST = {'xptusd'}
-FILL_WINDOWS = [8, 48]        # m15 bars: 2h (our live freshness cap) and 12h (generous)
+FILL_WINDOWS = [8, 16, 24, 48]        # m15 bars: 2h / 4h / 6h / 12h — pick the window that keeps pivot's fill without long stale/outage exposure
 LAG_BARS = 0
 
 
