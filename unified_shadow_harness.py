@@ -2290,21 +2290,21 @@ def detect_cam_rev(pk, m15, daily):
         if not (CAM_SESS_OPEN <= bt.hour < CAM_SESS_CLOSE):   # London+US session (07-22 UTC)
             continue
         if (day, 'S') not in done and b['h'] >= L['R3'] and b['c'] < L['R3'] and b['c'] < b['o']:
-            entry = L['R3']; stop = L['R4'] + CAM_BUF * (L['R4'] - L['R3'])   # rest the limit AT the pivot (R3)
+            entry = b['c']; stop = L['R4'] + CAM_BUF * (L['R4'] - L['R3'])   # entry at the rejection close (reverted from pivot 2026-10-01: pivot limits never filled live)
             if stop > entry:
                 R = stop - entry
                 # momentum-of-break: this side/day is now spent whether or not we fade (mult None
                 # = SKIP the runaway rejection; matches the backtest's first-rejection-per-day pick).
                 mm = _cam_mombreak_mult(m15, i, b)
                 if mm is not None:
-                    # entry rests at R3 (fills on a retest to the level, not the candle close — 3-yr
-                    # A/B: higher WR/expectancy). score from the NEXT bar (no confirmation-bar lookahead).
+                    # entry at THIS bar's close -> score from the NEXT bar (avoid the lookahead
+                    # that would let score_sess re-read the confirmation bar).
                     out.append({'strategy': 'cam_rev', 'tf': 'm15', 'pair': pk, 'dir': 'bear',
                                 'entry_ts': m15[i + 1]['_ts'], 'entry': entry, 'stop': stop,
                                 'target': entry - CAM_RR * R, 'rr': CAM_RR, 'mombreak_mult': mm})
                 done.add((day, 'S'))
         if (day, 'L') not in done and b['l'] <= L['S3'] and b['c'] > L['S3'] and b['c'] > b['o']:
-            entry = L['S3']; stop = L['S4'] - CAM_BUF * (L['S3'] - L['S4'])   # rest the limit AT the pivot (S3)
+            entry = b['c']; stop = L['S4'] - CAM_BUF * (L['S3'] - L['S4'])   # entry at the rejection close (reverted from pivot)
             if stop < entry:
                 R = entry - stop
                 mm = _cam_mombreak_mult(m15, i, b)
