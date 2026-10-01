@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-10-01T14:00:00+00:00",
  "data_end_ts": 1790863200,
- "raw_signal_count": 55,
- "count": 32,
+ "raw_signal_count": 51,
+ "count": 31,
  "signals": [
   {
    "id": "twob:solusd:1790863200",
@@ -263,65 +263,6 @@
    "suppressed": 2
   },
   {
-   "id": "cam_rev:dj30:1790851500",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "dj30",
-   "symbol": "DJ30",
-   "class": "index",
-   "dir": "bull",
-   "stop": 50713.9025,
-   "ref_entry": 51024.5,
-   "pivot": 50946.525,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790851500,
-   "created_ts": 1790863200,
-   "expiry_ts": 1790858700,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bear",
-    "cam_rev:bull",
-    "twob_ix:bear"
-   ],
-   "suppressed": 2
-  },
-  {
-   "id": "cam_rev:fra40:1790851500",
-   "strategy": "cam_rev",
-   "regime": "strong",
-   "risk_mult": 1.5,
-   "pair": "fra40",
-   "symbol": "FRA40",
-   "class": "index",
-   "dir": "bull",
-   "stop": 7854.8175,
-   "ref_entry": 7908.8,
-   "pivot": 7898.075,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790851500,
-   "created_ts": 1790863200,
-   "expiry_ts": 1790858700,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull"
-   ],
-   "suppressed": 0
-  },
-  {
    "id": "cam_rev:audusd:1790849700",
    "strategy": "cam_rev",
    "regime": "range",
@@ -409,37 +350,6 @@
     "twob_ix:bear"
    ],
    "suppressed": 1
-  },
-  {
-   "id": "cam_rev:spx500:1790846100",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "spx500",
-   "symbol": "SPX500",
-   "class": "index",
-   "dir": "bull",
-   "stop": 7652.603,
-   "ref_entry": 7680.0,
-   "pivot": 7675.23,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790846100,
-   "created_ts": 1790863200,
-   "expiry_ts": 1790853300,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull",
-    "twob_ix:bear",
-    "twob_ix:bull"
-   ],
-   "suppressed": 2
   },
   {
    "id": "engulf_manip:ethusd:1790841600",
@@ -609,15 +519,13 @@
    "expiry_ts": 1790881200,
    "state": "triggered",
    "cofire": [
-    "holygrail_cm_m15",
     "twob_cm"
    ],
    "cofire_dirs": [
-    "holygrail_cm_m15:bull",
     "twob_cm:bear",
     "twob_cm:bull"
    ],
-   "suppressed": 2
+   "suppressed": 1
   },
   {
    "id": "twob_cm:usoil:1790834400",
@@ -646,6 +554,35 @@
     "twob_cm:bull"
    ],
    "suppressed": 0
+  },
+  {
+   "id": "twob_ix:spx500:1790834400",
+   "strategy": "twob_ix",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "spx500",
+   "symbol": "SPX500",
+   "class": "index",
+   "dir": "bear",
+   "stop": 7720.33714286,
+   "ref_entry": 7716.4,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790834400,
+   "created_ts": 1790863200,
+   "expiry_ts": 1790877600,
+   "state": "triggered",
+   "cofire": [
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "twob_ix:bear",
+    "twob_ix:bull"
+   ],
+   "suppressed": 1
   },
   {
    "id": "twob_ix:jp225:1790809200",
@@ -730,6 +667,36 @@
     "cam_rev:bull"
    ],
    "suppressed": 0
+  },
+  {
+   "id": "cam_rev:dj30:1790793000",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "dj30",
+   "symbol": "DJ30",
+   "class": "index",
+   "dir": "bear",
+   "stop": 51473.5975,
+   "ref_entry": 51222.0,
+   "pivot": 51240.975,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790793000,
+   "created_ts": 1790863200,
+   "expiry_ts": 1790800200,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "twob_ix:bear"
+   ],
+   "suppressed": 1
   },
   {
    "id": "twob:lighterusd:1790787600",
