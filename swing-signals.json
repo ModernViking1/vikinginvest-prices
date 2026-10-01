@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-10-01T13:00:00+00:00",
  "data_end_ts": 1790859600,
- "raw_signal_count": 53,
+ "raw_signal_count": 54,
  "count": 33,
  "signals": [
   {
@@ -116,35 +116,6 @@
     "cam_rev:bull"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "twob:asterusd:1790852400",
-   "strategy": "twob",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "asterusd",
-   "symbol": "ASTERUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 0.73288286,
-   "ref_entry": 0.7452,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790852400,
-   "created_ts": 1790859600,
-   "expiry_ts": 1790895600,
-   "state": "triggered",
-   "cofire": [
-    "twob"
-   ],
-   "cofire_dirs": [
-    "twob:bear",
-    "twob:bull"
-   ],
-   "suppressed": 2
   },
   {
    "id": "twob:xrpusd:1790852400",
@@ -289,6 +260,37 @@
     "cam_rev:bull"
    ],
    "suppressed": 1
+  },
+  {
+   "id": "engulf_manip:asterusd:1790848800",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "asterusd",
+   "symbol": "ASTERUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 0.77292143,
+   "ref_entry": 0.7392,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790848800,
+   "created_ts": 1790859600,
+   "expiry_ts": 1790892000,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip",
+    "twob"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear",
+    "twob:bear",
+    "twob:bull"
+   ],
+   "suppressed": 3
   },
   {
    "id": "cam_rev:de40:1790846100",
