@@ -109,6 +109,16 @@ jobs:
       - name: Generate swing feed
         run: python swing_signals.py
 
+      # Feed-side cam_rev Telegram alert — fires the instant a live cam_rev signal is published,
+      # INDEPENDENT of the cBot, so it alerts even during a cBot outage (the gap that hid the
+      # 2026-09-30 EURNOK/NZDCHF fills). Dedupes on signal id via cam-alert-state.json (committed
+      # below). Fail-open: never breaks the feed.
+      - name: cam_rev signal alert (feed-side, outage-proof)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python cam_rev_alert.py || echo "cam_rev_alert failed (fail-open)"
+
       # Drop the transient tail freshening (H1 + daily + m15 all splice into this one file) so
       # the working tree is clean: the commit step stages ONLY swing-signals.json, and a dirty
       # 60 MB historical-ohlc.json would otherwise block the rebase-on-race below (git rebase
@@ -120,10 +130,10 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- swing-signals.json; then
-            echo "no change to swing-signals.json"; exit 0
+          if git diff --quiet -- swing-signals.json cam-alert-state.json; then
+            echo "no change to feed or alert state"; exit 0
           fi
-          git add swing-signals.json
+          git add swing-signals.json cam-alert-state.json
           git commit -m "chore: update swing signals feed [skip ci]"
           pushed=0
           for i in 1 2 3 4 5; do
