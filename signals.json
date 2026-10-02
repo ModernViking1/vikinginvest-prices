@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-10-02T11:40:55.248116+00:00",
-  "generated_ms": 1790941253206,
-  "detector_last_check": "2026-10-02T11:40:51.892013+00:00",
+  "generated": "2026-10-02T11:45:59.692941+00:00",
+  "generated_ms": 1790941556943,
+  "detector_last_check": "2026-10-02T11:45:55.918538+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,10 +10,10 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 5,
-    "armed": 3,
-    "triggered": 1,
-    "invalidated": 1
+    "total": 6,
+    "armed": 2,
+    "triggered": 2,
+    "invalidated": 2
   },
   "signals": [
     {
@@ -24,7 +24,7 @@
       "method": "wick",
       "r_size": 1.0,
       "dir": "bull",
-      "state": "armed",
+      "state": "invalidated",
       "entry": 2.35426,
       "stop": 2.35046,
       "target": 2.35806,
@@ -34,7 +34,7 @@
       "cl": "bull",
       "armedAt": 1790937900000,
       "triggeredAt": null,
-      "lastSeenAt": 1790941253206,
+      "lastSeenAt": 1790941556943,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -57,7 +57,7 @@
       "cl": "bear",
       "armedAt": 1790935200000,
       "triggeredAt": null,
-      "lastSeenAt": 1790941253206,
+      "lastSeenAt": 1790941556943,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -80,7 +80,7 @@
       "cl": "bull",
       "armedAt": 1790935200000,
       "triggeredAt": null,
-      "lastSeenAt": 1790941253206,
+      "lastSeenAt": 1790941556943,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -103,7 +103,30 @@
       "cl": "bear",
       "armedAt": 1790935200000,
       "triggeredAt": null,
-      "lastSeenAt": 1790941253206,
+      "lastSeenAt": 1790941556943,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
+    {
+      "id": "xauusd:1790935200000:wick",
+      "pair": "xauusd",
+      "sym": "XAUUSD",
+      "cls": "comm",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 4186.02,
+      "stop": 4196.475,
+      "target": 4175.5650000000005,
+      "ew": "bear",
+      "tl": "bear",
+      "nw": "bear",
+      "cl": "bear",
+      "armedAt": 1790935200000,
+      "triggeredAt": 1790938800000,
+      "lastSeenAt": 1790941556943,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
@@ -126,7 +149,7 @@
       "cl": null,
       "armedAt": 1790928000000,
       "triggeredAt": 1790928000000,
-      "lastSeenAt": 1790941253206,
+      "lastSeenAt": 1790941556943,
       "source": "server-detector-absorb",
       "event_aligned": null,
       "held": true
