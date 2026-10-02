@@ -2,9 +2,40 @@
  "schema_version": 1,
  "generated": "2026-10-02T13:00:00+00:00",
  "data_end_ts": 1790946000,
- "raw_signal_count": 44,
+ "raw_signal_count": 45,
  "count": 28,
  "signals": [
+  {
+   "id": "cam_rev:natgas:1790947800",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "natgas",
+   "symbol": "NATGAS",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 2.876425,
+   "ref_entry": 2.847,
+   "pivot": 2.85525,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790947800,
+   "created_ts": 1790946000,
+   "expiry_ts": 1790955000,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "holygrail_cm"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "holygrail_cm:bear"
+   ],
+   "suppressed": 2
+  },
   {
    "id": "cam_rev:eurgbp:1790946900",
    "strategy": "cam_rev",
@@ -204,36 +235,6 @@
     "twob_ix:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "cam_rev:natgas:1790937900",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.375,
-   "pair": "natgas",
-   "symbol": "NATGAS",
-   "class": "comm",
-   "dir": "bull",
-   "stop": 2.795575,
-   "ref_entry": 2.825,
-   "pivot": 2.81675,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790937900,
-   "created_ts": 1790946000,
-   "expiry_ts": 1790945100,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev",
-    "holygrail_cm"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull",
-    "holygrail_cm:bear"
-   ],
-   "suppressed": 1
   },
   {
    "id": "cam_rev:xauusd:1790937000",
