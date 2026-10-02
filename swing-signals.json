@@ -2,9 +2,93 @@
  "schema_version": 1,
  "generated": "2026-10-02T14:00:00+00:00",
  "data_end_ts": 1790949600,
- "raw_signal_count": 26,
- "count": 19,
+ "raw_signal_count": 30,
+ "count": 22,
  "signals": [
+  {
+   "id": "cam_rev:eurnzd:1790949600",
+   "strategy": "cam_rev",
+   "regime": "strong",
+   "risk_mult": 0.75,
+   "pair": "eurnzd",
+   "symbol": "EURNZD",
+   "class": "minor",
+   "dir": "bull",
+   "stop": 2.00011542,
+   "ref_entry": 2.0044,
+   "pivot": 2.00432925,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790949600,
+   "created_ts": 1790949600,
+   "expiry_ts": 1790956800,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "holygrail_cm_m15:usoil:1790949600",
+   "strategy": "holygrail_cm_m15",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "usoil",
+   "symbol": "USOIL",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 104.20487143,
+   "ref_entry": 103.102,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790949600,
+   "created_ts": 1790949600,
+   "expiry_ts": 1790992800,
+   "state": "triggered",
+   "cofire": [
+    "holygrail_cm_m15"
+   ],
+   "cofire_dirs": [
+    "holygrail_cm_m15:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "holygrail_cm_m15:xagusd:1790949600",
+   "strategy": "holygrail_cm_m15",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "xagusd",
+   "symbol": "XAGUSD",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 61.15115714,
+   "ref_entry": 61.603,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790949600,
+   "created_ts": 1790949600,
+   "expiry_ts": 1790992800,
+   "state": "triggered",
+   "cofire": [
+    "holygrail_cm_m15"
+   ],
+   "cofire_dirs": [
+    "holygrail_cm_m15:bull"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "cam_rev:natgas:1790947800",
    "strategy": "cam_rev",
@@ -112,12 +196,14 @@
    "expiry_ts": 1790944200,
    "state": "triggered",
    "cofire": [
-    "cam_rev"
+    "cam_rev",
+    "holygrail_cm_m15"
    ],
    "cofire_dirs": [
-    "cam_rev:bull"
+    "cam_rev:bull",
+    "holygrail_cm_m15:bull"
    ],
-   "suppressed": 0
+   "suppressed": 1
   },
   {
    "id": "twob_ix:ftse100:1790935200",
