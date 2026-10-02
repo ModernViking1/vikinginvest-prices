@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-10-02T12:00:00+00:00",
  "data_end_ts": 1790942400,
- "raw_signal_count": 54,
+ "raw_signal_count": 56,
  "count": 32,
  "signals": [
   {
@@ -350,34 +350,6 @@
    "suppressed": 0
   },
   {
-   "id": "cam_rev:usdjpy:1790930700",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "usdjpy",
-   "symbol": "USDJPY",
-   "class": "major",
-   "dir": "bull",
-   "stop": 157.2290975,
-   "ref_entry": 157.611,
-   "pivot": 157.601475,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790930700,
-   "created_ts": 1790942400,
-   "expiry_ts": 1790937900,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull"
-   ],
-   "suppressed": 1
-  },
-  {
    "id": "cam_rev:audusd:1790929800",
    "strategy": "cam_rev",
    "regime": "range",
@@ -436,33 +408,34 @@
    "suppressed": 1
   },
   {
-   "id": "cam_rev:spx500:1790929800",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "spx500",
-   "symbol": "SPX500",
-   "class": "index",
+   "id": "s5_rsi:usdjpy:1790928000",
+   "strategy": "s5_rsi",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "usdjpy",
+   "symbol": "USDJPY",
+   "class": "major",
    "dir": "bear",
-   "stop": 7740.916,
-   "ref_entry": 7710.6,
-   "pivot": 7712.36,
-   "rr": 1.0,
+   "stop": 158.22,
+   "ref_entry": 157.59,
+   "pivot": null,
+   "rr": 2.0,
    "r_pct": 1.0,
-   "entry_mode": "limit",
+   "entry_mode": "market",
    "demo_only": false,
-   "trigger_ts": 1790929800,
+   "trigger_ts": 1790928000,
    "created_ts": 1790942400,
-   "expiry_ts": 1790937000,
+   "expiry_ts": 1790971200,
    "state": "triggered",
    "cofire": [
-    "cam_rev"
+    "cam_rev",
+    "s5_rsi"
    ],
    "cofire_dirs": [
-    "cam_rev:bear",
-    "cam_rev:bull"
+    "cam_rev:bull",
+    "s5_rsi:bear"
    ],
-   "suppressed": 1
+   "suppressed": 2
   },
   {
    "id": "cam_rev:gbpnzd:1790927100",
@@ -633,6 +606,37 @@
     "engulf_manip:bull",
     "twob:bear",
     "twob:bull"
+   ],
+   "suppressed": 2
+  },
+  {
+   "id": "s5_rsi:spx500:1790917200",
+   "strategy": "s5_rsi",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "spx500",
+   "symbol": "SPX500",
+   "class": "index",
+   "dir": "bull",
+   "stop": 7677.0,
+   "ref_entry": 7703.0,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790917200,
+   "created_ts": 1790942400,
+   "expiry_ts": 1790960400,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev",
+    "s5_rsi"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull",
+    "s5_rsi:bull"
    ],
    "suppressed": 2
   },
