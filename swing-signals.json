@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-10-02T22:00:00+00:00",
  "data_end_ts": 1790978400,
- "raw_signal_count": 43,
- "count": 33,
+ "raw_signal_count": 40,
+ "count": 31,
  "signals": [
   {
    "id": "mmove:nearusd:1790974800",
@@ -32,6 +32,34 @@
     "mmove:bear"
    ],
    "suppressed": 1
+  },
+  {
+   "id": "mmove:xrpusd:1790974800",
+   "strategy": "mmove",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "xrpusd",
+   "symbol": "XRPUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 1.49419429,
+   "ref_entry": 1.4721,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790974800,
+   "created_ts": 1790978400,
+   "expiry_ts": 1791018000,
+   "state": "triggered",
+   "cofire": [
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "mmove:bear"
+   ],
+   "suppressed": 0
   },
   {
    "id": "cam_rev:btcusd:1790971200",
@@ -285,64 +313,6 @@
     "cam_rev:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "engulf_manip:btcusd:1790953200",
-   "strategy": "engulf_manip",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "btcusd",
-   "symbol": "BTCUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 87357.12257143,
-   "ref_entry": 85682.77,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790953200,
-   "created_ts": 1790978400,
-   "expiry_ts": 1790996400,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "engulf_manip:xrpusd:1790953200",
-   "strategy": "engulf_manip",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "xrpusd",
-   "symbol": "XRPUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 1.55791143,
-   "ref_entry": 1.5129,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790953200,
-   "created_ts": 1790978400,
-   "expiry_ts": 1790996400,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip",
-    "mmove"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bear",
-    "mmove:bear"
-   ],
-   "suppressed": 1
   },
   {
    "id": "twob_ix:fra40:1790953200",
@@ -879,34 +849,6 @@
    ],
    "cofire_dirs": [
     "cam_rev:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "s5_rsi:usdjpy:1790928000",
-   "strategy": "s5_rsi",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "usdjpy",
-   "symbol": "USDJPY",
-   "class": "major",
-   "dir": "bear",
-   "stop": 158.22,
-   "ref_entry": 157.59,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1790928000,
-   "created_ts": 1790978400,
-   "expiry_ts": 1790971200,
-   "state": "triggered",
-   "cofire": [
-    "s5_rsi"
-   ],
-   "cofire_dirs": [
-    "s5_rsi:bear"
    ],
    "suppressed": 0
   },
