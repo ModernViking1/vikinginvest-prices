@@ -1,0 +1,46 @@
+name: cam_rev Order-Book Confluence Backtest
+
+# Does a dense retail liquidity shelf ON the faded cam_rev level improve the fade?
+# Forward study: replays cam_rev signals against orderbook-history.jsonl (collected by fetch-data
+# at ~20-min cadence). Until enough matched+resolved trades accrue it just reports progress + ETA.
+# Reuses the deep-ohlc cache like the other cam_* research backtests. Commits nothing.
+
+on:
+  workflow_dispatch:
+
+concurrency: { group: cam-confluence-backtest, cancel-in-progress: false }
+permissions: { contents: read }
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: python -m pip install --upgrade pip requests
+      - name: Guard files present
+        run: for f in cam_confluence_backtest.py oanda_orderbook.py unified_shadow_harness.py detect_triggers.py backtest_rsi_per_class.py fetch_historical_ohlc.py; do [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }; done
+      - name: Show collected history size
+        run: |
+          if [ -f orderbook-history.jsonl ]; then
+            echo "orderbook-history.jsonl: $(wc -l < orderbook-history.jsonl) snapshots, $(ls -lh orderbook-history.jsonl | awk '{print $5}')"
+          else
+            echo "orderbook-history.jsonl not present yet — the backtest will report no-history."
+          fi
+      - name: Restore deep m15 cache (else fetch)
+        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}', OANDA_TOKEN: '${{ secrets.OANDA_TOKEN }}', CACHE_TAG: deep-ohlc-cache }
+        run: |
+          if gh release download "$CACHE_TAG" --repo "$GITHUB_REPOSITORY" -p deep-ohlc.json.gz --clobber 2>/dev/null; then
+            gunzip -c deep-ohlc.json.gz > deep-ohlc.json; echo "restored $(ls -lh deep-ohlc.json|awk '{print $5}')"
+          else
+            python fetch_historical_ohlc.py --days 60 --m15-days 60 --output deep-ohlc.json
+          fi
+      - name: Run confluence backtest (result in log)
+        run: |
+          echo "================ RESULT ================"
+          python cam_confluence_backtest.py --hist deep-ohlc.json --book orderbook-history.jsonl
+          echo "========================================"
+          rm -f deep-ohlc.json deep-ohlc.json.gz
