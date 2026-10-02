@@ -2304,6 +2304,67 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
       });
     })();
     </script>
+    <div class="logsect" id="obLiquiditySect" style="margin-bottom:12px;">
+      <div class="loghdr"><h3>▸ OANDA Retail Liquidity (cam_rev confluence)</h3></div>
+      <div id="obLiquidityPanel" style="padding:12px 14px;font-size:11px;color:var(--inkm);font-family:'Mukta',sans-serif;">
+        <div style="color:var(--inkd);">Loading retail liquidity map…</div>
+      </div>
+    </div>
+    <script>
+    /* OANDA Retail Liquidity panel — the FX "liquidity heatmap" equivalent. Reads orderbook.json
+       (published every ~20 min by fetch-data: OANDA Order Book + Position Book, bucketed by price)
+       and renders, per pair, how much resting retail liquidity sits ON each cam_rev level
+       (R4/R3/S3/S4). A hot cell = a dense shelf on that level = stronger fade confluence. R3/S3
+       are the fade triggers, so they carry an accent. Retail-only, 20-min snapshot — positioning,
+       not full-market depth. Self-contained. */
+    (function(){
+      var URL='https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/orderbook.json';
+      var el=document.getElementById('obLiquidityPanel'); if(!el) return;
+      // density -> warm highlight (0 = none, ~6%+ = hot). Returns an rgba over the cell.
+      function heat(pct){
+        var t=Math.max(0,Math.min(1,(pct||0)/6));
+        return 'rgba(214,120,20,'+(t*0.60).toFixed(3)+')';
+      }
+      function cell(c,isFade){
+        if(!c||c.level==null) return '<td style="padding:4px 6px;text-align:center;color:var(--inkd);">—</td>';
+        var tot=(c.order_pct||0)+(c.pos_pct||0);
+        var acc=isFade?'border-left:2px solid var(--acc,#c0281a);':'';
+        return '<td style="padding:4px 6px;text-align:center;background:'+heat(tot)+';'+acc+'">'
+          +'<div style="font-family:Orbitron,monospace;font-size:10px;color:var(--ink);">'+c.level+'</div>'
+          +'<div style="font-size:8.5px;color:var(--inkm);">ord '+(c.order_pct||0).toFixed(1)+'% · pos '+(c.pos_pct||0).toFixed(1)+'%</div>'
+          +'</td>';
+      }
+      fetch(URL+'?t='+Date.now()).then(function(r){return r.json();}).then(function(d){
+        var pairs=d.pairs||{};
+        var keys=Object.keys(pairs).filter(function(k){return pairs[k].confluence;});
+        if(!keys.length){ el.innerHTML='<div style="color:var(--inkd);">No order-book levels available right now.</div>'; return; }
+        // sort by densest faded level (R3 for shorts / S3 for longs) so the actionable pairs float up
+        function fadeMax(p){var c=p.confluence||{};var r3=((c.R3||{}).order_pct||0)+((c.R3||{}).pos_pct||0);var s3=((c.S3||{}).order_pct||0)+((c.S3||{}).pos_pct||0);return Math.max(r3,s3);}
+        keys.sort(function(a,b){return fadeMax(pairs[b])-fadeMax(pairs[a]);});
+        var rows=keys.map(function(k){
+          var p=pairs[k],c=p.confluence;
+          return '<tr>'
+            +'<td style="padding:4px 6px;font-family:Orbitron,monospace;font-size:10px;color:var(--ink);text-transform:uppercase;">'+k+'</td>'
+            +'<td style="padding:4px 6px;text-align:right;font-size:9.5px;color:var(--inkm);">'+(p.price!=null?p.price:'—')+'</td>'
+            +cell(c.R4,false)+cell(c.R3,true)+cell(c.S3,true)+cell(c.S4,false)
+            +'</tr>';
+        }).join('');
+        var head='<tr style="color:var(--inkd);font-size:9px;text-transform:uppercase;letter-spacing:.5px;">'
+          +'<td style="padding:4px 6px;">Pair</td><td style="padding:4px 6px;text-align:right;">Price</td>'
+          +'<td style="padding:4px 6px;text-align:center;">R4</td><td style="padding:4px 6px;text-align:center;">R3 (fade)</td>'
+          +'<td style="padding:4px 6px;text-align:center;">S3 (fade)</td><td style="padding:4px 6px;text-align:center;">S4</td></tr>';
+        var gen=d.generated?d.generated.replace('T',' ').replace('Z',' UTC'):'';
+        var camFrom=(pairs[keys[0]]||{}).cam_from||'';
+        var legend='<div style="font-size:8.5px;color:var(--inkd);margin:2px 0 8px;">'
+          +'Hotter cell = more resting retail liquidity (orders + positions) on that cam_rev level → stronger fade confluence. '
+          +'R3/S3 are the fade triggers. Retail-only, ~20-min snapshot (positioning, not full-market depth).</div>';
+        var foot='<div style="font-size:8px;color:var(--inkd);margin-top:6px;">levels from '+camFrom+' daily · snapshot '+gen+'</div>';
+        el.innerHTML=legend+'<table style="width:100%;border-collapse:collapse;">'+head+rows+'</table>'+foot;
+      }).catch(function(){
+        el.innerHTML='<div style="color:var(--inkd);">Retail liquidity map unavailable right now.</div>';
+      });
+    })();
+    </script>
     <script>
     /* 3-Year Track Record panel — reads the small server-side backtest-summary.json
        (published by the weekly deep-backtest job) and renders book stats + equity curve +
