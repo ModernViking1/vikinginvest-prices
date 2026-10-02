@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-10-02T19:41:21.436107+00:00",
-  "generated_ms": 1790970079359,
-  "detector_last_check": "2026-10-02T19:41:18.207894+00:00",
+  "generated": "2026-10-02T19:46:05.036570+00:00",
+  "generated_ms": 1790970362432,
+  "detector_last_check": "2026-10-02T19:46:00.848829+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 1,
-    "armed": 0,
+    "total": 2,
+    "armed": 1,
     "triggered": 0,
     "invalidated": 1
   },
   "signals": [
+    {
+      "id": "jp225:1790970300000:wick",
+      "pair": "jp225",
+      "sym": "JP225",
+      "cls": "index",
+      "method": "fib",
+      "r_size": 0.5,
+      "dir": "bull",
+      "state": "invalidated",
+      "entry": 69765.7,
+      "stop": 69513.825,
+      "target": 70017.575,
+      "ew": "bull",
+      "tl": "bull",
+      "nw": "bull",
+      "cl": "bull",
+      "armedAt": 1790970300000,
+      "triggeredAt": null,
+      "lastSeenAt": 1790970362432,
+      "source": "server-detector",
+      "event_aligned": null,
+      "demo_only": true
+    },
     {
       "id": "lighterusd:1790965800000:wick",
       "pair": "lighterusd",
@@ -24,7 +47,7 @@
       "method": "wick",
       "r_size": 1.0,
       "dir": "bear",
-      "state": "invalidated",
+      "state": "armed",
       "entry": 3.632,
       "stop": 3.78,
       "target": 3.4840000000000004,
@@ -34,7 +57,7 @@
       "cl": "bear",
       "armedAt": 1790965800000,
       "triggeredAt": null,
-      "lastSeenAt": 1790970079359,
+      "lastSeenAt": 1790970362432,
       "source": "server-detector",
       "event_aligned": null,
       "demo_only": true
