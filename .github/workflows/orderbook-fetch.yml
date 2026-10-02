@@ -42,7 +42,15 @@ jobs:
         run: python -m pip install --upgrade pip requests
 
       - name: Guard files present
-        run: for f in oanda_orderbook.py fetch_historical_ohlc.py detect_triggers.py unified_shadow_harness.py backtest_rsi_per_class.py; do [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }; done
+        run: for f in oanda_orderbook.py fetch_historical_ohlc.py detect_triggers.py unified_shadow_harness.py backtest_rsi_per_class.py freshen_daily_tail.py; do [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }; done
+
+      # Freshen ONLY the daily tail in the working tree so cam_rev levels are computed from the
+      # latest completed daily bar. Not committed (the commit step stages orderbook.json only) —
+      # historical-ohlc.json's canonical rebuild stays owned by the 6-hourly backfill. Fail-open.
+      - name: Freshen daily tail (for current cam levels)
+        env:
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+        run: python freshen_daily_tail.py --file historical-ohlc.json || echo "::warning::daily-tail freshen failed — using committed daily (levels may lag a day)"
 
       - name: Fetch order/position book -> orderbook.json
         env:
