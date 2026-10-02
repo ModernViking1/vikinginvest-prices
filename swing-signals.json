@@ -2,14 +2,42 @@
  "schema_version": 1,
  "generated": "2026-10-02T18:00:00+00:00",
  "data_end_ts": 1790964000,
- "raw_signal_count": 22,
- "count": 20,
+ "raw_signal_count": 23,
+ "count": 21,
  "signals": [
+  {
+   "id": "cam_rev:gbpnzd:1790965800",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "gbpnzd",
+   "symbol": "GBPNZD",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 2.3620736,
+   "ref_entry": 2.35852,
+   "pivot": 2.358976,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790965800,
+   "created_ts": 1790964000,
+   "expiry_ts": 1790973000,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "cam_rev:solusd:1790965800",
    "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.375,
+   "regime": "strong",
+   "risk_mult": 0.75,
    "pair": "solusd",
    "symbol": "SOLUSD",
    "class": "crypto",
