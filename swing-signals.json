@@ -2,9 +2,38 @@
  "schema_version": 1,
  "generated": "2026-10-02T14:00:00+00:00",
  "data_end_ts": 1790949600,
- "raw_signal_count": 30,
+ "raw_signal_count": 31,
  "count": 22,
  "signals": [
+  {
+   "id": "cam_rev:audnzd:1790950500",
+   "strategy": "cam_rev",
+   "regime": "range",
+   "risk_mult": 0.75,
+   "pair": "audnzd",
+   "symbol": "AUDNZD",
+   "class": "minor",
+   "dir": "bear",
+   "stop": 1.24083235,
+   "ref_entry": 1.23864,
+   "pivot": 1.2387935,
+   "rr": 1.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1790950500,
+   "created_ts": 1790949600,
+   "expiry_ts": 1790957700,
+   "state": "triggered",
+   "cofire": [
+    "cam_rev"
+   ],
+   "cofire_dirs": [
+    "cam_rev:bear",
+    "cam_rev:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "cam_rev:eurnzd:1790949600",
    "strategy": "cam_rev",
@@ -458,34 +487,6 @@
    ],
    "cofire_dirs": [
     "hs:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "cam_rev:audnzd:1790873100",
-   "strategy": "cam_rev",
-   "regime": "range",
-   "risk_mult": 0.75,
-   "pair": "audnzd",
-   "symbol": "AUDNZD",
-   "class": "minor",
-   "dir": "bull",
-   "stop": 1.23249765,
-   "ref_entry": 1.23482,
-   "pivot": 1.2345365,
-   "rr": 1.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1790873100,
-   "created_ts": 1790949600,
-   "expiry_ts": 1790880300,
-   "state": "triggered",
-   "cofire": [
-    "cam_rev"
-   ],
-   "cofire_dirs": [
-    "cam_rev:bull"
    ],
    "suppressed": 0
   },
