@@ -121,11 +121,17 @@ def _top_clusters(buckets, price, side_above, k):
             for b in ranked]
 
 
-def _latest_cam_levels(ohlc_path):
-    """{pair: {R4,R3,S3,S4, _date}} for the most recent day, from historical-ohlc daily layer.
-    Reuses the detector's own level maths. Returns {} if the file is missing/unusable (fail-open)."""
+def _current_cam_levels(ohlc_path):
+    """{pair: {R4,R3,S3,S4, _from}} = the levels for the CURRENT/next trading session, computed
+    from the LAST COMPLETE daily bar (prior-day Camarilla). Uses the detector's exact formula
+    (R4=C+rng*1.1/2, R3=C+rng*1.1/4, S3/S4 mirror).
+
+    Why compute directly instead of H._cam_levels()[max_key]: OANDA daily bars open at 21:00 UTC,
+    so the bar covering the live session is in-progress (dropped as incomplete) and _cam_levels —
+    which keys a level set by the NEXT day's bar — therefore has no entry for the session being
+    traded now, leaving max_key one session stale. Deriving from the last complete bar gives the
+    levels a manual trader actually fades today. Returns {} on any failure (fail-open)."""
     try:
-        import unified_shadow_harness as H
         from backtest_rsi_per_class import _bars_norm
     except Exception as e:
         print(f"  (cam-level import failed: {e} — confluence disabled)", flush=True)
@@ -145,11 +151,16 @@ def _latest_cam_levels(ohlc_path):
         daily = _bars_norm(layers.get("daily") or [])
         if len(daily) < 2:
             continue
-        lv = H._cam_levels(daily)
-        if not lv:
+        p = daily[-1]                       # last COMPLETE daily bar (freshen keeps complete only)
+        rng = p["h"] - p["l"]
+        if rng <= 0:
             continue
-        d = max(lv)                 # most recent level date
-        out[pk] = dict(lv[d], _date=d)
+        C = p["c"]
+        out[pk] = {
+            "R4": C + rng * 1.1 / 2, "R3": C + rng * 1.1 / 4,
+            "S3": C - rng * 1.1 / 4, "S4": C - rng * 1.1 / 2,
+            "_from": datetime.fromtimestamp(p["_ts"], timezone.utc).strftime("%Y-%m-%d"),
+        }
     return out
 
 
@@ -165,7 +176,7 @@ def main():
         return 1
     headers = {"Authorization": f"Bearer {token}", "Accept-Datetime-Format": "RFC3339"}
 
-    cam = _latest_cam_levels(args.ohlc)
+    cam = _current_cam_levels(args.ohlc)
     universe = [pk for pk in PAIRS
                 if (PAIR_CLASS.get(pk) in OB_CLASSES or pk in OB_EXTRA) and "oanda" in PAIRS[pk]]
 
@@ -214,7 +225,7 @@ def main():
                     "order_pct": o["pct"], "order_long": o["long"], "order_short": o["short"],
                     "pos_pct": p["pct"], "pos_long": p["long"], "pos_short": p["short"],
                 }
-            rec["cam_date"] = lv.get("_date")
+            rec["cam_from"] = lv.get("_from")   # last complete daily bar these levels derive from
             rec["confluence"] = conf
         result[pk] = rec
         served += 1
@@ -254,7 +265,7 @@ def main():
         for name in ("R4", "R3", "S3", "S4"):
             c = r["confluence"][name]
             parts.append(f"{name}@{c['level']} ord={c['order_pct']:.1f}% pos={c['pos_pct']:.1f}%")
-        print(f"  {pk:8} px={r['price']} (cam {r.get('cam_date')})")
+        print(f"  {pk:8} px={r['price']} (cam from {r.get('cam_from')})")
         print(f"           " + "  ".join(parts))
     print(f"\nwrote {args.out}")
     return 0
