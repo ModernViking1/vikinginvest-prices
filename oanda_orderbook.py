@@ -57,14 +57,14 @@ OANDA_BASE = os.environ.get("OANDA_BASE", "https://api-fxpractice.oanda.com").rs
 
 
 def _get(url, headers, params=None, max_retries=3):
-    """GET with backoff. Returns (json|None, status). None json on persistent failure."""
+    """GET with backoff. Returns (json|None, status, body_text). None json on failure."""
     for attempt in range(max_retries):
         try:
             r = requests.get(url, headers=headers, params=params, timeout=30)
             if r.status_code == 200:
-                return r.json(), 200
+                return r.json(), 200, ""
             if r.status_code in (400, 404):
-                return None, r.status_code          # unsupported instrument — don't retry
+                return None, r.status_code, r.text[:200]   # unsupported/invalid — don't retry
             if r.status_code == 429:
                 time.sleep(2 ** attempt + 5); continue
             if attempt < max_retries - 1:
@@ -72,17 +72,17 @@ def _get(url, headers, params=None, max_retries=3):
         except requests.RequestException:
             if attempt < max_retries - 1:
                 time.sleep(2 ** attempt)
-    return None, -1
+    return None, -1, ""
 
 
 def _fetch_book(inst, kind, headers):
-    """kind: 'orderBook' | 'positionBook'. Returns the inner book dict or None."""
+    """kind: 'orderBook' | 'positionBook'. Returns (book_dict|None, status, body)."""
     url = f"{OANDA_BASE}/v3/instruments/{inst}/{kind}"
-    data, status = _get(url, headers)
+    data, status, body = _get(url, headers)
     if data is None:
-        return None, status
+        return None, status, body
     book = data.get(kind) or {}
-    return book, status
+    return book, status, body
 
 
 def _buckets(book):
@@ -174,10 +174,11 @@ def main():
     served = skipped = 0
     for pk in universe:
         inst = PAIRS[pk]["oanda"]
-        ob, st_o = _fetch_book(inst, "orderBook", headers)
-        pb, st_p = _fetch_book(inst, "positionBook", headers)
+        ob, st_o, body_o = _fetch_book(inst, "orderBook", headers)
+        pb, st_p, _ = _fetch_book(inst, "positionBook", headers)
         if ob is None and pb is None:
-            print(f"  {pk:8} ({inst}): no book (order={st_o} pos={st_p}) — skipped", flush=True)
+            print(f"  {pk:8} ({inst}): no book (order={st_o} pos={st_p}) — skipped"
+                  + (f" :: {body_o}" if body_o else ""), flush=True)
             skipped += 1
             continue
         obk = _buckets(ob) if ob else []
@@ -218,14 +219,21 @@ def main():
         result[pk] = rec
         served += 1
 
+    if served == 0:
+        print(f"\n::warning::OANDA served 0 order books ({skipped} skipped) on {OANDA_BASE} — "
+              f"not writing {args.out}. If every pair is HTTP 400, the order/position book is "
+              f"likely live-only (api-fxtrade) and needs a LIVE OANDA token.", flush=True)
+        return 0
+
     doc = {
         "generated": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source": "oanda_orderbook+positionbook",
         "base": OANDA_BASE,
         "confluence_buckets": CONFLUENCE_BUCKETS,
-        "note": "Retail order/position clusters from OANDA clients (20-min snapshot). "
-                "NOT full-market depth. order_pct/pos_pct = % of all resting orders/positions "
-                "within +/-%d bucket-widths of each cam_rev level." % CONFLUENCE_BUCKETS,
+        "note": ("Retail order/position clusters from OANDA clients (20-min snapshot). "
+                 "NOT full-market depth. order_pct/pos_pct = percent of all resting "
+                 f"orders/positions within +/-{CONFLUENCE_BUCKETS} bucket-widths of each "
+                 "cam_rev level."),
         "pairs": result,
     }
     tmp = args.out + ".tmp"
