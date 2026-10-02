@@ -1,0 +1,82 @@
+name: OANDA Order Book (retail liquidity map)
+
+# Fetches OANDA's Order Book + Position Book (retail resting orders / open positions bucketed
+# by price) and writes orderbook.json — the FX "liquidity heatmap" substrate for cam_rev
+# confluence (a dense order shelf sitting on an R3/S3 = stronger fade). See oanda_orderbook.py.
+#
+# OANDA refreshes these snapshots every ~20 min, so a 20-min cadence is the natural ceiling —
+# fetching faster just re-pulls the same snapshot. Cron is offset off the :00/:20/:40 herd to
+# dodge GitHub's scheduler throttle; workflow_dispatch + repository_dispatch give a manual and an
+# external-pinger entry point (same pattern as fetch-data).
+
+on:
+  schedule:
+    - cron: '7,27,47 * * * *'
+  workflow_dispatch:
+  repository_dispatch:
+    types: [orderbook-fetch]
+
+concurrency:
+  group: orderbook-fetch
+  cancel-in-progress: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip requests
+
+      - name: Guard files present
+        run: for f in oanda_orderbook.py fetch_historical_ohlc.py detect_triggers.py unified_shadow_harness.py backtest_rsi_per_class.py; do [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }; done
+
+      - name: Fetch order/position book -> orderbook.json
+        env:
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+        run: python oanda_orderbook.py --out orderbook.json --ohlc historical-ohlc.json
+
+      - name: Commit and push with race-condition retry
+        id: push
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          [ -f orderbook.json ] && git add orderbook.json
+          if git diff --cached --quiet; then
+            echo "No orderbook changes to commit"; echo "pushed=0" >> $GITHUB_OUTPUT; exit 0
+          fi
+          git commit -m "chore: update order book (retail liquidity) [skip ci]"
+          MAX=5
+          for attempt in $(seq 1 $MAX); do
+            if git push origin main 2>&1; then
+              echo "✅ pushed (attempt $attempt)"; echo "pushed=1" >> $GITHUB_OUTPUT; exit 0
+            fi
+            if [ "$attempt" -eq "$MAX" ]; then echo "::error::push failed after $MAX attempts"; exit 1; fi
+            # newest-wins: rebuild our commit on top of latest main (no interactive rebase in CI)
+            git fetch origin main
+            git reset --mixed origin/main
+            [ -f orderbook.json ] && git add orderbook.json
+            if git diff --cached --quiet; then echo "nothing new vs main"; echo "pushed=0" >> $GITHUB_OUTPUT; exit 0; fi
+            git commit -m "chore: update order book (retail liquidity) [skip ci]"
+            sleep $((attempt * 3))
+          done
+
+      - name: Purge jsDelivr cache (non-fatal)
+        if: steps.push.outputs.pushed == '1'
+        run: |
+          curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/orderbook.json" || echo "purge gh orderbook failed"
+          curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/orderbook.json" || echo "purge npm orderbook failed"
