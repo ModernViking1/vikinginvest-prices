@@ -175,7 +175,11 @@ DEMO_ONLY = {'fma_gold'}
 # [OOS +0.043/-0.180]. Off the cBot feed (fred_tl was live xauusd; fma_gold was the demo-only
 # gold pilot). The harness keeps observing both, so they can re-earn a slot on a durable turn.
 DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback', 'gtrend', 'threepush', 'ob', 's5_rsi_wide',
-           'asianglitch', 'obfvg', 'mmove_c4', 'fred_tl', 'fma_gold'}
+           'asianglitch', 'obfvg', 'mmove_c4', 'fred_tl', 'fma_gold', 'twob', 'twob_cm'}
+# twob (crypto) + twob_cm (commodities/metals) DEMOTED 2026-10-02 (weekly review): live forward
+# test net -35R (29% WR) and -28R (12% WR) respectively, chronic both all-time and last-30d,
+# every crypto/metal pair net-negative. twob_ix (indices) stays LIVE — the only sibling that
+# holds up (+0.85R, 50% WR; JP225/DE40/FRA40 positive). Harness keeps observing the demoted two.
 
 # 2026-09-18 — per-(strategy, pair) demotions from the 3-year deep backtest. Each pair is
 # net-negative in BOTH OOS halves over 3yr on that strategy, while the strategy is healthy

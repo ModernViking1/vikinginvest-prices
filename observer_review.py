@@ -64,7 +64,8 @@ CONC_MIN_REMAINDER = 20  # min non-top-pair fills for the remainder edge to be t
 # build_signals_json.DEMO_ONLY_METHODS / LIVE_CLASSES), not here.
 LIVE = {'hs', 's5_rsi', 'engulf_manip',
         # fred_tl + fma_gold demoted 2026-09-28 (weekly review: both DROP, 2nd OOS half negative).
-        'gbreak', 'fma_sweep_cm', 'twob', 'twob_cm', 'twob_ix', 'mmove_m15',
+        # twob + twob_cm demoted 2026-10-02 (chronic -35R/-28R live, crypto+comm); twob_ix stays.
+        'gbreak', 'fma_sweep_cm', 'twob_ix', 'mmove_m15',
         'absorb_btc', 'crt_ix',
         # 2026-09-18 — promoted to live after the 3-year both-OOS-positive backtest.
         'cam_rev', 'mmove', 'holygrail_cm', 'holygrail_cm_m15',
