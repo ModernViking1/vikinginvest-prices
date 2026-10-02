@@ -113,6 +113,33 @@ jobs:
           OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
         run: python publish_intraday_ohlc.py --output intraday-ohlc.json
 
+      # Step 2b: OANDA retail liquidity map (order/position book) for cam_rev confluence.
+      # Inlined here (like the alert + watchdog steps) so it rides fetch-data's reliable
+      # external-pinger cadence instead of a throttled standalone cron. OANDA refreshes the
+      # book only every ~20 min, so an age-gate skips the fetch when orderbook.json is still
+      # fresh — this costs nothing on most 5-min cycles. Writes orderbook.json (latest, for the
+      # dashboard) and appends a compact snapshot to orderbook-history.jsonl (forward-collection
+      # substrate for the confluence backtest). Fully fail-open: it can NEVER fail the price feed.
+      - name: Order book (gated ~20min, non-fatal)
+        env:
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+        run: |
+          set +e
+          AGE=9999
+          if [ -f orderbook.json ]; then
+            AGE=$(python -c "import json,datetime as D;g=json.load(open('orderbook.json'))['generated'];print(int((D.datetime.utcnow()-D.datetime.strptime(g[:19],'%Y-%m-%dT%H:%M:%S')).total_seconds()/60))" 2>/dev/null || echo 9999)
+          fi
+          if [ "$AGE" -lt 18 ]; then
+            echo "orderbook.json is $AGE min old (<18) — OANDA snapshot unchanged, skipping"
+            exit 0
+          fi
+          # Fresh cam levels (last complete daily bar); not committed here (only the 6-hourly
+          # backfill owns historical-ohlc.json), just used in the working tree for the levels.
+          python freshen_daily_tail.py --file historical-ohlc.json || echo "::warning::daily-tail freshen failed — cam levels may lag"
+          python oanda_orderbook.py --out orderbook.json --ohlc historical-ohlc.json \
+            --history orderbook-history.jsonl --min-age-min 15 || echo "::warning::order book fetch failed (non-fatal)"
+          exit 0
+
       # Step 3: commit all changed data files in a single commit.
       # Race-condition-resistant push (rebase + retry on conflict) carries
       # forward from the old split workflows.
@@ -124,7 +151,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # Stage every data file we may have touched.
-          for f in prices.json history.json intraday-ohlc.json intraday-state.json intraday.json; do
+          for f in prices.json history.json intraday-ohlc.json intraday-state.json intraday.json orderbook.json orderbook-history.jsonl; do
             if [ -f "$f" ]; then
               git add "$f"
             fi
@@ -163,7 +190,7 @@ jobs:
             echo "Push rejected — rebuilding our data commit onto latest main..."
             git fetch origin main
             git reset --mixed origin/main
-            for f in prices.json history.json intraday-ohlc.json intraday-state.json intraday.json; do
+            for f in prices.json history.json intraday-ohlc.json intraday-state.json intraday.json orderbook.json orderbook-history.jsonl; do
               if [ -f "$f" ]; then
                 git add "$f"
               fi
@@ -318,6 +345,7 @@ jobs:
           curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/prices.json" || echo "purge gh prices failed"
           curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/intraday-ohlc.json" || echo "purge gh intraday-ohlc failed"
           curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/intraday-state.json" || echo "purge gh intraday-state failed"
+          curl -s -m 10 "https://purge.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/orderbook.json" || echo "purge gh orderbook failed"
 
           # /npm/@latest path — same as the old fetch-prices.yml. The
           # @latest resolution caches separately from file content; both

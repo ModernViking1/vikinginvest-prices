@@ -4,14 +4,13 @@ name: OANDA Order Book (retail liquidity map)
 # by price) and writes orderbook.json — the FX "liquidity heatmap" substrate for cam_rev
 # confluence (a dense order shelf sitting on an R3/S3 = stronger fade). See oanda_orderbook.py.
 #
-# OANDA refreshes these snapshots every ~20 min, so a 20-min cadence is the natural ceiling —
-# fetching faster just re-pulls the same snapshot. Cron is offset off the :00/:20/:40 herd to
-# dodge GitHub's scheduler throttle; workflow_dispatch + repository_dispatch give a manual and an
-# external-pinger entry point (same pattern as fetch-data).
+# Scheduled collection is now INLINED into fetch-data.yml (gated to ~20 min) so it rides the
+# reliable external-pinger cadence and appends to orderbook-history.jsonl as the single scheduled
+# writer. This standalone workflow is kept for MANUAL refreshes only (dispatch / external ping) —
+# no cron, to avoid a second scheduler racing fetch-data's commits. It refreshes orderbook.json
+# (latest) but does not append history.
 
 on:
-  schedule:
-    - cron: '7,27,47 * * * *'
   workflow_dispatch:
   repository_dispatch:
     types: [orderbook-fetch]

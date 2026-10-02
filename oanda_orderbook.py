@@ -164,10 +164,48 @@ def _current_cam_levels(ohlc_path):
     return out
 
 
+def _out_age_min(path, now):
+    """Minutes since `path` was last written (its 'generated' field), or None."""
+    if not os.path.exists(path):
+        return None
+    try:
+        g = json.load(open(path)).get("generated")
+        dt = datetime.strptime(g[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+        return (now - dt).total_seconds() / 60.0
+    except Exception:
+        return None
+
+
+def _append_history(hist_path, doc):
+    """Append a COMPACT snapshot line to the forward-collection log (JSONL). Only the fields the
+    confluence backtest needs: time, and per-pair price + per-level order_pct/pos_pct. Fail-open."""
+    try:
+        slim = {"t": doc["generated"], "pairs": {}}
+        for pk, r in doc["pairs"].items():
+            conf = r.get("confluence")
+            if not conf or r.get("price") is None:
+                continue
+            slim["pairs"][pk] = {
+                "px": r["price"], "from": r.get("cam_from"),
+                "lv": {n: [conf[n]["level"], conf[n]["order_pct"], conf[n]["pos_pct"]]
+                       for n in ("R4", "R3", "S3", "S4")},
+            }
+        with open(hist_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(slim, separators=(",", ":")) + "\n")
+        print(f"appended snapshot to {hist_path}", flush=True)
+    except Exception as e:
+        print(f"::warning::history append failed ({e}) — latest still written", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser(description="OANDA order/position book -> retail liquidity map")
     ap.add_argument("--out", default="orderbook.json")
     ap.add_argument("--ohlc", default="historical-ohlc.json")
+    ap.add_argument("--history", default=None,
+                    help="append a compact snapshot to this JSONL log (forward-collection substrate)")
+    ap.add_argument("--min-age-min", type=float, default=0.0,
+                    help="skip entirely if --out is younger than this (OANDA refreshes ~20 min, so "
+                         "~18 lets a 5-min pipeline call this every cycle without over-fetching)")
     args = ap.parse_args()
 
     token = os.environ.get("OANDA_TOKEN", "").strip()
@@ -175,6 +213,14 @@ def main():
         print("::error::OANDA_TOKEN not set — cannot fetch order book", flush=True)
         return 1
     headers = {"Authorization": f"Bearer {token}", "Accept-Datetime-Format": "RFC3339"}
+
+    now0 = datetime.now(timezone.utc)
+    if args.min_age_min > 0:
+        age = _out_age_min(args.out, now0)
+        if age is not None and age < args.min_age_min:
+            print(f"{args.out} is {age:.0f} min old (< {args.min_age_min:.0f}) — OANDA snapshot "
+                  f"unchanged, skipping fetch", flush=True)
+            return 0
 
     cam = _current_cam_levels(args.ohlc)
     universe = [pk for pk in PAIRS
@@ -251,6 +297,8 @@ def main():
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(doc, f, separators=(",", ":"))
     os.replace(tmp, args.out)
+    if args.history:
+        _append_history(args.history, doc)
 
     # ── readable summary ────────────────────────────────────────────
     print(f"\n=== OANDA retail liquidity map · {served} served / {skipped} skipped · {now:%Y-%m-%d %H:%M}Z ===")
