@@ -71,7 +71,9 @@ LIVE = {'hs', 's5_rsi', 's5_rsi_wide', 'engulf_manip',
         'absorb_btc', 'crt_ix',
         # 2026-09-18 — promoted to live after the 3-year both-OOS-positive backtest.
         # holygrail_cm (H1) removed 2026-10-03; its m15 sibling holygrail_cm_m15 stays.
-        'cam_rev', 'mmove', 'holygrail_cm_m15'}
+        # cam_rev removed 2026-10-03 — its backtest edge was a ~13h look-ahead artifact; the causal
+        # re-validation is -0.26R/trade (both OOS halves, every class), matching the live -0.23R.
+        'mmove', 'holygrail_cm_m15'}
         # asianglitch + obfvg removed 2026-09-18 (negative 1st OOS half on the 3-year test).
         # divg NOT included — retired at the detector (returns None), not trading.
         # sweepfvg_ix removed 2026-09-18 — net-negative across ALL indices over 3yr, both halves.

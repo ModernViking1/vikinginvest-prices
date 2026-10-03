@@ -176,7 +176,15 @@ DEMO_ONLY = {'fma_gold'}
 # gold pilot). The harness keeps observing both, so they can re-earn a slot on a durable turn.
 DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback', 'gtrend', 'threepush', 'ob',
            'asianglitch', 'obfvg', 'mmove_c4', 'fred_tl', 'fma_gold', 'twob', 'twob_cm',
-           'holygrail_cm'}
+           'holygrail_cm', 'cam_rev'}
+# cam_rev DEMOTED 2026-10-03 — the strategy's edge was a look-ahead artifact. After the detector
+# was made causal (Camarilla levels now sourced only from fully-closed daily bars), the 3-yr
+# re-validation collapsed: realistic limit-execution -0.259R/trade, 37% WR, NEGATIVE in every
+# asset class and BOTH OOS halves (crypto -0.223, major -0.277, minor -0.257, index -0.252,
+# comm -0.286). This matches the live demo record (-0.23R) — live was honest; the +0.472R/75%
+# "validation" was the ~13h look-ahead. Held back from the cBot (and the R+ Telegram alert, which
+# reads the feed). Harness keeps observing it. Removing from DEMOTED would re-list it; don't,
+# unless a genuinely causal edge is found.
 # twob (crypto) + twob_cm (commodities/metals) DEMOTED 2026-10-02 (weekly review): live forward
 # test net -35R (29% WR) and -28R (12% WR) respectively, chronic both all-time and last-30d,
 # every crypto/metal pair net-negative. twob_ix (indices) stays LIVE — the only sibling that
