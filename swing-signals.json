@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-10-03T05:00:00+00:00",
  "data_end_ts": 1791003600,
- "raw_signal_count": 39,
- "count": 32,
+ "raw_signal_count": 41,
+ "count": 34,
  "signals": [
   {
    "id": "mmove:taousd:1790982000",
@@ -170,6 +170,34 @@
    ],
    "cofire_dirs": [
     "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "engulf_manip:btcusd:1790956800",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "btcusd",
+   "symbol": "BTCUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 87354.88921429,
+   "ref_entry": 85314.59,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790956800,
+   "created_ts": 1791003600,
+   "expiry_ts": 1791000000,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear"
    ],
    "suppressed": 0
   },
@@ -908,6 +936,34 @@
    ],
    "cofire_dirs": [
     "cam_rev:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "s5_rsi:usdjpy:1790928000",
+   "strategy": "s5_rsi",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "usdjpy",
+   "symbol": "USDJPY",
+   "class": "major",
+   "dir": "bear",
+   "stop": 158.22,
+   "ref_entry": 157.59,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "market",
+   "demo_only": false,
+   "trigger_ts": 1790928000,
+   "created_ts": 1791003600,
+   "expiry_ts": 1790971200,
+   "state": "triggered",
+   "cofire": [
+    "s5_rsi"
+   ],
+   "cofire_dirs": [
+    "s5_rsi:bear"
    ],
    "suppressed": 0
   }
