@@ -90,26 +90,50 @@ def classify(n, exp, eh, es):
     return 'WATCH'
 
 
-def live_records():
-    """{method: [realized_r,...]} for closed live (demo) fills.
+# Both execution logs: the intraday cBot (executions.json) AND the swing cBot
+# (swing-executions.json). Reading only the intraday log hid the SWING live-vs-model gap
+# entirely (the swing book's real fills never reached the gap check) — fixed 2026-10-03.
+EXEC_LOGS = ('executions.json', 'swing-executions.json')
+# A single closed fill beyond +-SANE_R is a broken/garbage fill (every bracket is ~1:1..RR3),
+# e.g. the gbreak -59.97R glitch on 2026-08-20. Drop these from the live stats so one corrupt
+# row can't swamp a strategy's record — the raw row stays in the log for audit.
+SANE_R = 6.0
 
-    Method comes from the signal_id's last colon-segment (e.g. btcusd:169..:absorb_btc),
-    which the emitters always set — the flat `strategy` field is only sparsely populated.
-    """
+
+def _method_of(sid, strategy, swing):
+    """Strategy/method key from a signal id. Swing ids are strat:pair:ts (method = FIRST seg);
+    intraday ids are (viking-)pair:ts:method (method = LAST seg)."""
+    parts = (sid or '').split(':')
+    if len(parts) >= 3:
+        return parts[0] if swing else parts[-1]
+    return strategy or ''
+
+
+def live_records():
+    """{method: [realized_r,...]} for closed live (demo) fills across BOTH execution logs,
+    with broken fills (|R|>SANE_R) dropped."""
     out = {}
-    try:
-        ex = json.load(open(EXECS)).get('executions', [])
-    except Exception:
-        return out
-    for r in ex:
-        if r.get('event') != 'closed':
+    dropped = 0
+    for fn in EXEC_LOGS:
+        swing = 'swing' in fn
+        try:
+            ex = json.load(open(os.path.join(_HERE, fn))).get('executions', [])
+        except Exception:
             continue
-        sid = r.get('signal_id') or ''
-        parts = sid.split(':')
-        method = parts[-1] if len(parts) >= 3 else (r.get('strategy') or '')
-        rr = r.get('realized_r')
-        if method and rr is not None:
-            out.setdefault(method, []).append(rr)
+        for r in ex:
+            if r.get('event') != 'closed':
+                continue
+            rr = r.get('realized_r')
+            if rr is None:
+                continue
+            if abs(rr) > SANE_R:
+                dropped += 1
+                continue
+            method = _method_of(r.get('signal_id'), r.get('strategy'), swing)
+            if method:
+                out.setdefault(method, []).append(rr)
+    if dropped:
+        print(f"(live_records: dropped {dropped} broken fill(s) with |R|>{SANE_R:.0f})")
     return out
 
 
