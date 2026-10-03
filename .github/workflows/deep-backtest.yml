@@ -56,14 +56,23 @@ jobs:
             [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }
           done
 
-      - name: Fetch 3-year OHLC (throwaway — not committed)
+      - name: Get 3-year OHLC (restore deep cache, else fetch — throwaway, not committed)
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+          CACHE_TAG: deep-ohlc-cache
         run: |
-          DAYS="${{ github.event.inputs.days || '1095' }}"
-          M15="${{ github.event.inputs.m15_days || '365' }}"
-          echo "Fetching ${DAYS}d (m15 ${M15}d) to deep-ohlc.json ..."
-          python fetch_historical_ohlc.py --days "$DAYS" --m15-days "$M15" --output deep-ohlc.json
+          # Prefer the deep cache (3yr h1 AND m15) so the published track record matches the
+          # whole-book causal backtest methodology (full 3yr m15, not the 1yr default fetch).
+          if gh release download "$CACHE_TAG" --repo "$GITHUB_REPOSITORY" -p deep-ohlc.json.gz --clobber 2>/dev/null; then
+            gunzip -c deep-ohlc.json.gz > deep-ohlc.json; rm -f deep-ohlc.json.gz
+            echo "restored deep cache: $(ls -lh deep-ohlc.json | awk '{print $5}')"
+          else
+            DAYS="${{ github.event.inputs.days || '1095' }}"
+            M15="${{ github.event.inputs.m15_days || '365' }}"
+            echo "cache miss — fetching ${DAYS}d (m15 ${M15}d) to deep-ohlc.json ..."
+            python fetch_historical_ohlc.py --days "$DAYS" --m15-days "$M15" --output deep-ohlc.json
+          fi
           ls -lh deep-ohlc.json
 
       - name: Run deep backtest -> backtest-summary.json
