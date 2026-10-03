@@ -21,7 +21,7 @@
 //|    Attach to ONE chart (any symbol); it manages all .EQ symbols. |
 //+------------------------------------------------------------------+
 #property copyright "Viking Invest"
-#property version   "0.1"
+#property version   "1.00"
 #property strict
 
 #include <Trade/Trade.mqh>
