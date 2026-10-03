@@ -1,10 +1,18 @@
 {
- "schema_version": 1,
- "generated": "2026-10-02T23:00:52.352100+00:00",
- "generated_ms": 1790982052352,
+ "schema_version": 2,
+ "generated": "2026-10-03T10:26:47.717668+00:00",
+ "generated_ms": 1791023207717,
  "session": "14-21UTC",
  "demo_only_default": true,
- "note": "holygrail_eq_m15 equity pilot \u2014 trailing exit (arm +1R, trail 1R, 200-bar horizon). Fill BROKER_SYMBOL with exact cTrader names before live.",
+ "broker": "mt5",
+ "symbols": {
+  "aapl": "AAPL.NAS",
+  "nvda": "NVDA.NAS",
+  "tsla": "TSLA.NAS",
+  "msft": "MSFT.NAS",
+  "amzn": "AMZN.NAS"
+ },
+ "note": "Equity .EQ book (holygrail_eq / holygrail_eq_m15 / twob_eq / volbreak_eq) \u2014 MT5 symbols (.NAS), trailing exit (arm +1R, trail 1R, 200-bar horizon). Demo-only pilot executed by the VikingEquity MT5 EA (mt5/VikingEquityEA.mq5), NOT cTrader.",
  "counts": {
   "emitted": 0
  },
