@@ -81,7 +81,10 @@ def detect_s5(pk, h1, daily, trigger):
     for i in range(2, len(b4) - 1):
         if i <= last: continue
         ts = b4[i]['_ts']
-        di = bisect.bisect_right(d_ts, ts) - 1; wi = bisect.bisect_right(w_ts, ts) - 1
+        # CAUSAL (fixed 2026-10-03): -2 (not -1) selects the daily/weekly bar FULLY CLOSED before
+        # this 4h bar. -1 is the CONTAINING bar (21:00-start daily / weekly span extends into the
+        # 4h bar's future) — the same look-ahead class that inflated cam_rev. Mirrors detect_hs (-2).
+        di = bisect.bisect_right(d_ts, ts) - 2; wi = bisect.bisect_right(w_ts, ts) - 2
         if di < 51 or wi < 11 or we20[wi] is None or de50[di] is None: continue
         wk_up = wc[wi] > we20[wi] and we20[wi] > we20[wi-1]; wk_dn = wc[wi] < we20[wi] and we20[wi] < we20[wi-1]
         if not (wk_up or wk_dn): continue
@@ -1097,8 +1100,8 @@ def _obfvg_signals(pk, h1, tag, tf='h1', daily=None):
     def _aligned(entry_ts, d):
         if de is None:                                          # no daily / too little -> don't gate
             return True
-        di = bisect.bisect_right(dts, entry_ts) - 1
-        if di < OBFVG_REGIME_MA or de[di] is None:
+        di = bisect.bisect_right(dts, entry_ts) - 2   # CAUSAL (2026-10-03): daily bar fully closed
+        if di < OBFVG_REGIME_MA or de[di] is None:    # before the entry, not the containing 21:00 bar
             return True
         up = daily[di]['c'] > de[di]
         return (up and d == 'bull') or ((not up) and d == 'bear')
@@ -2102,9 +2105,13 @@ def _po3k_daily_ctx(daily):
         return {}
     c = [b['c'] for b in daily]; ef = ema(c, 8); es = ema(c, 21); ctx = {}
     for i in range(30, len(daily)):
-        if ef[i] is None or es[i] is None:
+        # CAUSAL (2026-10-03): trend from ef/es at i-1. ctx[date(daily[i])] is shifted one day
+        # forward at return (L below), but with 21:00-start daily bars that one-day shift still let
+        # the trend read daily[i]'s close (which lands inside the consuming day). Using i-1 — the bar
+        # before the window daily[i-20:i], which is itself already causal — closes the leak.
+        if ef[i - 1] is None or es[i - 1] is None:
             continue
-        trend = 'bear' if ef[i] < es[i] else 'bull'
+        trend = 'bear' if ef[i - 1] < es[i - 1] else 'bull'
         win = daily[i - 20:i]
         hi = max(b['h'] for b in win); lo = min(b['l'] for b in win)
         ctx[datetime.fromtimestamp(daily[i]['_ts'], timezone.utc).strftime('%Y-%m-%d')] = (trend, hi, lo)
@@ -2196,7 +2203,10 @@ def detect_po3_conf(pk, m15, h1, daily):
         R = abs(entry - stop)
         if R <= 0:
             continue
-        i4 = bisect.bisect_left(h4ts, b['_ts']); i1 = bisect.bisect_left(h1ts, b['_ts'])
+        # CAUSAL (2026-10-03): shift by one H4/H1 span so the slice uses only bars FULLY CLOSED
+        # before this m15 bar — bisect_left at b['_ts'] left the still-forming containing H4/H1 bar
+        # (whose high/low can include price after the entry) as the slice's last element.
+        i4 = bisect.bisect_right(h4ts, b['_ts'] - 4 * 3600); i1 = bisect.bisect_right(h1ts, b['_ts'] - 3600)
         if i4 < PO3C_H4K or i1 < PO3C_H1K:
             continue
         if br == 'bear':
