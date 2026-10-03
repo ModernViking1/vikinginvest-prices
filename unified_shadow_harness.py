@@ -2266,35 +2266,56 @@ CAM_SESS_OPEN, CAM_SESS_CLOSE = 7, 22
 
 
 def _cam_levels(daily):
-    out = {}
-    for i in range(1, len(daily)):
-        p = daily[i - 1]; rng = p['h'] - p['l']
-        if rng > 0:
-            C = p['c']
-            out[datetime.fromtimestamp(daily[i]['_ts'], timezone.utc).strftime('%Y-%m-%d')] = {
-                'R4': C + rng * 1.1 / 2, 'R3': C + rng * 1.1 / 4,
-                'S3': C - rng * 1.1 / 4, 'S4': C - rng * 1.1 / 2}
+    """CAUSAL Camarilla levels (fixed 2026-10-03).
+
+    Returns a time-sorted list of (active_from_ts, levels) where `levels` are the Camarilla of a
+    daily bar that has FULLY CLOSED by active_from_ts. For an m15 bar at t, the live levels are the
+    latest entry with active_from_ts <= t (bisect). This is alignment-agnostic and strictly causal.
+
+    Why the rewrite: OANDA daily bars are START-labelled at 21:00 UTC, so a bar "D 21:00" spans
+    D 21:00 -> D+1 21:00. The previous version keyed levels by calendar-day string and sourced them
+    from daily[i-1], which assigned a calendar-day-D m15 bar a pivot computed from the bar spanning
+    most of day D itself — 89% of signals used levels partly derived from their own future (up to
+    ~13h of look-ahead). A daily bar daily[j] closes at the next bar's open (daily[j+1]['_ts']);
+    its levels are only legitimately usable from that close onward."""
+    out = []
+    for j in range(len(daily)):
+        p = daily[j]; rng = p['h'] - p['l']
+        if rng <= 0:
+            continue
+        close_ts = daily[j + 1]['_ts'] if j + 1 < len(daily) else p['_ts'] + 86400
+        C = p['c']
+        out.append((close_ts, {'R4': C + rng * 1.1 / 2, 'R3': C + rng * 1.1 / 4,
+                               'S3': C - rng * 1.1 / 4, 'S4': C - rng * 1.1 / 2}))
+    out.sort(key=lambda x: x[0])
     return out
 
 
 def detect_cam_rev(pk, m15, daily):
     if (PAIR_CLASS.get(pk) not in CAM_CLASSES and pk not in CAM_CRYPTO_PILOT) or len(m15) < 500 or len(daily) < 30:
         return []
-    lv = _cam_levels(daily); out = []; done = set()
+    levels = _cam_levels(daily)                    # [(active_from_ts, L)], causal
+    if not levels:
+        return []
+    closes = [c for c, _ in levels]
+    out = []; done = set()
     for i in range(len(m15) - 1):
         b = m15[i]; bt = datetime.fromtimestamp(b['_ts'], timezone.utc)
-        day = bt.strftime('%Y-%m-%d')
-        L = lv.get(day)
-        if not L:
-            continue
         if not (CAM_SESS_OPEN <= bt.hour < CAM_SESS_CLOSE):   # London+US session (07-22 UTC)
             continue
-        if (day, 'S') not in done and b['h'] >= L['R3'] and b['c'] < L['R3'] and b['c'] < b['o']:
+        k = bisect.bisect_right(closes, b['_ts']) - 1   # latest daily bar fully closed before this m15 bar
+        if k < 0:
+            continue
+        L = levels[k][1]
+        # "one fade per level per level-period" — key the done-set by the active-levels index k
+        # (the period a given pivot set is live, i.e. one trading session) rather than a calendar
+        # day string, now that levels change on the 21:00 daily close rather than at midnight.
+        if (k, 'S') not in done and b['h'] >= L['R3'] and b['c'] < L['R3'] and b['c'] < b['o']:
             entry = b['c']; stop = L['R4'] + CAM_BUF * (L['R4'] - L['R3'])   # entry at the rejection close (reverted from pivot 2026-10-01: pivot limits never filled live)
             if stop > entry:
                 R = stop - entry
-                # momentum-of-break: this side/day is now spent whether or not we fade (mult None
-                # = SKIP the runaway rejection; matches the backtest's first-rejection-per-day pick).
+                # momentum-of-break: this side/period is now spent whether or not we fade (mult None
+                # = SKIP the runaway rejection; matches the first-rejection-per-period pick).
                 mm = _cam_mombreak_mult(m15, i, b)
                 if mm is not None:
                     # entry at THIS bar's close -> score from the NEXT bar (avoid the lookahead
@@ -2303,8 +2324,8 @@ def detect_cam_rev(pk, m15, daily):
                                 'entry_ts': m15[i + 1]['_ts'], 'entry': entry, 'stop': stop,
                                 'target': entry - CAM_RR * R, 'rr': CAM_RR, 'mombreak_mult': mm,
                                 'pivot': L['R3']})   # R3 — informational (alert reference); execution uses entry(close)
-                done.add((day, 'S'))
-        if (day, 'L') not in done and b['l'] <= L['S3'] and b['c'] > L['S3'] and b['c'] > b['o']:
+                done.add((k, 'S'))
+        if (k, 'L') not in done and b['l'] <= L['S3'] and b['c'] > L['S3'] and b['c'] > b['o']:
             entry = b['c']; stop = L['S4'] - CAM_BUF * (L['S3'] - L['S4'])   # entry at the rejection close (reverted from pivot)
             if stop < entry:
                 R = entry - stop
@@ -2314,7 +2335,7 @@ def detect_cam_rev(pk, m15, daily):
                                 'entry_ts': m15[i + 1]['_ts'], 'entry': entry, 'stop': stop,
                                 'target': entry + CAM_RR * R, 'rr': CAM_RR, 'mombreak_mult': mm,
                                 'pivot': L['S3']})   # S3 — informational (alert reference); execution uses entry(close)
-                done.add((day, 'L'))
+                done.add((k, 'L'))
     return out
 
 

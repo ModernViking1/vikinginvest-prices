@@ -274,35 +274,12 @@ def _stop_breached(bars, trigger_ts, data_end, stop, d):
     return False
 
 
-def _synth_current_daily(daily, m15):
-    """LIVE fix for cam_rev (2026-09-19). cam_rev's Camarilla levels for a day D are keyed on a
-    daily bar dated D (whose levels are computed from D-1's real close). In LIVE data the CURRENT
-    session's daily bar hasn't formed yet, so detect_cam_rev emits nothing for today — which kept
-    cam_rev at 0 rows in the feed for days (its newest signal was always ~1 day behind, then fell
-    outside the 24h fresh window that a 24/7-crypto data_end drives forward). Append a light daily
-    bar aggregated from m15 for any calendar day present in m15 but missing from `daily`, so
-    lv[today] exists. Today's LEVELS still come from the real prior daily bar (this placeholder's
-    partial OHLC is never used for today's levels), so it matches the backtest's structure and
-    changes no historical result. Feed-only: the harness/backtest is untouched. Fail-open.
-    Returns a new list; inputs are not mutated."""
-    if not m15:
-        return daily
-    try:
-        last = datetime.fromtimestamp(daily[-1]['_ts'], timezone.utc).date() if daily else None
-        byday = {}
-        for b in m15:
-            dd = datetime.fromtimestamp(b['_ts'], timezone.utc).date()
-            if last and dd <= last:
-                continue
-            o = byday.get(dd)
-            if o is None:
-                byday[dd] = {'o': b['o'], 'h': b['h'], 'l': b['l'], 'c': b['c'],
-                             '_ts': int(datetime(dd.year, dd.month, dd.day, 21, tzinfo=timezone.utc).timestamp())}
-            else:
-                o['h'] = max(o['h'], b['h']); o['l'] = min(o['l'], b['l']); o['c'] = b['c']
-        return daily + [byday[k] for k in sorted(byday)] if byday else daily
-    except Exception:
-        return daily
+# _synth_current_daily removed 2026-10-03. It appended a synthetic current-day daily bar so the
+# old (calendar-day-keyed) detect_cam_rev could fire intraday — but with >=2 daily bars missing at
+# session open (the norm, given OANDA's 21:00-start daily bars) it mis-keyed today's levels off a
+# PARTIAL m15 aggregate, producing wrong-level live trades the model never made (the live-vs-model
+# selection gap). detect_cam_rev is now causal and sources the last fully-closed daily bar directly,
+# so the synth is obsolete and the live feed passes raw `daily`.
 
 
 def _last_loss_closes():
@@ -394,7 +371,11 @@ def main():
         # promoted from demo-only to live 2026-09-19 at the user's direction. The cBot fills at
         # MARKET, so the live WR will likely lag the observer's precise-close 72-84% (tight-R fade
         # is fill-sensitive); the observer runs in parallel as the clean benchmark.
-        found += detect_cam_rev(pk, m15, _synth_current_daily(daily, m15))   # synth today's daily bar so live cam_rev isn't a day behind
+        # 2026-10-03 — pass RAW daily (was _synth_current_daily). detect_cam_rev now sources levels
+        # CAUSALLY from the last fully-closed daily bar (bisect lookup), so it fires on today's m15
+        # bars using the prior session's levels without needing a synthetic current-day bar — and it
+        # now matches the model exactly (the synth hack created the live-vs-model selection gap).
+        found += detect_cam_rev(pk, m15, daily)
         # DEMO-ONLY observer promotions (2026-09-13, user-directed "prove on demo/prop first").
         # These four cleared n>=40 + both OOS halves in the shadow harness but had NOT yet earned
         # a live emitter; wired demo_only so the cBot accrues real-fill/real-spread evidence while
