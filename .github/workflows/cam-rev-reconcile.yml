@@ -1,0 +1,28 @@
+name: cam_rev Live-vs-Model Reconciliation
+
+# Joins real cBot fills (swing-executions.json) to model signals (swing-shadow-log.json) and
+# classifies MATCHED / DRIFTED / ORPHAN to locate the live-vs-model WR gap. Reads committed logs
+# only; commits nothing. Manual dispatch (and handy to eyeball after a feed fix).
+
+on:
+  workflow_dispatch:
+
+concurrency: { group: cam-rev-reconcile, cancel-in-progress: false }
+permissions: { contents: read }
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Guard files present
+        run: for f in cam_rev_reconcile.py swing-executions.json swing-shadow-log.json; do [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }; done
+      - name: Reconcile (result in log)
+        run: |
+          echo "================ RESULT ================"
+          python cam_rev_reconcile.py
+          echo "========================================"
