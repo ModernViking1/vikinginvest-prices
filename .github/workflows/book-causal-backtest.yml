@@ -1,0 +1,63 @@
+name: Whole-Book Causal Backtest (3yr, read-only)
+
+# Runs backtest_history.py (full harness scoring of EVERY strategy) over the 3-year deep cache
+# with the causal detectors, and PRINTS the per-strategy table to the log. Commits nothing and
+# does NOT touch the dashboard's backtest-summary.json — so we can review the honest whole-book
+# numbers before deciding what to publish/demote. deep-backtest.yml stays the thing that updates
+# the public track record.
+
+on:
+  workflow_dispatch:
+
+concurrency: { group: book-causal-backtest, cancel-in-progress: false }
+permissions: { contents: read }
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: python -m pip install --upgrade pip requests
+      - name: Guard files present
+        run: for f in backtest_history.py unified_shadow_harness.py trend_regime.py detect_triggers.py fetch_historical_ohlc.py observer_review.py; do [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }; done
+      - name: Restore deep m15 cache (else fetch 3yr)
+        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}', OANDA_TOKEN: '${{ secrets.OANDA_TOKEN }}', CACHE_TAG: deep-ohlc-cache }
+        run: |
+          if gh release download "$CACHE_TAG" --repo "$GITHUB_REPOSITORY" -p deep-ohlc.json.gz --clobber 2>/dev/null; then
+            gunzip -c deep-ohlc.json.gz > deep-ohlc.json; echo "restored $(ls -lh deep-ohlc.json|awk '{print $5}')"
+          else
+            python fetch_historical_ohlc.py --days 1095 --m15-days 1095 --output deep-ohlc.json
+          fi
+      - name: Score whole book (causal) + print per-strategy table
+        run: |
+          echo "================ RESULT ================"
+          python backtest_history.py --hist deep-ohlc.json --out /tmp/bt_summary.json
+          python - <<'PY'
+          import json
+          d = json.load(open('/tmp/bt_summary.json'))
+          bg = d['book_gated']; bu = d['book_ungated']
+          print(f"\nwindow ~{d['window_days']}d | BOOK gated exp={bg['exp']:+.4f}R WR={bg['wr']:.0f}% n={bg['n']} totR={bg['total_r']:+.0f} maxDD={bg['max_dd_r']:+.0f}")
+          print(f"                 ungated exp={bu['exp']:+.4f}R WR={bu['wr']:.0f}% n={bu['n']}")
+          lr = d.get('live_roster_net', {})
+          if lr:
+            print(f"LIVE roster (deployed): gross exp={lr.get('gross_exp',0):+.4f}R  NET exp={lr.get('net_exp',0):+.4f}R  net totR={lr.get('net_total_r',0):+.0f}  (meanCost {lr.get('mean_cost_r',0):+.4f}R)")
+            if lr.get('strategies_uncovered'): print(f"  (uncovered by this harness: {lr['strategies_uncovered']})")
+          sg = d['strategies_gated']
+          try:
+            from observer_review import LIVE as LV
+          except Exception:
+            LV = set()
+          print(f"\n{'strategy':<18}{'role':<5}{'n':>6}{'WR':>6}{'exp':>9}{'OOS1':>9}{'OOS2':>9}{'totR':>8}  edge?")
+          for st in sorted(sg, key=lambda s: -sg[s]['exp']):
+            r = sg[st]
+            edge = 'REAL' if (r['oos_1st'] > 0 and r['oos_2nd'] > 0 and r['exp'] > 0.02) else ('thin' if r['exp'] > 0 else '')
+            role = 'live' if st in LV else 'obs'
+            print(f"{st:<18}{role:<5}{r['n']:>6}{r['wr']:>5.0f}%{r['exp']:>+8.3f}R{r['oos_1st']:>+8.3f}{r['oos_2nd']:>+8.3f}{r['total_r']:>+7.0f}  {edge}")
+          print("\nedge? REAL = exp>+0.02R AND both OOS halves positive (gated, frictionless — net is lower).")
+          PY
+          echo "========================================"
+          rm -f deep-ohlc.json deep-ohlc.json.gz
