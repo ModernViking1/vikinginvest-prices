@@ -62,11 +62,13 @@ CONC_MIN_REMAINDER = 20  # min non-top-pair fills for the remainder edge to be t
 # one lingers as live). NOTE: this set is the complete NAMED ROSTER of what trades on the cBot;
 # per-strategy live/demo/class gating is enforced in the feeds (swing_signals.DEMO_ONLY,
 # build_signals_json.DEMO_ONLY_METHODS / LIVE_CLASSES), not here.
-LIVE = {'hs', 's5_rsi', 's5_rsi_wide', 'engulf_manip',
+LIVE = {'hs', 'engulf_manip',
         # fred_tl + fma_gold demoted 2026-09-28 (weekly review: both DROP, 2nd OOS half negative).
         # twob + twob_cm demoted 2026-10-02 (chronic -35R/-28R live, crypto+comm); twob_ix stays.
-        # 2026-10-03 — s5_rsi_wide re-promoted (fwd +0.292R, both OOS halves +); holygrail_cm (H1)
-        # demoted (DROP, both halves -); fib/wick/macdp pilots retired (persistent live-demo loss).
+        # 2026-10-03 — fib/wick/macdp pilots retired; holygrail_cm (H1) demoted; cam_rev demoted.
+        # s5_rsi DEMOTED + s5_rsi_wide promotion REVERTED 2026-10-03 — the detect_s5 daily/weekly
+        # look-ahead inflated both; causal re-validation: s5_rsi -0.046R (OOS1 -0.163), s5_rsi_wide
+        # fails both-OOS (OOS1 -0.069).
         'gbreak', 'fma_sweep_cm', 'twob_ix', 'mmove_m15',
         'absorb_btc', 'crt_ix',
         # 2026-09-18 — promoted to live after the 3-year both-OOS-positive backtest.

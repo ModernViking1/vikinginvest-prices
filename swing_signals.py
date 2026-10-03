@@ -176,7 +176,12 @@ DEMO_ONLY = {'fma_gold'}
 # gold pilot). The harness keeps observing both, so they can re-earn a slot on a durable turn.
 DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback', 'gtrend', 'threepush', 'ob',
            'asianglitch', 'obfvg', 'mmove_c4', 'fred_tl', 'fma_gold', 'twob', 'twob_cm',
-           'holygrail_cm', 'cam_rev'}
+           'holygrail_cm', 'cam_rev', 's5_rsi', 's5_rsi_wide'}
+# s5_rsi + s5_rsi_wide DEMOTED 2026-10-03 — their edge was inflated by the same daily/weekly
+# look-ahead (detect_s5 read the containing 21:00 bar; fixed to the last fully-closed bar). On the
+# causal 3-yr re-validation: s5_rsi -0.046R (1st OOS half -0.163) — negative; s5_rsi_wide +0.033R
+# but FAILS both-OOS (1st half -0.069), so this morning's s5_rsi_wide promotion is reverted. Held
+# back from the cBot; harness keeps observing both for a durable causal turn.
 # cam_rev DEMOTED 2026-10-03 — the strategy's edge was a look-ahead artifact. After the detector
 # was made causal (Camarilla levels now sourced only from fully-closed daily bars), the 3-yr
 # re-validation collapsed: realistic limit-execution -0.259R/trade, 37% WR, NEGATIVE in every
