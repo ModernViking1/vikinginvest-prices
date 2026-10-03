@@ -1622,7 +1622,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // the headline LIVE win-rate and shown separately under ○ OBSERVING.
         // ⚠ SYNC: hardcoded mirror of swing_signals.py DEMOTED — update in lockstep on every
         // promote/demote, or demoted strategies keep counting in the headline stats.
-        var DEMOTED_SWING={tl_nowick:1,fib_gz:1,wm:1,w5_pullback:1,gtrend:1,threepush:1,ob:1,s5_rsi_wide:1,asianglitch:1,obfvg:1,mmove_c4:1,fred_tl:1,fma_gold:1,twob:1,twob_cm:1};
+        var DEMOTED_SWING={tl_nowick:1,fib_gz:1,wm:1,w5_pullback:1,gtrend:1,threepush:1,ob:1,asianglitch:1,obfvg:1,mmove_c4:1,fred_tl:1,fma_gold:1,twob:1,twob_cm:1,holygrail_cm:1};  /* 2026-10-03: holygrail_cm (H1) demoted (DROP, both OOS halves -); s5_rsi_wide re-promoted */
         // Outcome-tile overview (mirrors the intraday panel's window._viOutcomeTiles; guarded
         // so whichever panel renders first defines it, avoiding a cross-scope ordering trap).
         if(typeof window._viOutcomeTiles!=='function'){ window._viOutcomeTiles=function(rows, opts){
@@ -1792,7 +1792,7 @@ body.vi-readable *{ font-family:'Mukta','Inter',system-ui,-apple-system,sans-ser
         // ⚠ SYNC: hardcoded mirror of observer_review.LIVE (swing members) — update in lockstep on
         // every promote/demote. m15 members (cam_rev, holygrail_cm_m15, fma_gold) only surface here
         // once they have demo fills; their model is tracked in the intraday panel (see SWING_LIVE_M15).
-        var LIVE_SWING={hs:1,s5_rsi:1,engulf_manip:1,gbreak:1,twob_ix:1,cam_rev:1,mmove:1,holygrail_cm:1,holygrail_cm_m15:1};  /* fred_tl + fma_gold demoted 2026-09-28; twob + twob_cm demoted 2026-10-02 (chronic -35R/-28R crypto+comm), twob_ix kept */
+        var LIVE_SWING={hs:1,s5_rsi:1,s5_rsi_wide:1,engulf_manip:1,gbreak:1,twob_ix:1,cam_rev:1,mmove:1,holygrail_cm_m15:1};  /* 2026-10-03: s5_rsi_wide re-promoted (+0.292R both halves+); holygrail_cm (H1) demoted (DROP), m15 sibling kept. fred_tl+fma_gold demoted 09-28; twob+twob_cm demoted 10-02 */
         var _hdr='<tr style="color:'+C.mut+';text-align:left;"><th>strategy</th><th>tracked</th><th>demo n</th><th>demo WR</th><th>demo R</th><th>model WR</th><th>model exp</th></tr>';
         function _swRow(st){
           var d=byStratD[st]?agg(byStratD[st]):null, m=byStratM[st]?agg(byStratM[st]):null;

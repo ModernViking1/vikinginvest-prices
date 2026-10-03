@@ -72,8 +72,13 @@ LIVE_CLASSES = set()
 # improved since they were retired, so forward-re-test them DEMO-ONLY under the better execution:
 # emitted with demo_only=True (cBot skips them on a live account) and bypassing the crypto-only
 # LIVE_CLASSES gate so the re-test spans all classes. Reinstate live only on confirming demo fills.
-DEMO_ONLY_METHODS = {"macdp", "wick"}
-DEMOTED_METHODS = set()   # divg is retired at the detector (returns None); nothing hard-held now
+# 2026-10-03 — weekly observer-review: the demo-only re-pilots did NOT close the fill gap over
+# ~2 weeks of live-demo evidence — macdp -0.279R (n=159), wick -0.235R (n=104), fib -0.351R
+# (n=48, crypto path, already demo via empty LIVE_CLASSES). Persistent negative at a meaningful
+# sample, so retire all three from the cBot feed entirely (demo AND live). The harness keeps
+# observing them, so they can re-earn a pilot slot on a durable positive turn.
+DEMO_ONLY_METHODS = set()                 # macdp/wick retired below (were the demo re-pilots)
+DEMOTED_METHODS = {"fib", "wick", "macdp"}  # hard-held from the cBot; divg already None at detector
 
 # Pairs blacklisted from LIVE emission across ALL strategies — the cBot never sees a signal
 # on them (covers the intraday emitters AND the legacy alerts-state path merged into

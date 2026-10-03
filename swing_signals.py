@@ -174,12 +174,19 @@ DEMO_ONLY = {'fma_gold'}
 # collapsing 2nd OOS half): fred_tl fwd -0.052R [OOS +0.241/-0.322]; fma_gold fwd -0.070R
 # [OOS +0.043/-0.180]. Off the cBot feed (fred_tl was live xauusd; fma_gold was the demo-only
 # gold pilot). The harness keeps observing both, so they can re-earn a slot on a durable turn.
-DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback', 'gtrend', 'threepush', 'ob', 's5_rsi_wide',
-           'asianglitch', 'obfvg', 'mmove_c4', 'fred_tl', 'fma_gold', 'twob', 'twob_cm'}
+DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback', 'gtrend', 'threepush', 'ob',
+           'asianglitch', 'obfvg', 'mmove_c4', 'fred_tl', 'fma_gold', 'twob', 'twob_cm',
+           'holygrail_cm'}
 # twob (crypto) + twob_cm (commodities/metals) DEMOTED 2026-10-02 (weekly review): live forward
 # test net -35R (29% WR) and -28R (12% WR) respectively, chronic both all-time and last-30d,
 # every crypto/metal pair net-negative. twob_ix (indices) stays LIVE — the only sibling that
 # holds up (+0.85R, 50% WR; JP225/DE40/FRA40 positive). Harness keeps observing the demoted two.
+# 2026-10-03 — weekly observer-review changes:
+#   holygrail_cm (H1 commodities) DEMOTED — meets the DROP gate: fwd n=192 WR 47% -0.068R with
+#     BOTH OOS halves negative (-0.029/-0.106). Its m15 sibling holygrail_cm_m15 stays LIVE
+#     (PROMOTE, +0.061R both halves +). Harness keeps observing holygrail_cm (H1).
+#   s5_rsi_wide RE-PROMOTED — off DEMOTED (was demoted 2026-08-24 at fwd -0.105R). The forward
+#     record recovered and held: n=93 WR 44% +0.292R with BOTH OOS halves + (+0.213/+0.368).
 
 # 2026-09-18 — per-(strategy, pair) demotions from the 3-year deep backtest. Each pair is
 # net-negative in BOTH OOS halves over 3yr on that strategy, while the strategy is healthy
