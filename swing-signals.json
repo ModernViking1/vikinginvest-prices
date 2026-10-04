@@ -1,37 +1,37 @@
 {
  "schema_version": 1,
- "generated": "2026-10-04T07:00:00+00:00",
- "data_end_ts": 1791097200,
+ "generated": "2026-10-04T08:00:00+00:00",
+ "data_end_ts": 1791100800,
  "raw_signal_count": 3,
- "count": 3,
+ "count": 2,
  "signals": [
   {
-   "id": "engulf_manip:asterusd:1791079200",
-   "strategy": "engulf_manip",
+   "id": "mmove:taousd:1791100800",
+   "strategy": "mmove",
    "regime": null,
    "risk_mult": 1.0,
-   "pair": "asterusd",
-   "symbol": "ASTERUSD",
+   "pair": "taousd",
+   "symbol": "TAOUSD",
    "class": "crypto",
-   "dir": "bear",
-   "stop": 0.71898143,
-   "ref_entry": 0.7137,
+   "dir": "bull",
+   "stop": 300.26364286,
+   "ref_entry": 304.99,
    "pivot": null,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "market",
    "demo_only": false,
-   "trigger_ts": 1791079200,
-   "created_ts": 1791097200,
-   "expiry_ts": 1791122400,
+   "trigger_ts": 1791100800,
+   "created_ts": 1791100800,
+   "expiry_ts": 1791144000,
    "state": "triggered",
    "cofire": [
-    "engulf_manip"
+    "mmove"
    ],
    "cofire_dirs": [
-    "engulf_manip:bear"
+    "mmove:bull"
    ],
-   "suppressed": 0
+   "suppressed": 1
   },
   {
    "id": "mmove:lighterusd:1791054000",
@@ -50,36 +50,8 @@
    "entry_mode": "market",
    "demo_only": false,
    "trigger_ts": 1791054000,
-   "created_ts": 1791097200,
+   "created_ts": 1791100800,
    "expiry_ts": 1791097200,
-   "state": "triggered",
-   "cofire": [
-    "mmove"
-   ],
-   "cofire_dirs": [
-    "mmove:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "mmove:taousd:1791046800",
-   "strategy": "mmove",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "taousd",
-   "symbol": "TAOUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 290.53128571,
-   "ref_entry": 291.31,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "market",
-   "demo_only": false,
-   "trigger_ts": 1791046800,
-   "created_ts": 1791097200,
-   "expiry_ts": 1791090000,
    "state": "triggered",
    "cofire": [
     "mmove"
