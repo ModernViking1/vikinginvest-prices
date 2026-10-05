@@ -21,7 +21,7 @@
 //|    Attach to ONE chart (any symbol); it manages all .EQ symbols. |
 //+------------------------------------------------------------------+
 #property copyright "Viking Invest"
-#property version   "1.02"
+#property version   "1.03"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -76,6 +76,8 @@ void OnDeinit(const int reason){ EventKillTimer(); }
 //+------------------------------------------------------------------+
 void OnTimer()
   {
+   ManageOpen();                                // trail/time-exit every 30s — NOT dependent on the
+                                                // chart symbol ticking (the AAPL.NAS-quiet trap)
    string body;
    bool ok = (StringLen(InpLocalFile) > 0) ? ReadLocalBody(InpLocalFile, body) : HttpGet(InpFeedURL, body);
    if(!ok)
@@ -96,9 +98,14 @@ void OnTimer()
   }
 
 //+------------------------------------------------------------------+
-//| Manage trailing + time-exit on every tick                       |
+//| Manage trailing + time-exit                                      |
+//| Runs from BOTH OnTick and OnTimer. OnTick alone is unreliable: it |
+//| only fires on the ATTACHED chart's symbol, so if that symbol is   |
+//| quiet (e.g. AAPL.NAS between ticks) the trail on every OTHER open  |
+//| position never updates. Calling it on the 30s timer guarantees the |
+//| runner exit ratchets regardless of the chart symbol's tick flow.   |
 //+------------------------------------------------------------------+
-void OnTick()
+void ManageOpen()
   {
    for(int i=ArraySize(gStates)-1; i>=0; i--)
      {
@@ -135,6 +142,8 @@ void OnTick()
         }
      }
   }
+
+void OnTick(){ ManageOpen(); }   // responsive trail on the attached symbol's ticks
 
 //+------------------------------------------------------------------+
 //| Decide + place a single signal                                  |
@@ -187,7 +196,20 @@ void ProcessSignal(const string obj)
 
    bool ok = (dir>0) ? trade.Buy(lots, sym, 0.0, sl, 0.0, id)
                      : trade.Sell(lots, sym, 0.0, sl, 0.0, id);
-   if(!ok) { PrintFormat("ORDER FAIL %s %s: %d %s", sym, dirS, trade.ResultRetcode(), trade.ResultRetcodeDescription()); return; }
+   if(!ok)
+     {
+      int rc = (int)trade.ResultRetcode();
+      PrintFormat("ORDER FAIL %s %s: %d %s", sym, dirS, rc, trade.ResultRetcodeDescription());
+      // Structural rejects that won't clear by re-sending THIS signal next poll — mark it acted so
+      // the EA stops hammering OrderSend (and the log) every 30s. close-only (10044) = broker allows
+      // only closing this symbol now; long/short-only (10042/10043) = this direction is blocked;
+      // trade-disabled (10017) = symbol not openable. A transient reject (requote/price-changed/
+      // timeout/busy) is left to retry on the next poll.
+      if(rc==TRADE_RETCODE_CLOSE_ONLY || rc==TRADE_RETCODE_LONG_ONLY || rc==TRADE_RETCODE_SHORT_ONLY ||
+         rc==TRADE_RETCODE_TRADE_DISABLED)
+        { MarkActed(id); PrintFormat("  -> %s %s not openable now (rc %d); skipping this signal", sym, dirS, rc); }
+      return;
+     }
 
    ulong ticket = trade.ResultOrder();
    // find the resulting position ticket (hedging: by symbol+magic+comment)
