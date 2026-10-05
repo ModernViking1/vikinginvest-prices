@@ -1,0 +1,40 @@
+name: Swing Limit-Entry Backtest (3yr, read-only)
+
+# Validates the swing book's entry_mode='limit' switch over the 3-year deep cache: per strategy,
+# does a resting limit at the model entry FILL (vs just not filling, the cam_rev failure mode), and
+# does its expectancy MATCH the immediate-fill baseline the backtest assumes? The 1yr run showed
+# 99-100% fill with limExp within ~0.04R of immExp; this confirms it holds over 3 years before we
+# trust the live change. Commits nothing; prints the table to the log.
+
+on:
+  workflow_dispatch:
+
+concurrency: { group: swing-limit-backtest, cancel-in-progress: false }
+permissions: { contents: read }
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: python -m pip install --upgrade pip requests
+      - name: Guard files present
+        run: for f in swing_limit_backtest.py unified_shadow_harness.py backtest_rsi_per_class.py fetch_historical_ohlc.py; do [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }; done
+      - name: Restore deep m15 cache (else fetch 3yr)
+        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}', OANDA_TOKEN: '${{ secrets.OANDA_TOKEN }}', CACHE_TAG: deep-ohlc-cache }
+        run: |
+          if gh release download "$CACHE_TAG" --repo "$GITHUB_REPOSITORY" -p deep-ohlc.json.gz --clobber 2>/dev/null; then
+            gunzip -c deep-ohlc.json.gz > deep-ohlc.json; echo "restored $(ls -lh deep-ohlc.json|awk '{print $5}')"
+          else
+            python fetch_historical_ohlc.py --days 1095 --m15-days 1095 --output deep-ohlc.json
+          fi
+      - name: Limit-fill vs immediate-fill (3yr, causal)
+        run: |
+          echo "================ RESULT ================"
+          python swing_limit_backtest.py --hist deep-ohlc.json
+          echo "========================================"
+          rm -f deep-ohlc.json deep-ohlc.json.gz
