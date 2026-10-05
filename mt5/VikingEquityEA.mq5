@@ -21,7 +21,7 @@
 //|    Attach to ONE chart (any symbol); it manages all .EQ symbols. |
 //+------------------------------------------------------------------+
 #property copyright "Viking Invest"
-#property version   "1.00"
+#property version   "1.01"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -160,13 +160,27 @@ void ProcessSignal(const string obj)
    if((ENUM_SYMBOL_TRADE_MODE)SymbolInfoInteger(sym, SYMBOL_TRADE_MODE)==SYMBOL_TRADE_MODE_DISABLED) return;
 
    int dir = (dirS=="bull") ? 1 : -1;
-   double R = MathAbs(entry - stop);
+   if(MathAbs(entry - stop) <= 0) return;
+
+   int    digits = (int)SymbolInfoInteger(sym, SYMBOL_DIGITS);
+   double point  = SymbolInfoDouble(sym, SYMBOL_POINT);
+   double price  = (dir>0) ? SymbolInfoDouble(sym, SYMBOL_ASK) : SymbolInfoDouble(sym, SYMBOL_BID);
+   // broker minimum distance between market and a stop (stock CFDs enforce this -> retcode 10016)
+   double minDist = (double)SymbolInfoInteger(sym, SYMBOL_TRADE_STOPS_LEVEL) * point;
+   double sl = stop;
+   // setup has MOVED since the signal bar — SL now on the wrong side of the live price -> skip,
+   // don't chase a blown level (same discipline as the swing stale-fill guard).
+   if((dir>0 && sl >= price) || (dir<0 && sl <= price))
+     { if(InpVerbose) PrintFormat("skip %s — SL %.5f wrong side of market %.5f (setup moved)", id, sl, price); return; }
+   // too close to market -> widen to the broker minimum (accept a slightly larger R rather than reject)
+   if(dir>0 && (price - sl) < minDist) sl = price - minDist;
+   if(dir<0 && (sl - price) < minDist) sl = price + minDist;
+   sl = NormalizeDouble(sl, digits);
+   double R = MathAbs(price - sl);               // R off the actual fill-side price + (adjusted) SL
    if(R<=0) return;
    double lots = LotsForRisk(sym, R);
    if(lots<=0) { PrintFormat("skip %s — lot sizing <=0", id); return; }
 
-   double price = (dir>0) ? SymbolInfoDouble(sym, SYMBOL_ASK) : SymbolInfoDouble(sym, SYMBOL_BID);
-   double sl    = NormalizeDouble(stop, (int)SymbolInfoInteger(sym, SYMBOL_DIGITS));
    bool ok = (dir>0) ? trade.Buy(lots, sym, 0.0, sl, 0.0, id)
                      : trade.Sell(lots, sym, 0.0, sl, 0.0, id);
    if(!ok) { PrintFormat("ORDER FAIL %s %s: %d %s", sym, dirS, trade.ResultRetcode(), trade.ResultRetcodeDescription()); return; }
@@ -175,7 +189,7 @@ void ProcessSignal(const string obj)
    // find the resulting position ticket (hedging: by symbol+magic+comment)
    ulong ptk = FindPositionByComment(sym, id);
    double holdSec = holdB * TfMinutes(tf) * 60.0;
-   AddState(ptk>0?ptk:ticket, (dir>0?price:price), stop, R, dir, TimeCurrent()+(datetime)holdSec);
+   AddState(ptk>0?ptk:ticket, price, sl, R, dir, TimeCurrent()+(datetime)holdSec);
    MarkActed(id);
    PrintFormat("PLACED %s %s %.2f lots entry~%.4f SL %.4f (R=%.4f, hold~%.0fh)", sym, dirS, lots, price, sl, R, holdSec/3600.0);
   }
