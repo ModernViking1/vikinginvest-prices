@@ -1862,8 +1862,41 @@ SESS_HOLD = _SESS_GEO['m5']['HOLD']         # 288 m5 bars (~24h) bracket horizon
 # unless a live delta ingester / daily-dump fetch is added. Needs the delta key, which
 # _bars_norm strips — hence the delta-preserving _delta_norm.
 BINANCE_CRYPTO = os.path.join(_HERE, 'binance-crypto-ohlcv.json')
+BINANCE_BTC_LIVE = os.path.join(_HERE, 'binance-btc-live.json')
 ABSORB_RR = 2.0                             # the passing reward:risk on BTC 15m
 ABSORB_HOLD = 160                           # m15 bars bracket horizon
+
+
+def _btc_delta_bars():
+    """BTC 15m real-delta bars for the absorb_btc observer — the MONTHLY dump extended with
+    the near-real-time LIVE tail, deduped by timestamp.
+
+    Why merge (2026-10-05): the live emitter (absorb_live.py) trades off binance-btc-live.json
+    (a rolling ~10-day window), but this observer scored only binance-crypto-ohlcv.json, whose
+    monthly dump lags ~5 weeks. The model window therefore ENDED before every recent live fill,
+    so exec reconciliation orphaned ~77% of absorb_btc trades — not a logic gap (both sides run
+    the SAME absorption_signals detector on identical binance.vision schema), purely a coverage
+    gap. Appending the live tail gives the shadow log model signals over the live period so the
+    live fills can actually reconcile to the bars they fired on. BTC-only (the sole live crypto
+    name); ETH/XRP/SOL research keeps reading the monthly file untouched. Fail-open."""
+    bars = []
+    try:
+        bc = json.load(open(BINANCE_CRYPTO)); iv = bc.get('interval', '15m')
+        if iv == '15m':
+            bars = _delta_norm(bc.get('pairs', {}).get('btcusd', {}).get(iv, []))
+    except Exception:
+        bars = []
+    try:
+        lv = json.load(open(BINANCE_BTC_LIVE)); liv = lv.get('interval', '15m')
+        if liv == '15m':
+            tail = _delta_norm(lv.get('pairs', {}).get('btcusd', {}).get(liv, []))
+            if tail:
+                seen = {b['_ts'] for b in bars}
+                bars = bars + [b for b in tail if b['_ts'] not in seen]
+                bars.sort(key=lambda b: b['_ts'])
+    except Exception:
+        pass
+    return bars
 
 
 def _absorb_btc_signals(m15):
@@ -2623,12 +2656,11 @@ def main():
         except Exception as e:
             print(f"orb_ln m5 observer skipped: {e}")
 
-    # ── BTC absorption observer — Binance real-delta (binance-crypto-ohlcv.json). ──
-    if os.path.exists(BINANCE_CRYPTO):
+    # ── BTC absorption observer — Binance real-delta (monthly dump + live tail). ──
+    if os.path.exists(BINANCE_CRYPTO) or os.path.exists(BINANCE_BTC_LIVE):
         try:
-            bc = json.load(open(BINANCE_CRYPTO)); iv = bc.get('interval', '15m')
-            btc = _delta_norm(bc.get('pairs', {}).get('btcusd', {}).get(iv, []))
-            if iv == '15m' and len(btc) >= 400:
+            btc = _btc_delta_bars()           # monthly + near-real-time tail, deduped & sorted
+            if len(btc) >= 400:
                 data_end = max(data_end, btc[-1]['_ts'])
                 for s in _absorb_btc_signals(btc):
                     detected += 1
