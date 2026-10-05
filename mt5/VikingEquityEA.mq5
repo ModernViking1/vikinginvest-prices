@@ -28,6 +28,8 @@
 #include <Trade/PositionInfo.mqh>
 
 input string InpFeedURL      = "https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/equity-signals.json";
+input string InpLocalFile    = "";        // if set, read this file from MQL5/Files instead of the URL
+                                          //   (bridge mode — equity_bridge.py writes it there). e.g. "equity-signals.json"
 input int    InpPollSeconds  = 30;        // feed poll cadence (OANDA/equity feed refreshes ~15 min)
 input double InpRiskPct      = 0.5;       // risk per trade, % of account equity
 input long   InpMagic        = 5204940;   // EA magic (ties positions to this EA)
@@ -71,8 +73,9 @@ void OnDeinit(const int reason){ EventKillTimer(); }
 void OnTimer()
   {
    string body;
-   if(!HttpGet(InpFeedURL, body))
-      return;                                   // transient fetch failure → try next tick
+   bool ok = (StringLen(InpLocalFile) > 0) ? ReadLocalBody(InpLocalFile, body) : HttpGet(InpFeedURL, body);
+   if(!ok)
+      return;                                   // transient fetch/read failure → try next tick
 
    // kill-switch / demo-default are top-level; signals is the array
    if(JTopBool(body, "killed"))
@@ -281,6 +284,20 @@ bool HttpGet(const string url, string &out)
    if(code!=200){ if(InpVerbose) PrintFormat("feed HTTP %d", code); return false; }
    out = CharArrayToString(result, 0, WHOLE_ARRAY, CP_UTF8);
    return StringLen(out)>0;
+  }
+
+// Read the whole signal file from MQL5/Files (bridge mode). The equity_bridge.py process writes it
+// atomically, so a partial read is unlikely; a failed/empty read just skips this cycle.
+bool ReadLocalBody(const string fname, string &out)
+  {
+   int h = FileOpen(fname, FILE_READ|FILE_TXT|FILE_ANSI|FILE_SHARE_READ|FILE_SHARE_WRITE);
+   if(h==INVALID_HANDLE)
+     { if(InpVerbose) PrintFormat("local feed %s not found yet (err %d)", fname, GetLastError()); return false; }
+   out = "";
+   while(!FileIsEnding(h))
+      out += FileReadString(h);
+   FileClose(h);
+   return StringLen(out) > 0;
   }
 
 //+------------------------------------------------------------------+
