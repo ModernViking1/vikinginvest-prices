@@ -21,7 +21,7 @@
 //|    Attach to ONE chart (any symbol); it manages all .EQ symbols. |
 //+------------------------------------------------------------------+
 #property copyright "Viking Invest"
-#property version   "1.03"
+#property version   "1.04"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -76,8 +76,8 @@ void OnDeinit(const int reason){ EventKillTimer(); }
 //+------------------------------------------------------------------+
 void OnTimer()
   {
-   ManageOpen();                                // trail/time-exit every 30s — NOT dependent on the
-                                                // chart symbol ticking (the AAPL.NAS-quiet trap)
+   ManageOpen(true);                            // trail/time-exit + heartbeat every 30s — NOT dependent
+                                                // on the chart symbol ticking (the AAPL.NAS-quiet trap)
    string body;
    bool ok = (StringLen(InpLocalFile) > 0) ? ReadLocalBody(InpLocalFile, body) : HttpGet(InpFeedURL, body);
    if(!ok)
@@ -105,7 +105,7 @@ void OnTimer()
 //| position never updates. Calling it on the 30s timer guarantees the |
 //| runner exit ratchets regardless of the chart symbol's tick flow.   |
 //+------------------------------------------------------------------+
-void ManageOpen()
+void ManageOpen(bool beat=false)
   {
    for(int i=ArraySize(gStates)-1; i>=0; i--)
      {
@@ -128,22 +128,37 @@ void ManageOpen()
       // arm once profit >= ArmR*R (ArmR folded into initStop distance == 1R; arm at +1R)
       double profitR = (gStates[i].dir>0) ? (px-gStates[i].entry)/R : (gStates[i].entry-px)/R;
       if(!gStates[i].armed && profitR >= 1.0) gStates[i].armed = true;    // arm at +1R (TRAIL_ARM)
+
+      int    dg    = (int)SymbolInfoInteger(sym, SYMBOL_DIGITS);
+      double curSL = PositionGetDouble(POSITION_SL);
+      // where the trail WOULD sit (shown pre-arm too, so you can see it waiting)
+      double trailSL = NormalizeDouble((gStates[i].dir>0) ? gStates[i].best - R : gStates[i].best + R, dg);
+
+      // HEARTBEAT — one line per open position per poll, so the Experts log shows the runner is live:
+      // armed state, R, current profit in R, best price seen, and where the trailing stop sits/will sit.
+      if(beat)
+         PrintFormat("HB %-10s %-4s %s  R=%.4f  profit=%+.2fR  px=%.4f  best=%.4f  SL %.4f->%.4f",
+                     sym, (gStates[i].dir>0?"buy":"sell"), (gStates[i].armed?"ARMED":"wait "),
+                     R, profitR, px, gStates[i].best, curSL, (gStates[i].armed?trailSL:curSL));
+
       if(!gStates[i].armed) continue;
 
       // trail 1R behind the best (TRAIL_DIST=1R)
-      double newSL = (gStates[i].dir>0) ? gStates[i].best - R : gStates[i].best + R;
-      double curSL = PositionGetDouble(POSITION_SL);
-      bool improve = (gStates[i].dir>0) ? (newSL > curSL) : (newSL < curSL || curSL==0);
+      bool improve = (gStates[i].dir>0) ? (trailSL > curSL) : (trailSL < curSL || curSL==0);
       if(improve)
         {
          double tp = PositionGetDouble(POSITION_TP);
-         newSL = NormalizeDouble(newSL, (int)SymbolInfoInteger(sym, SYMBOL_DIGITS));
-         trade.PositionModify(gStates[i].ticket, newSL, tp);
+         if(trade.PositionModify(gStates[i].ticket, trailSL, tp))
+            PrintFormat("TRAIL %-10s SL %.4f -> %.4f  (best %.4f, +1R locked past %+.2fR)",
+                        sym, curSL, trailSL, gStates[i].best, profitR);
+         else
+            PrintFormat("TRAIL FAIL %-10s -> %.4f: %d %s", sym, trailSL,
+                        trade.ResultRetcode(), trade.ResultRetcodeDescription());
         }
      }
   }
 
-void OnTick(){ ManageOpen(); }   // responsive trail on the attached symbol's ticks
+void OnTick(){ ManageOpen(false); }   // responsive trail on the attached symbol's ticks (quiet)
 
 //+------------------------------------------------------------------+
 //| Decide + place a single signal                                  |
