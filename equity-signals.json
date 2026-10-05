@@ -1,7 +1,7 @@
 {
  "schema_version": 2,
- "generated": "2026-10-03T10:26:47.717668+00:00",
- "generated_ms": 1791023207717,
+ "generated": "2026-10-05T21:32:54.312637+00:00",
+ "generated_ms": 1791235974312,
  "session": "14-21UTC",
  "demo_only_default": true,
  "broker": "mt5",
@@ -14,7 +14,68 @@
  },
  "note": "Equity .EQ book (holygrail_eq / holygrail_eq_m15 / twob_eq / volbreak_eq) \u2014 MT5 symbols (.NAS), trailing exit (arm +1R, trail 1R, 200-bar horizon). Demo-only pilot executed by the VikingEquity MT5 EA (mt5/VikingEquityEA.mq5), NOT cTrader.",
  "counts": {
-  "emitted": 0
+  "emitted": 3
  },
- "signals": []
+ "signals": [
+  {
+   "id": "holygrail_eq:aapl:1791225000",
+   "pair": "aapl",
+   "sym": "AAPL.NAS",
+   "cls": "equity",
+   "strategy": "holygrail_eq",
+   "dir": "bear",
+   "state": "armed",
+   "entry": 333.1315,
+   "stop": 335.1124,
+   "exit_mode": "trail",
+   "trail_arm_r": 1.0,
+   "trail_dist_r": 1.0,
+   "trail_hold_bars": 200,
+   "tf": "h1",
+   "entry_ts_ms": 1791225000000,
+   "age_min": 60.0,
+   "source": "server-detector",
+   "demo_only": true
+  },
+  {
+   "id": "twob_eq:tsla:1791228600",
+   "pair": "tsla",
+   "sym": "TSLA.NAS",
+   "cls": "equity",
+   "strategy": "twob_eq",
+   "dir": "bear",
+   "state": "armed",
+   "entry": 379.535,
+   "stop": 382.1034,
+   "exit_mode": "trail",
+   "trail_arm_r": 1.0,
+   "trail_dist_r": 1.0,
+   "trail_hold_bars": 200,
+   "tf": "h1",
+   "entry_ts_ms": 1791228600000,
+   "age_min": 0.0,
+   "source": "server-detector",
+   "demo_only": true
+  },
+  {
+   "id": "twob_eq:amzn:1791228600",
+   "pair": "amzn",
+   "sym": "AMZN.NAS",
+   "cls": "equity",
+   "strategy": "twob_eq",
+   "dir": "bear",
+   "state": "armed",
+   "entry": 253.71,
+   "stop": 254.3143,
+   "exit_mode": "trail",
+   "trail_arm_r": 1.0,
+   "trail_dist_r": 1.0,
+   "trail_hold_bars": 200,
+   "tf": "h1",
+   "entry_ts_ms": 1791228600000,
+   "age_min": 0.0,
+   "source": "server-detector",
+   "demo_only": true
+  }
+ ]
 }
