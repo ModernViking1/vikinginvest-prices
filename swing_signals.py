@@ -473,12 +473,16 @@ def main():
                 'pivot': round(s['pivot'], 8) if s.get('pivot') is not None else None,  # cam_rev R3/S3 — informational (alert reference), not executed
                 'rr': s.get('rr', RR),   # per-signal RR (asianglitch=3.0); others default to RR (2.0)
                 'r_pct': R_PCT,
-                # cam_rev is a level FADE — it must fill AT the pivot (ref_entry), not chase the
-                # bounce at market. Emitting it as a LIMIT lets the cBot rest a pending order at the
-                # level, matching the backtest's precise-close model and sidestepping the stale-market
-                # / entry-drift guards that (correctly) refuse a late market chase — the reason
-                # market-mode cam_rev never filled. All other strategies stay market.
-                'entry_mode': 'limit' if s['strategy'] == 'cam_rev' else 'market',
+                # 2026-10-05 — ALL swing strategies now use LIMIT entry (was market for non-cam_rev).
+                # The per-strategy execution reconciliation (exec_reconcile.py) showed MARKET fills
+                # drift ~0.5R from the model entry (late market chase) — the main reason live ran
+                # below the backtest (e.g. hs: 92% right bars but -0.21R vs model, 0.54R entry drift,
+                # 211m latency). swing_limit_backtest.py then confirmed a resting LIMIT at the entry
+                # fills 99-100% on EVERY swing strategy (unlike cam_rev's fade, these structural/
+                # momentum levels get revisited) with expectancy within ~0.02-0.04R of the immediate-
+                # fill baseline. So a limit fills reliably AND aligns the live fill with the backtest
+                # entry, removing the drift. The cBot rests the limit at ref_entry for the 12h window.
+                'entry_mode': 'limit',
                 # cBot skips demo_only on a live account. cam_rev is LIVE for its robust classes
                 # (major/minor/index/comm) but the crypto pilot (btc/eth/xrp/sol) is DEMO-ONLY:
                 # the 3yr limit-execution backtest (cam_limit_backtest.py) showed crypto cam_rev is
