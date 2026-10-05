@@ -1,0 +1,44 @@
+name: Live Book Dashboard (regenerate)
+
+# Regenerates viking_live_book.html (the investor backtest-vs-live board) from the committed
+# logs whenever any of them change — so the EQUITY live column fills in automatically the moment
+# the MT5 bridge commits the first closed demo trades, and WR/R stay current without manual steps.
+# Commits only the HTML (not in the trigger paths, so no loop). The published claude.ai artifact is
+# refreshed separately by re-publishing the file; this keeps the repo snapshot always current.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'backtest-summary.json'
+      - 'executions.json'
+      - 'swing-executions.json'
+      - 'equity-executions.json'
+      - 'build_live_book.py'
+
+concurrency: { group: live-book, cancel-in-progress: true }
+permissions: { contents: write }
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Regenerate dashboard
+        run: python build_live_book.py
+      - name: Commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add viking_live_book.html
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          git commit -m "chore: refresh live-book dashboard [skip ci]"
+          for i in 1 2 3 4; do
+            git push origin HEAD:main && { echo pushed; exit 0; } || { git fetch origin main && git rebase origin/main && sleep $((2 ** i)); }
+          done
+          echo "::error::push failed after retries"; exit 1
