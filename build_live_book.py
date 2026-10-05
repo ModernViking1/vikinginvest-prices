@@ -27,7 +27,7 @@ SANE_R = 6.0
 # Forward-test inception. The live book was corrected on 5 Oct (causal detectors, swing limit entry,
 # equity-EA trail fix). Only trades CLOSED at/after this instant count toward live WR/RR — a clean
 # forward test on the fully-fixed system. Bump it to re-baseline again later.
-FORWARD_START_ISO = "2026-10-05T14:00:00"
+FORWARD_START_ISO = "2026-10-05T00:00:00"
 FORWARD_START = dt.datetime.fromisoformat(FORWARD_START_ISO).replace(tzinfo=dt.timezone.utc).timestamp()
 
 # Rank score = (n*liveMean + K*backtest) / (n+K). Backtest is a K-trade prior; live pulls the score
