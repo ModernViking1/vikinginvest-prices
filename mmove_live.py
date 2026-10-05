@@ -29,44 +29,21 @@ HIST = os.path.join(_HERE, 'historical-ohlc.json')
 STATE = os.path.join(_HERE, 'mmove-open.json')
 POCKETS = ['xrpusd', 'xauusd', 'xagusd', 'fra40']
 _CLS = {'xrpusd': 'crypto', 'xauusd': 'comm', 'xagusd': 'comm', 'fra40': 'index'}
-IMP = 1.0; RETR = 24; BUF = 0.10; COOL = 3; RR = 2.0
+RR = 2.0   # target multiple (matches the harness's RR2 scoring). The detection params
+           # (IMP/RETR/BUF/COOL) now live ONLY in unified_shadow_harness — single source of truth.
 FRESH_MIN = 30            # a setup may ENTER tracking only within 30 min of the data end
 MAX_HOLD_MIN = 24 * 60   # stop tracking after 24h even if unresolved (safety bound)
 
 
 def _mmove_signals(bars):
-    """m15 FVG retrace-continuation (mirrors detect_mmove_m15 in the shadow harness)."""
-    n = len(bars); out = []; last = -1
-    for i in range(15, n - 2):
-        if i <= last:
-            continue
-        a = atr(bars, 14, i) or 0.0
-        if a <= 0:
-            continue
-        body = bars[i]['c'] - bars[i]['o']
-        if body >= IMP * a and bars[i + 1]['l'] > bars[i - 1]['h']:            # bullish FVG
-            g_bot = bars[i - 1]['h']; g_top = bars[i + 1]['l']
-            for r in range(i + 2, min(i + 2 + RETR, n - 1)):
-                b = bars[r]
-                if b['l'] <= g_top and b['c'] > g_bot:
-                    entry = b['c']; stop = g_bot - BUF * a
-                    if stop < entry:
-                        out.append((bars[r + 1]['_ts'], entry, stop, 'bull'))
-                    last = r + COOL; break
-                if b['c'] < g_bot:
-                    break
-        elif -body >= IMP * a and bars[i + 1]['h'] < bars[i - 1]['l']:         # bearish FVG
-            g_top = bars[i - 1]['l']; g_bot = bars[i + 1]['h']
-            for r in range(i + 2, min(i + 2 + RETR, n - 1)):
-                b = bars[r]
-                if b['h'] >= g_bot and b['c'] < g_top:
-                    entry = b['c']; stop = g_top + BUF * a
-                    if stop > entry:
-                        out.append((bars[r + 1]['_ts'], entry, stop, 'bear'))
-                    last = r + COOL; break
-                if b['c'] > g_top:
-                    break
-    return out
+    """m15 FVG retrace-continuation. 2026-10-05 — now a thin wrapper over the SHADOW HARNESS
+    detector (unified_shadow_harness._mmove_signals) so the LIVE feed and the BACKTEST share ONE
+    code path and can never drift. Previously this was a byte-for-byte duplicate (verified identical,
+    same IMP/RETR/BUF/COOL), but a duplicate is a latent divergence bug — the exact class the cam_rev
+    episode taught us to eliminate. Returns the (entry_ts, entry, stop, dir) tuples this module uses."""
+    from unified_shadow_harness import _mmove_signals as _harness_mmove
+    return [(s['entry_ts'], s['entry'], s['stop'], s['dir'])
+            for s in _harness_mmove(bars, '_live', 'mmove_m15', 'm15')]
 
 
 def _load_pockets():
