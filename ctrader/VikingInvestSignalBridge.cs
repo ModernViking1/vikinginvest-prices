@@ -1714,6 +1714,7 @@ namespace cAlgo.Robots
             { "nas100", new[] { "USTEC",  "NAS100",  "NASDAQ",   "NQ" } },
             { "spx500", new[] { "US500",  "SPX500",  "SP500",    "ES" } },
             { "ftse100",new[] { "UK100",  "FTSE100", "FTSE" } },
+            { "fra40",  new[] { "F40",    "FRA40",   "FR40",     "CAC40",   "CAC" } },
             { "jp225",  new[] { "JPN225", "JP225",   "NIKKEI",   "N225" } },
             // Crypto — IC Markets uses uppercase bare, fall back to suffixed
             // variants for the few brokers that append qualifiers.

@@ -24,6 +24,13 @@ from collections import defaultdict
 _HERE = os.path.dirname(os.path.abspath(__file__))
 SANE_R = 6.0
 
+# Forward-test inception. The live book was corrected over early October (causal detectors, swing
+# limit entry, the equity-EA trail fix). Pre-inception fills came from the old/buggy regime and
+# don't represent the system now live — so the live WR/RR counts ONLY trades CLOSED on/after this
+# date, a clean forward test on the corrected system. Raise it to re-baseline again later.
+FORWARD_START_ISO = "2026-10-05"
+FORWARD_START = dt.datetime.fromisoformat(FORWARD_START_ISO).replace(tzinfo=dt.timezone.utc).timestamp()
+
 # The live book, grouped by execution venue. Strategy tags match backtest-summary + the feeds.
 ROSTER = {
     "Swing · OANDA cBot":   ["hs", "gbreak", "twob_ix", "mmove", "engulf_manip",
@@ -78,6 +85,9 @@ def live_rows():
             rr = r.get("realized_r")
             if rr is None or abs(rr) > SANE_R:
                 continue
+            ts = r.get("ts")                      # closed-event epoch (ms)
+            if ts is not None and (ts / 1000.0) < FORWARD_START:
+                continue                          # pre-inception fill — excluded from the forward test
             m = _method_from_id(r.get("signal_id"), swing)
             if m:
                 agg[m].append(rr)
@@ -87,6 +97,9 @@ def live_rows():
         for r in d.get("executions", []):
             rr = r.get("realized_r")
             st = r.get("strategy")
+            cms = r.get("closed_ms")
+            if cms is not None and (cms / 1000.0) < FORWARD_START:
+                continue
             if st and rr is not None and abs(rr) <= SANE_R:
                 agg[st].append(rr)
     return agg
@@ -183,7 +196,7 @@ _TMPL = r"""<title>Viking Live Book</title>
 <div class="wrap">
   <div class="eyebrow">Viking Edge · Forward Test</div>
   <h1>Viking Live Book</h1>
-  <p class="lede">Every live strategy's <b>causal 3-year backtest</b> (look-ahead removed) set beside its <b>live forward test to date</b>, most profitable on top. Bars are expectancy in R per trade on one zero-centred scale. This is a reconciliation of backtest against live — not a returns claim.</p>
+  <p class="lede">Every live strategy's <b>causal 3-year backtest</b> (look-ahead removed) set beside its <b>live forward test</b>, most profitable on top. Live counts only trades closed <b>on or after the inception date below</b> — a clean forward test on the corrected system. Bars are expectancy in R per trade on one zero-centred scale; a reconciliation, not a returns claim.</p>
   <div class="kpis" id="kpis"></div>
   <div class="note"><b>Read it straight.</b> The backtest is causal and positive in both out-of-sample halves. The live forward test is <b>early and thin</b> — most strategies have under ~40 fills — and on the names with enough trades it is running <b>below</b> backtest: the remaining gap is execution (slippage, cost, fill timing), now being closed by the switch to limit entry. The <b>equity book is on MT5 demo</b>; its live column fills in automatically as the first demo trades close. So these backtest figures are <b>not yet confirmed as achievable</b>; real capital waits until live tracks the backtest.</div>
   <div class="legend">
@@ -195,7 +208,7 @@ _TMPL = r"""<title>Viking Live Book</title>
   <div class="foot">
     <p><b>Backtest</b> = look-ahead-free 3-year replay, regime-gated and frictionless (net of cost is lower). <b>Live</b> = real cBot / MT5 fills to date, broken fills filtered (|R| ≤ 6). The right column shows backtest expectancy, then live expectancy with win rate and fill count (n).</p>
     <p><b>Order.</b> Books are ranked by their best proven expectancy (equity, then swing, then intraday); within each book, strategies are ranked by 3-yr backtest expectancy — the proven number, so a thin live sample can't reorder the board every few trades.</p>
-    <p><b>Thin samples.</b> A single trade swings a low-n figure. Treat any row under ~n=20 as provisional.</p>
+    <p><b>Fresh start.</b> Live counting was re-baselined at inception (__FWD__); earlier fills, taken under the pre-fix regime, are excluded. So the live columns start near zero and fill in from here — treat any row under ~n=20 as provisional, a single trade swings it.</p>
     <p class="stamp" id="stamp"></p>
   </div>
 </div>
@@ -215,7 +228,7 @@ _TMPL = r"""<title>Viking Live Book</title>
     return '<div class="bar '+cls+'" style="left:'+left+'%;width:'+w+'%;background:'+color+'" title="'+title+'"></div>';
   }
   function statusOf(d){
-    if(d.n===0) return 'demo · 0 closed';
+    if(d.n===0) return d.bk.indexOf('Equity')>=0 ? 'demo · awaiting first close' : 'awaiting first fill';
     if(d.n<20)  return 'live thin · n='+d.n;
     var g=d.lv-d.bt;
     if(g < -0.04) return 'live below · '+g.toFixed(2)+'R';
@@ -243,7 +256,7 @@ _TMPL = r"""<title>Viking Live Book</title>
     }).join('');
     return '<div class="grp"><span class="gn">'+bk+'</span><span class="gs">'+(BOOK_SUB[bk]||'')+'</span></div>'+rows;
   }).join('');
-  document.getElementById('stamp').textContent='Snapshot as of '+ASOF+' · backtest regime-gated, causal · live = real fills, |R| ≤ 6';
+  document.getElementById('stamp').textContent='Snapshot as of '+ASOF+' · forward-test inception __FWD__ · backtest regime-gated, causal · live = real fills, |R| ≤ 6';
 </script>
 """
 
@@ -254,7 +267,9 @@ def main():
     args = ap.parse_args()
     rows = build_data()
     asof = dt.datetime.now(dt.timezone.utc).strftime("%-d %B %Y")
+    fwd = dt.datetime.fromisoformat(FORWARD_START_ISO).strftime("%-d %b %Y")
     html = (_TMPL.replace("__ASOF__", asof)
+                 .replace("__FWD__", fwd)
                  .replace("__DATA__", json.dumps(rows))
                  .replace("__BOOKSUB__", json.dumps(BOOK_SUB)))
     with open(args.out, "w", encoding="utf-8") as f:

@@ -903,7 +903,7 @@ namespace cAlgo.Robots
             { "spx500", new[] { "US500",  "SPX500",  "SP500",    "ES" } },
             { "ftse100",new[] { "UK100",  "FTSE100", "FTSE" } },
             { "jp225",  new[] { "JPN225", "JP225",   "NIKKEI",   "N225" } },
-            { "fra40",  new[] { "FRA40",  "F40",     "FR40",     "CAC40",   "CAC" } },
+            { "fra40",  new[] { "F40",     "FRA40",   "FR40",     "CAC40",   "CAC" } },
             { "dxy",    new[] { "USDX",   "USDOLLAR","DXY",      "USDIDX" } },
         };
 
