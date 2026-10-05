@@ -37,7 +37,10 @@ input int    InpMaxAgeMin    = 120;       // skip a signal whose entry bar is ol
 input bool   InpAllowLive    = false;     // HARD GUARD: false = trade DEMO accounts only
 input int    InpMaxOpenPerSym= 1;         // max concurrent EA positions per symbol
 input int    InpSlippagePts  = 30;        // max deviation (points)
-input double InpMaxLot       = 50.0;      // absolute lot cap (safety)
+input double InpMaxNotionalPct = 20.0;    // cap a position's NOTIONAL at this % of equity (the real
+                                          //   size governor for stock CFDs — tight stops would make
+                                          //   pure 0.5%-risk sizing hugely over-leveraged)
+input double InpMaxLot       = 100000.0;  // absolute lot backstop (notional cap normally binds first)
 input bool   InpVerbose      = true;      // log decisions
 
 CTrade        trade;
@@ -48,6 +51,7 @@ struct TrailState { ulong ticket; double entry; double initStop; double R; int d
 TrailState gStates[];
 string      gActed[];          // signal ids already acted this session (dedup)
 string      gActedFile = "viking_equity_acted.csv";
+string      gOpenLedger = "equity_trades_open.csv";   // ticket->entry/SL so WR/RR can be computed
 
 //+------------------------------------------------------------------+
 int OnInit()
@@ -178,7 +182,7 @@ void ProcessSignal(const string obj)
    sl = NormalizeDouble(sl, digits);
    double R = MathAbs(price - sl);               // R off the actual fill-side price + (adjusted) SL
    if(R<=0) return;
-   double lots = LotsForRisk(sym, R);
+   double lots = LotsForRisk(sym, R, price);
    if(lots<=0) { PrintFormat("skip %s — lot sizing <=0", id); return; }
 
    bool ok = (dir>0) ? trade.Buy(lots, sym, 0.0, sl, 0.0, id)
@@ -189,15 +193,29 @@ void ProcessSignal(const string obj)
    // find the resulting position ticket (hedging: by symbol+magic+comment)
    ulong ptk = FindPositionByComment(sym, id);
    double holdSec = holdB * TfMinutes(tf) * 60.0;
-   AddState(ptk>0?ptk:ticket, price, sl, R, dir, TimeCurrent()+(datetime)holdSec);
+   ulong  statetk = (ptk>0?ptk:ticket);
+   AddState(statetk, price, sl, R, dir, TimeCurrent()+(datetime)holdSec);
+   LogOpen(statetk, id, sym, dir, price, sl, lots);   // ledger so the bridge can compute WR/RR
    MarkActed(id);
    PrintFormat("PLACED %s %s %.2f lots entry~%.4f SL %.4f (R=%.4f, hold~%.0fh)", sym, dirS, lots, price, sl, R, holdSec/3600.0);
+  }
+
+// Append an opened trade to the ledger (ticket,id,sym,dir,entry,initSL,lots,open_epoch). The bridge
+// matches these to MT5's closed deals to compute realised R-multiples (win rate / RR).
+void LogOpen(ulong tk, const string id, const string sym, int dir, double entry, double sl, double lots)
+  {
+   int h = FileOpen(gOpenLedger, FILE_READ|FILE_WRITE|FILE_TXT|FILE_ANSI|FILE_SHARE_READ|FILE_SHARE_WRITE);
+   if(h==INVALID_HANDLE) return;
+   FileSeek(h, 0, SEEK_END);
+   FileWriteString(h, StringFormat("%I64u,%s,%s,%d,%.5f,%.5f,%.2f,%I64d\n",
+                                    tk, id, sym, dir, entry, sl, lots, (long)TimeCurrent()));
+   FileClose(h);
   }
 
 //+------------------------------------------------------------------+
 //| Risk-based position sizing                                       |
 //+------------------------------------------------------------------+
-double LotsForRisk(const string sym, double stopDist)
+double LotsForRisk(const string sym, double stopDist, double price)
   {
    double equity   = AccountInfoDouble(ACCOUNT_EQUITY);
    double riskMoney= equity * (InpRiskPct/100.0);
@@ -207,7 +225,17 @@ double LotsForRisk(const string sym, double stopDist)
    double lossPerLot = (stopDist / tickSize) * tickVal;   // account-currency loss per 1.0 lot at the stop
    if(lossPerLot<=0) return 0.0;
    double lots = riskMoney / lossPerLot;
-   // clamp to symbol volume constraints + the safety cap
+   // NOTIONAL CAP — the real governor for stock CFDs. A tight structural stop makes pure 0.5%-risk
+   // sizing demand a notional far above the account; cap each position at InpMaxNotionalPct of equity
+   // (so on tight-stop names the realised risk is simply < the 0.5% target, which is conservative).
+   double contract = SymbolInfoDouble(sym, SYMBOL_TRADE_CONTRACT_SIZE); if(contract<=0) contract=1.0;
+   double notionalPerLot = contract * price;
+   if(notionalPerLot > 0)
+     {
+      double maxLotsByNotional = (equity * (InpMaxNotionalPct/100.0)) / notionalPerLot;
+      lots = MathMin(lots, maxLotsByNotional);
+     }
+   // clamp to symbol volume constraints + the absolute backstop
    double vmin = SymbolInfoDouble(sym, SYMBOL_VOLUME_MIN);
    double vmax = MathMin(SymbolInfoDouble(sym, SYMBOL_VOLUME_MAX), InpMaxLot);
    double vstep= SymbolInfoDouble(sym, SYMBOL_VOLUME_STEP);

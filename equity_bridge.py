@@ -35,6 +35,67 @@ STRATS = [('holygrail_eq', 'h1', H._holygrail_sig), ('twob_eq', 'h1', H._twob_si
           ('volbreak_eq', 'h1', H._volbreak_sig), ('holygrail_eq_m15', 'm15', H._holygrail_sig)]
 FRESH_MIN = {'h1': 90, 'm15': 45}          # emit only a signal whose entry bar closed within this
 TA, TD, TH = H.TRAIL_ARM, H.TRAIL_DIST, H.TRAIL_HOLD
+MAGIC = 5204940                            # must match the EA's InpMagic
+LEDGER = 'equity_trades_open.csv'          # the EA's open-trade ledger (ticket -> entry/SL)
+
+
+def _load_ledger(path):
+    """{position_ticket: {id,sym,dir,entry,sl,open_ms}} from the EA's ledger CSV."""
+    out = {}
+    if not os.path.exists(path):
+        return out
+    for line in open(path, encoding='utf-8', errors='ignore'):
+        p = line.strip().split(',')
+        if len(p) < 8:
+            continue
+        try:
+            out[int(p[0])] = {'id': p[1], 'sym': p[2], 'dir': int(p[3]),
+                              'entry': float(p[4]), 'sl': float(p[5]), 'lots': float(p[6]),
+                              'open_ms': int(p[7]) * 1000}
+        except ValueError:
+            continue
+    return out
+
+
+def write_executions(mt5, out_dir, days=120):
+    """Match the EA's open ledger to MT5's CLOSED deals (our magic) and write equity-executions.json
+    with realised R-multiples — the basis for win-rate / RR. R = (exit-entry)/|entry-initSL|*dir."""
+    ledger = _load_ledger(os.path.join(out_dir, LEDGER))
+    now = dt.datetime.now(dt.timezone.utc)
+    deals = mt5.history_deals_get(now - dt.timedelta(days=days), now) or []
+    bypos = {}
+    for d in deals:
+        if getattr(d, 'magic', 0) != MAGIC:
+            continue
+        bypos.setdefault(d.position_id, []).append(d)
+    execs = []
+    for pid, dl in bypos.items():
+        outs = [d for d in dl if d.entry == 1]          # DEAL_ENTRY_OUT -> position closed
+        if not outs:
+            continue
+        info = ledger.get(pid)
+        ins = [d for d in dl if d.entry == 0]
+        entry = info['entry'] if info else (ins[0].price if ins else None)
+        sl = info['sl'] if info else None
+        dirn = info['dir'] if info else (1 if (ins and ins[0].type == 0) else -1)
+        exit_px = outs[-1].price
+        profit = sum((d.profit + d.commission + d.swap) for d in dl)
+        rr = None
+        if entry is not None and sl is not None and abs(entry - sl) > 0:
+            rr = ((exit_px - entry) if dirn > 0 else (entry - exit_px)) / abs(entry - sl)
+        sid = info['id'] if info else str(pid)
+        execs.append({'id': sid, 'strategy': sid.split(':')[0],
+                      'sym': (info['sym'] if info else dl[0].symbol),
+                      'dir': ('bull' if dirn > 0 else 'bear'),
+                      'entry': entry, 'exit': exit_px, 'init_sl': sl,
+                      'realized_r': (round(rr, 4) if rr is not None else None),
+                      'profit_ccy': round(profit, 2), 'closed_ms': int(outs[-1].time) * 1000})
+    execs.sort(key=lambda x: x['closed_ms'])
+    doc = {'generated': now.isoformat(), 'source': 'mt5-bridge', 'magic': MAGIC,
+           'count': len(execs), 'executions': execs}
+    with open(os.path.join(out_dir, 'equity-executions.json'), 'w', encoding='utf-8') as f:
+        json.dump(doc, f, separators=(',', ':'))
+    return len(execs)
 
 
 def _rates_to_bars(rates):
@@ -135,6 +196,11 @@ def main():
                 print(f"{dt.datetime.now():%H:%M:%S} wrote {n} signal(s)"
                       + (": " + ", ".join(f"{s['sym']}/{s['strategy']} {s['dir']}" for s in doc['signals']) if n else ""),
                       flush=True)
+                try:
+                    nx = write_executions(mt5, out_dir)
+                    print(f"           executions log: {nx} closed trade(s)", flush=True)
+                except Exception as e:
+                    print(f"::warning:: executions log failed ({e})", flush=True)
             except Exception as e:
                 print(f"::warning:: build cycle failed ({e}) — retrying next poll", flush=True)
             time.sleep(args.poll)
