@@ -40,7 +40,7 @@ TA, TD, TH = H.TRAIL_ARM, H.TRAIL_DIST, H.TRAIL_HOLD
 def _rates_to_bars(rates):
     out = []
     for r in rates:
-        t = dt.datetime.utcfromtimestamp(int(r['time'])).strftime('%Y-%m-%d %H:%M:%S')
+        t = dt.datetime.fromtimestamp(int(r['time']), dt.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
         try:
             out.append({'t': t, 'o': float(r['open']), 'h': float(r['high']),
                         'l': float(r['low']), 'c': float(r['close']), 'v': float(r['tick_volume'])})
