@@ -1,57 +1,68 @@
 <title>Viking Live Book</title>
-<meta name="description" content="Causal 3-year backtest set beside the live forward test to date — WR and expectancy across the equity, intraday and swing books, most profitable on top.">
+<meta name="description" content="One live-weighted leaderboard of every Viking strategy — causal 3-year backtest beside the live forward test, most profitable on top across swing, intraday and equity.">
 <style>
-  /* Reconciliation board: per strategy, the causal 3-yr backtest expectancy sits above the
-     live-so-far expectancy on one zero-centred scale, grouped by book, most profitable on top. */
+  /* One flat leaderboard, ranked by a live-weighted blend of backtest + live expectancy. Each row:
+     rank, strategy + book badge, a zero-centred backtest-vs-live bar, and the figures. Dark-first. */
   :root{
     --bg:#0b100d; --panel:#111814; --rule:#20302a; --rule2:#2b3d35;
     --ink:#e9f2ed; --inkm:#a4b9af; --inkd:#6b7f76;
     --bt:#56b487; --bt-deep:#2f8f63; --live:#e0a83a; --neg:#cf5b4c; --warn:#d8b24a;
+    --sw:#5aa0d6; --intra:#b584d8; --eq:#4fb59a;        /* book badges */
     color-scheme:dark;
   }
   @media (prefers-color-scheme:light){ :root:not([data-theme="dark"]){
     --bg:#f2f6f3; --panel:#ffffff; --rule:#dde7e1; --rule2:#cbd9d1;
     --ink:#122019; --inkm:#47584f; --inkd:#78897f;
     --bt:#2f8f5d; --bt-deep:#1e7849; --live:#9a7410; --neg:#b23e2d; --warn:#8a6b10;
+    --sw:#2b6ca3; --intra:#7a4caa; --eq:#1f8a72;
     color-scheme:light;
   }}
   :root[data-theme="light"]{
     --bg:#f2f6f3; --panel:#ffffff; --rule:#dde7e1; --rule2:#cbd9d1;
     --ink:#122019; --inkm:#47584f; --inkd:#78897f;
     --bt:#2f8f5d; --bt-deep:#1e7849; --live:#9a7410; --neg:#b23e2d; --warn:#8a6b10;
+    --sw:#2b6ca3; --intra:#7a4caa; --eq:#1f8a72;
     color-scheme:light;
   }
   *{box-sizing:border-box}
   body{background:var(--bg); color:var(--ink); font-family:"IBM Plex Sans",system-ui,-apple-system,sans-serif; line-height:1.5;}
   .mono{font-family:"JetBrains Mono",ui-monospace,"SFMono-Regular",monospace; font-variant-numeric:tabular-nums;}
-  .wrap{max-width:940px; margin:0 auto; padding-block:30px; padding-left:16px; padding-right:16px;}
+  .wrap{max-width:960px; margin:0 auto; padding-block:30px; padding-left:16px; padding-right:16px;}
   .eyebrow{font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:3px; color:var(--inkd); text-transform:uppercase;}
   h1{font-family:"JetBrains Mono",monospace; font-weight:700; font-size:clamp(23px,5vw,34px); margin:.3rem 0 .45rem; letter-spacing:-.5px; text-wrap:balance;}
-  .lede{color:var(--inkm); font-size:14px; max-width:68ch; margin:0;}
+  .lede{color:var(--inkm); font-size:14px; max-width:70ch; margin:0;}
   .lede b{color:var(--ink); font-weight:600;}
   .kpis{display:flex; flex-wrap:wrap; gap:10px; margin:18px 0 2px;}
   .kpi{flex:1 1 120px; min-width:0; background:var(--panel); border:1px solid var(--rule); border-radius:8px; padding:11px 13px;}
-  .kpi .v{font-family:"JetBrains Mono",monospace; font-size:20px; font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums;}
+  .kpi .v{font-family:"JetBrains Mono",monospace; font-size:19px; font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums;}
   .kpi .k{font-size:10.5px; color:var(--inkd); text-transform:uppercase; letter-spacing:1px; margin-top:2px;}
   .note{margin-top:16px; padding:12px 14px; border:1px solid var(--rule); border-left:3px solid var(--warn); border-radius:6px; background:var(--panel); color:var(--inkm); font-size:12.5px; line-height:1.65;}
   .note b{color:var(--ink);}
-  .legend{display:flex; gap:16px; flex-wrap:wrap; font-size:11.5px; color:var(--inkm); margin:22px 0 2px; align-items:center;}
+  .legend{display:flex; gap:16px; flex-wrap:wrap; font-size:11.5px; color:var(--inkm); margin:22px 0 6px; align-items:center;}
   .key{display:inline-flex; align-items:center; gap:6px;}
   .dot{width:11px; height:11px; border-radius:2px; display:inline-block;}
-  .grp{display:flex; align-items:baseline; justify-content:space-between; gap:10px; font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:1.5px; color:var(--inkd); text-transform:uppercase; margin:22px 0 2px; padding-bottom:6px; border-bottom:1px solid var(--rule2);}
-  .grp .gn{color:var(--inkm);} .grp .gs{letter-spacing:.3px; text-transform:none; color:var(--inkd); font-size:10.5px;}
-  .row{display:grid; grid-template-columns:154px 1fr 160px; gap:12px; align-items:center; padding:9px 2px; border-bottom:1px solid var(--rule);}
-  @media (max-width:640px){ .row{grid-template-columns:1fr; gap:5px;} .fig{order:3; text-align:left;} .chart{order:2;} }
+  .hdr{display:grid; grid-template-columns:30px 1fr 150px; gap:12px; padding:0 2px 6px; border-bottom:1px solid var(--rule2);
+    font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--inkd);}
+  .hdr .r3{text-align:right;}
+  .row{display:grid; grid-template-columns:30px 1fr 150px; gap:12px; align-items:center; padding:10px 2px; border-bottom:1px solid var(--rule);}
+  @media (max-width:640px){ .row,.hdr{grid-template-columns:28px 1fr;} .chart{grid-column:1/-1; order:3;} .fig{grid-column:2; text-align:right;} .hdr .r2{display:none;} }
+  .rk{font-family:"JetBrains Mono",monospace; font-size:15px; font-weight:700; color:var(--inkd); text-align:center;}
+  .rk.top{color:var(--live);}
   .nm{min-width:0;}
   .nm .s{font-family:"JetBrains Mono",monospace; font-size:13px; color:var(--ink); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .nm .meta{font-size:10px; color:var(--inkd); margin-top:1px;}
-  .chart{position:relative; height:36px; min-width:0;}
+  .nm .meta{font-size:10px; color:var(--inkd); margin-top:2px; display:flex; gap:7px; align-items:center; flex-wrap:wrap;}
+  .badge{font-family:"JetBrains Mono",monospace; font-size:8.5px; font-weight:700; letter-spacing:.5px; padding:1px 5px; border-radius:3px; color:#0b100d;}
+  .badge.SWING{background:var(--sw);} .badge.INTRADAY{background:var(--intra);} .badge.EQUITY{background:var(--eq);}
+  .chart{position:relative; height:34px; min-width:0;}
   .zero{position:absolute; top:3px; bottom:3px; width:1px; background:var(--inkd); opacity:.55;}
-  .bar{position:absolute; height:12px; border-radius:2px; transition:filter .12s;}
-  .bar.bt{top:4px;} .bar.lv{top:20px;} .bar:hover{filter:brightness(1.18);}
-  .fig{text-align:right; font-family:"JetBrains Mono",monospace; font-size:11.5px; line-height:1.45;}
-  .fig .b{color:var(--bt);} .fig .l{color:var(--live);} .fig .n{color:var(--neg);} .fig .z{color:var(--inkd);}
-  .fig .st{font-size:9px; color:var(--inkd); display:block; margin-top:2px; letter-spacing:.2px;}
+  .bar{position:absolute; height:11px; border-radius:2px; transition:filter .12s;}
+  .bar.bt{top:4px;} .bar.lv{top:19px;} .bar:hover{filter:brightness(1.18);}
+  .fig{text-align:right; font-family:"JetBrains Mono",monospace; line-height:1.4;}
+  .fig .score{font-size:15px; font-weight:700;}
+  .fig .score.p{color:var(--live);} .fig .score.n{color:var(--neg);}
+  .fig .sub{font-size:10px; color:var(--inkd); display:block; margin-top:1px;}
+  .fig .sub .b{color:var(--bt);} .fig .sub .l{color:var(--live);} .fig .sub .ln{color:var(--neg);}
+  .fig .st{font-size:9px; color:var(--inkd); display:block; margin-top:1px;}
   .foot{margin-top:24px; display:flex; flex-direction:column; gap:9px;}
   .foot p{margin:0; font-size:11.5px; color:var(--inkd); line-height:1.6;} .foot b{color:var(--inkm);}
   .stamp{margin-top:4px; font-family:"JetBrains Mono",monospace; font-size:10.5px; color:var(--inkd);}
@@ -61,39 +72,38 @@
 <div class="wrap">
   <div class="eyebrow">Viking Edge · Forward Test</div>
   <h1>Viking Live Book</h1>
-  <p class="lede">Every live strategy's <b>causal 3-year backtest</b> (look-ahead removed) set beside its <b>live forward test</b>, most profitable on top. Live counts only trades closed <b>on or after the inception date below</b> — a clean forward test on the corrected system. Bars are expectancy in R per trade on one zero-centred scale; a reconciliation, not a returns claim.</p>
+  <p class="lede">One leaderboard of every live strategy — swing, intraday and equity mixed — ranked <b>most profitable on top</b>. The rank blends each strategy's <b>causal 3-year backtest</b> with its <b>live forward test</b>, and the live result carries <b>more weight as real fills accumulate</b>. Live counts only trades closed at/after inception below. A reconciliation, not a returns claim.</p>
   <div class="kpis" id="kpis"></div>
-  <div class="note"><b>Read it straight.</b> The backtest is causal and positive in both out-of-sample halves. The live forward test is <b>early and thin</b> — most strategies have under ~40 fills — and on the names with enough trades it is running <b>below</b> backtest: the remaining gap is execution (slippage, cost, fill timing), now being closed by the switch to limit entry. The <b>equity book is on MT5 demo</b>; its live column fills in automatically as the first demo trades close. So these backtest figures are <b>not yet confirmed as achievable</b>; real capital waits until live tracks the backtest.</div>
+  <div class="note"><b>How the rank works.</b> Score = a blend of live and backtest expectancy (R/trade): the backtest sets the starting line, and each real closed trade pulls the score toward the live mean — so a strategy climbs as it proves itself live, and one lucky or unlucky fill can't catapult it on tiny n. The <b>equity book is MT5 demo</b>; its live fills join automatically as trades close. These figures are <b>not yet confirmed as achievable</b> — real capital waits until live tracks the backtest.</div>
   <div class="legend">
-    <span class="key"><span class="dot" style="background:var(--bt)"></span>Backtest expectancy · 3yr causal</span>
-    <span class="key"><span class="dot" style="background:var(--live)"></span>Live expectancy · positive</span>
-    <span class="key"><span class="dot" style="background:var(--neg)"></span>Live expectancy · negative</span>
+    <span class="key"><span class="dot" style="background:var(--bt)"></span>Backtest · 3yr causal</span>
+    <span class="key"><span class="dot" style="background:var(--live)"></span>Live · positive</span>
+    <span class="key"><span class="dot" style="background:var(--neg)"></span>Live · negative</span>
+    <span class="key"><span class="badge SWING">SWING</span><span class="badge INTRADAY">INTRADAY</span><span class="badge EQUITY">EQUITY</span></span>
   </div>
-  <div id="books"></div>
+  <div class="hdr"><span>#</span><span class="r2">strategy · book · backtest bar / live bar</span><span class="r3">rank score</span></div>
+  <div id="ranked"></div>
   <div class="foot">
-    <p><b>Backtest</b> = look-ahead-free 3-year replay, regime-gated and frictionless (net of cost is lower). <b>Live</b> = real cBot / MT5 fills to date, broken fills filtered (|R| ≤ 6). The right column shows backtest expectancy, then live expectancy with win rate and fill count (n).</p>
-    <p><b>Order.</b> Books are ranked by their best proven expectancy (equity, then swing, then intraday); within each book, strategies are ranked by 3-yr backtest expectancy — the proven number, so a thin live sample can't reorder the board every few trades.</p>
-    <p><b>Fresh start.</b> Live counting was re-baselined at inception (5 Oct 2026); earlier fills, taken under the pre-fix regime, are excluded. So the live columns start near zero and fill in from here — treat any row under ~n=20 as provisional, a single trade swings it.</p>
+    <p><b>Score</b> = (n·liveMean + K·backtest) / (n+K), K=4 — backtest as a 4-trade prior, live-weighted thereafter. <b>Backtest</b> = look-ahead-free 3-year replay, regime-gated, frictionless (net is lower). <b>Live</b> = real cBot/MT5 fills since inception, |R| ≤ 6.</p>
+    <p><b>Fresh start.</b> Live counting was re-baselined at inception (5 Oct 2026 14:00 UTC); earlier fills (pre-fix regime) are excluded, so live columns start near zero and fill from here. Treat any row under ~n=20 as provisional.</p>
     <p class="stamp" id="stamp"></p>
   </div>
 </div>
 <script>
-  var ASOF = "5 October 2026";
-  var data = [{"bk": "Equity \u00b7 MT5 demo", "s": "holygrail_eq", "bt": 0.312, "btwr": 50, "o1": 0.31, "o2": 0.32, "lv": null, "lvwr": null, "n": 0}, {"bk": "Equity \u00b7 MT5 demo", "s": "twob_eq", "bt": 0.303, "btwr": 46, "o1": 0.32, "o2": 0.29, "lv": null, "lvwr": null, "n": 0}, {"bk": "Equity \u00b7 MT5 demo", "s": "holygrail_eq_m15", "bt": 0.303, "btwr": 47, "o1": 0.25, "o2": 0.36, "lv": null, "lvwr": null, "n": 0}, {"bk": "Equity \u00b7 MT5 demo", "s": "volbreak_eq", "bt": 0.082, "btwr": 48, "o1": 0.05, "o2": 0.11, "lv": null, "lvwr": null, "n": 0}, {"bk": "Swing \u00b7 OANDA cBot", "s": "gbreak", "bt": 0.156, "btwr": 39, "o1": 0.15, "o2": 0.17, "lv": null, "lvwr": null, "n": 0}, {"bk": "Swing \u00b7 OANDA cBot", "s": "hs", "bt": 0.129, "btwr": 39, "o1": 0.11, "o2": 0.15, "lv": null, "lvwr": null, "n": 0}, {"bk": "Swing \u00b7 OANDA cBot", "s": "holygrail_cm_m15", "bt": 0.076, "btwr": 48, "o1": 0.07, "o2": 0.08, "lv": null, "lvwr": null, "n": 0}, {"bk": "Swing \u00b7 OANDA cBot", "s": "mmove", "bt": 0.072, "btwr": 36, "o1": 0.05, "o2": 0.09, "lv": -1.024, "lvwr": 0, "n": 2}, {"bk": "Swing \u00b7 OANDA cBot", "s": "engulf_manip", "bt": 0.071, "btwr": 36, "o1": 0.05, "o2": 0.1, "lv": null, "lvwr": null, "n": 0}, {"bk": "Swing \u00b7 OANDA cBot", "s": "twob_ix", "bt": 0.066, "btwr": 46, "o1": 0.08, "o2": 0.05, "lv": -1.132, "lvwr": 0, "n": 1}, {"bk": "Swing \u00b7 OANDA cBot", "s": "fma_sweep_cm", "bt": 0.038, "btwr": 35, "o1": 0.01, "o2": 0.06, "lv": null, "lvwr": null, "n": 0}, {"bk": "Intraday \u00b7 cBot", "s": "absorb_btc", "bt": 0.081, "btwr": 38, "o1": 0.07, "o2": 0.09, "lv": -0.523, "lvwr": 0, "n": 1}, {"bk": "Intraday \u00b7 cBot", "s": "mmove_m15", "bt": 0.024, "btwr": 36, "o1": 0.01, "o2": 0.04, "lv": 0.467, "lvwr": 100, "n": 1}];
-  var BOOK_SUB = {"Swing \u00b7 OANDA cBot": "swing structure \u00b7 H1 / M15 \u00b7 limit entry", "Intraday \u00b7 cBot": "BTC absorption + FVG continuation \u00b7 M15", "Equity \u00b7 MT5 demo": "the .EQ edges \u00b7 demo forward test"};
+  var ASOF = "5 Oct 2026 15:04 UTC";
+  var data = [{"bk": "Equity \u00b7 MT5 demo", "badge": "EQUITY", "s": "holygrail_eq", "bt": 0.312, "btwr": 50, "o1": 0.31, "o2": 0.32, "lv": null, "lvwr": null, "n": 0, "score": 0.312, "rank": 1}, {"bk": "Equity \u00b7 MT5 demo", "badge": "EQUITY", "s": "twob_eq", "bt": 0.303, "btwr": 46, "o1": 0.32, "o2": 0.29, "lv": null, "lvwr": null, "n": 0, "score": 0.303, "rank": 2}, {"bk": "Equity \u00b7 MT5 demo", "badge": "EQUITY", "s": "holygrail_eq_m15", "bt": 0.303, "btwr": 47, "o1": 0.25, "o2": 0.36, "lv": null, "lvwr": null, "n": 0, "score": 0.303, "rank": 3}, {"bk": "Swing \u00b7 OANDA cBot", "badge": "SWING", "s": "gbreak", "bt": 0.156, "btwr": 39, "o1": 0.15, "o2": 0.17, "lv": null, "lvwr": null, "n": 0, "score": 0.156, "rank": 4}, {"bk": "Swing \u00b7 OANDA cBot", "badge": "SWING", "s": "hs", "bt": 0.129, "btwr": 39, "o1": 0.11, "o2": 0.15, "lv": null, "lvwr": null, "n": 0, "score": 0.129, "rank": 5}, {"bk": "Equity \u00b7 MT5 demo", "badge": "EQUITY", "s": "volbreak_eq", "bt": 0.082, "btwr": 48, "o1": 0.05, "o2": 0.11, "lv": null, "lvwr": null, "n": 0, "score": 0.082, "rank": 6}, {"bk": "Intraday \u00b7 cBot", "badge": "INTRADAY", "s": "absorb_btc", "bt": 0.081, "btwr": 38, "o1": 0.07, "o2": 0.09, "lv": null, "lvwr": null, "n": 0, "score": 0.081, "rank": 7}, {"bk": "Swing \u00b7 OANDA cBot", "badge": "SWING", "s": "holygrail_cm_m15", "bt": 0.076, "btwr": 48, "o1": 0.07, "o2": 0.08, "lv": null, "lvwr": null, "n": 0, "score": 0.076, "rank": 8}, {"bk": "Swing \u00b7 OANDA cBot", "badge": "SWING", "s": "mmove", "bt": 0.072, "btwr": 36, "o1": 0.05, "o2": 0.09, "lv": null, "lvwr": null, "n": 0, "score": 0.072, "rank": 9}, {"bk": "Swing \u00b7 OANDA cBot", "badge": "SWING", "s": "engulf_manip", "bt": 0.071, "btwr": 36, "o1": 0.05, "o2": 0.1, "lv": null, "lvwr": null, "n": 0, "score": 0.071, "rank": 10}, {"bk": "Swing \u00b7 OANDA cBot", "badge": "SWING", "s": "twob_ix", "bt": 0.066, "btwr": 46, "o1": 0.08, "o2": 0.05, "lv": null, "lvwr": null, "n": 0, "score": 0.066, "rank": 11}, {"bk": "Swing \u00b7 OANDA cBot", "badge": "SWING", "s": "fma_sweep_cm", "bt": 0.038, "btwr": 35, "o1": 0.01, "o2": 0.06, "lv": null, "lvwr": null, "n": 0, "score": 0.038, "rank": 12}, {"bk": "Intraday \u00b7 cBot", "badge": "INTRADAY", "s": "mmove_m15", "bt": 0.024, "btwr": 36, "o1": 0.01, "o2": 0.04, "lv": null, "lvwr": null, "n": 0, "score": 0.024, "rank": 13}];
   var LO=-0.45, HI=0.35, SPAN=HI-LO;
   function pos(v){ return (Math.max(LO,Math.min(HI,v))-LO)/SPAN*100; }
   var zeroPct = pos(0);
-  function clampNote(v){ return (v<LO||v>HI) ? " (clamped)" : ""; }
   function barHtml(v, cls){
     if(v===null||v===undefined) return '';
     var p=pos(v), neg=v<0, left=neg?p:zeroPct, w=Math.max(0.8, Math.abs(p-zeroPct));
     var color = cls==='bt' ? 'linear-gradient(90deg,color-mix(in srgb,var(--bt) 55%,transparent),var(--bt-deep))' : (neg?'var(--neg)':'var(--live)');
-    var title=(cls==='bt'?'Backtest':'Live')+' expectancy '+(v>=0?'+':'')+v.toFixed(3)+'R'+clampNote(v);
+    var title=(cls==='bt'?'Backtest':'Live')+' expectancy '+(v>=0?'+':'')+v.toFixed(3)+'R'+((v<LO||v>HI)?' (clamped)':'');
     return '<div class="bar '+cls+'" style="left:'+left+'%;width:'+w+'%;background:'+color+'" title="'+title+'"></div>';
   }
   function statusOf(d){
-    if(d.n===0) return d.bk.indexOf('Equity')>=0 ? 'demo · awaiting first close' : 'awaiting first fill';
+    if(d.n===0) return d.badge==='EQUITY' ? 'demo · awaiting first close' : 'awaiting first fill';
     if(d.n<20)  return 'live thin · n='+d.n;
     var g=d.lv-d.bt;
     if(g < -0.04) return 'live below · '+g.toFixed(2)+'R';
@@ -101,25 +111,23 @@
     return 'tracking';
   }
   var liveN=data.reduce(function(a,d){return a+(d.n||0);},0);
-  var books=data.reduce(function(a,d){if(a.indexOf(d.bk)<0)a.push(d.bk);return a;},[]);
+  var withLive=data.filter(function(d){return d.n>0;}).length;
   document.getElementById('kpis').innerHTML=[
-    ['3 yr','backtest window'],[data.length,'live strategies'],
-    [books.length,'books · equity / swing / intraday'],['~'+liveN,'live fills to date']
+    [data.length,'strategies ranked'],['~'+liveN,'live fills since inception'],
+    [withLive,'with live trades'],['3 yr','backtest window']
   ].map(function(k){return '<div class="kpi"><div class="v mono">'+k[0]+'</div><div class="k">'+k[1]+'</div></div>';}).join('');
-  var grouped={}, order=[];
-  data.forEach(function(d){ if(!grouped[d.bk]){grouped[d.bk]=[];order.push(d.bk);} grouped[d.bk].push(d); });
-  document.getElementById('books').innerHTML=order.map(function(bk){
-    var rows=grouped[bk].map(function(d){
-      var lvtxt,lvcls;
-      if(d.n===0){lvtxt='—';lvcls='z';} else {lvtxt=(d.lv>=0?'+':'')+d.lv.toFixed(3)+'R';lvcls=(d.lv<0?'n':'l');}
-      var wrn=d.n===0?'':' · '+d.lvwr+'% · n='+d.n;
-      return '<div class="row">'
-        +'<div class="nm"><div class="s">'+d.s+'</div><div class="meta">BT '+d.btwr+'% WR · OOS '+(d.o1>=0?'+':'')+d.o1.toFixed(2)+'/'+(d.o2>=0?'+':'')+d.o2.toFixed(2)+'</div></div>'
-        +'<div class="chart"><div class="zero" style="left:'+zeroPct+'%"></div>'+barHtml(d.bt,'bt')+barHtml(d.lv,'lv')+'</div>'
-        +'<div class="fig"><span class="b">+'+d.bt.toFixed(3)+'R</span> &nbsp;<span class="'+lvcls+'">'+lvtxt+'</span><span class="st">'+statusOf(d)+wrn+'</span></div>'
-        +'</div>';
-    }).join('');
-    return '<div class="grp"><span class="gn">'+bk+'</span><span class="gs">'+(BOOK_SUB[bk]||'')+'</span></div>'+rows;
+  document.getElementById('ranked').innerHTML=data.map(function(d){
+    var sc=(d.score>=0?'+':'')+d.score.toFixed(3)+'R';
+    var scls=d.score<0?'n':'p';
+    var lvtxt = d.n===0 ? 'LV —' : '<span class="'+(d.lv<0?'ln':'l')+'">LV '+(d.lv>=0?'+':'')+d.lv.toFixed(3)+' ('+d.lvwr+'% n='+d.n+')</span>';
+    return '<div class="row">'
+      +'<div class="rk'+(d.rank<=3?' top':'')+'">'+d.rank+'</div>'
+      +'<div class="nm"><div class="s">'+d.s+'</div><div class="meta"><span class="badge '+d.badge+'">'+d.badge+'</span> BT '+d.btwr+'% WR · OOS '+(d.o1>=0?'+':'')+d.o1.toFixed(2)+'/'+(d.o2>=0?'+':'')+d.o2.toFixed(2)+'</div></div>'
+      +'<div class="chart"><div class="zero" style="left:'+zeroPct+'%"></div>'+barHtml(d.bt,'bt')+barHtml(d.lv,'lv')+'</div>'
+      +'<div class="fig"><span class="score '+scls+'">'+sc+'</span>'
+        +'<span class="sub"><span class="b">BT +'+d.bt.toFixed(3)+'</span> · '+lvtxt+'</span>'
+        +'<span class="st">'+statusOf(d)+'</span></div>'
+      +'</div>';
   }).join('');
-  document.getElementById('stamp').textContent='Snapshot as of '+ASOF+' · forward-test inception 5 Oct 2026 · backtest regime-gated, causal · live = real fills, |R| ≤ 6';
+  document.getElementById('stamp').textContent='Snapshot as of '+ASOF+' · forward-test inception 5 Oct 2026 14:00 UTC · ranked by live-weighted score (K=4) · |R| ≤ 6';
 </script>
