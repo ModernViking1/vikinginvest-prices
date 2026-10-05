@@ -24,9 +24,14 @@ import datetime as dt
 import unified_shadow_harness as H
 from backtest_rsi_per_class import _bars_norm
 
-# local_key -> MT5 Market Watch symbol. The validated UK/DE names. Add US .NAS symbols here too if
-# you want the US book driven locally off the broker instead of the TwelveData feed.
+# local_key -> MT5 Market Watch symbol. The whole equity book — US + DE + UK — driven off the broker's
+# own bars through this bridge. The EA reads this bridge's LOCAL file, so every tradeable name lives here.
 SYMBOLS = {
+    # US (.NAS) — driven off the broker's own bars via this bridge, same as EU/UK. The EA reads the
+    # LOCAL bridge file (InpLocalFile), which takes precedence over the TwelveData CDN feed, so the US
+    # names MUST be here to trade — otherwise only the EU/UK book reaches the terminal.
+    'aapl': 'AAPL.NAS', 'amzn': 'AMZN.NAS', 'msft': 'MSFT.NAS', 'nvda': 'NVDA.NAS', 'tsla': 'TSLA.NAS',
+    # DE (.ETR) / UK (.LSE)
     'dbk': 'DBK.ETR', 'boss': 'BOSS.ETR', 'pah3': 'PAH3.ETR', 'vowg': 'VOWG.ETR',
     'barc': 'BARC.LSE', 'ba': 'BA.LSE', 'lse': 'LSE.LSE', 'rr': 'RR.LSE', 'tsco': 'TSCO.LSE',
 }
