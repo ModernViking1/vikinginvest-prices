@@ -27,6 +27,11 @@ INTRADAY_FRESH_MIN = 90                 # ... while intraday published within th
 CORE_OPEN, CORE_CLOSE = 8, 20           # peak London+NY hours (UTC)
 DUAL_STALE_MIN = 150                    # BOTH feeds silent longer than this in core hours = terminal down
 HEARTBEAT_STALE_MIN = 25                # cBot pings every ~10 min; no ping this long = bot stopped (definitive)
+# Escalation (not flapping): one STOPPED alert per outage, ONE "still down" reminder if it drags on,
+# and an all-clear only once recovery has HELD — a single late-then-recovered heartbeat no longer
+# toggles the state back and forth (the cause of the Telegram spam).
+RECOVER_CONFIRM_MIN = 20                 # must stay healthy this long before the "back up" all-clear
+ESCALATE_MIN = 60                        # still down this long after the first alert = one reminder ping
 
 
 def _heartbeat_age_min():
@@ -110,30 +115,60 @@ def main():
         both_down = (now.weekday() < 5 and CORE_OPEN <= now.hour < CORE_CLOSE
                     and swing_min > DUAL_STALE_MIN and intra_min > DUAL_STALE_MIN)
         down = swing_specific or both_down
-    recovered = st.get("alerted") and (hb_fresh or swing > st.get("last_swing_ts", 0))
+    stamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Recovery signal this tick: a fresh heartbeat (preferred) or, without heartbeat, a NEW swing row.
+    recov_signal = hb_fresh if hb_avail else bool(swing and swing > st.get("last_swing_ts", 0))
 
-    if down and not st.get("alerted"):
-        if hb_down:
-            msg = (f"🔴 <b>Swing cBot STOPPED</b>\nNo heartbeat for <b>{hb_min:.0f} min</b> — the poll thread "
-                   f"is dead (zombie/disconnect). Restart cTrader + the VikingSwingBridge instance and "
-                   f"re-enter the Publish params.")
-        elif both_down:
-            msg = (f"🔴 <b>Both cBots silent — cTrader likely DOWN</b>\nNo swing ({swing_min:.0f} min, last "
-                   f"{f(swing)}) AND no intraday ({intra_min:.0f} min, last {f(intra)}) — a whole-terminal "
-                   f"zombie/disconnect. Restart cTrader + both cBots and re-enter the Publish params.")
+    if down:
+        if not st.get("alerted"):
+            # DOWN transition — the one and only STOPPED alert for this outage.
+            if hb_down:
+                msg = (f"🔴 <b>Swing cBot STOPPED</b>\nNo heartbeat for <b>{hb_min:.0f} min</b> — the poll thread "
+                       f"is dead (zombie/disconnect). Restart cTrader + the VikingSwingBridge instance and "
+                       f"re-enter the Publish params.")
+            elif both_down:
+                msg = (f"🔴 <b>Both cBots silent — cTrader likely DOWN</b>\nNo swing ({swing_min:.0f} min, last "
+                       f"{f(swing)}) AND no intraday ({intra_min:.0f} min, last {f(intra)}) — a whole-terminal "
+                       f"zombie/disconnect. Restart cTrader + both cBots and re-enter the Publish params.")
+            else:
+                msg = (f"🟠 <b>Swing cBot may be DOWN</b>\nNo swing execution for <b>{swing_min:.0f} min</b> "
+                       f"(last {f(swing)}) while intraday is live (last {f(intra)}).\nLikely a zombie-after-disconnect "
+                       f"— restart the VikingSwingBridge instance and re-enter the Publish params.")
+            _tg(msg)
+            st = {"alerted": True, "down_since": nowt, "escalated": False,
+                  "recovering_since": None, "last_swing_ts": swing, "updated": stamp}
         else:
-            msg = (f"🟠 <b>Swing cBot may be DOWN</b>\nNo swing execution for <b>{swing_min:.0f} min</b> "
-                   f"(last {f(swing)}) while intraday is live (last {f(intra)}).\nLikely a zombie-after-disconnect "
-                   f"— restart the VikingSwingBridge instance and re-enter the Publish params.")
-        _tg(msg)
-        st = {"alerted": True, "last_swing_ts": swing, "updated": now.strftime("%Y-%m-%dT%H:%M:%SZ")}
-    elif recovered:
-        _tg(f"🟢 <b>Swing cBot back up</b>\nPublishing resumed (row at {f(swing)}).")
-        st = {"alerted": False, "last_swing_ts": swing, "updated": now.strftime("%Y-%m-%dT%H:%M:%SZ")}
+            # Still down — stay silent. Reset any partial recovery; escalate ONCE if it drags on.
+            st["recovering_since"] = None
+            ds = st.get("down_since") or nowt
+            if not st.get("escalated") and (nowt - ds) >= ESCALATE_MIN * 60:
+                _tg(f"🔴 <b>Swing cBot STILL DOWN</b>\n<b>{(nowt - ds) / 60:.0f} min</b> with no recovery. "
+                    f"The restart hasn't taken — check cTrader is connected and the VikingSwingBridge instance "
+                    f"is running (Publish params re-entered).")
+                st["escalated"] = True
+            st["down_since"] = ds
+            st["last_swing_ts"] = swing; st["updated"] = stamp
     else:
-        st["last_swing_ts"] = swing; st["updated"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-        print(f"ok — swing {swing_min:.0f}m (last {f(swing)}) intraday {intra_min:.0f}m "
-              f"session={in_session} alerted={st.get('alerted')}")
+        if st.get("alerted"):
+            # Healthy now, but confirm it HOLDS before the all-clear (kills the flap).
+            if recov_signal:
+                rs = st.get("recovering_since") or nowt
+                if (nowt - rs) >= RECOVER_CONFIRM_MIN * 60:
+                    _tg(f"🟢 <b>Swing cBot back up</b>\nPublishing resumed and held {RECOVER_CONFIRM_MIN} min "
+                        f"(row at {f(swing)}).")
+                    st = {"alerted": False, "down_since": None, "escalated": False,
+                          "recovering_since": None, "last_swing_ts": swing, "updated": stamp}
+                else:
+                    st["recovering_since"] = rs
+                    st["last_swing_ts"] = swing; st["updated"] = stamp
+            else:
+                st["recovering_since"] = None
+                st["last_swing_ts"] = swing; st["updated"] = stamp
+        else:
+            st["recovering_since"] = None
+            st["last_swing_ts"] = swing; st["updated"] = stamp
+            print(f"ok — swing {swing_min:.0f}m (last {f(swing)}) intraday {intra_min:.0f}m "
+                  f"session={in_session} alerted=False")
 
     with open(STATE, "w") as fh:
         json.dump(st, fh, indent=1)
