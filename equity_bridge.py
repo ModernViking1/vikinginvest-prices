@@ -166,7 +166,9 @@ def main():
     ap.add_argument('--poll', type=int, default=600, help='seconds between rebuilds (600 = 10 min; '
                     'raised from 300 to lighten the MT5 pull load when cTrader + MT5 + this bridge '
                     'share one machine — equity setups are h1/m15 so 10-min cadence is ample)')
-    ap.add_argument('--bars', type=int, default=1500, help='bars per timeframe to pull')
+    ap.add_argument('--bars', type=int, default=800, help='bars per timeframe to pull (was 1500; the '
+                    'detectors need >=400, so 800 keeps a safe margin while nearly halving the MT5 query '
+                    'and memory load each cycle — the biggest single workload cut on a shared machine)')
     ap.add_argument('--demo', default='1', help='1 = demo_only (keep 1 for the pilot)')
     ap.add_argument('--out', default='equity-signals.json', help='filename written into MQL5/Files')
     ap.add_argument('--out-dir', default='', help='override output dir (default: terminal MQL5/Files)')
