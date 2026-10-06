@@ -163,7 +163,9 @@ def build_doc(mt5, bars_n, demo):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--poll', type=int, default=300, help='seconds between rebuilds')
+    ap.add_argument('--poll', type=int, default=600, help='seconds between rebuilds (600 = 10 min; '
+                    'raised from 300 to lighten the MT5 pull load when cTrader + MT5 + this bridge '
+                    'share one machine — equity setups are h1/m15 so 10-min cadence is ample)')
     ap.add_argument('--bars', type=int, default=1500, help='bars per timeframe to pull')
     ap.add_argument('--demo', default='1', help='1 = demo_only (keep 1 for the pilot)')
     ap.add_argument('--out', default='equity-signals.json', help='filename written into MQL5/Files')
