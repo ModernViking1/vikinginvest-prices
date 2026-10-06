@@ -163,9 +163,9 @@ def build_doc(mt5, bars_n, demo):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--poll', type=int, default=600, help='seconds between rebuilds (600 = 10 min; '
-                    'raised from 300 to lighten the MT5 pull load when cTrader + MT5 + this bridge '
-                    'share one machine — equity setups are h1/m15 so 10-min cadence is ample)')
+    ap.add_argument('--poll', type=int, default=900, help='seconds between rebuilds (900 = 15 min; '
+                    'raised from 300->600->900 to lighten the MT5 pull load when cTrader + MT5 + this '
+                    'bridge share one machine — equity setups are h1/m15 so a 15-min cadence is ample)')
     ap.add_argument('--bars', type=int, default=800, help='bars per timeframe to pull (was 1500; the '
                     'detectors need >=400, so 800 keeps a safe margin while nearly halving the MT5 query '
                     'and memory load each cycle — the biggest single workload cut on a shared machine)')

@@ -49,7 +49,7 @@ namespace cAlgo.Robots
         [Parameter("Kill-switch URL", DefaultValue = "https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/kill-switch.json", Group = "Feed")]
         public string KillSwitchUrl { get; set; }
 
-        [Parameter("Poll seconds", DefaultValue = 30, MinValue = 10, MaxValue = 300, Group = "Feed")]
+        [Parameter("Poll seconds", DefaultValue = 120, MinValue = 10, MaxValue = 300, Group = "Feed")]
         public int PollSeconds { get; set; }
 
         [Parameter("Risk % per trade", DefaultValue = 0.5, MinValue = 0.05, MaxValue = 5.0, Group = "Risk")]

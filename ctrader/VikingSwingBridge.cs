@@ -37,7 +37,7 @@ namespace cAlgo.Robots
         [Parameter("Swing signals URL", DefaultValue = "https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/swing-signals.json", Group = "Feed")]
         public string SignalsUrl { get; set; }
 
-        [Parameter("Poll seconds", DefaultValue = 60, MinValue = 15, MaxValue = 600, Group = "Feed")]
+        [Parameter("Poll seconds", DefaultValue = 180, MinValue = 15, MaxValue = 600, Group = "Feed")]
         public int PollSeconds { get; set; }
 
         [Parameter("Risk % per trade", DefaultValue = 1.0, MinValue = 0.1, MaxValue = 5.0, Group = "Risk")]
