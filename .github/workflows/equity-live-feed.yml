@@ -14,9 +14,12 @@ name: Equity Live Feed (.EQ book demo pilot — MT5)
 # committed) and written to equity-intraday-ohlc.json so it never clobbers the weekly equity-ohlc.json
 # (h1/daily) that the research + backtest baseline depend on.
 
+# DISABLED 2026-10-06 — superseded by equity_bridge.py, which drives the WHOLE equity book
+# (US + DE + UK) off the broker's own MT5 bars into the local file the EA actually reads
+# (InpLocalFile takes precedence over this CDN feed). This TwelveData feed was redundant and
+# only burned API credits, so the schedule is removed. Kept as workflow_dispatch only, in case
+# we ever need the CDN/URL path again.
 on:
-  schedule:
-    - cron: '*/15 14-20 * * 1-5'      # every 15 min, 14:00-20:59 UTC, Mon-Fri (US cash session)
   workflow_dispatch:
 
 concurrency:
