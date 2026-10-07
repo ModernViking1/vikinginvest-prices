@@ -1,35 +1,92 @@
 {
  "schema_version": 1,
- "generated": "2026-10-07T00:00:00+00:00",
- "data_end_ts": 1791331200,
- "raw_signal_count": 6,
- "count": 5,
+ "generated": "2026-10-07T01:00:00+00:00",
+ "data_end_ts": 1791334800,
+ "raw_signal_count": 8,
+ "count": 6,
  "signals": [
   {
-   "id": "twob_ix:jp225:1791324000",
+   "id": "hs:solusd:1791331200",
+   "strategy": "hs",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "solusd",
+   "symbol": "SOLUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 121.47,
+   "ref_entry": 120.68,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1791331200,
+   "created_ts": 1791334800,
+   "expiry_ts": 1791374400,
+   "state": "triggered",
+   "cofire": [
+    "hs"
+   ],
+   "cofire_dirs": [
+    "hs:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "twob_ix:de40:1791331200",
    "strategy": "twob_ix",
    "regime": null,
    "risk_mult": 1.0,
-   "pair": "jp225",
-   "symbol": "JP225",
+   "pair": "de40",
+   "symbol": "DE40",
    "class": "index",
    "dir": "bull",
-   "stop": 70706.82142857,
-   "ref_entry": 70884.0,
+   "stop": 25356.03714286,
+   "ref_entry": 25371.0,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1791331200,
+   "created_ts": 1791334800,
+   "expiry_ts": 1791374400,
+   "state": "triggered",
+   "cofire": [
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "twob_ix:bear",
+    "twob_ix:bull"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "engulf_manip:asterusd:1791324000",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "asterusd",
+   "symbol": "ASTERUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 0.75716071,
+   "ref_entry": 0.7314,
    "pivot": null,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1791324000,
-   "created_ts": 1791331200,
+   "created_ts": 1791334800,
    "expiry_ts": 1791367200,
    "state": "triggered",
    "cofire": [
-    "twob_ix"
+    "engulf_manip"
    ],
    "cofire_dirs": [
-    "twob_ix:bull"
+    "engulf_manip:bear"
    ],
    "suppressed": 0
   },
@@ -50,7 +107,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1791299700,
-   "created_ts": 1791331200,
+   "created_ts": 1791334800,
    "expiry_ts": 1791342900,
    "state": "triggered",
    "cofire": [
@@ -78,7 +135,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1791298800,
-   "created_ts": 1791331200,
+   "created_ts": 1791334800,
    "expiry_ts": 1791342000,
    "state": "triggered",
    "cofire": [
@@ -89,34 +146,6 @@
     "twob_ix:bull"
    ],
    "suppressed": 1
-  },
-  {
-   "id": "twob_ix:de40:1791280800",
-   "strategy": "twob_ix",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "de40",
-   "symbol": "DE40",
-   "class": "index",
-   "dir": "bear",
-   "stop": 25518.29785714,
-   "ref_entry": 25447.0,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1791280800,
-   "created_ts": 1791331200,
-   "expiry_ts": 1791324000,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bear"
-   ],
-   "suppressed": 0
   },
   {
    "id": "engulf_manip:btcusd:1791277200",
@@ -135,7 +164,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1791277200,
-   "created_ts": 1791331200,
+   "created_ts": 1791334800,
    "expiry_ts": 1791320400,
    "state": "triggered",
    "cofire": [
