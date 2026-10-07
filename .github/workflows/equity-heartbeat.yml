@@ -1,0 +1,25 @@
+name: Equity Bridge Heartbeat
+
+# Records the MT5 equity bridge's liveness ping. equity_bridge.py POSTs an `equity-bridge-heartbeat`
+# repository_dispatch every cycle (~15 min) while it's running and talking to MT5; this workflow just
+# runs (no commit) so its LAST-RUN time is the heartbeat the watchdog reads. When the bridge or MT5
+# stops, the pings stop and the last-run goes stale — server-side down-detection for the equity book,
+# which otherwise writes only to the local MQL5\Files folder and is invisible to the repo.
+
+on:
+  repository_dispatch:
+    types: [equity-bridge-heartbeat]
+
+concurrency:
+  group: equity-heartbeat
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  beat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo "equity bridge heartbeat received $(date -u +%FT%TZ) acct=${{ github.event.client_payload.acct }} emitted=${{ github.event.client_payload.emitted }}"

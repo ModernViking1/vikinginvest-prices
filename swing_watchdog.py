@@ -32,15 +32,19 @@ HEARTBEAT_STALE_MIN = 25                # cBot pings every ~10 min; no ping this
 # toggles the state back and forth (the cause of the Telegram spam).
 RECOVER_CONFIRM_MIN = 20                 # must stay healthy this long before the "back up" all-clear
 ESCALATE_MIN = 60                        # still down this long after the first alert = one reminder ping
+# Equity MT5 bridge liveness (independent book). The bridge pings every ~15 min while it + MT5 are up.
+EQ_STATE = "equity-watchdog-state.json"
+EQUITY_HB_STALE_MIN = 40                 # no bridge heartbeat this long (in equity hours) = bridge/MT5 down
+EQ_OPEN, EQ_CLOSE = 7, 21                # equity session window (UTC) — DE/UK/US cash hours; quiet overnight
 
 
-def _heartbeat_age_min():
-    """Minutes since the swing cBot's last heartbeat, via the heartbeat.yml workflow's last run.
-    None when unavailable (no token, no runs yet — e.g. before the cBot rebuild ships the heartbeat)."""
+def _wf_last_run_age_min(wf):
+    """Minutes since workflow `wf`'s last run (its heartbeat record). None when unavailable
+    (no token, or no runs yet — e.g. before the emitter ships its first heartbeat)."""
     tok = os.environ.get("GITHUB_TOKEN"); repo = os.environ.get("GITHUB_REPOSITORY")
     if not tok or not repo:
         return None
-    url = f"https://api.github.com/repos/{repo}/actions/workflows/heartbeat.yml/runs?per_page=1"
+    url = f"https://api.github.com/repos/{repo}/actions/workflows/{wf}/runs?per_page=1"
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {tok}",
                                 "Accept": "application/vnd.github+json", "User-Agent": "viking-watchdog"})
     try:
@@ -52,6 +56,41 @@ def _heartbeat_age_min():
         return (datetime.now(timezone.utc) - dt).total_seconds() / 60.0
     except Exception:
         return None
+
+
+def _heartbeat_age_min():
+    return _wf_last_run_age_min("heartbeat.yml")
+
+
+def _escalate(st, down, recov, nowt, msg_down, msg_still_fn, msg_up):
+    """Shared de-flapped state machine: one down-alert, one 'still down' reminder after ESCALATE_MIN,
+    one all-clear once recovery HELD for RECOVER_CONFIRM_MIN. Mutates and returns (st, msg_or_None)."""
+    msg = None
+    if down:
+        if not st.get("alerted"):
+            msg = msg_down
+            st.update(alerted=True, down_since=nowt, escalated=False, recovering_since=None)
+        else:
+            st["recovering_since"] = None
+            ds = st.get("down_since")
+            if ds is None:
+                ds = nowt
+            if not st.get("escalated") and (nowt - ds) >= ESCALATE_MIN * 60:
+                msg = msg_still_fn((nowt - ds) / 60.0); st["escalated"] = True
+            st["down_since"] = ds
+    elif st.get("alerted"):
+        if recov:
+            rs = st.get("recovering_since")
+            if rs is None:
+                rs = nowt
+            if (nowt - rs) >= RECOVER_CONFIRM_MIN * 60:
+                msg = msg_up
+                st.update(alerted=False, down_since=None, escalated=False, recovering_since=None)
+            else:
+                st["recovering_since"] = rs
+        else:
+            st["recovering_since"] = None
+    return st, msg
 
 
 def _latest_ts(fn):
@@ -172,6 +211,34 @@ def main():
 
     with open(STATE, "w") as fh:
         json.dump(st, fh, indent=1)
+
+    # ── Equity MT5 bridge liveness (independent of the cTrader books) ──────────────
+    try:
+        eq_hb = _wf_last_run_age_min("equity-heartbeat.yml")   # None until the bridge ships a heartbeat
+        if eq_hb is not None:
+            try:
+                eqst = json.load(open(EQ_STATE))
+            except Exception:
+                eqst = {}
+            eq_in_sess = now.weekday() < 5 and EQ_OPEN <= now.hour < EQ_CLOSE
+            eq_down = eq_in_sess and eq_hb > EQUITY_HB_STALE_MIN
+            eq_recov = eq_hb <= EQUITY_HB_STALE_MIN
+            eqst, m = _escalate(
+                eqst, eq_down, eq_recov, nowt,
+                msg_down=(f"🔴 <b>MT5 equity bridge STOPPED</b>\nNo heartbeat for <b>{eq_hb:.0f} min</b> — "
+                          f"equity_bridge.py has stalled or MT5 is down. Check the bridge console and that MT5 "
+                          f"is open, logged in, and AutoTrading is on."),
+                msg_still_fn=lambda mins: (f"🔴 <b>MT5 equity bridge STILL DOWN</b>\n<b>{mins:.0f} min</b> with no "
+                          f"heartbeat. Restart equity_bridge.py and confirm MT5 is connected."),
+                msg_up=(f"🟢 <b>MT5 equity bridge back up</b>\nHeartbeat resumed and held {RECOVER_CONFIRM_MIN} min."))
+            if m:
+                _tg(m)
+            eqst["updated"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+            with open(EQ_STATE, "w") as fh:
+                json.dump(eqst, fh, indent=1)
+            print(f"equity bridge hb {eq_hb:.0f}m session={eq_in_sess} alerted={eqst.get('alerted')}")
+    except Exception as e:
+        print(f"equity watchdog skipped: {e}")
     return 0
 
 

@@ -161,6 +161,23 @@ def build_doc(mt5, bars_n, demo):
     }
 
 
+def _heartbeat(token, repo, acct, emitted):
+    """Fire an `equity-bridge-heartbeat` repository_dispatch so the server-side watchdog can see the
+    bridge/MT5 is alive (the bridge otherwise writes only to local MQL5\\Files). Best-effort, fail-open."""
+    if not token or not repo:
+        return
+    import urllib.request
+    body = json.dumps({"event_type": "equity-bridge-heartbeat",
+                       "client_payload": {"acct": str(acct), "emitted": int(emitted)}}).encode()
+    req = urllib.request.Request(f"https://api.github.com/repos/{repo}/dispatches", data=body, method="POST",
+                                 headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
+                                          "User-Agent": "viking-equity-bridge", "Content-Type": "application/json"})
+    try:
+        urllib.request.urlopen(req, timeout=10)
+    except Exception as e:
+        print(f"  heartbeat post failed (non-fatal): {e}", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--poll', type=int, default=900, help='seconds between rebuilds (900 = 15 min; '
@@ -172,6 +189,11 @@ def main():
     ap.add_argument('--demo', default='1', help='1 = demo_only (keep 1 for the pilot)')
     ap.add_argument('--out', default='equity-signals.json', help='filename written into MQL5/Files')
     ap.add_argument('--out-dir', default='', help='override output dir (default: terminal MQL5/Files)')
+    ap.add_argument('--gh-token', default=os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN', ''),
+                    help='GitHub PAT (contents/repo scope) to fire a liveness heartbeat so the watchdog '
+                         'can see MT5 is up. Falls back to the GH_TOKEN / GITHUB_TOKEN env var. Optional.')
+    ap.add_argument('--gh-repo', default='ModernViking1/vikinginvest-prices',
+                    help='owner/repo the heartbeat dispatch targets')
     args = ap.parse_args()
     demo = args.demo != '0'
 
@@ -192,6 +214,7 @@ def main():
           f"writing {out_path} every {args.poll}s, demo_only={demo}", flush=True)
     if getattr(acct, 'trade_mode', 0) != 0 and demo:
         print("  NOTE: account is not demo — the EA's demo guard will still block live fills.", flush=True)
+    print(f"  watchdog heartbeat: {'ON -> ' + args.gh_repo if args.gh_token else 'OFF (set --gh-token or GH_TOKEN to enable)'}", flush=True)
 
     try:
         while True:
@@ -210,6 +233,8 @@ def main():
                     print(f"           executions log: {nx} closed trade(s)", flush=True)
                 except Exception as e:
                     print(f"::warning:: executions log failed ({e})", flush=True)
+                # Liveness heartbeat so the watchdog can see MT5/the bridge is up (server-side).
+                _heartbeat(args.gh_token, args.gh_repo, getattr(acct, 'login', '?'), n)
             except Exception as e:
                 print(f"::warning:: build cycle failed ({e}) — retrying next poll", flush=True)
             time.sleep(args.poll)
