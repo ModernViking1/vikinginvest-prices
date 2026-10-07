@@ -161,6 +161,85 @@ def build_doc(mt5, bars_n, demo):
     }
 
 
+def _tg(msg, token, chat):
+    """Send a Telegram message. Best-effort, fail-open."""
+    if not token or not chat:
+        return
+    import urllib.parse, urllib.request
+    data = urllib.parse.urlencode({"chat_id": chat, "text": msg, "parse_mode": "HTML",
+                                   "disable_web_page_preview": "true"}).encode()
+    try:
+        urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", data=data, timeout=10)
+    except Exception as e:
+        print(f"  telegram send failed (non-fatal): {e}", flush=True)
+
+
+ALERTED = 'equity-alerted.json'            # local: tickets already alerted on entry (dedup across cycles)
+
+
+def _alert_new_entries(out_dir, ledger, tg_token, tg_chat):
+    """Telegram one alert per NEW open in the EA ledger (mirrors the swing/intraday entry alerts).
+    Seeds silently on first run so existing positions don't spam. Fail-open."""
+    path = os.path.join(out_dir, ALERTED)
+    try:
+        seen = set(json.load(open(path)).get('tickets', []))
+        seeded = True
+    except Exception:
+        seen, seeded = set(), False
+    new = [(tk, p) for tk, p in ledger.items() if tk not in seen]
+    if seeded and tg_token:
+        for tk, p in sorted(new, key=lambda kv: kv[1].get('open_ms', 0)):
+            strat = (p.get('id', '') or '').split(':')[0] or '?'
+            side = 'SELL' if p.get('dir', 1) < 0 else 'BUY'
+            _tg(f"🟢 <b>Equity ENTRY · {strat}</b>\n{p.get('sym','?')} <b>{side} {p.get('lots','?')}</b> "
+                f"@ {p.get('entry','?')}\nSL {p.get('sl','?')} · trailing-runner (arm +1R, no fixed TP)",
+                tg_token, tg_chat)
+    try:
+        json.dump({'tickets': sorted(ledger.keys())}, open(path, 'w'))
+    except Exception:
+        pass
+
+
+def _push_executions(repo, token, out_dir):
+    """Push equity-executions.json to the repo (GitHub contents API) when it CHANGES, so the
+    per-strategy win/loss record is visible server-side and auto-refreshes the dashboard. Fail-open."""
+    if not token or not repo:
+        return
+    import base64, hashlib, urllib.request
+    src = os.path.join(out_dir, 'equity-executions.json')
+    if not os.path.exists(src):
+        return
+    content = open(src, 'rb').read()
+    stamp = os.path.join(out_dir, '.eqexec-pushed')
+    h = hashlib.sha256(content).hexdigest()
+    try:
+        if open(stamp).read().strip() == h:
+            return                                  # unchanged since last push — skip
+    except Exception:
+        pass
+    api = f"https://api.github.com/repos/{repo}/contents/equity-executions.json"
+    hdr = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
+           "User-Agent": "viking-equity-bridge"}
+    sha = None
+    try:
+        req = urllib.request.Request(api + "?ref=main", headers=hdr)
+        with urllib.request.urlopen(req, timeout=10) as r:
+            sha = json.load(r).get("sha")
+    except Exception:
+        sha = None                                  # file may not exist yet — first push creates it
+    body = {"message": "data: equity executions (bridge) [skip ci]",
+            "content": base64.b64encode(content).decode(), "branch": "main"}
+    if sha:
+        body["sha"] = sha
+    try:
+        req = urllib.request.Request(api, data=json.dumps(body).encode(), method="PUT", headers=hdr)
+        urllib.request.urlopen(req, timeout=15)
+        open(stamp, 'w').write(h)
+        print("           pushed equity-executions.json", flush=True)
+    except Exception as e:
+        print(f"::warning:: equity-executions push failed ({e})", flush=True)
+
+
 def _heartbeat(token, repo, acct, emitted):
     """Fire an `equity-bridge-heartbeat` repository_dispatch so the server-side watchdog can see the
     bridge/MT5 is alive (the bridge otherwise writes only to local MQL5\\Files). Best-effort, fail-open."""
@@ -193,7 +272,11 @@ def main():
                     help='GitHub PAT (contents/repo scope) to fire a liveness heartbeat so the watchdog '
                          'can see MT5 is up. Falls back to the GH_TOKEN / GITHUB_TOKEN env var. Optional.')
     ap.add_argument('--gh-repo', default='ModernViking1/vikinginvest-prices',
-                    help='owner/repo the heartbeat dispatch targets')
+                    help='owner/repo the heartbeat dispatch + executions push target')
+    ap.add_argument('--tg-token', default=os.environ.get('TELEGRAM_BOT_TOKEN', ''),
+                    help='Telegram bot token for entry alerts (falls back to TELEGRAM_BOT_TOKEN env). Optional.')
+    ap.add_argument('--tg-chat', default=os.environ.get('TELEGRAM_CHAT_ID', ''),
+                    help='Telegram chat id for entry alerts (falls back to TELEGRAM_CHAT_ID env). Optional.')
     args = ap.parse_args()
     demo = args.demo != '0'
 
@@ -215,6 +298,8 @@ def main():
     if getattr(acct, 'trade_mode', 0) != 0 and demo:
         print("  NOTE: account is not demo — the EA's demo guard will still block live fills.", flush=True)
     print(f"  watchdog heartbeat: {'ON -> ' + args.gh_repo if args.gh_token else 'OFF (set --gh-token or GH_TOKEN to enable)'}", flush=True)
+    print(f"  executions push:    {'ON -> ' + args.gh_repo if args.gh_token else 'OFF (needs --gh-token/GH_TOKEN)'}", flush=True)
+    print(f"  entry alerts:       {'ON (Telegram)' if (args.tg_token and args.tg_chat) else 'OFF (set --tg-token/--tg-chat or TELEGRAM_* env)'}", flush=True)
 
     try:
         while True:
@@ -228,11 +313,20 @@ def main():
                 print(f"{dt.datetime.now():%H:%M:%S} wrote {n} signal(s)"
                       + (": " + ", ".join(f"{s['sym']}/{s['strategy']} {s['dir']}" for s in doc['signals']) if n else ""),
                       flush=True)
+                # Telegram one alert per NEW entry the EA opened this cycle (mirrors swing/intraday).
+                try:
+                    _alert_new_entries(out_dir, _load_ledger(os.path.join(out_dir, LEDGER)),
+                                       args.tg_token, args.tg_chat)
+                except Exception as e:
+                    print(f"::warning:: entry alert failed ({e})", flush=True)
                 try:
                     nx = write_executions(mt5, out_dir)
                     print(f"           executions log: {nx} closed trade(s)", flush=True)
+                    # Publish the per-strategy win/loss record to the repo (on change) — server-visible
+                    # + auto-refreshes the dashboard via live-book.yml.
+                    _push_executions(args.gh_repo, args.gh_token, out_dir)
                 except Exception as e:
-                    print(f"::warning:: executions log failed ({e})", flush=True)
+                    print(f"::warning:: executions log/push failed ({e})", flush=True)
                 # Liveness heartbeat so the watchdog can see MT5/the bridge is up (server-side).
                 _heartbeat(args.gh_token, args.gh_repo, getattr(acct, 'login', '?'), n)
             except Exception as e:
