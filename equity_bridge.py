@@ -165,6 +165,8 @@ def _tg(msg, token, chat):
     """Send a Telegram message. Best-effort, fail-open."""
     if not token or not chat:
         return
+    if token.startswith("bot"):
+        token = token[3:]                       # tolerate a stray 'bot' prefix (the URL adds it) -> avoids 404
     import urllib.parse, urllib.request
     data = urllib.parse.urlencode({"chat_id": chat, "text": msg, "parse_mode": "HTML",
                                    "disable_web_page_preview": "true"}).encode()
