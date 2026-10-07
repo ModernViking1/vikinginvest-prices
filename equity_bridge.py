@@ -200,6 +200,45 @@ def _alert_new_entries(out_dir, ledger, tg_token, tg_chat):
         pass
 
 
+CLOSED_ALERTED = 'equity-closed-alerted.json'   # local: closed trades already alerted (dedup)
+
+
+def _alert_new_closes(out_dir, tg_token, tg_chat):
+    """Telegram one alert per NEW closed trade (strategy, side, realised R, P&L). Reads the executions
+    file write_executions just wrote. Seeds silently on first run; deduped across cycles. Fail-open."""
+    path = os.path.join(out_dir, CLOSED_ALERTED)
+    try:
+        seen = set(json.load(open(path)).get('keys', [])); seeded = True
+    except Exception:
+        seen, seeded = set(), False
+    try:
+        execs = json.load(open(os.path.join(out_dir, 'equity-executions.json'))).get('executions', [])
+    except Exception:
+        execs = []
+    keys, new = [], []
+    for e in execs:
+        cms = e.get('closed_ms')
+        if cms is None:
+            continue
+        k = f"{e.get('id','?')}@{cms}"
+        keys.append(k)
+        if k not in seen:
+            new.append(e)
+    if seeded and tg_token:
+        for e in sorted(new, key=lambda x: x.get('closed_ms', 0)):
+            r = e.get('realized_r'); pnl = e.get('profit_ccy')
+            side = 'SELL' if e.get('dir') == 'bear' else 'BUY'
+            emoji = '✅' if (isinstance(r, (int, float)) and r > 0) else ('❌' if isinstance(r, (int, float)) else '➖')
+            rtxt = f"{r:+.2f}R" if isinstance(r, (int, float)) else "—"
+            pnltxt = f" · {pnl:+.2f}" if isinstance(pnl, (int, float)) else ""
+            _tg(f"{emoji} <b>Equity EXIT · {e.get('strategy','?')}</b>\n{e.get('sym','?')} {side} closed "
+                f"<b>{rtxt}</b>{pnltxt}\nentry {e.get('entry','?')} → exit {e.get('exit','?')}", tg_token, tg_chat)
+    try:
+        json.dump({'keys': sorted(set(keys))}, open(path, 'w'))
+    except Exception:
+        pass
+
+
 def _push_executions(repo, token, out_dir):
     """Push equity-executions.json to the repo (GitHub contents API) when it CHANGES, so the
     per-strategy win/loss record is visible server-side and auto-refreshes the dashboard. Fail-open."""
@@ -299,7 +338,7 @@ def main():
         print("  NOTE: account is not demo — the EA's demo guard will still block live fills.", flush=True)
     print(f"  watchdog heartbeat: {'ON -> ' + args.gh_repo if args.gh_token else 'OFF (set --gh-token or GH_TOKEN to enable)'}", flush=True)
     print(f"  executions push:    {'ON -> ' + args.gh_repo if args.gh_token else 'OFF (needs --gh-token/GH_TOKEN)'}", flush=True)
-    print(f"  entry alerts:       {'ON (Telegram)' if (args.tg_token and args.tg_chat) else 'OFF (set --tg-token/--tg-chat or TELEGRAM_* env)'}", flush=True)
+    print(f"  entry+exit alerts:  {'ON (Telegram)' if (args.tg_token and args.tg_chat) else 'OFF (set --tg-token/--tg-chat or TELEGRAM_* env)'}", flush=True)
 
     try:
         while True:
@@ -322,6 +361,8 @@ def main():
                 try:
                     nx = write_executions(mt5, out_dir)
                     print(f"           executions log: {nx} closed trade(s)", flush=True)
+                    # Telegram one alert per NEW close (strategy, side, realised R, P&L).
+                    _alert_new_closes(out_dir, args.tg_token, args.tg_chat)
                     # Publish the per-strategy win/loss record to the repo (on change) — server-visible
                     # + auto-refreshes the dashboard via live-book.yml.
                     _push_executions(args.gh_repo, args.gh_token, out_dir)
