@@ -21,7 +21,7 @@
 //|    Attach to ONE chart (any symbol); it manages all .EQ symbols. |
 //+------------------------------------------------------------------+
 #property copyright "Viking Invest"
-#property version   "1.04"
+#property version   "1.05"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -42,6 +42,14 @@ input double InpMaxNotionalPct = 20.0;    // cap a position's NOTIONAL at this %
                                           //   pure 0.5%-risk sizing hugely over-leveraged)
 input double InpMaxLot       = 100000.0;  // absolute lot backstop (notional cap normally binds first)
 input bool   InpVerbose      = true;      // log decisions
+// ── Execution fixes (2026-10-08) ──────────────────────────────────────────────
+input string InpEntryMode    = "limit";   // "limit" = rest a limit AT the model entry (aligns fills
+                                          //   with the backtest; a favourable market price fills now);
+                                          //   "market" = legacy immediate market entry.
+input double InpMaxSpreadPct = 40.0;      // SPREAD GATE: skip if the live spread exceeds this % of the
+                                          //   stop distance (R) — cuts the wide-spread/gappy fills that
+                                          //   closed worse than -1R in the live record.
+input int    InpLimitExpiryMin = 240;     // a resting limit entry expires unfilled after this (no chase)
 
 CTrade        trade;
 CPositionInfo pos;
@@ -76,6 +84,7 @@ void OnDeinit(const int reason){ EventKillTimer(); }
 //+------------------------------------------------------------------+
 void OnTimer()
   {
+   AdoptNewPositions();                         // track any limit-entry fill before managing/trailing
    ManageOpen(true);                            // trail/time-exit + heartbeat every 30s — NOT dependent
                                                 // on the chart symbol ticking (the AAPL.NAS-quiet trap)
    string body;
@@ -183,7 +192,7 @@ void ProcessSignal(const string obj)
      { if(InpVerbose) PrintFormat("skip %s — demo_only but account not demo (AllowLive=%s)", id, (string)InpAllowLive); return; }
    if(ageM > InpMaxAgeMin) { if(InpVerbose) PrintFormat("skip %s — stale (%.0f>%d min)", id, ageM, InpMaxAgeMin); return; }
    if(AlreadyActed(id))    return;
-   if(OpenCountForSymbol(sym) >= InpMaxOpenPerSym) return;
+   if(OpenCountForSymbol(sym) + PendingCountForSymbol(sym) >= InpMaxOpenPerSym) return;  // count resting limits too
    if(!SymbolSelect(sym, true)) { PrintFormat("skip %s — symbol %s not in Market Watch", id, sym); return; }
    if((ENUM_SYMBOL_TRADE_MODE)SymbolInfoInteger(sym, SYMBOL_TRADE_MODE)==SYMBOL_TRADE_MODE_DISABLED) return;
 
@@ -192,49 +201,72 @@ void ProcessSignal(const string obj)
 
    int    digits = (int)SymbolInfoInteger(sym, SYMBOL_DIGITS);
    double point  = SymbolInfoDouble(sym, SYMBOL_POINT);
-   double price  = (dir>0) ? SymbolInfoDouble(sym, SYMBOL_ASK) : SymbolInfoDouble(sym, SYMBOL_BID);
-   // broker minimum distance between market and a stop (stock CFDs enforce this -> retcode 10016)
+   double ask    = SymbolInfoDouble(sym, SYMBOL_ASK);
+   double bid    = SymbolInfoDouble(sym, SYMBOL_BID);
+   // broker minimum distance between market and a stop/pending (stock CFDs enforce it -> retcode 10016)
    double minDist = (double)SymbolInfoInteger(sym, SYMBOL_TRADE_STOPS_LEVEL) * point;
-   double sl = stop;
-   // setup has MOVED since the signal bar — SL now on the wrong side of the live price -> skip,
-   // don't chase a blown level (same discipline as the swing stale-fill guard).
-   if((dir>0 && sl >= price) || (dir<0 && sl <= price))
-     { if(InpVerbose) PrintFormat("skip %s — SL %.5f wrong side of market %.5f (setup moved)", id, sl, price); return; }
-   // too close to market -> widen to the broker minimum (accept a slightly larger R rather than reject)
-   if(dir>0 && (price - sl) < minDist) sl = price - minDist;
-   if(dir<0 && (sl - price) < minDist) sl = price + minDist;
-   sl = NormalizeDouble(sl, digits);
-   double R = MathAbs(price - sl);               // R off the actual fill-side price + (adjusted) SL
-   if(R<=0) return;
-   double lots = LotsForRisk(sym, R, price);
-   if(lots<=0) { PrintFormat("skip %s — lot sizing <=0", id); return; }
 
-   bool ok = (dir>0) ? trade.Buy(lots, sym, 0.0, sl, 0.0, id)
-                     : trade.Sell(lots, sym, 0.0, sl, 0.0, id);
-   if(!ok)
+   // SPREAD GATE — skip a wide-spread fill (the fills that closed worse than -1R in the live record).
+   double Rmodel = MathAbs(entry - stop);
+   double spread = ask - bid;
+   if(Rmodel > 0 && spread > (InpMaxSpreadPct/100.0)*Rmodel)
+     { if(InpVerbose) PrintFormat("skip %s — spread %.5f = %.0f%% of R (cap %.0f%%)", id, spread, 100.0*spread/Rmodel, InpMaxSpreadPct); return; }
+
+   // ENTRY MODE — rest a LIMIT at the model entry so the fill matches the backtest, EXCEPT when the
+   // market is already at a favourable price (take it now) or within the broker's min pending distance.
+   bool useMarket = (InpEntryMode != "limit");
+   if(!useMarket)
      {
-      int rc = (int)trade.ResultRetcode();
-      PrintFormat("ORDER FAIL %s %s: %d %s", sym, dirS, rc, trade.ResultRetcodeDescription());
-      // Structural rejects that won't clear by re-sending THIS signal next poll — mark it acted so
-      // the EA stops hammering OrderSend (and the log) every 30s. close-only (10044) = broker allows
-      // only closing this symbol now; long/short-only (10042/10043) = this direction is blocked;
-      // trade-disabled (10017) = symbol not openable. A transient reject (requote/price-changed/
-      // timeout/busy) is left to retry on the next poll.
-      if(rc==TRADE_RETCODE_CLOSE_ONLY || rc==TRADE_RETCODE_LONG_ONLY || rc==TRADE_RETCODE_SHORT_ONLY ||
-         rc==TRADE_RETCODE_TRADE_DISABLED)
-        { MarkActed(id); PrintFormat("  -> %s %s not openable now (rc %d); skipping this signal", sym, dirS, rc); }
+      if(dir>0 && ask <= entry) useMarket = true;           // can buy now at/below the model entry
+      if(dir<0 && bid >= entry) useMarket = true;           // can sell now at/above the model entry
+      if(dir>0 && (ask - entry) < minDist) useMarket = true; // limit would sit too close to market
+      if(dir<0 && (entry - bid) < minDist) useMarket = true;
+     }
+
+   if(useMarket)
+     {
+      double price = (dir>0) ? ask : bid;
+      double sl = stop;
+      if((dir>0 && sl>=price) || (dir<0 && sl<=price))
+        { if(InpVerbose) PrintFormat("skip %s — SL %.5f wrong side of market %.5f (setup moved)", id, sl, price); return; }
+      if(dir>0 && (price-sl)<minDist) sl = price - minDist;
+      if(dir<0 && (sl-price)<minDist) sl = price + minDist;
+      sl = NormalizeDouble(sl, digits);
+      double R = MathAbs(price - sl); if(R<=0) return;
+      double lots = LotsForRisk(sym, R, price);
+      if(lots<=0) { PrintFormat("skip %s — lot sizing <=0", id); return; }
+      bool ok = (dir>0) ? trade.Buy(lots, sym, 0.0, sl, 0.0, id)
+                        : trade.Sell(lots, sym, 0.0, sl, 0.0, id);
+      if(!ok) { HandleOrderFail(id, sym, dirS); return; }
+      ulong ticket = trade.ResultOrder();
+      ulong ptk = FindPositionByComment(sym, id);
+      double holdSec = holdB * TfMinutes(tf) * 60.0;
+      ulong statetk = (ptk>0?ptk:ticket);
+      AddState(statetk, price, sl, R, dir, TimeCurrent()+(datetime)holdSec);
+      LogOpen(statetk, id, sym, dir, price, sl, lots);
+      MarkActed(id);
+      PrintFormat("PLACED(mkt) %s %s %.2f @ %.4f SL %.4f (R=%.4f)", sym, dirS, lots, price, sl, R);
       return;
      }
 
-   ulong ticket = trade.ResultOrder();
-   // find the resulting position ticket (hedging: by symbol+magic+comment)
-   ulong ptk = FindPositionByComment(sym, id);
-   double holdSec = holdB * TfMinutes(tf) * 60.0;
-   ulong  statetk = (ptk>0?ptk:ticket);
-   AddState(statetk, price, sl, R, dir, TimeCurrent()+(datetime)holdSec);
-   LogOpen(statetk, id, sym, dir, price, sl, lots);   // ledger so the bridge can compute WR/RR
+   // LIMIT at the model entry — rests until filled or expires (no chase). AdoptNewPositions() picks it
+   // up on fill (reading the id from the position comment) so the trailing runner tracks it from there.
+   double lp = NormalizeDouble(entry, digits);
+   double sll = stop;
+   if((dir>0 && sll>=lp) || (dir<0 && sll<=lp))
+     { if(InpVerbose) PrintFormat("skip %s — SL %.5f wrong side of entry %.5f", id, sll, lp); return; }
+   if(dir>0 && (lp-sll)<minDist) sll = lp - minDist;
+   if(dir<0 && (sll-lp)<minDist) sll = lp + minDist;
+   sll = NormalizeDouble(sll, digits);
+   double Rl = MathAbs(lp - sll); if(Rl<=0) return;
+   double lotsL = LotsForRisk(sym, Rl, lp);
+   if(lotsL<=0) { PrintFormat("skip %s — lot sizing <=0", id); return; }
+   datetime exp = TimeCurrent() + (datetime)(InpLimitExpiryMin*60);
+   bool okL = (dir>0) ? trade.BuyLimit(lotsL, lp, sym, sll, 0.0, ORDER_TIME_SPECIFIED, exp, id)
+                      : trade.SellLimit(lotsL, lp, sym, sll, 0.0, ORDER_TIME_SPECIFIED, exp, id);
+   if(!okL) { HandleOrderFail(id, sym, dirS); return; }
    MarkActed(id);
-   PrintFormat("PLACED %s %s %.2f lots entry~%.4f SL %.4f (R=%.4f, hold~%.0fh)", sym, dirS, lots, price, sl, R, holdSec/3600.0);
+   PrintFormat("LIMIT %s %s %.2f @ %.4f SL %.4f (R=%.4f, exp %dm) — adopts on fill", sym, dirS, lotsL, lp, sll, Rl, InpLimitExpiryMin);
   }
 
 // Append an opened trade to the ledger (ticket,id,sym,dir,entry,initSL,lots,open_epoch). The bridge
@@ -302,6 +334,48 @@ ulong FindPositionByComment(const string sym, const string id)
       if(pos.SelectByIndex(i) && pos.Symbol()==sym && pos.Magic()==InpMagic && pos.Comment()==id)
          return pos.Ticket();
    return 0;
+  }
+bool InState(ulong tk)
+  {
+   for(int i=ArraySize(gStates)-1;i>=0;i--) if(gStates[i].ticket==tk) return true;
+   return false;
+  }
+int PendingCountForSymbol(const string sym)
+  {
+   int c=0;
+   for(int i=OrdersTotal()-1;i>=0;i--)
+     {
+      ulong tk=OrderGetTicket(i);
+      if(tk==0) continue;
+      if(OrderGetString(ORDER_SYMBOL)==sym && OrderGetInteger(ORDER_MAGIC)==InpMagic) c++;
+     }
+   return c;
+  }
+void HandleOrderFail(const string id, const string sym, const string dirS)
+  {
+   int rc=(int)trade.ResultRetcode();
+   PrintFormat("ORDER FAIL %s %s: %d %s", sym, dirS, rc, trade.ResultRetcodeDescription());
+   // structural rejects that won't clear by re-sending THIS signal -> mark acted, stop hammering.
+   if(rc==TRADE_RETCODE_CLOSE_ONLY || rc==TRADE_RETCODE_LONG_ONLY || rc==TRADE_RETCODE_SHORT_ONLY ||
+      rc==TRADE_RETCODE_TRADE_DISABLED)
+     { MarkActed(id); PrintFormat("  -> %s %s not openable now (rc %d); skipping this signal", sym, dirS, rc); }
+  }
+// Adopt any open EA position not yet tracked (e.g. a LIMIT entry that just filled) so the trailing
+// runner manages it. Reconstructs R from the position's SL and logs it to the ledger via its comment.
+void AdoptNewPositions()
+  {
+   for(int i=PositionsTotal()-1;i>=0;i--)
+     {
+      if(!pos.SelectByIndex(i) || pos.Magic()!=InpMagic) continue;
+      ulong tk=pos.Ticket();
+      if(InState(tk)) continue;
+      int dir=(pos.PositionType()==POSITION_TYPE_BUY)?1:-1;
+      double entry=pos.PriceOpen(); double sl=pos.StopLoss();
+      double R=(sl>0)?MathAbs(entry-sl):0.0;
+      AddState(tk, entry, sl, R, dir, TimeCurrent()+(datetime)(10*24*3600));
+      LogOpen(tk, pos.Comment(), pos.Symbol(), dir, entry, sl, pos.Volume());
+      if(InpVerbose) PrintFormat("adopted %s pos %I64u @ %.4f SL %.4f (limit fill / external)", pos.Symbol(), tk, entry, sl);
+     }
   }
 
 void AddState(ulong tk, double entry, double initStop, double R, int dir, datetime expiry)
