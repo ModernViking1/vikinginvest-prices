@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-10-08T13:00:00+00:00",
  "data_end_ts": 1791464400,
- "raw_signal_count": 7,
+ "raw_signal_count": 6,
  "count": 6,
  "signals": [
   {
@@ -34,24 +34,52 @@
    "suppressed": 0
   },
   {
-   "id": "engulf_manip:nearusd:1791450000",
-   "strategy": "engulf_manip",
+   "id": "mmove:taousd:1791446400",
+   "strategy": "mmove",
    "regime": null,
    "risk_mult": 1.0,
-   "pair": "nearusd",
-   "symbol": "NEARUSD",
+   "pair": "taousd",
+   "symbol": "TAOUSD",
    "class": "crypto",
    "dir": "bear",
-   "stop": 5.61550214,
-   "ref_entry": 5.2105,
+   "stop": 287.54271429,
+   "ref_entry": 283.64,
    "pivot": null,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "limit",
    "demo_only": false,
-   "trigger_ts": 1791450000,
+   "trigger_ts": 1791446400,
    "created_ts": 1791464400,
-   "expiry_ts": 1791493200,
+   "expiry_ts": 1791489600,
+   "state": "triggered",
+   "cofire": [
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "mmove:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "engulf_manip:ethusd:1791432000",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "ethusd",
+   "symbol": "ETHUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 2588.85571429,
+   "ref_entry": 2562.56,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1791432000,
+   "created_ts": 1791464400,
+   "expiry_ts": 1791475200,
    "state": "triggered",
    "cofire": [
     "engulf_manip"
@@ -60,36 +88,6 @@
     "engulf_manip:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "engulf_manip:taousd:1791435600",
-   "strategy": "engulf_manip",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "taousd",
-   "symbol": "TAOUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 294.89921429,
-   "ref_entry": 282.56,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1791435600,
-   "created_ts": 1791464400,
-   "expiry_ts": 1791478800,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip",
-    "mmove"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bear",
-    "mmove:bear"
-   ],
-   "suppressed": 1
   },
   {
    "id": "twob_ix:nas100:1791428400",
