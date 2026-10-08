@@ -1704,7 +1704,11 @@ def detect_ema920v_m15(pk, m15):
 from market_wizards_research import (holy_grail as _holygrail_sig,
                                      volbreak as _volbreak_sig, two_b as _twob_sig)
 TRAIL_ARM = 1.0            # arm the trail at +1R
-TRAIL_DIST = 1.0          # ride 1R behind the best price
+TRAIL_DIST = 0.75         # ride 0.75R behind the best price. 2026-10-08: tightened 1.0 -> 0.75 after
+                          # exit_rule_backtest confirmed it over 137,797 signals on the 3yr deep cache —
+                          # +0.020R/trade vs a 1R trail, BOTH OOS halves, and better in EVERY asset class
+                          # (minor/crypto/major/index/comm). Captures more of each runner without adding
+                          # scratches (WR unchanged). The equity EA's live trail is set to match.
 TRAIL_HOLD = 200          # runner horizon (bars) — matches the breakdown study
 # H1 pair-loop scoping (crypto/index/comm live in historical-ohlc.json). Equity lives
 # in equity-ohlc.json and is wired in the equity block below.

@@ -21,7 +21,7 @@
 //|    Attach to ONE chart (any symbol); it manages all .EQ symbols. |
 //+------------------------------------------------------------------+
 #property copyright "Viking Invest"
-#property version   "1.05"
+#property version   "1.06"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -50,6 +50,9 @@ input double InpMaxSpreadPct = 40.0;      // SPREAD GATE: skip if the live sprea
                                           //   stop distance (R) — cuts the wide-spread/gappy fills that
                                           //   closed worse than -1R in the live record.
 input int    InpLimitExpiryMin = 240;     // a resting limit entry expires unfilled after this (no chase)
+input double InpTrailDistR    = 0.75;     // trail the stop this many R behind the best price once armed
+                                          //   (arm stays +1R). 0.75 beat 1.0 by +0.020R/trade over 137k
+                                          //   signals / 3yr / both OOS halves / every asset class.
 
 CTrade        trade;
 CPositionInfo pos;
@@ -141,7 +144,7 @@ void ManageOpen(bool beat=false)
       int    dg    = (int)SymbolInfoInteger(sym, SYMBOL_DIGITS);
       double curSL = PositionGetDouble(POSITION_SL);
       // where the trail WOULD sit (shown pre-arm too, so you can see it waiting)
-      double trailSL = NormalizeDouble((gStates[i].dir>0) ? gStates[i].best - R : gStates[i].best + R, dg);
+      double trailSL = NormalizeDouble((gStates[i].dir>0) ? gStates[i].best - InpTrailDistR*R : gStates[i].best + InpTrailDistR*R, dg);
 
       // HEARTBEAT — one line per open position per poll, so the Experts log shows the runner is live:
       // armed state, R, current profit in R, best price seen, and where the trailing stop sits/will sit.
@@ -158,8 +161,8 @@ void ManageOpen(bool beat=false)
         {
          double tp = PositionGetDouble(POSITION_TP);
          if(trade.PositionModify(gStates[i].ticket, trailSL, tp))
-            PrintFormat("TRAIL %-10s SL %.4f -> %.4f  (best %.4f, +1R locked past %+.2fR)",
-                        sym, curSL, trailSL, gStates[i].best, profitR);
+            PrintFormat("TRAIL %-10s SL %.4f -> %.4f  (best %.4f, %.2fR behind; now +%.2fR)",
+                        sym, curSL, trailSL, gStates[i].best, InpTrailDistR, profitR);
          else
             PrintFormat("TRAIL FAIL %-10s -> %.4f: %d %s", sym, trailSL,
                         trade.ResultRetcode(), trade.ResultRetcodeDescription());
