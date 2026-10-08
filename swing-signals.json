@@ -2,7 +2,7 @@
  "schema_version": 1,
  "generated": "2026-10-08T23:00:00+00:00",
  "data_end_ts": 1791500400,
- "raw_signal_count": 13,
+ "raw_signal_count": 12,
  "count": 11,
  "signals": [
   {
@@ -44,6 +44,34 @@
    "dir": "bear",
    "stop": 82122.64535714,
    "ref_entry": 81437.68,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1791486000,
+   "created_ts": 1791500400,
+   "expiry_ts": 1791529200,
+   "state": "triggered",
+   "cofire": [
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "mmove:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "mmove:ethusd:1791486000",
+   "strategy": "mmove",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "ethusd",
+   "symbol": "ETHUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 2518.59321429,
+   "ref_entry": 2445.0,
    "pivot": null,
    "rr": 2.0,
    "r_pct": 1.0,
@@ -256,36 +284,6 @@
     "twob_ix:bull"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "engulf_manip:ethusd:1791432000",
-   "strategy": "engulf_manip",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "ethusd",
-   "symbol": "ETHUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 2588.85571429,
-   "ref_entry": 2562.56,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1791432000,
-   "created_ts": 1791500400,
-   "expiry_ts": 1791475200,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip",
-    "mmove"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bear",
-    "mmove:bear"
-   ],
-   "suppressed": 1
   },
   {
    "id": "twob_ix:nas100:1791428400",
