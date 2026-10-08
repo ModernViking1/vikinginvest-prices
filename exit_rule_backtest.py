@@ -88,8 +88,8 @@ def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--hist', default='equity-ohlc.json')
     args = ap.parse_args()
     pairs = json.load(open(args.hist)).get('pairs', {})
-    out = defaultdict(list)
-    nsig = 0
+    recs = []                                     # per-signal: {'t':entry_ts, variant:r}
+    by_class = defaultdict(lambda: defaultdict(list))   # class -> variant -> [r]
     for pk, layers in pairs.items():
         if not isinstance(layers, dict):
             continue
@@ -97,30 +97,51 @@ def main():
         if len(h1) < 400:
             continue
         ts = [b['_ts'] for b in h1]
+        cls = getattr(H, 'PAIR_CLASS', {}).get(pk, 'other')
         for tag, gen in DETECTORS:
             for s in H._mw_signals(h1, pk, tag, 'h1', gen):
                 base = score(h1, ts, s['entry_ts'], s['entry'], s['stop'], s['dir'], HOLD, 1.0, 1.0, None)
                 if base is None:
                     continue                      # unresolved -> exclude from every variant equally
-                nsig += 1
+                rec = {'t': s['entry_ts']}
                 for v, p in VARIANTS.items():
-                    r = score(h1, ts, s['entry_ts'], s['entry'], s['stop'], s['dir'], HOLD, **p)
-                    if r is not None:
-                        out[v].append(r)
+                    rec[v] = score(h1, ts, s['entry_ts'], s['entry'], s['stop'], s['dir'], HOLD, **p)
+                recs.append(rec)
+                for v in VARIANTS:
+                    if rec[v] is not None:
+                        by_class[cls][v].append(rec[v])
+    recs.sort(key=lambda r: r['t'])
+    mid = len(recs) // 2
+
+    def col(rows, v):
+        xs = [r[v] for r in rows if r.get(v) is not None]
+        return (sum(xs) / len(xs)) if xs else 0.0
 
     print(f"=== exit-rule backtest · {args.hist} · MW continuation (holygrail/volbreak/twob) h1 · "
-          f"{nsig} resolved signals ===\n")
-    print(f"{'variant':<12}{'n':>6}{'WR':>6}{'exp':>9}{'totR':>8}{'avgWin':>8}{'avgLoss':>9}{'BE/scr':>8}{'vs base':>9}")
-    bexp = stats(out['baseline'])['exp']
+          f"{len(recs)} resolved signals ===\n")
+    print(f"{'variant':<12}{'n':>6}{'WR':>6}{'exp':>9}{'totR':>8}{'avgWin':>8}{'avgLoss':>9}"
+          f"{'OOS1':>9}{'OOS2':>9}{'vs base':>9}")
+    allr = {v: [r[v] for r in recs if r.get(v) is not None] for v in VARIANTS}
+    bexp = stats(allr['baseline'])['exp']
     for v in ORDER:
-        s = stats(out[v])
+        s = stats(allr[v])
         if not s:
             continue
-        delta = s['exp'] - bexp
         print(f"{v:<12}{s['n']:>6}{s['wr']:>5.0f}%{s['exp']:>+8.3f}R{s['tot']:>+7.0f}{s['aw']:>+8.2f}"
-              f"{s['al']:>+9.2f}{s['be']:>8}{delta:>+8.3f}R")
-    print("\nReading it: a rule BEATS baseline only if 'vs base' is clearly > 0. A BE floor should LIFT WR")
-    print("and avgLoss (fewer -1R) but CUT avgWin (runners scratched on the pullback) — net is what matters.")
+              f"{s['al']:>+9.2f}{col(recs[:mid], v):>+8.3f}R{col(recs[mid:], v):>+8.3f}R{s['exp']-bexp:>+8.3f}R")
+
+    print("\nBY ASSET CLASS (exp per trade) — does trail_0.75 beat baseline everywhere, or only some?")
+    print(f"{'class':<10}{'n':>6}  " + "".join(f"{v:>12}" for v in ['baseline', 'trail_0.75', 'be_0.5']))
+    for cls in sorted(by_class, key=lambda c: -len(by_class[c]['baseline'])):
+        d = by_class[cls]
+        n = len(d['baseline'])
+        if n < 30:
+            continue
+        cells = "".join(f"{(sum(d[v]) / len(d[v]) if d[v] else 0):>+11.3f}R" for v in ['baseline', 'trail_0.75', 'be_0.5'])
+        print(f"{cls:<10}{n:>6}  {cells}")
+
+    print("\nImplement trail_0.75 only if it beats baseline overall AND in both OOS halves AND across")
+    print("most classes (not driven by one). BE floors should read ~flat (protection = scratched winners).")
 
 
 if __name__ == '__main__':
