@@ -1,10 +1,38 @@
 {
  "schema_version": 1,
- "generated": "2026-10-08T07:00:00+00:00",
- "data_end_ts": 1791442800,
- "raw_signal_count": 8,
- "count": 6,
+ "generated": "2026-10-08T08:00:00+00:00",
+ "data_end_ts": 1791446400,
+ "raw_signal_count": 10,
+ "count": 7,
  "signals": [
+  {
+   "id": "mmove:xrpusd:1791446400",
+   "strategy": "mmove",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "xrpusd",
+   "symbol": "XRPUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 1.41586571,
+   "ref_entry": 1.4069,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1791446400,
+   "created_ts": 1791446400,
+   "expiry_ts": 1791489600,
+   "state": "triggered",
+   "cofire": [
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "mmove:bear"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "holygrail_cm_m15:natgas:1791442800",
    "strategy": "holygrail_cm_m15",
@@ -22,7 +50,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1791442800,
-   "created_ts": 1791442800,
+   "created_ts": 1791446400,
    "expiry_ts": 1791486000,
    "state": "triggered",
    "cofire": [
@@ -32,6 +60,36 @@
     "holygrail_cm_m15:bull"
    ],
    "suppressed": 2
+  },
+  {
+   "id": "engulf_manip:taousd:1791435600",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "taousd",
+   "symbol": "TAOUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 294.89921429,
+   "ref_entry": 282.56,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1791435600,
+   "created_ts": 1791446400,
+   "expiry_ts": 1791478800,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip",
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear",
+    "mmove:bear"
+   ],
+   "suppressed": 1
   },
   {
    "id": "twob_ix:nas100:1791428400",
@@ -50,7 +108,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1791428400,
-   "created_ts": 1791442800,
+   "created_ts": 1791446400,
    "expiry_ts": 1791471600,
    "state": "triggered",
    "cofire": [
@@ -78,7 +136,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1791406800,
-   "created_ts": 1791442800,
+   "created_ts": 1791446400,
    "expiry_ts": 1791450000,
    "state": "triggered",
    "cofire": [
@@ -106,7 +164,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1791406800,
-   "created_ts": 1791442800,
+   "created_ts": 1791446400,
    "expiry_ts": 1791450000,
    "state": "triggered",
    "cofire": [
@@ -134,7 +192,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1791363600,
-   "created_ts": 1791442800,
+   "created_ts": 1791446400,
    "expiry_ts": 1791406800,
    "state": "triggered",
    "cofire": [
@@ -142,34 +200,6 @@
    ],
    "cofire_dirs": [
     "hs:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "mmove:xrpusd:1791356400",
-   "strategy": "mmove",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "xrpusd",
-   "symbol": "XRPUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 1.495655,
-   "ref_entry": 1.4748,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1791356400,
-   "created_ts": 1791442800,
-   "expiry_ts": 1791399600,
-   "state": "triggered",
-   "cofire": [
-    "mmove"
-   ],
-   "cofire_dirs": [
-    "mmove:bear"
    ],
    "suppressed": 0
   }
