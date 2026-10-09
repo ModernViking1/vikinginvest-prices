@@ -37,7 +37,8 @@ SYMBOLS = {
 }
 # (tag, timeframe, generator) — identical to the live equity feed's .EQ book.
 STRATS = [('holygrail_eq', 'h1', H._holygrail_sig), ('twob_eq', 'h1', H._twob_sig),
-          ('volbreak_eq', 'h1', H._volbreak_sig), ('holygrail_eq_m15', 'm15', H._holygrail_sig)]
+          ('volbreak_eq', 'h1', H._volbreak_sig), ('holygrail_eq_m15', 'm15', H._holygrail_sig),
+          ('turtle_soup_eq', 'h1', H._turtlesoup_sig), ('turtle_soup_eq_m15', 'm15', H._turtlesoup_sig)]
 FRESH_MIN = {'h1': 90, 'm15': 45}          # emit only a signal whose entry bar closed within this
 TA, TD, TH = H.TRAIL_ARM, H.TRAIL_DIST, H.TRAIL_HOLD
 MAGIC = 5204940                            # must match the EA's InpMagic
@@ -155,8 +156,8 @@ def build_doc(mt5, bars_n, demo):
         'schema_version': 2, 'generated': now.isoformat(), 'generated_ms': int(now.timestamp() * 1000),
         'broker': 'mt5', 'demo_only_default': demo, 'source': 'mt5-bridge',
         'note': 'Equity .EQ signals generated LOCALLY from broker MT5 bars via the validated '
-                'detectors (holygrail_eq/_m15, twob_eq, volbreak_eq). Trailing exit (arm +1R, '
-                'trail 1R, 200-bar). Demo-only pilot; read by VikingEquityEA (InpLocalFile).',
+                'detectors (holygrail_eq/_m15, twob_eq, volbreak_eq, turtle_soup_eq/_m15). Trailing '
+                'exit (arm +1R, trail 0.75R, 200-bar). Demo-only pilot; read by VikingEquityEA (InpLocalFile).',
         'counts': {'emitted': len(sigs)}, 'signals': sigs,
     }
 

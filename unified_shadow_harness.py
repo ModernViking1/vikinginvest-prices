@@ -1702,7 +1702,8 @@ def detect_ema920v_m15(pk, m15):
 # tags (mmove_ix convention) so each combo can be promoted independently on its own
 # forward evidence. Detectors reuse the researched signal generators.
 from market_wizards_research import (holy_grail as _holygrail_sig,
-                                     volbreak as _volbreak_sig, two_b as _twob_sig)
+                                     volbreak as _volbreak_sig, two_b as _twob_sig,
+                                     turtle_soup as _turtlesoup_sig)
 TRAIL_ARM = 1.0            # arm the trail at +1R
 TRAIL_DIST = 0.75         # ride 0.75R behind the best price. 2026-10-08: tightened 1.0 -> 0.75 after
                           # exit_rule_backtest confirmed it over 137,797 signals on the 3yr deep cache —
@@ -2587,8 +2588,10 @@ def main():
                     eqsigs += _mw_signals(eh1, pk, 'holygrail_eq', 'h1', _holygrail_sig)
                     eqsigs += _mw_signals(eh1, pk, 'volbreak_eq', 'h1', _volbreak_sig)
                     eqsigs += _mw_signals(eh1, pk, 'twob_eq', 'h1', _twob_sig)
+                    eqsigs += _mw_signals(eh1, pk, 'turtle_soup_eq', 'h1', _turtlesoup_sig)
                 if len(em15) >= 400:
                     eqsigs += _mw_signals(em15, pk, 'holygrail_eq_m15', 'm15', _holygrail_sig)
+                    eqsigs += _mw_signals(em15, pk, 'turtle_soup_eq_m15', 'm15', _turtlesoup_sig)
                 for s in eqsigs:
                     detected += 1
                     k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -2598,9 +2601,9 @@ def main():
                     if rec['strategy'] == 'orb_eq':
                         st, o = score_orb(em15, rec['entry_ts'], rec['entry'], rec['stop'],
                                           rec['target'], rec['dir'], rec['session_end_ts'])
-                    elif rec['strategy'] == 'holygrail_eq_m15':
+                    elif rec['strategy'] in ('holygrail_eq_m15', 'turtle_soup_eq_m15'):
                         st, o = score_trail_open(em15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
-                    else:                       # holygrail_eq / volbreak_eq / twob_eq — h1 runner
+                    else:                       # holygrail_eq / volbreak_eq / twob_eq / turtle_soup_eq — h1 runner
                         st, o = score_trail_open(eh1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
                     rec['status'] = st
                     if st == 'resolved':
@@ -2703,7 +2706,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 'hs_crypto', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'orb_ln', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'po3_kane', 'po3_conf', 'cam_rev', 'absorb_btc'):
+        for strat in ('hs', 'hs_crypto', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'turtle_soup_eq', 'turtle_soup_eq_m15', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'orb_ln', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'po3_kane', 'po3_conf', 'cam_rev', 'absorb_btc'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)

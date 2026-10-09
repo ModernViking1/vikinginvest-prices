@@ -13,7 +13,8 @@ import unified_shadow_harness as H
 from backtest_rsi_per_class import _bars_norm
 
 STRATS = [('holygrail_eq','h1',H._holygrail_sig), ('twob_eq','h1',H._twob_sig),
-          ('volbreak_eq','h1',H._volbreak_sig), ('holygrail_eq_m15','m15',H._holygrail_sig)]
+          ('volbreak_eq','h1',H._volbreak_sig), ('holygrail_eq_m15','m15',H._holygrail_sig),
+          ('turtle_soup_eq','h1',H._turtlesoup_sig), ('turtle_soup_eq_m15','m15',H._turtlesoup_sig)]
 MIN_BARS = 400
 
 
