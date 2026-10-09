@@ -1,0 +1,37 @@
+name: Equity Detector Sweep (full roster on stocks, read-only)
+
+# Points the WHOLE strategy roster's detectors at equity bars (not just the 4 .EQ book setups) to
+# see whether any other edge ports to stocks over the 3-year period. Scores each with the equity
+# book's own trailing-runner exit, net of costs, both OOS halves, with a multiple-testing guard.
+# Runs on the committed equity-ohlc.json (US pilot names). A CANDIDATE here is a SCREEN result —
+# confirm survivors on the full broker-exported universe (equity_broker_backtest.py) before wiring.
+# Commits nothing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      asset_class:
+        description: "class to impersonate for gating (index|major|crypto|comm)"
+        required: false
+        default: "index"
+
+concurrency: { group: equity-detector-sweep, cancel-in-progress: false }
+permissions: { contents: read }
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: python -m pip install --upgrade pip requests
+      - name: Guard files present
+        run: for f in equity_detector_sweep.py unified_shadow_harness.py market_wizards_research.py detect_triggers.py equity-ohlc.json; do [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }; done
+      - name: Sweep the full detector roster over equity bars
+        run: |
+          echo "================ RESULT ================"
+          python equity_detector_sweep.py --hist equity-ohlc.json --asset-class "${{ github.event.inputs.asset_class || 'index' }}"
+          echo "========================================"
