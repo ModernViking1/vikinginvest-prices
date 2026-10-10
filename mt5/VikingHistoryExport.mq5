@@ -22,7 +22,14 @@
 #property script_show_inputs
 #property strict
 
-input string InpSymbols = "AAPL.NAS,AMZN.NAS,MSFT.NAS,NVDA.NAS,TSLA.NAS,DBK.ETR,BOSS.ETR,PAH3.ETR,VOWG.ETR,BAYN.ETR,CBK.ETR,MBGn.ETR,BARC.LSE,BA.LSE,LSE.LSE,RR.LSE,TSCO.LSE,AML.LSE,BKG.LSE,EZJ.LSE,MKS.LSE,RDSB.LSE,NWG.LSE,7267.TSE,8306.TSE,7974.TSE,6758.TSE,1288.HK,9898.HK,0003.HK,CABK.MAD,SAN.MAD,BNP.PAR,CAP.PAR,CA.PAR,BN.PAR,CDI.PAR";
+// Symbols are split across SEVERAL input fields on purpose: MT5 truncates a single input-string
+// parameter at ~250 chars, which silently dropped the tail of a long one-line list (the ES/FR/HK
+// names). Each field below stays short; OnStart concatenates them. Edit the one for your region.
+input string InpSymUS  = "AAPL.NAS,AMZN.NAS,MSFT.NAS,NVDA.NAS,TSLA.NAS";
+input string InpSymDE  = "DBK.ETR,BOSS.ETR,PAH3.ETR,VOWG.ETR,BAYN.ETR,CBK.ETR,MBGn.ETR";
+input string InpSymUK  = "BARC.LSE,BA.LSE,LSE.LSE,RR.LSE,TSCO.LSE,AML.LSE,BKG.LSE,EZJ.LSE,MKS.LSE,RDSB.LSE,NWG.LSE";
+input string InpSymJPHK= "7267.TSE,8306.TSE,7974.TSE,6758.TSE,1288.HK,9898.HK,0003.HK";
+input string InpSymESFR= "CABK.MAD,SAN.MAD,BNP.PAR,CAP.PAR,CA.PAR,BN.PAR,CDI.PAR";
 input int    InpBarsH1  = 8000;                    // H1 bars (~3yr of RTH equity sessions)
 input int    InpBarsM15 = 28000;                   // M15 bars (~3yr of RTH equity sessions)
 input string InpOut     = "viking_intl_ohlc.json"; // written to MQL5/Files/
@@ -70,7 +77,8 @@ int WriteSeries(const int h, const string sym, ENUM_TIMEFRAMES tf, const int wan
 
 void OnStart()
   {
-   string syms[]; int n=StringSplit(InpSymbols,',',syms);
+   string all=InpSymUS+","+InpSymDE+","+InpSymUK+","+InpSymJPHK+","+InpSymESFR;
+   string syms[]; int n=StringSplit(all,',',syms);
    int h=FileOpen(InpOut,FILE_WRITE|FILE_TXT|FILE_ANSI);
    if(h==INVALID_HANDLE){ PrintFormat("cannot open %s (err %d)",InpOut,GetLastError()); return; }
    FileWriteString(h,"{\"granularities\":[\"h1\",\"m15\"],\"source\":\"mt5-export\",\"pairs\":{");
