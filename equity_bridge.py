@@ -38,8 +38,11 @@ SYMBOLS = {
 # (tag, timeframe, generator) — identical to the live equity feed's .EQ book.
 STRATS = [('holygrail_eq', 'h1', H._holygrail_sig), ('twob_eq', 'h1', H._twob_sig),
           ('volbreak_eq', 'h1', H._volbreak_sig), ('holygrail_eq_m15', 'm15', H._holygrail_sig),
-          ('turtle_soup_eq', 'h1', H._turtlesoup_sig), ('turtle_soup_eq_m15', 'm15', H._turtlesoup_sig)]
-FRESH_MIN = {'h1': 90, 'm15': 45}          # emit only a signal whose entry bar closed within this
+          ('turtle_soup_eq', 'h1', H._turtlesoup_sig), ('turtle_soup_eq_m15', 'm15', H._turtlesoup_sig),
+          ('threepush_eq', '4h', H.threepush_core)]
+FRESH_MIN = {'h1': 90, 'm15': 45, '4h': 270}   # emit only a signal whose entry bar closed within this
+                                           #   (4h = one bar + buffer; its signals also carry a wider
+                                           #   max_age_min so the EA's 120-min cap doesn't drop them)
 TA, TD, TH = H.TRAIL_ARM, H.TRAIL_DIST, H.TRAIL_HOLD
 MAGIC = 5204940                            # must match the EA's InpMagic
 LEDGER = 'equity_trades_open.csv'          # the EA's open-trade ledger (ticket -> entry/SL)
@@ -129,9 +132,14 @@ def build_doc(mt5, bars_n, demo):
             if rates is None or len(rates) == 0:
                 continue
             layers[tf] = _bars_norm(_rates_to_bars(rates))
+        # 4h is aggregated from h1 (identical to the backtest's agg4h — never fetched separately,
+        # so live 4h bar boundaries match the research exactly).
+        if layers.get('h1'):
+            layers['4h'] = H.agg4h(layers['h1'])
         for tag, tf, gen in STRATS:
             bars = layers.get(tf) or []
-            if len(bars) < 400:
+            min_bars = 150 if tf == '4h' else 400
+            if len(bars) < min_bars:
                 continue
             raw = H._mw_signals(bars, pk, tag, tf, gen)
             if not raw:
@@ -150,6 +158,9 @@ def build_doc(mt5, bars_n, demo):
                 'entry': round(entry, 4), 'stop': round(stop, 4),
                 'exit_mode': 'trail', 'trail_arm_r': TA, 'trail_dist_r': TD, 'trail_hold_bars': TH,
                 'tf': tf, 'entry_ts_ms': int(s['entry_ts'] * 1000), 'age_min': round(age, 1),
+                # a 4h signal sits within a 240-min bar, so it needs a wider age cap than the EA's
+                # default 120 min — otherwise it alerts but is rejected before it can fill.
+                'max_age_min': 270 if tf == '4h' else 120,
                 'source': 'mt5-bridge', 'demo_only': demo,
             })
     return {

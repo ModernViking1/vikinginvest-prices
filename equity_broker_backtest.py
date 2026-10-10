@@ -14,7 +14,8 @@ from backtest_rsi_per_class import _bars_norm
 
 STRATS = [('holygrail_eq','h1',H._holygrail_sig), ('twob_eq','h1',H._twob_sig),
           ('volbreak_eq','h1',H._volbreak_sig), ('holygrail_eq_m15','m15',H._holygrail_sig),
-          ('turtle_soup_eq','h1',H._turtlesoup_sig), ('turtle_soup_eq_m15','m15',H._turtlesoup_sig)]
+          ('turtle_soup_eq','h1',H._turtlesoup_sig), ('turtle_soup_eq_m15','m15',H._turtlesoup_sig),
+          ('threepush_eq','4h',H.threepush_core)]
 MIN_BARS = 400
 
 
@@ -62,8 +63,9 @@ def main():
         sym = layers.get('sym', key); mkt = market(sym)
         got = False
         for tag, tf, gen in STRATS:
-            bars = _bars_norm(layers.get(tf) or [])
-            if len(bars) < MIN_BARS:
+            bars = (H.agg4h(_bars_norm(layers.get('h1') or [])) if tf == '4h'
+                    else _bars_norm(layers.get(tf) or []))     # 4h aggregated from h1 (threepush_eq)
+            if len(bars) < (150 if tf == '4h' else MIN_BARS):
                 continue
             got = True
             for s in H._mw_signals(bars, key, tag, tf, gen):

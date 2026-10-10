@@ -188,12 +188,14 @@ void ProcessSignal(const string obj)
    double armR  = JGetNum(obj, "trail_arm_r");    // informational; arm/dist are 1R by design
    double holdB = JGetNum(obj, "trail_hold_bars");
    string tf    = JGetStr(obj, "tf");
+   double maxAge= JGetNum(obj, "max_age_min");    // per-signal age cap (e.g. 4h needs >120); 0 => default
+   if(maxAge <= 0) maxAge = InpMaxAgeMin;
    if(id=="" || sym=="" || entry<=0 || stop<=0) return;
 
    // demo guard
    if(demo && !IsTradeableAccount())
      { if(InpVerbose) PrintFormat("skip %s — demo_only but account not demo (AllowLive=%s)", id, (string)InpAllowLive); return; }
-   if(ageM > InpMaxAgeMin) { if(InpVerbose) PrintFormat("skip %s — stale (%.0f>%d min)", id, ageM, InpMaxAgeMin); return; }
+   if(ageM > maxAge) { if(InpVerbose) PrintFormat("skip %s — stale (%.0f>%.0f min)", id, ageM, maxAge); return; }
    if(AlreadyActed(id))    return;
    if(OpenCountForSymbol(sym) + PendingCountForSymbol(sym) >= InpMaxOpenPerSym) return;  // count resting limits too
    if(!SymbolSelect(sym, true)) { PrintFormat("skip %s — symbol %s not in Market Watch", id, sym); return; }
@@ -460,7 +462,7 @@ bool ReadLocalBody(const string fname, string &out)
 //| Minimal JSON helpers for our FLAT signal schema                 |
 //|  (not a general JSON parser — tailored to equity-signals.json)  |
 //+------------------------------------------------------------------+
-int TfMinutes(const string tf){ if(tf=="m15") return 15; if(tf=="h1") return 60; if(tf=="m5") return 5; return 60; }
+int TfMinutes(const string tf){ if(tf=="m15") return 15; if(tf=="h1") return 60; if(tf=="m5") return 5; if(tf=="4h") return 240; return 60; }
 
 bool JTopBool(const string body, const string key)
   {

@@ -33,7 +33,8 @@ UNIVERSE = {
 # (tag, timeframe, generator) — identical to the live equity feed's .EQ book
 STRATS = [('holygrail_eq','h1',H._holygrail_sig), ('twob_eq','h1',H._twob_sig),
           ('volbreak_eq','h1',H._volbreak_sig), ('holygrail_eq_m15','m15',H._holygrail_sig),
-          ('turtle_soup_eq','h1',H._turtlesoup_sig), ('turtle_soup_eq_m15','m15',H._turtlesoup_sig)]
+          ('turtle_soup_eq','h1',H._turtlesoup_sig), ('turtle_soup_eq_m15','m15',H._turtlesoup_sig),
+          ('threepush_eq','4h',H.threepush_core)]
 MIN_BARS = 400
 
 
@@ -86,10 +87,12 @@ def main():
                     print(f"  {mkt}/{td} {tf}: skip ({str(e)[:70]})", flush=True)
             if not ok:
                 skipped[mkt].append(pk); continue
+            if layers.get('h1'):
+                layers['4h'] = H.agg4h(layers['h1'])     # 4h aggregated from h1 (threepush_eq)
             served[mkt] += 1
             for tag, tf, gen in STRATS:
                 bars = layers.get(tf) or []
-                if len(bars) < MIN_BARS:
+                if len(bars) < (150 if tf == '4h' else MIN_BARS):
                     continue
                 for s in H._mw_signals(bars, pk, tag, tf, gen):
                     r = _score(bars, s)
