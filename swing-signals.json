@@ -1,10 +1,38 @@
 {
  "schema_version": 1,
- "generated": "2026-10-10T03:00:00+00:00",
- "data_end_ts": 1791601200,
+ "generated": "2026-10-10T04:00:00+00:00",
+ "data_end_ts": 1791604800,
  "raw_signal_count": 5,
- "count": 6,
+ "count": 5,
  "signals": [
+  {
+   "id": "mmove:suiusd:1791604800",
+   "strategy": "mmove",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "suiusd",
+   "symbol": "SUIUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 1.07461214,
+   "ref_entry": 1.0812,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1791604800,
+   "created_ts": 1791604800,
+   "expiry_ts": 1791648000,
+   "state": "triggered",
+   "cofire": [
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "mmove:bull"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "mmove:asterusd:1791601200",
    "strategy": "mmove",
@@ -22,7 +50,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1791601200,
-   "created_ts": 1791601200,
+   "created_ts": 1791604800,
    "expiry_ts": 1791644400,
    "state": "triggered",
    "cofire": [
@@ -50,7 +78,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1791576000,
-   "created_ts": 1791601200,
+   "created_ts": 1791604800,
    "expiry_ts": 1791619200,
    "state": "triggered",
    "cofire": [
@@ -58,6 +86,34 @@
    ],
    "cofire_dirs": [
     "twob_ix:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "holygrail_cm_m15:xauusd:1791559800",
+   "strategy": "holygrail_cm_m15",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "xauusd",
+   "symbol": "XAUUSD",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 4180.084,
+   "ref_entry": 4188.81,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1791559800,
+   "created_ts": 1791604800,
+   "expiry_ts": 1791603000,
+   "state": "triggered",
+   "cofire": [
+    "holygrail_cm_m15"
+   ],
+   "cofire_dirs": [
+    "holygrail_cm_m15:bull"
    ],
    "suppressed": 0
   },
@@ -78,7 +134,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1791536400,
-   "created_ts": 1791601200,
+   "created_ts": 1791604800,
    "expiry_ts": 1791579600,
    "state": "triggered",
    "cofire": [
@@ -88,102 +144,6 @@
     "twob_ix:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "gbreak:xauusd:1791514800:t1",
-   "strategy": "gbreak",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bull",
-   "stop": 4159.95142857,
-   "ref_entry": 4178.145,
-   "pivot": null,
-   "rr": 1.0,
-   "r_pct": 0.333333,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1791514800,
-   "created_ts": 1791601200,
-   "expiry_ts": 1791558000,
-   "state": "triggered",
-   "cofire": [
-    "gbreak",
-    "holygrail_cm_m15"
-   ],
-   "cofire_dirs": [
-    "gbreak:bull",
-    "holygrail_cm_m15:bull"
-   ],
-   "suppressed": 1,
-   "scaled_leg": 1,
-   "scaled_legs": 3
-  },
-  {
-   "id": "gbreak:xauusd:1791514800:t2",
-   "strategy": "gbreak",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bull",
-   "stop": 4159.95142857,
-   "ref_entry": 4178.145,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 0.333333,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1791514800,
-   "created_ts": 1791601200,
-   "expiry_ts": 1791558000,
-   "state": "triggered",
-   "cofire": [
-    "gbreak",
-    "holygrail_cm_m15"
-   ],
-   "cofire_dirs": [
-    "gbreak:bull",
-    "holygrail_cm_m15:bull"
-   ],
-   "suppressed": 1,
-   "scaled_leg": 2,
-   "scaled_legs": 3
-  },
-  {
-   "id": "gbreak:xauusd:1791514800:t3",
-   "strategy": "gbreak",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bull",
-   "stop": 4159.95142857,
-   "ref_entry": 4178.145,
-   "pivot": null,
-   "rr": 3.0,
-   "r_pct": 0.333333,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1791514800,
-   "created_ts": 1791601200,
-   "expiry_ts": 1791558000,
-   "state": "triggered",
-   "cofire": [
-    "gbreak",
-    "holygrail_cm_m15"
-   ],
-   "cofire_dirs": [
-    "gbreak:bull",
-    "holygrail_cm_m15:bull"
-   ],
-   "suppressed": 1,
-   "scaled_leg": 3,
-   "scaled_legs": 3
   }
  ]
 }
