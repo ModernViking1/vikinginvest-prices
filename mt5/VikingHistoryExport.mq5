@@ -2,8 +2,9 @@
 //|                                        VikingHistoryExport.mq5    |
 //|   Dumps H1 + M15 history for a list of broker symbols to a JSON  |
 //|   file, so the .EQ strategies can be backtested on the exact     |
-//|   instruments you'd trade (DE / UK / FR CFDs TwelveData won't    |
-//|   serve). This is a SCRIPT, not an EA — it runs once and exits.  |
+//|   instruments you'd trade (US/DE/UK/FR/JP/HK/ES CFDs that        |
+//|   TwelveData won't serve). SCRIPT, not an EA — runs once, exits. |
+//|   Defaults to ~3yr H1 + M15; set "Max bars in chart"=Unlimited.  |
 //|                                                                  |
 //|  RUN IT: MetaEditor → compile (F7). In MT5 Navigator → Scripts → |
 //|   drag VikingHistoryExport onto any chart. In the dialog set the |
@@ -21,8 +22,9 @@
 #property script_show_inputs
 #property strict
 
-input string InpSymbols = "GSBD.NYSE-24,KKR.NYSE-24,RY.NYSE-24,KHC.NYSE-24,DBK.ETR,BOSS.ETR,PAH3.ETR,VOWG.ETR,BARC.LSE,BA.LSE,LSE.LSE,RR.LSE,TSCO.LSE";
-input int    InpBars    = 6000;                    // bars per timeframe (H1 ~1yr, M15 ~2mo)
+input string InpSymbols = "AAPL.NAS,AMZN.NAS,MSFT.NAS,NVDA.NAS,TSLA.NAS,DBK.ETR,BOSS.ETR,PAH3.ETR,VOWG.ETR,BAYN.ETR,CBK.ETR,MBGn.ETR,BARC.LSE,BA.LSE,LSE.LSE,RR.LSE,TSCO.LSE,AML.LSE,BKG.LSE,EZJ.LSE,MKS.LSE,RDSB.LSE,NWG.LSE,7267.TSE,8306.TSE,7974.TSE,6758.TSE,1288.HK,9898.HK,0003.HK,CABK.MAD,SAN.MAD,BNP.PAR,CAP.PAR,CA.PAR,BN.PAR,CDI.PAR";
+input int    InpBarsH1  = 8000;                    // H1 bars (~3yr of RTH equity sessions)
+input int    InpBarsM15 = 28000;                   // M15 bars (~3yr of RTH equity sessions)
 input string InpOut     = "viking_intl_ohlc.json"; // written to MQL5/Files/
 
 string sanitize(const string s)
@@ -39,14 +41,14 @@ string sanitize(const string s)
   }
 
 // write one timeframe array for a symbol; returns bars written
-int WriteSeries(const int h, const string sym, ENUM_TIMEFRAMES tf)
+int WriteSeries(const int h, const string sym, ENUM_TIMEFRAMES tf, const int want)
   {
    MqlRates rates[];
    ArraySetAsSeries(rates,false);                  // index 0 = oldest (ASC)
    int got=0;
    for(int t=0;t<40 && got<=0;t++)                 // history may need to load — retry
      {
-      got=CopyRates(sym,tf,0,InpBars,rates);
+      got=CopyRates(sym,tf,0,want,rates);
       if(got<=0) Sleep(300);
      }
    int digits=(int)SymbolInfoInteger(sym,SYMBOL_DIGITS); if(digits<=0) digits=2;
@@ -81,9 +83,9 @@ void OnStart()
       string key=sanitize(sym);
       if(served>0) FileWriteString(h,",");
       FileWriteString(h,"\""+key+"\":{\"sym\":\""+sym+"\",\"h1\":");
-      int nh=WriteSeries(h,sym,PERIOD_H1);
+      int nh=WriteSeries(h,sym,PERIOD_H1,InpBarsH1);
       FileWriteString(h,",\"m15\":");
-      int nm=WriteSeries(h,sym,PERIOD_M15);
+      int nm=WriteSeries(h,sym,PERIOD_M15,InpBarsM15);
       FileWriteString(h,"}");
       served++;
       PrintFormat("%s: h1=%d m15=%d",sym,nh,nm);

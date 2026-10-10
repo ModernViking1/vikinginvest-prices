@@ -31,9 +31,18 @@ SYMBOLS = {
     # LOCAL bridge file (InpLocalFile), which takes precedence over the TwelveData CDN feed, so the US
     # names MUST be here to trade — otherwise only the EU/UK book reaches the terminal.
     'aapl': 'AAPL.NAS', 'amzn': 'AMZN.NAS', 'msft': 'MSFT.NAS', 'nvda': 'NVDA.NAS', 'tsla': 'TSLA.NAS',
-    # DE (.ETR) / UK (.LSE)
+    # DE (.ETR)
     'dbk': 'DBK.ETR', 'boss': 'BOSS.ETR', 'pah3': 'PAH3.ETR', 'vowg': 'VOWG.ETR',
+    'bayn': 'BAYN.ETR', 'cbk': 'CBK.ETR', 'mbg': 'MBGn.ETR',
+    # UK (.LSE)
     'barc': 'BARC.LSE', 'ba': 'BA.LSE', 'lse': 'LSE.LSE', 'rr': 'RR.LSE', 'tsco': 'TSCO.LSE',
+    'aml': 'AML.LSE', 'bkg': 'BKG.LSE', 'ezj': 'EZJ.LSE', 'mks': 'MKS.LSE', 'rdsb': 'RDSB.LSE', 'nwg': 'NWG.LSE',
+    # FR (.PAR)
+    'bnp': 'BNP.PAR', 'cap': 'CAP.PAR', 'ca': 'CA.PAR', 'bn': 'BN.PAR', 'cdi': 'CDI.PAR',
+    # JP (.TSE) / HK (.HK) / ES (.MAD) — new exchanges; validate on 3yr export before trusting live
+    'jp7267': '7267.TSE', 'jp8306': '8306.TSE', 'jp7974': '7974.TSE', 'jp6758': '6758.TSE',
+    'hk1288': '1288.HK', 'hk9898': '9898.HK', 'hk0003': '0003.HK',
+    'cabk': 'CABK.MAD', 'san': 'SAN.MAD',
 }
 # (tag, timeframe, generator) — identical to the live equity feed's .EQ book.
 STRATS = [('holygrail_eq', 'h1', H._holygrail_sig), ('twob_eq', 'h1', H._twob_sig),

@@ -25,6 +25,9 @@ def market(sym):
     if '.LSE' in s: return 'UK'
     if '.PAR' in s or '.XPAR' in s: return 'FR'
     if '.NYSE' in s or '.NAS' in s or '.US' in s: return 'US'
+    if '.TSE' in s: return 'JP'
+    if '.HK' in s: return 'HK'
+    if '.MAD' in s: return 'ES'
     return '?'
 
 

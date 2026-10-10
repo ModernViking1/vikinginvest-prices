@@ -18,7 +18,11 @@ server (GitHub Actions)                     your MT5 terminal
 1. Copy `VikingEquityEA.mq5` into `MQL5/Experts/` (MetaEditor → compile, or drop and refresh).
 2. **Allow the feed URL:** MT5 → *Tools → Options → Expert Advisors* → tick **“Allow WebRequest for
    listed URL”** and add:  `https://cdn.jsdelivr.net`
-3. Confirm the five symbols exist in *Market Watch*: `AAPL.NAS, AMZN.NAS, MSFT.NAS, NVDA.NAS, TSLA.NAS`.
+3. Confirm the traded symbols exist in *Market Watch*. US pilot:
+   `AAPL.NAS, AMZN.NAS, MSFT.NAS, NVDA.NAS, TSLA.NAS`. Expanded book (validate on 3yr first — see
+   `VikingHistoryExport.mq5`): DE `DBK/BOSS/PAH3/VOWG/BAYN/CBK/MBGn.ETR`,
+   UK `BARC/BA/LSE/RR/TSCO/AML/BKG/EZJ/MKS/RDSB/NWG.LSE`, FR `BNP/CAP/CA/BN/CDI.PAR`,
+   JP `7267/8306/7974/6758.TSE`, HK `1288/9898/0003.HK`, ES `CABK/SAN.MAD`.
    (If your broker names them differently, the feed's `sym` field must match — tell me and I'll update
    the server map; don't rename on the EA side.)
 4. Attach the EA to **one** chart (any symbol/timeframe — it manages all `.EQ` symbols itself) with
