@@ -29,9 +29,14 @@ jobs:
         with: { python-version: '3.11' }
       - run: python -m pip install --upgrade pip requests
       - name: Guard files present
-        run: for f in equity_detector_sweep.py unified_shadow_harness.py market_wizards_research.py detect_triggers.py equity-ohlc.json; do [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }; done
-      - name: Sweep the full detector roster over equity bars
+        run: for f in equity_detector_sweep.py equity_structural_sweep.py unified_shadow_harness.py market_wizards_research.py detect_triggers.py equity-ohlc.json; do [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }; done
+      - name: Sweep the full detector roster over equity bars (trail-runner exit)
         run: |
-          echo "================ RESULT ================"
+          echo "================ ROSTER SWEEP (trail-runner exit) ================"
           python equity_detector_sweep.py --hist equity-ohlc.json --asset-class "${{ github.event.inputs.asset_class || 'index' }}"
-          echo "========================================"
+          echo "================================================================="
+      - name: Structural detectors with their NATIVE exits (unblocked)
+        run: |
+          echo "================ STRUCTURAL SWEEP (native exits) ================"
+          python equity_structural_sweep.py --hist equity-ohlc.json
+          echo "================================================================"
