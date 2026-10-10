@@ -39,10 +39,13 @@ SYMBOLS = {
     'aml': 'AML.LSE', 'bkg': 'BKG.LSE', 'ezj': 'EZJ.LSE', 'mks': 'MKS.LSE', 'rdsb': 'RDSB.LSE', 'nwg': 'NWG.LSE',
     # FR (.PAR)
     'bnp': 'BNP.PAR', 'cap': 'CAP.PAR', 'ca': 'CA.PAR', 'bn': 'BN.PAR', 'cdi': 'CDI.PAR',
-    # JP (.TSE) / HK (.HK) / ES (.MAD) — new exchanges; validate on 3yr export before trusting live
+    # JP (.TSE) / HK (.HK) — validated on the 3yr broker export (JP +0.53R, HK +0.24R, both OOS+).
     'jp7267': '7267.TSE', 'jp8306': '8306.TSE', 'jp7974': '7974.TSE', 'jp6758': '6758.TSE',
     'hk1288': '1288.HK', 'hk9898': '9898.HK', 'hk0003': '0003.HK',
-    'cabk': 'CABK.MAD', 'san': 'SAN.MAD',
+    # ES (.MAD) HELD OUT — failed the 3yr validation (pooled -0.027R, OOS1 -0.162; SAN.MAD -0.079R
+    # and the m15 strategies negative there). Still in the export/backtest universe for monitoring;
+    # re-enable only if it turns positive with more data. Do NOT trade live.
+    #   'cabk': 'CABK.MAD', 'san': 'SAN.MAD',
 }
 # (tag, timeframe, generator) — identical to the live equity feed's .EQ book.
 STRATS = [('holygrail_eq', 'h1', H._holygrail_sig), ('twob_eq', 'h1', H._twob_sig),
