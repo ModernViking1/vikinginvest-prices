@@ -146,6 +146,11 @@ def build_doc(mt5, bars_n, demo):
         if layers.get('h1'):
             layers['4h'] = H.agg4h(layers['h1'])
         for tag, tf, gen in STRATS:
+            # threepush_eq is US-only: on the full 3yr broker export it held on US (+0.44R) but went
+            # NEGATIVE on German history (-0.14R, the small-sample DE edge didn't survive). Trade it
+            # on US names only; it stays in the backtest STRATS so we keep watching it elsewhere.
+            if tag == 'threepush_eq' and '.NAS' not in sym and '.NYSE' not in sym:
+                continue
             bars = layers.get(tf) or []
             min_bars = 150 if tf == '4h' else 400
             if len(bars) < min_bars:
