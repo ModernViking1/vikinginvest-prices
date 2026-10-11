@@ -317,8 +317,20 @@ jobs:
               echo "::warning::Alert state push failed after $MAX_ATTEMPTS attempts — next run picks it up"
               exit 0
             fi
+            # Push rejected — a concurrent run updated main. Rebuild our
+            # alert-state commit onto latest main (newest wins), mirroring the
+            # data-files step: reset --mixed keeps the generated files in the
+            # working tree, then re-stage + recommit. This avoids `git rebase`,
+            # which aborts with exit 128 when the tree has unstaged changes.
+            echo "Push rejected — rebuilding alert-state commit onto latest main..."
             git fetch origin main
-            git rebase origin/main || git rebase --abort
+            git reset --mixed origin/main
+            git add alerts-state.json directions.json signals.json shadow-signals.json binance-btc-live.json absorb-open.json mmove-open.json sweepfvg-open.json crt-open.json fma-open.json crypto-alerts-state.json swing-watchdog-state.json equity-watchdog-state.json 2>/dev/null || true
+            if git diff --cached --quiet; then
+              echo "No alert-state changes vs latest main — nothing to push"
+              exit 0
+            fi
+            git commit -m "chore: update alert state + directions + signals"
             sleep $((attempt * 2))
           done
 
