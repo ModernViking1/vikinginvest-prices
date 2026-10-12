@@ -12,7 +12,6 @@ name: Health Check
 # WHAT IT CHECKS:
 #   - intraday-ohlc.json    SLA: updated within last 30 min (5-min cron)
 #   - prices.json           SLA: updated within last 30 min (15-min cron)
-#   - intraday.json         SLA: updated within last 30 min (15-min cron, legacy)
 #   - events.json           SLA: updated within last 90 min (60-min cron)
 #   - historical-ohlc.json  SLA: <30 days old (manual backfill)
 #
@@ -63,7 +62,6 @@ jobs:
           SLAS = {
               "intraday-ohlc.json": 30,
               "prices.json":         30,
-              "intraday.json":       30,
               "events.json":         90,
               "historical-ohlc.json": 30 * 24 * 60,  # 30 days
           }

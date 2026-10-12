@@ -7425,7 +7425,8 @@ function fetchVikingIntraday(){
   var urlOhlcGh  = 'https://cdn.jsdelivr.net/gh/ModernViking1/vikinginvest-prices@main/intraday-ohlc.json';
   var urlOhlcNpm = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/intraday-ohlc.json';
   var urlOhlcRaw = 'https://raw.githubusercontent.com/ModernViking1/vikinginvest-prices/main/intraday-ohlc.json';
-  var urlLegacy  = 'https://cdn.jsdelivr.net/npm/vikinginvest-prices@latest/intraday.json';
+  // intraday.json (legacy) removed 2026-10 — superseded by intraday-ohlc.json. The selection
+  // logic below still carries legacy* vars but they resolve to null/0 and never win.
 
   var tryUrl = function(url){
     return fetch(url, {method:'GET', cache:'no-store'})
@@ -7468,8 +7469,7 @@ function fetchVikingIntraday(){
   return Promise.all([
       tryUrl(urlOhlcGh),
       tryUrl(urlOhlcNpm),
-      tryUrl(urlOhlcRaw),
-      tryUrl(urlLegacy)
+      tryUrl(urlOhlcRaw)
     ])
     .then(function(results){
       // Pick the freshest OHLC source from gh@main / npm / raw. Each path
@@ -7635,7 +7635,7 @@ function renderIntradayWidget(stats){
       m.pct.textContent = '—';
       m.pct.style.color = 'var(--inkd)';
       m.desc.style.color = 'var(--inkd)';
-      m.desc.textContent = 'Waiting for first workflow run (intraday.json not yet published)';
+      m.desc.textContent = 'Waiting for first workflow run (intraday-ohlc.json not yet published)';
       return;
     }
 

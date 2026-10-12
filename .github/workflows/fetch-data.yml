@@ -151,7 +151,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # Stage every data file we may have touched.
-          for f in prices.json history.json intraday-ohlc.json intraday-state.json intraday.json orderbook.json orderbook-history.jsonl; do
+          for f in prices.json history.json intraday-ohlc.json intraday-state.json orderbook.json orderbook-history.jsonl; do
             if [ -f "$f" ]; then
               git add "$f"
             fi
@@ -190,7 +190,7 @@ jobs:
             echo "Push rejected — rebuilding our data commit onto latest main..."
             git fetch origin main
             git reset --mixed origin/main
-            for f in prices.json history.json intraday-ohlc.json intraday-state.json intraday.json orderbook.json orderbook-history.jsonl; do
+            for f in prices.json history.json intraday-ohlc.json intraday-state.json orderbook.json orderbook-history.jsonl; do
               if [ -f "$f" ]; then
                 git add "$f"
               fi
