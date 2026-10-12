@@ -2,37 +2,9 @@
  "schema_version": 1,
  "generated": "2026-10-12T15:00:00+00:00",
  "data_end_ts": 1791817200,
- "raw_signal_count": 10,
+ "raw_signal_count": 11,
  "count": 9,
  "signals": [
-  {
-   "id": "mmove:btcusd:1791817200",
-   "strategy": "mmove",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "btcusd",
-   "symbol": "BTCUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 83238.12614286,
-   "ref_entry": 82489.67,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1791817200,
-   "created_ts": 1791817200,
-   "expiry_ts": 1791860400,
-   "state": "triggered",
-   "cofire": [
-    "mmove"
-   ],
-   "cofire_dirs": [
-    "mmove:bear"
-   ],
-   "suppressed": 0
-  },
   {
    "id": "holygrail_cm_m15:xagusd:1791814500",
    "strategy": "holygrail_cm_m15",
@@ -143,6 +115,36 @@
    "cofire_dirs": [
     "twob_ix:bear",
     "twob_ix:bull"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "engulf_manip:btcusd:1791799200",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "btcusd",
+   "symbol": "BTCUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 84309.89471429,
+   "ref_entry": 83463.34,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1791799200,
+   "created_ts": 1791817200,
+   "expiry_ts": 1791842400,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip",
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear",
+    "mmove:bear"
    ],
    "suppressed": 1
   },
