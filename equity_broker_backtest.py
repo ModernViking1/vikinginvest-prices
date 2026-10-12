@@ -71,7 +71,10 @@ def main():
             if len(bars) < (150 if tf == '4h' else MIN_BARS):
                 continue
             got = True
-            for s in H._mw_signals(bars, key, tag, tf, gen):
+            sigs = H._mw_signals(bars, key, tag, tf, gen)
+            if tag != 'threepush_eq':              # SMA200 trend gate — matches the live book
+                sigs = H.trend_filter_signals(bars, sigs)
+            for s in sigs:
                 r = _score(bars, s)
                 if r is None:
                     continue

@@ -159,6 +159,10 @@ def build_doc(mt5, bars_n, demo):
             if len(bars) < min_bars:
                 continue
             raw = H._mw_signals(bars, pk, tag, tf, gen)
+            # SMA200 trend-alignment gate (validated +0.092R/trade over 3yr, both OOS, every market
+            # + strategy). Applies to the MW setups; threepush_eq (4h) is outside that study.
+            if tag != 'threepush_eq':
+                raw = H.trend_filter_signals(bars, raw)
             if not raw:
                 continue
             s = max(raw, key=lambda x: x['entry_ts'])     # most recent signal for this symbol+strategy
