@@ -21,7 +21,7 @@
 //|    Attach to ONE chart (any symbol); it manages all .EQ symbols. |
 //+------------------------------------------------------------------+
 #property copyright "Viking Invest"
-#property version   "1.06"
+#property version   "1.07"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -302,8 +302,12 @@ double LotsForRisk(const string sym, double stopDist, double price)
    // NOTIONAL CAP — the real governor for stock CFDs. A tight structural stop makes pure 0.5%-risk
    // sizing demand a notional far above the account; cap each position at InpMaxNotionalPct of equity
    // (so on tight-stop names the realised risk is simply < the 0.5% target, which is conservative).
-   double contract = SymbolInfoDouble(sym, SYMBOL_TRADE_CONTRACT_SIZE); if(contract<=0) contract=1.0;
-   double notionalPerLot = contract * price;
+   // Convert to ACCOUNT currency. `price` is in the symbol's QUOTE currency, so for a JPY/HKD-quoted
+   // stock (price in the hundreds/thousands) contract*price wildly overstated the notional and throttled
+   // the size to a handful of units (e.g. Tokyo names capped at ~24-52). tickVal/tickSize is the
+   // account-currency value of a 1.0 price move per lot (= contract x quote->account FX), so
+   // price*tickVal/tickSize is the true notional per lot in account currency.
+   double notionalPerLot = price * tickVal / tickSize;
    if(notionalPerLot > 0)
      {
       double maxLotsByNotional = (equity * (InpMaxNotionalPct/100.0)) / notionalPerLot;
