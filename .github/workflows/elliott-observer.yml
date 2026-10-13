@@ -58,6 +58,6 @@ jobs:
           git commit -m "chore: update elliott wave watchlist observer [skip ci]"
           for i in 1 2 3 4 5; do
             if git push origin HEAD:main 2>&1; then echo pushed; break; fi
-            git fetch origin main && git rebase origin/main || git rebase --abort
+            git fetch origin main && F="$(git diff --name-only HEAD~1 HEAD)" && M="$(git log -1 --format=%s)" && git reset --mixed origin/main && git add -f -- $F && git commit -m "$M" --quiet || true
             sleep $((2 ** i))
           done

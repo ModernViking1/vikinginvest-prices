@@ -66,7 +66,7 @@ jobs:
               exit 0
             fi
             git fetch origin main
-            git rebase origin/main || git rebase --abort
+            F="$(git diff --name-only HEAD~1 HEAD)" && M="$(git log -1 --format=%s)" && git reset --mixed origin/main && git add -f -- $F && git commit -m "$M" --quiet || true
             sleep $((attempt * 3))
           done
           echo "::error::Push failed after $MAX_ATTEMPTS attempts"

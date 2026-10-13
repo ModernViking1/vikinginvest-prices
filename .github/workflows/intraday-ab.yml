@@ -61,7 +61,7 @@ jobs:
           pushed=0
           for i in 1 2 3 4 5; do
             if git push origin main 2>&1; then echo "pushed"; pushed=1; break; fi
-            echo "push race, rebasing (attempt $i)"; git fetch origin main && git rebase origin/main || git rebase --abort
+            echo "push race, rebasing (attempt $i)"; git fetch origin main && F="$(git diff --name-only HEAD~1 HEAD)" && M="$(git log -1 --format=%s)" && git reset --mixed origin/main && git add -f -- $F && git commit -m "$M" --quiet || true
             sleep $((2 ** i))
           done
           if [ "$pushed" != "1" ]; then echo "::error::failed to push intraday-ab-log.json after retries"; exit 1; fi

@@ -39,6 +39,6 @@ jobs:
           if git diff --cached --quiet; then echo "no change"; exit 0; fi
           git commit -m "chore: refresh live-book dashboard [skip ci]"
           for i in 1 2 3 4; do
-            git push origin HEAD:main && { echo pushed; exit 0; } || { git fetch origin main && git rebase origin/main && sleep $((2 ** i)); }
+            git push origin HEAD:main && { echo pushed; exit 0; } || { git fetch origin main && F="$(git diff --name-only HEAD~1 HEAD)" && M="$(git log -1 --format=%s)" && git reset --mixed origin/main && git add -f -- $F && git commit -m "$M" --quiet || true; sleep $((2 ** i)); }
           done
           echo "::error::push failed after retries"; exit 1

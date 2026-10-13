@@ -119,16 +119,9 @@ jobs:
               exit 1
             fi
             git fetch origin main
-            if ! git rebase origin/main; then
-              echo "Rebase conflict — taking our fetched history"
-              for f in historical-ohlc.json package.json; do
-                if [ -f "$f" ]; then
-                  git checkout --theirs "$f" 2>/dev/null || true
-                  git add "$f" 2>/dev/null || true
-                fi
-              done
-              git rebase --continue || git rebase --abort
-            fi
+            # newest-wins rebuild onto latest main (no rebase: a content conflict on the
+            # frequently-rewritten feed files can't auto-resolve headlessly)
+            F="$(git diff --name-only HEAD~1 HEAD)" && M="$(git log -1 --format=%s)" && git reset --mixed origin/main && git add -f -- $F && git commit -m "$M" --quiet || true
             sleep $((attempt * 3))
           done
 
