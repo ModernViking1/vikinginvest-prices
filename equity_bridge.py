@@ -100,7 +100,11 @@ def write_executions(mt5, out_dir, days=120):
         sl = info['sl'] if info else None
         dirn = info['dir'] if info else (1 if (ins and ins[0].type == 0) else -1)
         exit_px = outs[-1].price
-        profit = sum((d.profit + d.commission + d.swap) for d in dl)
+        gross = sum(d.profit for d in dl)               # price-only P&L (account ccy)
+        commission = sum(d.commission for d in dl)      # broker commission (account ccy)
+        swap = sum(d.swap for d in dl)                  # overnight financing (account ccy)
+        volume = sum(d.volume for d in outs)            # closed size (units)
+        profit = gross + commission + swap              # net (unchanged)
         rr = None
         if entry is not None and sl is not None and abs(entry - sl) > 0:
             rr = ((exit_px - entry) if dirn > 0 else (entry - exit_px)) / abs(entry - sl)
@@ -110,7 +114,12 @@ def write_executions(mt5, out_dir, days=120):
                       'dir': ('bull' if dirn > 0 else 'bear'),
                       'entry': entry, 'exit': exit_px, 'init_sl': sl,
                       'realized_r': (round(rr, 4) if rr is not None else None),
-                      'profit_ccy': round(profit, 2), 'closed_ms': int(outs[-1].time) * 1000})
+                      'profit_ccy': round(profit, 2),
+                      # cost breakdown (account ccy) — lets the review split spread/commission/swap by
+                      # market. gross_ccy is price-only P&L, so R in ccy = gross_ccy/realized_r.
+                      'gross_ccy': round(gross, 2), 'commission': round(commission, 2),
+                      'swap': round(swap, 2), 'volume': round(volume, 2),
+                      'closed_ms': int(outs[-1].time) * 1000})
     execs.sort(key=lambda x: x['closed_ms'])
     doc = {'generated': now.isoformat(), 'source': 'mt5-bridge', 'magic': MAGIC,
            'count': len(execs), 'executions': execs}
