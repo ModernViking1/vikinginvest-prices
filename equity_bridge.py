@@ -374,6 +374,7 @@ def main():
     print(f"  watchdog heartbeat: {'ON -> ' + args.gh_repo if args.gh_token else 'OFF (set --gh-token or GH_TOKEN to enable)'}", flush=True)
     print(f"  executions push:    {'ON -> ' + args.gh_repo if args.gh_token else 'OFF (needs --gh-token/GH_TOKEN)'}", flush=True)
     print(f"  entry+exit alerts:  {'ON (Telegram)' if (args.tg_token and args.tg_chat) else 'OFF (set --tg-token/--tg-chat or TELEGRAM_* env)'}", flush=True)
+    print(f"  trend filter:       {'ON (SMA' + str(H.TREND_SMA) + ' alignment)' if hasattr(H, 'trend_filter_signals') else 'OFF (old code — git pull)'}", flush=True)
 
     try:
         while True:
