@@ -140,7 +140,18 @@ jobs:
           pushed=0
           for i in 1 2 3 4 5; do
             if git push origin main 2>&1; then echo "pushed"; pushed=1; break; fi
-            echo "push race, rebasing (attempt $i)"; git fetch origin main && git rebase origin/main || git rebase --abort
+            # Push race — a concurrent run updated main. Rebuild our commit onto latest main
+            # (newest wins) instead of rebasing: `git rebase` dies on a content conflict in the
+            # frequently-rewritten swing-signals.json. reset --mixed keeps our freshly-generated
+            # file in the working tree; re-stage + recommit.
+            echo "push race — rebuilding onto latest main (attempt $i)"
+            git fetch origin main
+            git reset --mixed origin/main
+            if git diff --quiet -- swing-signals.json; then
+              echo "no change vs latest main — nothing to push"; pushed=1; break
+            fi
+            git add swing-signals.json
+            git commit -m "chore: update swing signals feed [skip ci]"
             sleep $((2 ** i))
           done
           if [ "$pushed" != "1" ]; then echo "::error::failed to push swing-signals.json after retries"; exit 1; fi
