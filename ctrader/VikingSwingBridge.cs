@@ -134,7 +134,24 @@ namespace cAlgo.Robots
         [Parameter("GitHub repo name", DefaultValue = "vikinginvest-prices", Group = "Publish")]
         public string GhRepoName { get; set; }
 
-        private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        private static HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        // ── Auto-reconnect ────────────────────────────────────────────────────────────────────────
+        // A long-lived HttpClient poisons its connection pool after a network blip (the socket/DNS goes
+        // zombie): every request then times out until the PROCESS restarts — which is exactly the
+        // "poll thread dead (zombie/disconnect)" the watchdog has been catching. Track HTTP health and
+        // rebuild the client after a few failures in a row, plus periodically, so the bot self-heals
+        // without a manual restart. OnTimer keeps running throughout; only the client is swapped.
+        private int _httpFails = 0;
+        private DateTime _httpBorn = DateTime.UtcNow;
+        private void HttpOk() { _httpFails = 0; }
+        private void HttpFail() { if (++_httpFails >= 3) RebuildHttp("3 consecutive HTTP failures"); }
+        private void RebuildHttp(string why)
+        {
+            try { _http.Dispose(); } catch { }
+            _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            _httpFails = 0; _httpBorn = DateTime.UtcNow;
+            try { Print($"🔄 [VikingSwing] HTTP client rebuilt (auto-reconnect) — {why}"); } catch { }
+        }
         private DateTime _lastBeat = DateTime.MinValue;   // last liveness heartbeat dispatch
         private readonly HashSet<long> _timeExitIds = new HashSet<long>();  // cam_rev positions closed by the 24h time-exit (tag the close reason)
         private readonly HashSet<string> _seenIds = new HashSet<string>();
@@ -278,6 +295,11 @@ namespace cAlgo.Robots
 
         protected override void OnTimer()
         {
+          try
+          {
+            // Connection hygiene: rebuild the HttpClient every ~40 min so a stale/zombie connection
+            // pool can't silently starve the fetch + heartbeat (the auto-reconnect safety net).
+            if ((DateTime.UtcNow - _httpBorn).TotalMinutes >= 40) RebuildHttp("periodic refresh");
             // Trailing runs on the bot thread every poll, independent of the (async) signal fetch.
             try { ManageTrailingStops(); } catch (Exception ex) { Print($"[VikingSwing] trail error: {ex.Message}"); }
             try { SweepNakedStops(); } catch (Exception ex) { Print($"[VikingSwing] naked-sweep error: {ex.Message}"); }
@@ -294,6 +316,8 @@ namespace cAlgo.Robots
             if (_busy) return;
             _busy = true;
             PollAsync().ContinueWith(_ => _busy = false);
+          }
+          catch (Exception ex) { try { Print($"[VikingSwing] OnTimer error (contained): {ex.Message}"); } catch { } }
         }
 
         // 1R trailing stop — once a position is +1R in profit, ratchet the stop to (best price − 1R),
@@ -450,8 +474,8 @@ namespace cAlgo.Robots
         private async Task PollAsync()
         {
             string body;
-            try { body = await _http.GetStringAsync(CacheBust(SignalsUrl)); }
-            catch (Exception ex) { Print($"[VikingSwing] fetch failed: {ex.Message}"); return; }
+            try { body = await _http.GetStringAsync(CacheBust(SignalsUrl)); HttpOk(); }
+            catch (Exception ex) { HttpFail(); Print($"[VikingSwing] fetch failed: {ex.Message}"); return; }
 
             List<Sig> sigs;
             try { sigs = ParseSignals(body); }
@@ -1143,8 +1167,9 @@ namespace cAlgo.Robots
                 req.Headers.Add("Authorization", $"Bearer {GhPersonalAccessToken}");
                 req.Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
                 await _http.SendAsync(req);
+                HttpOk();   // heartbeat reached GitHub — connection is healthy
             }
-            catch { }   // best-effort; a heartbeat hiccup must never disrupt trading
+            catch { HttpFail(); }   // best-effort; repeated heartbeat failures trigger a client rebuild
         }
 
         private async Task DispatchAsync(string jsonLine)

@@ -292,7 +292,34 @@ namespace cAlgo.Robots
         public string TelegramAlertLevel { get; set; }  // "off" | "important" | "all"
 
         // ───────────── State ──────────────────────────────────────────
-        private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        private static HttpClient _http = NewHttp();
+        // Factory so the auto-reconnect rebuild re-applies the no-cache headers (the feed must never be
+        // served stale). Kept in one place for OnStart + RebuildHttp.
+        private static HttpClient NewHttp()
+        {
+            var h = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            h.DefaultRequestHeaders.UserAgent.ParseAdd("VikingInvest-cTrader-Bot/1.0");
+            h.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue
+                { NoCache = true, NoStore = true, MustRevalidate = true };
+            h.DefaultRequestHeaders.Pragma.ParseAdd("no-cache");
+            return h;
+        }
+        // ── Auto-reconnect ────────────────────────────────────────────────────────────────────────
+        // A long-lived HttpClient poisons its connection pool after a network blip (socket/DNS goes
+        // zombie): every request then times out until the PROCESS restarts — the "poll thread dead
+        // (zombie/disconnect)" the watchdog catches. Track HTTP health and rebuild the client after a
+        // few failures in a row, plus periodically, so the bot self-heals without a manual restart.
+        private int _httpFails = 0;
+        private DateTime _httpBorn = DateTime.UtcNow;
+        private void HttpOk() { _httpFails = 0; }
+        private void HttpFail() { if (++_httpFails >= 3) RebuildHttp("3 consecutive HTTP failures"); }
+        private void RebuildHttp(string why)
+        {
+            try { _http.Dispose(); } catch { }
+            _http = NewHttp();
+            _httpFails = 0; _httpBorn = DateTime.UtcNow;
+            try { Print($"🔄 [VikingInvest] HTTP client rebuilt (auto-reconnect) — {why}"); } catch { }
+        }
         private HashSet<string> _seenIds = new HashSet<string>();
         private string _seenIdsPath;
         private string _executionsPath;
@@ -448,29 +475,12 @@ namespace cAlgo.Robots
             Positions.Opened += OnPositionOpened;   // records LIMIT fills (async)
             try { RecoverTrailingOnStart(); } catch (Exception ex) { Print($"[VikingInvest] trailing-recovery error: {ex.Message}"); }
 
-            _http.DefaultRequestHeaders.UserAgent.ParseAdd("VikingInvest-cTrader-Bot/1.0");
-            // 2026-06-23 — force CDN revalidation on every poll. The
-            // CacheBust(?t=minute) query trick does NOTHING on the two
-            // feed endpoints we use: raw.githubusercontent.com (Fastly,
-            // max-age=300) and jsDelivr @main (caches branch refs for
-            // HOURS) both key their cache on PATH ONLY and ignore the
-            // query string. Result: the bot was acting on signals.json
-            // up to 5 min (raw) / hours (jsDelivr) stale, so fast
-            // trigger→invalidate transitions around the London/NY opens
-            // were missed — a 'triggered' alert fired on Telegram while
-            // the bot's cached feed still showed armed/invalidated, or
-            // didn't contain the signal at all. no-cache forces Fastly /
-            // jsDelivr to revalidate against origin (GitHub) each fetch,
-            // bringing staleness down to seconds. Kept the query bust as
-            // belt-and-braces for any intermediary that DOES vary on it.
-            _http.DefaultRequestHeaders.CacheControl =
-                new System.Net.Http.Headers.CacheControlHeaderValue
-                {
-                    NoCache = true,
-                    NoStore = true,
-                    MustRevalidate = true
-                };
-            _http.DefaultRequestHeaders.Pragma.ParseAdd("no-cache");
+            // HTTP no-cache headers (UserAgent + CacheControl no-cache/no-store/must-revalidate +
+            // Pragma) are set in NewHttp() so the auto-reconnect rebuild preserves them. Rationale:
+            // the CacheBust(?t=minute) query does NOTHING on raw.githubusercontent.com (Fastly,
+            // max-age=300) or jsDelivr @main (caches branch refs for HOURS) — both key cache on PATH
+            // only — so no-cache is what forces revalidation against origin each fetch (staleness
+            // down to seconds, so fast trigger→invalidate transitions near the opens aren't missed).
 
             // Effective parameters AFTER live-mode override.
             var effRisk = EffectiveRiskPct;
@@ -536,12 +546,19 @@ namespace cAlgo.Robots
 
         protected override void OnTimer()
         {
+          try
+          {
+            // Connection hygiene: rebuild the HttpClient every ~40 min so a stale/zombie connection
+            // pool can't silently starve the signal fetch (the auto-reconnect safety net).
+            if ((DateTime.UtcNow - _httpBorn).TotalMinutes >= 40) RebuildHttp("periodic refresh");
             // Sample max-favourable-excursion for every open position first
             // (cheap, synchronous, main-thread) so even if PollAndProcess
             // does nothing this tick we keep the MFE trace fresh.
-            SampleOpenPositionMfe();
+            try { SampleOpenPositionMfe(); } catch (Exception ex) { Print($"[VikingInvest] mfe error: {ex.Message}"); }
             try { SweepNakedStops(); } catch (Exception ex) { Print($"[VikingInvest] naked-sweep error: {ex.Message}"); }
             _ = PollAndProcess();
+          }
+          catch (Exception ex) { try { Print($"[VikingInvest] OnTimer error (contained): {ex.Message}"); } catch { } }
         }
 
         // Ensure none of OUR positions ever sits without a stop. Re-applies a protective SL at the
@@ -822,9 +839,11 @@ namespace cAlgo.Robots
             try
             {
                 body = await _http.GetStringAsync(CacheBust(SignalsUrl));
+                HttpOk();
             }
             catch (Exception ex)
             {
+                HttpFail();   // repeated fetch failures rebuild the (possibly zombie) HttpClient
                 Print($"⚠️ [VikingInvest] Fetch failed: {ex.Message}");
                 return;
             }
