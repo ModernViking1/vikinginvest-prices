@@ -24,6 +24,22 @@ import datetime as dt
 import unified_shadow_harness as H
 from backtest_rsi_per_class import _bars_norm
 
+# Telegram alerts show UK local time (auto-handles BST/GMT) so the timestamp matches the user's
+# phone/MT5 reconciliation. Prefer the IANA zone; fall back to the machine's local tz (which is UK
+# on the trading PC) if tzdata isn't installed, so this never crashes an alert.
+try:
+    from zoneinfo import ZoneInfo
+    _UK = ZoneInfo("Europe/London")
+except Exception:
+    _UK = None
+
+
+def _uklocal(ms):
+    """Format an epoch-ms as UK local HH:MM:SS."""
+    t = dt.datetime.fromtimestamp(ms / 1000, dt.timezone.utc)
+    t = t.astimezone(_UK) if _UK is not None else dt.datetime.fromtimestamp(ms / 1000)
+    return t.strftime('%H:%M:%S')
+
 # local_key -> MT5 Market Watch symbol. The whole equity book — US + DE + UK — driven off the broker's
 # own bars through this bridge. The EA reads this bridge's LOCAL file, so every tradeable name lives here.
 SYMBOLS = {
@@ -236,8 +252,7 @@ def _alert_new_entries(out_dir, ledger, tg_token, tg_chat):
             strat = (p.get('id', '') or '').split(':')[0] or '?'
             side = 'SELL' if p.get('dir', 1) < 0 else 'BUY'
             oms = p.get('open_ms')
-            ttxt = (f"\n🕒 opened {dt.datetime.fromtimestamp(oms/1000, dt.timezone.utc):%H:%M:%S} UTC"
-                    if isinstance(oms, (int, float)) else "")
+            ttxt = (f"\n🕒 opened {_uklocal(oms)} UK" if isinstance(oms, (int, float)) else "")
             _tg(f"🟢 <b>Equity ENTRY · {strat}</b>\n{p.get('sym','?')} <b>{side} {p.get('lots','?')}</b> "
                 f"@ {p.get('entry','?')}\nSL {p.get('sl','?')} · trailing-runner (arm +1R, no fixed TP){ttxt}",
                 tg_token, tg_chat)
@@ -281,8 +296,7 @@ def _alert_new_closes(out_dir, tg_token, tg_chat):
             # stamp the actual fill time (UTC) so it reads unambiguously vs the phone's local
             # Telegram delivery time — the two differ by the phone's UTC offset, not a real delay.
             cms = e.get('closed_ms')
-            ttxt = (f"\n🕒 closed {dt.datetime.fromtimestamp(cms/1000, dt.timezone.utc):%H:%M:%S} UTC"
-                    if isinstance(cms, (int, float)) else "")
+            ttxt = (f"\n🕒 closed {_uklocal(cms)} UK" if isinstance(cms, (int, float)) else "")
             _tg(f"{emoji} <b>Equity EXIT · {e.get('strategy','?')}</b>\n{e.get('sym','?')} {side} closed "
                 f"<b>{rtxt}</b>{pnltxt}\nentry {e.get('entry','?')} → exit {e.get('exit','?')}{ttxt}", tg_token, tg_chat)
     try:
