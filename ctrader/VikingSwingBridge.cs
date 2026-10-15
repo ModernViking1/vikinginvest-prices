@@ -345,8 +345,9 @@ namespace cAlgo.Robots
                 if (R <= 0) continue;
                 bool isBuy = p.TradeType == TradeType.Buy;
                 double price = isBuy ? p.Symbol.Bid : p.Symbol.Ask;
+                if (!(price > 0) || !(p.EntryPrice > 0)) continue;       // no live quote / unpopulated fill — never trail off a 0
                 double peak;
-                if (!_posPeak.TryGetValue(p.Id, out peak)) peak = p.EntryPrice;
+                if (!_posPeak.TryGetValue(p.Id, out peak) || peak <= 0) peak = p.EntryPrice;
                 peak = isBuy ? Math.Max(peak, price) : Math.Min(peak, price);
                 _posPeak[p.Id] = peak;
                 bool armed = isBuy ? (peak >= p.EntryPrice + R) : (peak <= p.EntryPrice - R);
@@ -366,6 +367,13 @@ namespace cAlgo.Robots
         private void RatchetStop(Position p, double desired, bool isBuy)
         {
             if (p == null || p.Symbol == null) return;
+            if (!(desired > 0)) return;                                 // never a zero/negative stop price
+            // Never submit a stop on the WRONG SIDE of the market — the broker rejects it
+            // ("New SL for SELL position should be >= current ASK"). A corrupted peak/entry of 0
+            // would otherwise compute desired = the 1R distance (~1.757) and try to set THAT as the
+            // stop price. For a long the stop must sit below the bid; for a short, above the ask.
+            double mkt = isBuy ? p.Symbol.Bid : p.Symbol.Ask;
+            if (mkt > 0 && (isBuy ? desired >= mkt : desired <= mkt)) return;
             int digits = p.Symbol.Digits;
             double tick = p.Symbol.TickSize > 0 ? p.Symbol.TickSize : Math.Pow(10, -digits);
             desired = Math.Round(desired, digits);
@@ -407,8 +415,8 @@ namespace cAlgo.Robots
                     if (R > 0) _posR[p.Id] = R;
                 }
                 double price = isBuy ? p.Symbol.Bid : p.Symbol.Ask;
-                _posPeak[p.Id] = price;                                   // best-effort high-water reset
-                if (isBuy ? (price > p.EntryPrice) : (price < p.EntryPrice))
+                if (price > 0) _posPeak[p.Id] = price;                    // best-effort high-water reset (never poison peak with a no-quote 0)
+                if (price > 0 && (isBuy ? (price > p.EntryPrice) : (price < p.EntryPrice)))
                 {
                     Print($"🔁 [VikingSwing] restart recovery: {p.SymbolName} pid={p.Id} in profit — locking break-even.");
                     RatchetStop(p, p.EntryPrice, isBuy);                  // only moves the stop favourably
@@ -426,7 +434,7 @@ namespace cAlgo.Robots
             if (!ProtectNakedPositions) return;
             foreach (var p in Positions)
             {
-                if (p.Label != OrderLabel || p.Symbol == null || p.StopLoss.HasValue) continue;
+                if (p.Label != OrderLabel || p.Symbol == null || p.StopLoss.HasValue || p.EntryPrice <= 0) continue;
                 bool isBuy = p.TradeType == TradeType.Buy;
                 double distPx, R;
                 if (_posR.TryGetValue(p.Id, out R) && R > 0) distPx = R;                       // known original 1R
