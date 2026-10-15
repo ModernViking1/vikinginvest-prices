@@ -451,6 +451,13 @@ def main():
     print(f"  executions push:    {'ON -> ' + args.gh_repo if args.gh_token else 'OFF (needs --gh-token/GH_TOKEN)'}", flush=True)
     print(f"  entry+exit alerts:  {'ON (Telegram)' if (args.tg_token and args.tg_chat) else 'OFF (set --tg-token/--tg-chat or TELEGRAM_* env)'}", flush=True)
     print(f"  trend filter:       {'ON (SMA' + str(H.TREND_SMA) + ' alignment)' if hasattr(H, 'trend_filter_signals') else 'OFF (old code — git pull)'}", flush=True)
+    # Active equity strategy set (also a code-version indicator: if fib_eq is listed you're on the
+    # trend-gated golden-zone build; if it's absent the clone is stale — git pull + restart).
+    _fib_ok = hasattr(H, '_fib_eq_signals')
+    _eq_strats = [t for t, _, _ in STRATS] + (['fib_eq'] if _fib_ok else [])
+    print(f"  strategies ({len(_eq_strats)}):     {', '.join(_eq_strats)}", flush=True)
+    print(f"  scope notes:        threepush_eq US-only"
+          + ("; fib_eq US h1+4h / UK+FR h1" if _fib_ok else " (fib_eq MISSING — stale clone, git pull)"), flush=True)
 
     try:
         while True:
