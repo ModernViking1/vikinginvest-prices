@@ -21,7 +21,7 @@
 //|    Attach to ONE chart (any symbol); it manages all .EQ symbols. |
 //+------------------------------------------------------------------+
 #property copyright "Viking Invest"
-#property version   "1.07"
+#property version   "1.08"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -307,18 +307,28 @@ double LotsForRisk(const string sym, double stopDist, double price)
    // the size to a handful of units (e.g. Tokyo names capped at ~24-52). tickVal/tickSize is the
    // account-currency value of a 1.0 price move per lot (= contract x quote->account FX), so
    // price*tickVal/tickSize is the true notional per lot in account currency.
+   double lotsByRisk = lots;                 // pre-cap, for the sizing log
    double notionalPerLot = price * tickVal / tickSize;
+   double maxLotsByNotional = -1.0;
    if(notionalPerLot > 0)
      {
-      double maxLotsByNotional = (equity * (InpMaxNotionalPct/100.0)) / notionalPerLot;
+      maxLotsByNotional = (equity * (InpMaxNotionalPct/100.0)) / notionalPerLot;
       lots = MathMin(lots, maxLotsByNotional);
      }
    // clamp to symbol volume constraints + the absolute backstop
    double vmin = SymbolInfoDouble(sym, SYMBOL_VOLUME_MIN);
-   double vmax = MathMin(SymbolInfoDouble(sym, SYMBOL_VOLUME_MAX), InpMaxLot);
+   double brokerMax = SymbolInfoDouble(sym, SYMBOL_VOLUME_MAX);
+   double vmax = MathMin(brokerMax, InpMaxLot);
    double vstep= SymbolInfoDouble(sym, SYMBOL_VOLUME_STEP);
    if(vstep>0) lots = MathFloor(lots/vstep)*vstep;
    lots = MathMax(vmin, MathMin(vmax, lots));
+   // Sizing breakdown so it's visible WHICH cap binds (risk target vs 20%-notional cap vs the
+   // broker's own max volume per order). A size far below the risk target with lots==brokerMax means
+   // the broker caps that symbol (e.g. many EU/UK stock CFDs max out at 1000 units) — not an EA bug.
+   if(InpVerbose)
+      PrintFormat("SIZE %-10s px=%.4f risk=%.0f/%.4f=%.0f  notCap=%.0f  brokerMax=%.0f  -> %.2f%s",
+                  sym, price, riskMoney, lossPerLot, lotsByRisk, maxLotsByNotional, brokerMax, lots,
+                  (lots >= brokerMax && lotsByRisk > brokerMax) ? "  [BROKER-CAPPED]" : "");
    return lots;
   }
 
