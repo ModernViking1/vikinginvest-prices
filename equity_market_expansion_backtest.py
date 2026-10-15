@@ -104,6 +104,19 @@ def main():
                     by_ms[(mkt, tag)].append((s['entry_ts'], r))
                     by_m[mkt].append((s['entry_ts'], r))
                     by_s[tag].append((s['entry_ts'], r))
+            # fib_eq — trend-gated golden-zone fib, validated cells: US h1+4h, UK/FR h1.
+            _fib_tfs = (['h1', '4h'] if mkt == 'US' else (['h1'] if mkt in ('UK', 'FR') else []))
+            for tf in _fib_tfs:
+                bars = layers.get(tf) or []
+                if len(bars) < (250 if tf == '4h' else MIN_BARS):
+                    continue
+                for s in H._fib_eq_signals(pk, bars, tf):
+                    r = _score(bars, s)
+                    if r is None:
+                        continue
+                    by_ms[(mkt, 'fib_eq')].append((s['entry_ts'], r))
+                    by_m[mkt].append((s['entry_ts'], r))
+                    by_s['fib_eq'].append((s['entry_ts'], r))
 
     def rows_sorted(d):
         d.sort(); return [r for _, r in d]
@@ -124,14 +137,14 @@ def main():
         print(f"  {mkt:<5}{a['n']:>7}{a['wr']:>5.0f}%{a['exp']:>+8.3f}R{a['oos1']:>+8.3f}{a['oos2']:>+8.3f}{a['tot']:>+7.0f}  {edge}")
 
     print("\nBY STRATEGY (all markets pooled):")
-    for tag, _, _ in STRATS:
+    for tag in [t for t, _, _ in STRATS] + ['fib_eq']:
         a = _agg(rows_sorted(by_s[tag]))
         if a:
             print(f"  {tag:<18}{a['n']:>6}{a['wr']:>5.0f}%{a['exp']:>+8.3f}R  OOS[{a['oos1']:+.3f}/{a['oos2']:+.3f}]  totR {a['tot']:+.0f}")
 
     print("\nBY MARKET x STRATEGY (exp R, n):")
     print(f"  {'strategy':<18}" + "".join(f"{m:>14}" for m in UNIVERSE))
-    for tag, _, _ in STRATS:
+    for tag in [t for t, _, _ in STRATS] + ['fib_eq']:
         cells = []
         for mkt in UNIVERSE:
             a = _agg(rows_sorted(by_ms[(mkt, tag)]))

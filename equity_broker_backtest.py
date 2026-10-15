@@ -82,6 +82,24 @@ def main():
                 by_mkt[mkt].append((s['entry_ts'], r))
                 by_ms[(mkt, tag)].append((s['entry_ts'], r))
                 by_strat[tag].append((s['entry_ts'], r))
+        # fib_eq — trend-gated golden-zone fib (Denis/Dantev), validated cells only: US h1+4h,
+        # UK/FR h1 (DE marginal / JP/HK thin / ES held out — excluded, matching the live bridge).
+        # Different signature from the MW gens, so scored in its own block; SMA gate baked in.
+        _fib_tfs = (['h1', '4h'] if mkt == 'US' else (['h1'] if mkt in ('UK', 'FR') else []))
+        for tf in _fib_tfs:
+            bars = (H.agg4h(_bars_norm(layers.get('h1') or [])) if tf == '4h'
+                    else _bars_norm(layers.get('h1') or []))
+            if len(bars) < (250 if tf == '4h' else MIN_BARS):
+                continue
+            got = True
+            for s in H._fib_eq_signals(key, bars, tf):
+                r = _score(bars, s)
+                if r is None:
+                    continue
+                by_sym[sym]['fib_eq'].append((s['entry_ts'], r))
+                by_mkt[mkt].append((s['entry_ts'], r))
+                by_ms[(mkt, 'fib_eq')].append((s['entry_ts'], r))
+                by_strat['fib_eq'].append((s['entry_ts'], r))
         meta[sym] = (mkt, got, {tf: len(_bars_norm(layers.get(tf) or [])) for tf in ('h1', 'm15')})
 
     print('=== .EQ on broker-exported data ·', args.hist, '===\n')
@@ -102,7 +120,7 @@ def main():
     print('\nBY MARKET x STRATEGY (exp R / n):')
     mkts = sorted({m for m, _ in by_ms})
     print(f"  {'strategy':<18}" + ''.join(f"{m:>13}" for m in mkts))
-    for tag, _, _ in STRATS:
+    for tag in [t for t, _, _ in STRATS] + ['fib_eq']:
         cells = []
         for mkt in mkts:
             a = _agg(by_ms[(mkt, tag)])
