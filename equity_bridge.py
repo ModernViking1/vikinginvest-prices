@@ -124,8 +124,22 @@ def write_executions(mt5, out_dir, days=120):
         rr = None
         if entry is not None and sl is not None and abs(entry - sl) > 0:
             rr = ((exit_px - entry) if dirn > 0 else (entry - exit_px)) / abs(entry - sl)
-        sid = info['id'] if info else str(pid)
-        execs.append({'id': sid, 'strategy': sid.split(':')[0],
+        # Resolve the signal id + strategy. Prefer the EA ledger; if it's missing (position
+        # opened before tracking, ledger lost, or a manual close on our magic), recover the id
+        # from the MT5 deal COMMENT — the EA stamps "strategy:pair:ts" there (same string shown
+        # on the position). Only if neither is a proper colon-delimited id do we fall back, and
+        # we tag the strategy 'unknown' rather than the bare ticket number (which otherwise
+        # pollutes per-strategy stats with a one-off numeric "strategy").
+        sid = info['id'] if info else None
+        if not sid or sid.count(':') < 2:
+            for d in dl:
+                c = (getattr(d, 'comment', '') or '').strip()
+                if c.count(':') >= 2:
+                    sid = c; break
+        strat = sid.split(':')[0] if (sid and sid.count(':') >= 2) else 'unknown'
+        if not sid:
+            sid = str(pid)
+        execs.append({'id': sid, 'strategy': strat,
                       'sym': (info['sym'] if info else dl[0].symbol),
                       'dir': ('bull' if dirn > 0 else 'bear'),
                       'entry': entry, 'exit': exit_px, 'init_sl': sl,
