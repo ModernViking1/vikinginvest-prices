@@ -47,6 +47,12 @@ SYMBOLS = {
     # LOCAL bridge file (InpLocalFile), which takes precedence over the TwelveData CDN feed, so the US
     # names MUST be here to trade — otherwise only the EU/UK book reaches the terminal.
     'aapl': 'AAPL.NAS', 'amzn': 'AMZN.NAS', 'msft': 'MSFT.NAS', 'nvda': 'NVDA.NAS', 'tsla': 'TSLA.NAS',
+    # US expansion (2026-10-15) — concentrate on US where the edge + cheap commission hold. Added live
+    # on demo; validate on the 3yr broker export (VikingHistoryExport InpSymUS2) before trusting.
+    'pep': 'PEP.NAS', 'pypl': 'PYPL.NAS', 'aal': 'AAL.NAS', 'abnb': 'ABNB.NAS', 'wday': 'WDAY.NAS',
+    'wmg': 'WMG.NAS', 'vktx': 'VKTX.NAS', 'mat': 'MAT.NAS', 'pzza': 'PZZA.NAS', 'ryaay': 'RYAAY.NAS',
+    'hood': 'HOOD.NAS', 'coin': 'COIN.NAS', 'dpz': 'DPZ.NAS', 'pltr': 'PLTR.NAS', 'tri': 'TRI.NAS',
+    'abtc': 'ABTC.NAS',
     # DE (.ETR)
     'dbk': 'DBK.ETR', 'boss': 'BOSS.ETR', 'pah3': 'PAH3.ETR', 'vowg': 'VOWG.ETR',
     'bayn': 'BAYN.ETR', 'cbk': 'CBK.ETR', 'mbg': 'MBGn.ETR',

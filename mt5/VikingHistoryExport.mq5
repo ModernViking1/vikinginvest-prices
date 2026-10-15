@@ -26,6 +26,7 @@
 // parameter at ~250 chars, which silently dropped the tail of a long one-line list (the ES/FR/HK
 // names). Each field below stays short; OnStart concatenates them. Edit the one for your region.
 input string InpSymUS  = "AAPL.NAS,AMZN.NAS,MSFT.NAS,NVDA.NAS,TSLA.NAS";
+input string InpSymUS2 = "PEP.NAS,PYPL.NAS,AAL.NAS,ABNB.NAS,WDAY.NAS,WMG.NAS,VKTX.NAS,MAT.NAS,PZZA.NAS,RYAAY.NAS,HOOD.NAS,COIN.NAS,DPZ.NAS,PLTR.NAS,TRI.NAS,ABTC.NAS";
 input string InpSymDE  = "DBK.ETR,BOSS.ETR,PAH3.ETR,VOWG.ETR,BAYN.ETR,CBK.ETR,MBGn.ETR";
 input string InpSymUK  = "BARC.LSE,BA.LSE,LSE.LSE,RR.LSE,TSCO.LSE,AML.LSE,BKG.LSE,EZJ.LSE,MKS.LSE,RDSB.LSE,NWG.LSE";
 input string InpSymJPHK= "7267.TSE,8306.TSE,7974.TSE,6758.TSE,1288.HK,9898.HK,0003.HK";
@@ -77,7 +78,7 @@ int WriteSeries(const int h, const string sym, ENUM_TIMEFRAMES tf, const int wan
 
 void OnStart()
   {
-   string all=InpSymUS+","+InpSymDE+","+InpSymUK+","+InpSymJPHK+","+InpSymESFR;
+   string all=InpSymUS+","+InpSymUS2+","+InpSymDE+","+InpSymUK+","+InpSymJPHK+","+InpSymESFR;
    string syms[]; int n=StringSplit(all,',',syms);
    int h=FileOpen(InpOut,FILE_WRITE|FILE_TXT|FILE_ANSI);
    if(h==INVALID_HANDLE){ PrintFormat("cannot open %s (err %d)",InpOut,GetLastError()); return; }
