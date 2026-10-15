@@ -2,9 +2,37 @@
  "schema_version": 1,
  "generated": "2026-10-15T23:00:00+00:00",
  "data_end_ts": 1792105200,
- "raw_signal_count": 12,
+ "raw_signal_count": 14,
  "count": 10,
  "signals": [
+  {
+   "id": "holygrail_cm_m15:xauusd:1792105200",
+   "strategy": "holygrail_cm_m15",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "xauusd",
+   "symbol": "XAUUSD",
+   "class": "comm",
+   "dir": "bull",
+   "stop": 4163.39682143,
+   "ref_entry": 4164.565,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1792105200,
+   "created_ts": 1792105200,
+   "expiry_ts": 1792148400,
+   "state": "triggered",
+   "cofire": [
+    "holygrail_cm_m15"
+   ],
+   "cofire_dirs": [
+    "holygrail_cm_m15:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "fibgz_t:xagusd:1792101600",
    "strategy": "fibgz_t",
@@ -26,12 +54,14 @@
    "expiry_ts": 1792144800,
    "state": "triggered",
    "cofire": [
-    "fibgz_t"
+    "fibgz_t",
+    "holygrail_cm_m15"
    ],
    "cofire_dirs": [
-    "fibgz_t:bear"
+    "fibgz_t:bear",
+    "holygrail_cm_m15:bull"
    ],
-   "suppressed": 0
+   "suppressed": 1
   },
   {
    "id": "twob_ix:dj30:1792101600",
@@ -171,34 +201,6 @@
    ],
    "cofire_dirs": [
     "fibgz_t:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "holygrail_cm_m15:xauusd:1792069200",
-   "strategy": "holygrail_cm_m15",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bull",
-   "stop": 4129.49871429,
-   "ref_entry": 4152.2,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1792069200,
-   "created_ts": 1792105200,
-   "expiry_ts": 1792112400,
-   "state": "triggered",
-   "cofire": [
-    "holygrail_cm_m15"
-   ],
-   "cofire_dirs": [
-    "holygrail_cm_m15:bull"
    ],
    "suppressed": 0
   },
