@@ -1,10 +1,67 @@
 {
  "schema_version": 1,
- "generated": "2026-10-15T12:00:00+00:00",
- "data_end_ts": 1792065600,
- "raw_signal_count": 12,
- "count": 11,
+ "generated": "2026-10-15T13:00:00+00:00",
+ "data_end_ts": 1792069200,
+ "raw_signal_count": 10,
+ "count": 9,
  "signals": [
+  {
+   "id": "twob_ix:nas100:1792065600",
+   "strategy": "twob_ix",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "nas100",
+   "symbol": "NAS100",
+   "class": "index",
+   "dir": "bull",
+   "stop": 29553.97785714,
+   "ref_entry": 29633.4,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1792065600,
+   "created_ts": 1792069200,
+   "expiry_ts": 1792108800,
+   "state": "triggered",
+   "cofire": [
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "twob_ix:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "twob_ix:spx500:1792065600",
+   "strategy": "twob_ix",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "spx500",
+   "symbol": "SPX500",
+   "class": "index",
+   "dir": "bear",
+   "stop": 7717.59,
+   "ref_entry": 7704.6,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1792065600,
+   "created_ts": 1792069200,
+   "expiry_ts": 1792108800,
+   "state": "triggered",
+   "cofire": [
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "twob_ix:bear",
+    "twob_ix:bull"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "twob_ix:de40:1792051200",
    "strategy": "twob_ix",
@@ -22,7 +79,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1792051200,
-   "created_ts": 1792065600,
+   "created_ts": 1792069200,
    "expiry_ts": 1792094400,
    "state": "triggered",
    "cofire": [
@@ -30,62 +87,6 @@
    ],
    "cofire_dirs": [
     "twob_ix:bear"
-   ],
-   "suppressed": 1
-  },
-  {
-   "id": "twob_ix:nas100:1792051200",
-   "strategy": "twob_ix",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "nas100",
-   "symbol": "NAS100",
-   "class": "index",
-   "dir": "bull",
-   "stop": 29559.17357143,
-   "ref_entry": 29656.2,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1792051200,
-   "created_ts": 1792065600,
-   "expiry_ts": 1792094400,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "holygrail_cm_m15:xauusd:1792048500",
-   "strategy": "holygrail_cm_m15",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bull",
-   "stop": 4132.19871429,
-   "ref_entry": 4143.13,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1792048500,
-   "created_ts": 1792065600,
-   "expiry_ts": 1792091700,
-   "state": "triggered",
-   "cofire": [
-    "holygrail_cm_m15"
-   ],
-   "cofire_dirs": [
-    "holygrail_cm_m15:bull"
    ],
    "suppressed": 0
   },
@@ -106,7 +107,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1792047600,
-   "created_ts": 1792065600,
+   "created_ts": 1792069200,
    "expiry_ts": 1792090800,
    "state": "triggered",
    "cofire": [
@@ -134,7 +135,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1792040400,
-   "created_ts": 1792065600,
+   "created_ts": 1792069200,
    "expiry_ts": 1792083600,
    "state": "triggered",
    "cofire": [
@@ -142,34 +143,6 @@
    ],
    "cofire_dirs": [
     "mmove:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob_ix:spx500:1792040400",
-   "strategy": "twob_ix",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "spx500",
-   "symbol": "SPX500",
-   "class": "index",
-   "dir": "bull",
-   "stop": 7688.39857143,
-   "ref_entry": 7706.6,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1792040400,
-   "created_ts": 1792065600,
-   "expiry_ts": 1792083600,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bull"
    ],
    "suppressed": 0
   },
@@ -190,7 +163,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1792026000,
-   "created_ts": 1792065600,
+   "created_ts": 1792069200,
    "expiry_ts": 1792069200,
    "state": "triggered",
    "cofire": [
@@ -218,7 +191,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1792000800,
-   "created_ts": 1792065600,
+   "created_ts": 1792069200,
    "expiry_ts": 1792044000,
    "state": "triggered",
    "cofire": [
@@ -246,7 +219,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1791997200,
-   "created_ts": 1792065600,
+   "created_ts": 1792069200,
    "expiry_ts": 1792040400,
    "state": "triggered",
    "cofire": [
@@ -274,7 +247,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1791986400,
-   "created_ts": 1792065600,
+   "created_ts": 1792069200,
    "expiry_ts": 1792029600,
    "state": "triggered",
    "cofire": [
@@ -282,34 +255,6 @@
    ],
    "cofire_dirs": [
     "engulf_manip:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "holygrail_cm_m15:xagusd:1791981900",
-   "strategy": "holygrail_cm_m15",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "xagusd",
-   "symbol": "XAGUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 58.82163571,
-   "ref_entry": 57.762,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1791981900,
-   "created_ts": 1792065600,
-   "expiry_ts": 1792025100,
-   "state": "triggered",
-   "cofire": [
-    "holygrail_cm_m15"
-   ],
-   "cofire_dirs": [
-    "holygrail_cm_m15:bear"
    ],
    "suppressed": 0
   }
