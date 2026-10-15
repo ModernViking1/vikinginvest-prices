@@ -39,7 +39,13 @@ input int    InpMaxOpenPerSym= 1;         // max concurrent EA positions per sym
 input int    InpSlippagePts  = 30;        // max deviation (points)
 input double InpMaxNotionalPct = 20.0;    // cap a position's NOTIONAL at this % of equity (the real
                                           //   size governor for stock CFDs — tight stops would make
-                                          //   pure 0.5%-risk sizing hugely over-leveraged)
+                                          //   pure 0.5%-risk sizing hugely over-leveraged). EU/UK/JP/HK.
+input double InpMaxNotionalPctUS = 100.0; // US (.NAS/.NYSE) notional cap — raised from 20%. equity_cap_sweep
+                                          //   over 3yr: US commission is ~1.2bp (vs EU 22-26bp), so the
+                                          //   tight-stop m15 strategies are starved at 20% (risk ~0.03% not
+                                          //   0.5%). 20%->100% ~3x's US net with DD only ~8%->11%. EU stays
+                                          //   at InpMaxNotionalPct (20%) — a higher cap there just amplifies
+                                          //   the 20x commission drag.
 input double InpMaxLot       = 100000.0;  // absolute lot backstop (notional cap normally binds first)
 input bool   InpVerbose      = true;      // log decisions
 // ── Execution fixes (2026-10-08) ──────────────────────────────────────────────
@@ -309,10 +315,14 @@ double LotsForRisk(const string sym, double stopDist, double price)
    // price*tickVal/tickSize is the true notional per lot in account currency.
    double lotsByRisk = lots;                 // pre-cap, for the sizing log
    double notionalPerLot = price * tickVal / tickSize;
+   // Region-aware notional cap: US (.NAS/.NYSE) uses the raised InpMaxNotionalPctUS so the cheap-commission
+   // US book can be risk-sized; everything else (EU/UK/JP/HK) keeps the conservative InpMaxNotionalPct.
+   double notCapPct = (StringFind(sym, ".NAS") >= 0 || StringFind(sym, ".NYSE") >= 0)
+                      ? InpMaxNotionalPctUS : InpMaxNotionalPct;
    double maxLotsByNotional = -1.0;
    if(notionalPerLot > 0)
      {
-      maxLotsByNotional = (equity * (InpMaxNotionalPct/100.0)) / notionalPerLot;
+      maxLotsByNotional = (equity * (notCapPct/100.0)) / notionalPerLot;
       lots = MathMin(lots, maxLotsByNotional);
      }
    // clamp to symbol volume constraints + the absolute backstop
@@ -322,7 +332,7 @@ double LotsForRisk(const string sym, double stopDist, double price)
    double vstep= SymbolInfoDouble(sym, SYMBOL_VOLUME_STEP);
    if(vstep>0) lots = MathFloor(lots/vstep)*vstep;
    lots = MathMax(vmin, MathMin(vmax, lots));
-   // Sizing breakdown so it's visible WHICH cap binds (risk target vs 20%-notional cap vs the
+   // Sizing breakdown so it's visible WHICH cap binds (risk target vs the region notional cap vs the
    // broker's own max volume per order). A size far below the risk target with lots==brokerMax means
    // the broker caps that symbol (e.g. many EU/UK stock CFDs max out at 1000 units) — not an EA bug.
    if(InpVerbose)
