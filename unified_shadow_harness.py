@@ -581,9 +581,11 @@ def _sma_series(bars, p):
     return out
 
 
-def _fibgzt_scan(pk, bars, tf, need_sess):
+def _fibgzt_scan(pk, bars, tf, need_sess, tag='fibgz_t'):
     """Golden-zone pullback (same geometry as detect_fibgz) gated by SMA50>100>200
-    trend alignment, and optionally a London/NY session window on the entry bar."""
+    trend alignment, and optionally a London/NY session window on the entry bar.
+    Market-agnostic (the class gate lives in the caller); `tag` lets the equity book
+    reuse the identical geometry under the fib_eq tag."""
     if len(bars) < 250:
         return []
     s50 = _sma_series(bars, 50); s100 = _sma_series(bars, 100); s200 = _sma_series(bars, 200)
@@ -632,10 +634,19 @@ def _fibgzt_scan(pk, bars, tf, need_sess):
         stop = (void - FIBGZ_ATR_BUF*a) if d == 'bull' else (void + FIBGZ_ATR_BUF*a)
         if (d == 'bull' and stop >= entry) or (d == 'bear' and stop <= entry):
             continue
-        out.append({'strategy': 'fibgz_t', 'tf': tf, 'pair': pk, 'dir': d,
+        out.append({'strategy': tag, 'tf': tf, 'pair': pk, 'dir': d,
                     'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop})
         last = ei + FIBGZ_COOLDOWN
     return out
+
+
+def _fib_eq_signals(pk, bars, tf):
+    """Trend-gated golden-zone fib for the EQUITY book (tag `fib_eq`), trailing exit.
+    Validated on the 3yr broker export (equity_dantev_fib.py): with the equity book's
+    native trailing runner the trend-gated golden-zone PASSES on US/UK/FR h1
+    (+0.226/+0.175/+0.115R, both OOS halves +) and US 4h (+0.318R). Market scoping is
+    done by the caller (equity_bridge / the observer universe)."""
+    return _fibgzt_scan(pk, bars, tf, need_sess=False, tag='fib_eq')
 
 
 def detect_fibgz_trend(pk, h1, daily):
@@ -2732,6 +2743,13 @@ def main():
                     eqsigs += trend_filter_signals(em15, _mw_signals(em15, pk, 'turtle_soup_eq_m15', 'm15', _turtlesoup_sig))
                 if len(e4h) >= 150:
                     eqsigs += _mw_signals(e4h, pk, 'threepush_eq', '4h', threepush_core)
+                # fib_eq (2026-10-15) — trend-gated golden-zone fib, trailing exit. US h1+4h here
+                # (the observer universe is US-only); the live bridge adds UK/FR h1. The SMA-stack
+                # trend gate is baked into the detector. US validated: h1 +0.226R, 4h +0.318R.
+                if len(eh1) >= 400:
+                    eqsigs += _fib_eq_signals(pk, eh1, 'h1')
+                if len(e4h) >= 250:
+                    eqsigs += _fib_eq_signals(pk, e4h, '4h')
                 for s in eqsigs:
                     detected += 1
                     k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -2745,6 +2763,9 @@ def main():
                         st, o = score_trail_open(em15, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
                     elif rec['strategy'] == 'threepush_eq':
                         st, o = score_trail_open(e4h, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
+                    elif rec['strategy'] == 'fib_eq':
+                        _fb = e4h if rec['tf'] == '4h' else eh1
+                        st, o = score_trail_open(_fb, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
                     else:                       # holygrail_eq / volbreak_eq / twob_eq / turtle_soup_eq — h1 runner
                         st, o = score_trail_open(eh1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
                     rec['status'] = st
@@ -2848,7 +2869,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 'hs_crypto', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fibgz_t', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'turtle_soup_eq', 'turtle_soup_eq_m15', 'threepush_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'orb_ln', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'po3_kane', 'po3_conf', 'cam_rev', 'absorb_btc'):
+        for strat in ('hs', 'hs_crypto', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fibgz_t', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'turtle_soup_eq', 'turtle_soup_eq_m15', 'threepush_eq', 'fib_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'orb_ln', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'po3_kane', 'po3_conf', 'cam_rev', 'absorb_btc'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)

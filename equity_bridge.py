@@ -209,11 +209,42 @@ def build_doc(mt5, bars_n, demo):
                 'max_age_min': 270 if tf == '4h' else 120,
                 'source': 'mt5-bridge', 'demo_only': demo,
             })
+        # fib_eq (2026-10-15) — trend-gated golden-zone fib (Denis/Dantev), trailing exit.
+        # Validated on the 3yr broker export (equity_dantev_fib.py): trend-gated golden-zone with
+        # our native trailing runner PASSES on US/UK/FR h1 (+0.226/+0.175/+0.115R, both OOS +) and
+        # US 4h (+0.318R). DE marginal, JP/HK thin, ES held out — excluded. The SMA50>100>200 trend
+        # gate is baked into the detector. Market-scoped here by symbol suffix.
+        _is_us = ('.NAS' in sym or '.NYSE' in sym)
+        _fib_tfs = (['h1', '4h'] if _is_us else (['h1'] if ('.LSE' in sym or '.PAR' in sym) else []))
+        for tf in _fib_tfs:
+            bars = layers.get(tf) or []
+            if len(bars) < (250 if tf == '4h' else 400):
+                continue
+            raw = H._fib_eq_signals(pk, bars, tf)
+            if not raw:
+                continue
+            s = max(raw, key=lambda x: x['entry_ts'])
+            age = (bars[-1]['_ts'] - s['entry_ts']) / 60.0
+            if age > FRESH_MIN.get(tf, 60):
+                continue
+            entry, stop, d = s['entry'], s['stop'], s['dir']
+            R = abs(entry - stop)
+            if R <= 0:
+                continue
+            sigs.append({
+                'id': f"fib_eq:{pk}:{int(s['entry_ts'])}", 'pair': pk, 'sym': sym, 'cls': 'equity',
+                'strategy': 'fib_eq', 'dir': d, 'state': 'armed',
+                'entry': round(entry, 4), 'stop': round(stop, 4),
+                'exit_mode': 'trail', 'trail_arm_r': TA, 'trail_dist_r': TD, 'trail_hold_bars': TH,
+                'tf': tf, 'entry_ts_ms': int(s['entry_ts'] * 1000), 'age_min': round(age, 1),
+                'max_age_min': 270 if tf == '4h' else 120,
+                'source': 'mt5-bridge', 'demo_only': demo,
+            })
     return {
         'schema_version': 2, 'generated': now.isoformat(), 'generated_ms': int(now.timestamp() * 1000),
         'broker': 'mt5', 'demo_only_default': demo, 'source': 'mt5-bridge',
         'note': 'Equity .EQ signals generated LOCALLY from broker MT5 bars via the validated '
-                'detectors (holygrail_eq/_m15, twob_eq, volbreak_eq, turtle_soup_eq/_m15). Trailing '
+                'detectors (holygrail_eq/_m15, twob_eq, volbreak_eq, turtle_soup_eq/_m15, fib_eq). Trailing '
                 'exit (arm +1R, trail 0.75R, 200-bar). Demo-only pilot; read by VikingEquityEA (InpLocalFile).',
         'counts': {'emitted': len(sigs)}, 'signals': sigs,
     }
