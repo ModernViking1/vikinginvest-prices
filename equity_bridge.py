@@ -50,9 +50,9 @@ SYMBOLS = {
     # US expansion (2026-10-15) — concentrate on US where the edge + cheap commission hold. Added live
     # on demo; validate on the 3yr broker export (VikingHistoryExport InpSymUS2) before trusting.
     'pep': 'PEP.NAS', 'pypl': 'PYPL.NAS', 'aal': 'AAL.NAS', 'abnb': 'ABNB.NAS', 'wday': 'WDAY.NAS',
-    'wmg': 'WMG.NAS', 'vktx': 'VKTX.NAS', 'mat': 'MAT.NAS', 'pzza': 'PZZA.NAS', 'ryaay': 'RYAAY.NAS',
-    'hood': 'HOOD.NAS', 'coin': 'COIN.NAS', 'dpz': 'DPZ.NAS', 'pltr': 'PLTR.NAS', 'tri': 'TRI.NAS',
-    'abtc': 'ABTC.NAS',
+    'vktx': 'VKTX.NAS', 'mat': 'MAT.NAS', 'pzza': 'PZZA.NAS', 'ryaay': 'RYAAY.NAS',
+    'hood': 'HOOD.NAS', 'coin': 'COIN.NAS', 'pltr': 'PLTR.NAS', 'tri': 'TRI.NAS',
+    'abtc': 'ABTC.NAS',   # dropped 2026-10-15: dpz (no quote/0 bars), wmg (+0.13R weakest)
     # US NYSE expansion (2026-10-15). NB 'ban' = BA.NYSE (Boeing) — 'ba' is already BA.LSE (BAE);
     # 'brkb' = BRK-B.NYSE. .NYSE is classed US everywhere (market() + bridge _is_us). Live on demo.
     'axp': 'AXP.NYSE', 'ban': 'BA.NYSE', 'bac': 'BAC.NYSE', 'blk': 'BLK.NYSE', 'c': 'C.NYSE',
@@ -60,8 +60,8 @@ SYMBOLS = {
     'ma': 'MA.NYSE', 'mcd': 'MCD.NYSE', 'ms': 'MS.NYSE', 'nke': 'NKE.NYSE', 'pfe': 'PFE.NYSE',
     'brkb': 'BRK-B.NYSE', 'uber': 'UBER.NYSE', 'cof': 'COF.NYSE', 'acn': 'ACN.NYSE', 'dal': 'DAL.NYSE',
     'fis': 'FIS.NYSE', 'gm': 'GM.NYSE', 'ice': 'ICE.NYSE', 'nclh': 'NCLH.NYSE', 'snow': 'SNOW.NYSE',
-    'bx': 'BX.NYSE', 'kkr': 'KKR.NYSE', 'levi': 'LEVI.NYSE', 'gty': 'GTY.NYSE', 'khc': 'KHC.NYSE',
-    'vsxy': 'VSXY.NYSE',
+    'bx': 'BX.NYSE', 'kkr': 'KKR.NYSE', 'levi': 'LEVI.NYSE', 'khc': 'KHC.NYSE',
+    # dropped 2026-10-15: gty (+0.13R weakest), vsxy (never exported — unvalidated)
     # DE (.ETR)
     'dbk': 'DBK.ETR', 'boss': 'BOSS.ETR', 'pah3': 'PAH3.ETR', 'vowg': 'VOWG.ETR',
     'bayn': 'BAYN.ETR', 'cbk': 'CBK.ETR', 'mbg': 'MBGn.ETR',
@@ -473,6 +473,11 @@ def main():
     print(f"  strategies ({len(_eq_strats)}):     {', '.join(_eq_strats)}", flush=True)
     print(f"  scope notes:        threepush_eq US-only"
           + ("; fib_eq US h1+4h / UK+FR h1" if _fib_ok else " (fib_eq MISSING — stale clone, git pull)"), flush=True)
+    # Universe count by region — confirms the loaded symbol set at a glance (e.g. after adding names).
+    from collections import Counter as _Counter
+    _suf2reg = {'NAS': 'US', 'NYSE': 'US', 'ETR': 'DE', 'LSE': 'UK', 'PAR': 'FR', 'TSE': 'JP', 'HK': 'HK', 'MAD': 'ES'}
+    _reg = _Counter(_suf2reg.get(v.rsplit('.', 1)[-1], v.rsplit('.', 1)[-1]) for v in SYMBOLS.values())
+    print(f"  symbols ({len(SYMBOLS)}):      " + ", ".join(f"{k} {_reg[k]}" for k in sorted(_reg, key=lambda x: -_reg[x])), flush=True)
 
     try:
         while True:
