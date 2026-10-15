@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone, timedelta
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob, detect_cam_rev, detect_mmove, detect_holygrail, detect_holygrail_m15, CAM_CRYPTO_PILOT
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fibgz_trend, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob, detect_cam_rev, detect_mmove, detect_holygrail, detect_holygrail_m15, CAM_CRYPTO_PILOT
 from trend_regime import build_regime, passes_gate, _at, CHOP_LO
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
@@ -118,7 +118,7 @@ ENGULF_CLASSES = {'crypto'}
 #          (15/15 parameter cells pass both OOS halves); highest gold priority.
 # gtrend = #1 50/200 EMA trend pullback (H4, RR2, choppiness filter removed —
 #          it hurt in testing). Both self-gate to xauusd and are cBot-executable.
-PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'cam_rev': 4, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14, 'fma_gold': 15, 'twob': 16, 'twob_cm': 17, 'twob_ix': 18, 'mmove': 19, 'holygrail_cm': 20, 'holygrail_cm_m15': 21}
+PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'cam_rev': 4, 'fibgz_t': 5, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14, 'fma_gold': 15, 'twob': 16, 'twob_cm': 17, 'twob_ix': 18, 'mmove': 19, 'holygrail_cm': 20, 'holygrail_cm_m15': 21}
 
 # Demo-only pilots — emitted to the swing feed but flagged so the cBot executes them
 # ONLY on a demo account (skips on live). Lets a candidate accrue REAL forward fills
@@ -357,6 +357,12 @@ def main():
             found += detect_s5_rsi_wide(pk, h1, daily)
         if cls in FIBGZ_CLASSES:
             found += detect_fibgz(pk, h1, daily)
+        # fibgz_t (2026-10-15) — TREND-GATED golden-zone fib, the fix for the demoted fib_gz.
+        # Self-gates to comm (h1+4h, SMA50>100>200 align) and major FX (h1, align + London/NY
+        # session). Validated over the 3yr all-class book (dantev_winner_overlay.py): the trend
+        # filter is the parameter from Deni's winning record that ports, RR2. Robust both-OOS cells
+        # only: comm 4h +0.232R PF1.39, comm h1 +0.071R PF1.11, major h1 +0.169R PF1.27.
+        found += detect_fibgz_trend(pk, h1, daily)
         found += detect_fredtl(pk, h1, daily)   # self-gates to xauusd only
         found += detect_asianglitch(pk, h1, daily)   # self-gates to xauusd only; emits rr=3.0
         found += detect_wm(pk, h1, daily)            # self-gates to crypto only; H1 1:1, emits rr=1.0

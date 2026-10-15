@@ -556,6 +556,99 @@ def detect_fibgz(pk, h1, daily):
     return out
 
 
+# Trend-gated golden-zone fib (2026-10-15) — the fix for the demoted `fib_gz`.
+# fib_gz (unfiltered, comm H1) decayed forward and blew up live (0/5, -5.16R): the
+# golden-zone pullback fires on EVERY zigzag leg, counter-trend included. Deni's
+# (Denislav Dantev) winning 300-trade record only takes pullbacks WITH the dominant
+# trend — the 3SMMA(50/100/200) stack on his charts. Re-tested as an overlay
+# (dantev_winner_overlay.py) over the 3yr all-class book: the TREND-ALIGNMENT gate
+# (SMA50>100>200) at a fixed RR2 is the parameter that ports, and for majors a
+# London/NY session gate is additive. Robust, both-OOS-halves-positive cells:
+#   comm  4h  trend        +0.232R PF1.39 n=68
+#   comm  h1  trend        +0.071R PF1.11 n=362
+#   major h1  trend+session +0.169R PF1.27 n=282  (strongest)
+# Scoped to exactly those cells; uniform RR2 exit (the bigger targets Deni's winners
+# AVERAGE do not reproduce mechanically). Index/minor left out (marginal / failed OOS).
+FIBGZT_SESSION_UTC = range(12, 20)     # London/NY window (additive on majors)
+
+
+def _sma_series(bars, p):
+    closes = [b['c'] for b in bars]; n = len(closes); out = [None]*n; s = 0.0
+    for i in range(n):
+        s += closes[i]
+        if i >= p: s -= closes[i-p]
+        if i >= p-1: out[i] = s/p
+    return out
+
+
+def _fibgzt_scan(pk, bars, tf, need_sess):
+    """Golden-zone pullback (same geometry as detect_fibgz) gated by SMA50>100>200
+    trend alignment, and optionally a London/NY session window on the entry bar."""
+    if len(bars) < 250:
+        return []
+    s50 = _sma_series(bars, 50); s100 = _sma_series(bars, 100); s200 = _sma_series(bars, 200)
+    piv = _w5_zigzag(bars, FIBGZ_PRD); n = len(bars); out = []; last = -1
+    for k in range(1, len(piv)):
+        p0, p1 = piv[k-1], piv[k]
+        if p0[2] == 'L' and p1[2] == 'H':
+            d = 'bull'; L, H = p0[1], p1[1]
+        elif p0[2] == 'H' and p1[2] == 'L':
+            d = 'bear'; H, L = p0[1], p1[1]
+        else:
+            continue
+        rng = H - L
+        if rng <= 0:
+            continue
+        if d == 'bull':
+            zhi = H - FIBGZ_ZHI*rng; zlo = H - FIBGZ_ZLO*rng; void = H - FIBGZ_STOP_LVL*rng
+        else:
+            zlo = L + FIBGZ_ZHI*rng; zhi = L + FIBGZ_ZLO*rng; void = L + FIBGZ_STOP_LVL*rng
+        start = p1[0] + FIBGZ_PRD + 1; ei = None
+        for j in range(start, min(start + FIBGZ_BREAK_WIN, n - 1)):
+            b = bars[j]
+            if d == 'bull':
+                if b['l'] < void:
+                    break
+                if b['l'] <= zhi and b['c'] > b['o'] and b['c'] > zlo:
+                    ei = j + 1; break
+            else:
+                if b['h'] > void:
+                    break
+                if b['h'] >= zlo and b['c'] < b['o'] and b['c'] < zhi:
+                    ei = j + 1; break
+        if ei is None or ei <= last or ei >= n:
+            continue
+        i = ei - 1   # confirmation bar
+        if s200[i] is None:
+            continue
+        trend_ok = (s50[i] > s100[i] > s200[i]) if d == 'bull' else (s50[i] < s100[i] < s200[i])
+        if not trend_ok:
+            continue
+        if need_sess:
+            hr = datetime.fromtimestamp(bars[ei]['_ts']/1000, timezone.utc).hour
+            if hr not in FIBGZT_SESSION_UTC:
+                continue
+        entry = bars[ei]['o']; a = atr(bars, 14, ei-1) or 0.0
+        stop = (void - FIBGZ_ATR_BUF*a) if d == 'bull' else (void + FIBGZ_ATR_BUF*a)
+        if (d == 'bull' and stop >= entry) or (d == 'bear' and stop <= entry):
+            continue
+        out.append({'strategy': 'fibgz_t', 'tf': tf, 'pair': pk, 'dir': d,
+                    'entry_ts': bars[ei]['_ts'], 'entry': entry, 'stop': stop})
+        last = ei + FIBGZ_COOLDOWN
+    return out
+
+
+def detect_fibgz_trend(pk, h1, daily):
+    """Trend-gated golden-zone fib (tag `fibgz_t`), RR2. comm: h1 + 4h, trend-only;
+    major FX: h1, trend + London/NY session. See the block comment above."""
+    cls = PAIR_CLASS.get(pk)
+    if cls == 'comm':
+        return _fibgzt_scan(pk, h1, 'h1', need_sess=False) + _fibgzt_scan(pk, agg4h(h1), '4h', need_sess=False)
+    if cls == 'major':
+        return _fibgzt_scan(pk, h1, 'h1', need_sess=True)
+    return []
+
+
 FREDTL_PRD = 4
 FREDTL_TOUCH_WIN = 50
 FREDTL_NEAR = 0.25
@@ -2505,7 +2598,8 @@ def main():
                  + detect_s5(pk, h1, daily, 'rsi') + detect_ob(pk, h1, daily)
                  + detect_tl(pk, h1, daily) + detect_w5pb(pk, h1, daily)
                  + detect_s5_rsi_wide(pk, h1, daily) + detect_rsimr(pk, h1, daily)
-                 + detect_fibgz(pk, h1, daily) + detect_fredtl(pk, h1, daily)
+                 + detect_fibgz(pk, h1, daily) + detect_fibgz_trend(pk, h1, daily)
+                 + detect_fredtl(pk, h1, daily)
                  + detect_threepush(pk, h1, daily) + detect_engulf_manip(pk, h1, daily)
                  + detect_sweeprev(pk, h1, daily) + detect_asianglitch(pk, h1, daily)
                  + detect_wm(pk, h1, daily) + detect_sid(pk, h1, daily)
@@ -2754,7 +2848,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 'hs_crypto', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'turtle_soup_eq', 'turtle_soup_eq_m15', 'threepush_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'orb_ln', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'po3_kane', 'po3_conf', 'cam_rev', 'absorb_btc'):
+        for strat in ('hs', 'hs_crypto', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fibgz_t', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'turtle_soup_eq', 'turtle_soup_eq_m15', 'threepush_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'orb_ln', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'po3_kane', 'po3_conf', 'cam_rev', 'absorb_btc'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)
