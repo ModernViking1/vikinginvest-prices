@@ -53,6 +53,15 @@ SYMBOLS = {
     'wmg': 'WMG.NAS', 'vktx': 'VKTX.NAS', 'mat': 'MAT.NAS', 'pzza': 'PZZA.NAS', 'ryaay': 'RYAAY.NAS',
     'hood': 'HOOD.NAS', 'coin': 'COIN.NAS', 'dpz': 'DPZ.NAS', 'pltr': 'PLTR.NAS', 'tri': 'TRI.NAS',
     'abtc': 'ABTC.NAS',
+    # US NYSE expansion (2026-10-15). NB 'ban' = BA.NYSE (Boeing) — 'ba' is already BA.LSE (BAE);
+    # 'brkb' = BRK-B.NYSE. .NYSE is classed US everywhere (market() + bridge _is_us). Live on demo.
+    'axp': 'AXP.NYSE', 'ban': 'BA.NYSE', 'bac': 'BAC.NYSE', 'blk': 'BLK.NYSE', 'c': 'C.NYSE',
+    'dis': 'DIS.NYSE', 'dow': 'DOW.NYSE', 'jpm': 'JPM.NYSE', 'ko': 'KO.NYSE', 'lly': 'LLY.NYSE',
+    'ma': 'MA.NYSE', 'mcd': 'MCD.NYSE', 'ms': 'MS.NYSE', 'nke': 'NKE.NYSE', 'pfe': 'PFE.NYSE',
+    'brkb': 'BRK-B.NYSE', 'uber': 'UBER.NYSE', 'cof': 'COF.NYSE', 'acn': 'ACN.NYSE', 'dal': 'DAL.NYSE',
+    'fis': 'FIS.NYSE', 'gm': 'GM.NYSE', 'ice': 'ICE.NYSE', 'nclh': 'NCLH.NYSE', 'snow': 'SNOW.NYSE',
+    'bx': 'BX.NYSE', 'kkr': 'KKR.NYSE', 'levi': 'LEVI.NYSE', 'gty': 'GTY.NYSE', 'khc': 'KHC.NYSE',
+    'vsxy': 'VSXY.NYSE',
     # DE (.ETR)
     'dbk': 'DBK.ETR', 'boss': 'BOSS.ETR', 'pah3': 'PAH3.ETR', 'vowg': 'VOWG.ETR',
     'bayn': 'BAYN.ETR', 'cbk': 'CBK.ETR', 'mbg': 'MBGn.ETR',
