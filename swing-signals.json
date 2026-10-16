@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-10-16T16:00:00+00:00",
  "data_end_ts": 1792166400,
- "raw_signal_count": 16,
- "count": 11,
+ "raw_signal_count": 20,
+ "count": 15,
  "signals": [
   {
    "id": "mmove:nearusd:1792166400",
@@ -290,6 +290,62 @@
    "suppressed": 0
   },
   {
+   "id": "volbreak:taousd:1792112400",
+   "strategy": "volbreak",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "taousd",
+   "symbol": "TAOUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 278.08478571,
+   "ref_entry": 282.72,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": true,
+   "trigger_ts": 1792112400,
+   "created_ts": 1792166400,
+   "expiry_ts": 1792155600,
+   "state": "triggered",
+   "cofire": [
+    "volbreak"
+   ],
+   "cofire_dirs": [
+    "volbreak:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "zbreak_crypto:taousd:1792112400",
+   "strategy": "zbreak_crypto",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "taousd",
+   "symbol": "TAOUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 278.08478571,
+   "ref_entry": 282.72,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": true,
+   "trigger_ts": 1792112400,
+   "created_ts": 1792166400,
+   "expiry_ts": 1792155600,
+   "state": "triggered",
+   "cofire": [
+    "zbreak_crypto"
+   ],
+   "cofire_dirs": [
+    "zbreak_crypto:bull"
+   ],
+   "suppressed": 0
+  },
+  {
    "id": "fibgz_t:xagusd:1792101600",
    "strategy": "fibgz_t",
    "regime": null,
@@ -318,6 +374,62 @@
     "holygrail_cm_m15:bull"
    ],
    "suppressed": 2
+  },
+  {
+   "id": "volbreak:ethusd:1792080000",
+   "strategy": "volbreak",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "ethusd",
+   "symbol": "ETHUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 2387.50628571,
+   "ref_entry": 2438.14,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": true,
+   "trigger_ts": 1792080000,
+   "created_ts": 1792166400,
+   "expiry_ts": 1792123200,
+   "state": "triggered",
+   "cofire": [
+    "volbreak"
+   ],
+   "cofire_dirs": [
+    "volbreak:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "volbreak:taousd:1792080000",
+   "strategy": "volbreak",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "taousd",
+   "symbol": "TAOUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 266.33435714,
+   "ref_entry": 273.04,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": true,
+   "trigger_ts": 1792080000,
+   "created_ts": 1792166400,
+   "expiry_ts": 1792123200,
+   "state": "triggered",
+   "cofire": [
+    "volbreak"
+   ],
+   "cofire_dirs": [
+    "volbreak:bull"
+   ],
+   "suppressed": 0
   }
  ]
 }
