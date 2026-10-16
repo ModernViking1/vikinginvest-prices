@@ -90,6 +90,53 @@ TA, TD, TH = H.TRAIL_ARM, H.TRAIL_DIST, H.TRAIL_HOLD
 MAGIC = 5204940                            # must match the EA's InpMagic
 LEDGER = 'equity_trades_open.csv'          # the EA's open-trade ledger (ticket -> entry/SL)
 
+# ── Earnings blackout (2026-10-16) ─────────────────────────────────────────────
+# Single-stock EARNINGS gap through the stop (equity_gap_study: worst -235R; the raised US
+# notional cap amplifies the $ hit). Primary defence: do NOT open a NEW position in the days
+# before a symbol's earnings, so we're never holding through the report's overnight gap. Reads
+# earnings-dates.json (populated by fetch_earnings.py in CI). Fail-open: no file -> no blackout.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+EARNINGS_FILE = os.path.join(_HERE, 'earnings-dates.json')
+EARNINGS_PRE_DAYS = 2      # no new entry within this many days BEFORE earnings
+EARNINGS_POST_DAYS = 0     # the gap is at the report; entering after it is fine (macro 'post' was OK)
+
+
+def _load_earnings():
+    try:
+        d = json.load(open(EARNINGS_FILE)).get('symbols', {})
+        out = {}
+        for tk, dates in d.items():
+            ts = []
+            for s in dates:
+                try:
+                    dd = dt.datetime.fromisoformat(s)
+                    if dd.tzinfo is None:
+                        dd = dd.replace(tzinfo=dt.timezone.utc)
+                    ts.append(dd.timestamp())
+                except Exception:
+                    continue
+            out[tk] = sorted(ts)
+        return out
+    except Exception:
+        return {}
+
+
+_EARNINGS = _load_earnings()
+
+
+def _ticker(sym):
+    return sym.rsplit('.', 1)[0].replace('-', '.')      # AAPL.NAS->AAPL ; BRK-B.NYSE->BRK.B
+
+
+def _in_earnings_blackout(sym, now_ts):
+    ds = _EARNINGS.get(_ticker(sym))
+    if not ds:
+        return False
+    for e in ds:
+        if e - EARNINGS_PRE_DAYS * 86400 <= now_ts <= e + EARNINGS_POST_DAYS * 86400:
+            return True
+    return False
+
 
 def _load_ledger(path):
     """{position_ticket: {id,sym,dir,entry,sl,open_ms}} from the EA's ledger CSV."""
@@ -192,6 +239,11 @@ def build_doc(mt5, bars_n, demo):
     for pk, sym in SYMBOLS.items():
         if not mt5.symbol_select(sym, True):
             print(f"  {sym}: not in Market Watch — skip", flush=True); continue
+        # earnings blackout — don't open a new position that would be held through the report's gap
+        if _in_earnings_blackout(sym, now.timestamp()):
+            if demo:
+                print(f"  {sym}: earnings blackout ({EARNINGS_PRE_DAYS}d pre) — skip", flush=True)
+            continue
         layers = {}
         for tf, mtf in tf_map.items():
             rates = mt5.copy_rates_from_pos(sym, mtf, 0, bars_n)
@@ -478,6 +530,7 @@ def main():
     _suf2reg = {'NAS': 'US', 'NYSE': 'US', 'ETR': 'DE', 'LSE': 'UK', 'PAR': 'FR', 'TSE': 'JP', 'HK': 'HK', 'MAD': 'ES'}
     _reg = _Counter(_suf2reg.get(v.rsplit('.', 1)[-1], v.rsplit('.', 1)[-1]) for v in SYMBOLS.values())
     print(f"  symbols ({len(SYMBOLS)}):      " + ", ".join(f"{k} {_reg[k]}" for k in sorted(_reg, key=lambda x: -_reg[x])), flush=True)
+    print(f"  earnings blackout:  {('ON (' + str(len(_EARNINGS)) + ' tickers, ' + str(EARNINGS_PRE_DAYS) + 'd pre)') if _EARNINGS else 'OFF (no earnings-dates.json — run fetch_earnings.py in CI)'}", flush=True)
 
     try:
         while True:

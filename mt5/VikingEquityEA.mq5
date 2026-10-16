@@ -47,6 +47,14 @@ input double InpMaxNotionalPctUS = 100.0; // US (.NAS/.NYSE) notional cap — ra
                                           //   at InpMaxNotionalPct (20%) — a higher cap there just amplifies
                                           //   the 20x commission drag.
 input double InpMaxLot       = 100000.0;  // absolute lot backstop (notional cap normally binds first)
+input double InpMaxLossPct   = 4.0;       // CATASTROPHIC BACKSTOP: force-close any position whose floating
+                                          //   loss exceeds this % of equity (0 = off). equity_gap_study
+                                          //   found earnings-scale gaps can blow a tight-stop position far
+                                          //   past -1R (worst -235R); the raised US cap amplifies the $ hit.
+                                          //   NOTE: this cannot undo an instantaneous overnight gap (the loss
+                                          //   realises at the gapped open) — the earnings blackout in the
+                                          //   bridge is the primary gap defence; this bounds everything else
+                                          //   (fast intraday crashes, short tails, continued post-gap bleed).
 input bool   InpVerbose      = true;      // log decisions
 // ── Execution fixes (2026-10-08) ──────────────────────────────────────────────
 input string InpEntryMode    = "limit";   // "limit" = rest a limit AT the model entry (aligns fills
@@ -138,6 +146,20 @@ void ManageOpen(bool beat=false)
       // hard time horizon
       if(TimeCurrent() >= gStates[i].expiry)
         { trade.PositionClose(gStates[i].ticket); if(InpVerbose) PrintFormat("%s: horizon close", sym); continue; }
+
+      // catastrophic per-position backstop — force-close if the floating loss exceeds InpMaxLossPct
+      // of equity. Bounds the tail the gap study exposed (worst -235R) + any fast intraday blowup.
+      if(InpMaxLossPct > 0)
+        {
+         double eqNow = AccountInfoDouble(ACCOUNT_EQUITY);
+         double fpl   = PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
+         if(eqNow > 0 && fpl < -InpMaxLossPct/100.0 * eqNow)
+           {
+            trade.PositionClose(gStates[i].ticket);
+            if(InpVerbose) PrintFormat("%s: MAX-LOSS backstop close (floating %.2f = %.1f%% of equity)", sym, fpl, 100.0*fpl/eqNow);
+            continue;
+           }
+        }
 
       // track best price
       if(gStates[i].dir>0) gStates[i].best = MathMax(gStates[i].best, px);
