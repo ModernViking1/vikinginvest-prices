@@ -21,7 +21,7 @@ import json, os
 from datetime import datetime, timezone, timedelta
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
-from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fibgz_trend, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob, detect_cam_rev, detect_mmove, detect_holygrail, detect_holygrail_m15, CAM_CRYPTO_PILOT
+from unified_shadow_harness import detect_hs, detect_s5, detect_ob, detect_tl, detect_w5pb, detect_s5_rsi_wide, detect_fibgz, detect_fibgz_trend, detect_fredtl, detect_threepush, detect_engulf_manip, detect_asianglitch, detect_wm, detect_obfvg, detect_gbreak, detect_gtrend, detect_fma, detect_twob, detect_cam_rev, detect_mmove, detect_holygrail, detect_holygrail_m15, detect_sweeprev, detect_volbreak, detect_zbreak, CAM_CRYPTO_PILOT
 from trend_regime import build_regime, passes_gate, _at, CHOP_LO
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # repo root — works in CI and locally
@@ -118,7 +118,7 @@ ENGULF_CLASSES = {'crypto'}
 #          (15/15 parameter cells pass both OOS halves); highest gold priority.
 # gtrend = #1 50/200 EMA trend pullback (H4, RR2, choppiness filter removed —
 #          it hurt in testing). Both self-gate to xauusd and are cBot-executable.
-PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'cam_rev': 4, 'fibgz_t': 5, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14, 'fma_gold': 15, 'twob': 16, 'twob_cm': 17, 'twob_ix': 18, 'mmove': 19, 'holygrail_cm': 20, 'holygrail_cm_m15': 21}
+PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'cam_rev': 4, 'fibgz_t': 5, 'w5_pullback': 6, 'fred_tl': 7, 'threepush': 8, 'engulf_manip': 9, 'asianglitch': 10, 'wm': 11, 'obfvg': 12, 'gbreak': 13, 'gtrend': 14, 'fma_gold': 15, 'twob': 16, 'twob_cm': 17, 'twob_ix': 18, 'mmove': 19, 'holygrail_cm': 20, 'holygrail_cm_m15': 21, 'sweeprev': 22, 'volbreak': 23, 'zbreak_crypto': 24}
 
 # Demo-only pilots — emitted to the swing feed but flagged so the cBot executes them
 # ONLY on a demo account (skips on live). Lets a candidate accrue REAL forward fills
@@ -131,7 +131,7 @@ PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'cam_rev': 4, 'fibg
 # so they graduate from demo-only pilots to live strategies — now inside the per-pair exposure
 # cap (no more stacking on top of a live position) and priced into PRIORITY above. fma_gold
 # stays a demo pilot (thin n, 2nd-half edge marginal); mmove_c4 was demoted outright.
-DEMO_ONLY = {'fma_gold'}
+DEMO_ONLY = {'fma_gold', 'sweeprev', 'volbreak', 'zbreak_crypto'}   # 2026-10-16 promotions, demo-first
 
 # Demoted to observer-only — genuine-forward decay on live data since tracking began
 # (see swing-shadow-log.json GENUINE FORWARD). The harness still runs each detector and
@@ -363,6 +363,21 @@ def main():
         # filter is the parameter from Deni's winning record that ports, RR2. Robust both-OOS cells
         # only: comm 4h +0.232R PF1.39, comm h1 +0.071R PF1.11, major h1 +0.169R PF1.27.
         found += detect_fibgz_trend(pk, h1, daily)
+        # ── PROMOTIONS 2026-10-16 (observer forward record → DEMO cBot feed) ──────────────
+        # Promoted from observer-only to accrue real-fill evidence on demo. All three flagged
+        # demo_only: the cBot's live exit (fixed RR2 for crypto / 1R trail for index-comm-minor)
+        # differs from the harness trailing/structural scorer, so the demo record is the true
+        # validation — the same live-vs-model gap that sank twob/tl_nowick. Fwd (shadow log):
+        # sweeprev +0.097R n93 (80% WR, both OOS+); volbreak +0.136R n551; zbreak_crypto +0.192R n273.
+        for s in detect_sweeprev(pk, h1, daily):           # 4h swept-extreme reversal, structural target
+            if s['strategy'] != 'sweeprev':
+                continue
+            _R = abs(s['entry'] - s['stop'])
+            if _R > 0:
+                s['rr'] = round(abs(s['target'] - s['entry']) / _R, 3)   # emit the structural-target RR
+            found.append(s)
+        found += [s for s in detect_volbreak(pk, h1) if s['strategy'] == 'volbreak']            # CRYPTO only (volbreak_ix stays demoted)
+        found += [s for s in detect_zbreak(pk, h1, daily) if s['strategy'] == 'zbreak_crypto']  # CRYPTO only
         found += detect_fredtl(pk, h1, daily)   # self-gates to xauusd only
         found += detect_asianglitch(pk, h1, daily)   # self-gates to xauusd only; emits rr=3.0
         found += detect_wm(pk, h1, daily)            # self-gates to crypto only; H1 1:1, emits rr=1.0
