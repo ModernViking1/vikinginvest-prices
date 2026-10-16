@@ -1,14 +1,13 @@
-"""How are the equity strategies impacted by NFP over 3 years?
+"""How are the equity strategies impacted by NFP / FOMC / CPI over 3 years?
 
 Replays the .EQ strategies on the broker OHLC, resolves each trade with the live
-trailing-runner exit (capturing the EXIT time), and tags every trade by its
-relation to the deterministic NFP schedule (event_schedule.nfp_times):
-  across   — an NFP release falls inside the position's lifetime [entry, exit]
-             (held THROUGH the spike)
-  post     — entered within POST_H hours AFTER an NFP (traded into the aftermath)
+trailing-runner exit (capturing the EXIT time), and tags every trade PER EVENT TYPE:
+  across   — an event release falls inside the position's lifetime [entry, exit]
+  post     — entered within POST_H hours AFTER an event
   clear    — neither
-Then compares WR / expR / totR per bucket, overall and per strategy, so we can see
-whether holding across / entering around NFP helps or hurts.
+Event times come from the persisted store (macro-events.json via event_schedule.load_store).
+Compares WR / expR / totR per bucket, overall and per strategy, so we can see whether
+holding across / entering around each event helps or hurts.
 
     python equity_event_backtest.py --hist <broker ohlc>
 """
@@ -17,16 +16,15 @@ from collections import defaultdict
 import unified_shadow_harness as H
 from backtest_rsi_per_class import _bars_norm
 from equity_broker_backtest import market, STRATS
-from event_schedule import nfp_epochs
+from event_schedule import load_store
 
-PRE_H = 2.0       # a position counts as "across" if an NFP is within [entry, exit]
-POST_H = 24.0     # "post": entered within this many hours after an NFP
-NFP = sorted(nfp_epochs(2023, 2026))
+PRE_H = 2.0
+POST_H = 24.0
+EV = {k: sorted(v) for k, v in load_store().items()}      # {'nfp':[epochs],'fomc':[...],'cpi':[...]}
 
 
 def resolve_trail(bars, entry_ts, entry, stop, d, hold, arm, trail):
-    """Trailing-runner resolve returning (R_multiple, exit_ts) — mirrors
-    H.score_trail_open but also reports WHEN the trade exits."""
+    """Trailing-runner resolve returning (R_multiple, exit_ts)."""
     ts = [b['_ts'] for b in bars]; i0 = bisect.bisect_left(ts, entry_ts)
     R = abs(entry - stop)
     if R <= 0 or i0 >= len(bars):
@@ -50,21 +48,20 @@ def resolve_trail(bars, entry_ts, entry, stop, d, hold, arm, trail):
     return None
 
 
-def _nfp_between(t0, t1):
-    i = bisect.bisect_left(NFP, t0)
-    return i < len(NFP) and NFP[i] <= t1
+def _across(evs, t0, t1):
+    i = bisect.bisect_left(evs, t0)
+    return i < len(evs) and evs[i] <= t1
 
 
-def _entered_post(t):
-    i = bisect.bisect_right(NFP, t) - 1
-    return i >= 0 and (t - NFP[i]) <= POST_H * 3600
+def _post(evs, t):
+    i = bisect.bisect_right(evs, t) - 1
+    return i >= 0 and (t - evs[i]) <= POST_H * 3600
 
 
-def tag(entry_ts, exit_ts):
-    # entry_ts/exit_ts are epoch SECONDS
-    if _nfp_between(entry_ts - PRE_H * 3600, exit_ts):
+def bucket(evs, entry_ts, exit_ts):
+    if _across(evs, entry_ts - PRE_H * 3600, exit_ts):
         return 'across'
-    if _entered_post(entry_ts):
+    if _post(evs, entry_ts):
         return 'post'
     return 'clear'
 
@@ -73,8 +70,10 @@ def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--hist', default='viking_intl_ohlc.json')
     args = ap.parse_args()
     pairs = json.load(open(args.hist)).get('pairs', {})
-    # rows: (bucket, strat, r) ; also overall per bucket
-    by_bucket = defaultdict(list); by_sb = defaultdict(list); nsym = 0
+    evtypes = ['nfp', 'fomc', 'cpi']
+    by_eb = defaultdict(list)          # (evtype, bucket) -> [r]
+    by_seb = defaultdict(list)         # (strat, evtype, bucket) -> [r]
+    nsym = 0
     for key, layers in pairs.items():
         mkt = market(layers.get('sym', key))
         h1 = _bars_norm(layers.get('h1') or [])
@@ -91,10 +90,10 @@ def main():
                     continue
                 rmult, exit_ts = res
                 r = rmult - H.cost(rmult, s['entry'], abs(s['entry'] - s['stop']))
-                # entry_ts/exit are in SECONDS already in broker files (verified earlier)
-                bkt = tag(s['entry_ts'], exit_ts)
-                by_bucket[bkt].append(r)
-                by_sb[(strat, bkt)].append(r)
+                for ev in evtypes:
+                    bkt = bucket(EV[ev], s['entry_ts'], exit_ts)
+                    by_eb[(ev, bkt)].append(r)
+                    by_seb[(strat, ev, bkt)].append(r)
         for tagn, tf, gen in STRATS:
             bars = b4 if tf == '4h' else (m15 if tf == 'm15' else h1)
             if len(bars) < (150 if tf == '4h' else 400):
@@ -113,26 +112,31 @@ def main():
         n = len(rs); w = sum(1 for r in rs if r > 0)
         return n, (100*w/n if n else 0), (sum(rs)/n if n else 0), sum(rs)
 
-    print(f"Equity strategies vs NFP — {nsym} symbols, {len(NFP)} NFP releases 2023-2026, trailing exit.")
-    print(f"'across' = held through an NFP; 'post' = entered <= {POST_H:.0f}h after NFP; 'clear' = neither.\n")
-    print(f"{'bucket':<10}{'n':>7}{'WR':>6}{'expR':>8}{'totR':>9}")
-    tot = sum(len(v) for v in by_bucket.values())
-    for bkt in ('across', 'post', 'clear'):
-        n, wr, e, t = agg(by_bucket[bkt])
-        print(f"{bkt:<10}{n:>7}{wr:>5.0f}%{e:>+8.3f}{t:>+9.0f}   ({100*n/max(1,tot):.0f}% of trades)")
+    print(f"Equity strategies vs US macro events — {nsym} symbols, trailing exit.")
+    print(f"NFP={len(EV['nfp'])} FOMC={len(EV['fomc'])} CPI={len(EV['cpi'])} releases (macro-events.json).")
+    print(f"'across'=held through the event; 'post'=entered <={POST_H:.0f}h after; 'clear'=neither.\n")
 
-    print(f"\nPER STRATEGY (expR by bucket):")
-    print(f"{'strategy':<20}{'across':>14}{'post':>14}{'clear':>14}")
-    str16 = sorted({s for (s, _) in by_sb})
-    for s in str16:
-        cells = []
+    for ev in evtypes:
+        print(f"===== {ev.upper()} =====")
+        print(f"  {'bucket':<9}{'n':>8}{'WR':>6}{'expR':>8}{'totR':>9}")
         for bkt in ('across', 'post', 'clear'):
-            n, wr, e, t = agg(by_sb[(s, bkt)])
-            cells.append(f"{e:+.3f}/{n}" if n else "—")
-        print(f"{s:<20}" + "".join(f"{c:>14}" for c in cells))
+            n, wr, e, t = agg(by_eb[(ev, bkt)])
+            print(f"  {bkt:<9}{n:>8}{wr:>5.0f}%{e:>+8.3f}{t:>+9.0f}")
 
-    print("\nRead: if 'across' expR << 'clear', holding through NFP hurts that strategy -> consider")
-    print("a flat-before-NFP or no-new-entry-around-NFP rule. If similar, NFP is not a material risk.")
+    print(f"\nPER STRATEGY — expR  across / clear  (does holding through the event help?)")
+    print(f"  {'strategy':<20}{'NFP a/c':>18}{'FOMC a/c':>18}{'CPI a/c':>18}")
+    strs = sorted({s for (s, _, _) in by_seb})
+    for s in strs:
+        cells = []
+        for ev in evtypes:
+            _, _, ea, _ = agg(by_seb[(s, ev, 'across')])
+            _, _, ec, _ = agg(by_seb[(s, ev, 'clear')])
+            na = len(by_seb[(s, ev, 'across')])
+            cells.append(f"{ea:+.2f}/{ec:+.2f} (n{na})")
+        print(f"  {s:<20}" + "".join(f"{c:>18}" for c in cells))
+
+    print("\nRead: across >> clear = the event is a tailwind when already positioned; across << clear")
+    print("= holding through it hurts (consider flat-before / no-new-entry around that event).")
 
 
 if __name__ == '__main__':
