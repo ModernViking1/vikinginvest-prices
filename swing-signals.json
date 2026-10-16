@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-10-16T11:00:00+00:00",
  "data_end_ts": 1792148400,
- "raw_signal_count": 16,
- "count": 12,
+ "raw_signal_count": 14,
+ "count": 10,
  "signals": [
   {
    "id": "holygrail_cm_m15:natgas:1792144800",
@@ -86,34 +86,6 @@
    ],
    "cofire_dirs": [
     "twob_ix:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "engulf_manip:solusd:1792134000",
-   "strategy": "engulf_manip",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "solusd",
-   "symbol": "SOLUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 104.22271429,
-   "ref_entry": 106.16,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1792134000,
-   "created_ts": 1792148400,
-   "expiry_ts": 1792177200,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bull"
    ],
    "suppressed": 0
   },
@@ -203,6 +175,36 @@
    "suppressed": 0
   },
   {
+   "id": "fibgz_t:xauusd:1792112400",
+   "strategy": "fibgz_t",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "xauusd",
+   "symbol": "XAUUSD",
+   "class": "comm",
+   "dir": "bear",
+   "stop": 4193.97154643,
+   "ref_entry": 4156.345,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1792112400,
+   "created_ts": 1792148400,
+   "expiry_ts": 1792155600,
+   "state": "triggered",
+   "cofire": [
+    "fibgz_t",
+    "holygrail_cm_m15"
+   ],
+   "cofire_dirs": [
+    "fibgz_t:bear",
+    "holygrail_cm_m15:bull"
+   ],
+   "suppressed": 1
+  },
+  {
    "id": "mmove:lighterusd:1792108800",
    "strategy": "mmove",
    "regime": null,
@@ -259,64 +261,6 @@
     "holygrail_cm_m15:bull"
    ],
    "suppressed": 2
-  },
-  {
-   "id": "fibgz_t:xauusd:1792087200",
-   "strategy": "fibgz_t",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "xauusd",
-   "symbol": "XAUUSD",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 4194.23788571,
-   "ref_entry": 4153.52,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1792087200,
-   "created_ts": 1792148400,
-   "expiry_ts": 1792130400,
-   "state": "triggered",
-   "cofire": [
-    "fibgz_t",
-    "holygrail_cm_m15"
-   ],
-   "cofire_dirs": [
-    "fibgz_t:bear",
-    "holygrail_cm_m15:bull"
-   ],
-   "suppressed": 1
-  },
-  {
-   "id": "engulf_manip:suiusd:1792076400",
-   "strategy": "engulf_manip",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "suiusd",
-   "symbol": "SUIUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 0.955405,
-   "ref_entry": 1.0093,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1792076400,
-   "created_ts": 1792148400,
-   "expiry_ts": 1792119600,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bull"
-   ],
-   "suppressed": 0
   },
   {
    "id": "fibgz_t:nzdusd:1792069200",
