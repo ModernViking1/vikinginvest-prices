@@ -25,13 +25,15 @@ jobs:
       - name: Guard file present
         run: test -f fetch_macro_rates.py || { echo "::error::fetch_macro_rates.py missing"; exit 1; }
       - name: Fetch rates
-        run: python fetch_macro_rates.py
-      - name: Commit macro-rates.json (newest-wins)
+        continue-on-error: true
+        run: python fetch_macro_rates.py 2>&1 | tee macro-rates-fetchlog.txt
+      - name: Commit macro-rates.json + fetch log (newest-wins)
         run: |
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add macro-rates.json
+          git add -f macro-rates-fetchlog.txt
+          [ -f macro-rates.json ] && git add macro-rates.json || true
           if git diff --staged --quiet; then echo "no change"; exit 0; fi
           git commit -m "data: refresh macro-rates.json [skip ci]"
           for attempt in 1 2 3 4 5; do
