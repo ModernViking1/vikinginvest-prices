@@ -1,0 +1,43 @@
+name: Fetch Macro Rates (central-bank policy rates)
+
+# Pulls central-bank policy rates from FRED (keyless) into macro-rates.json, for the rate-impact
+# study (macro_rate_impact.py): how hikes/cuts move FX / indices / equities / commodities / crypto.
+# FRED is blocked by the agent proxy but reachable from CI. Weekly is ample — policy rates move
+# at most ~monthly.
+
+on:
+  schedule:
+    - cron: '41 6 * * 1'          # Mondays 06:41 UTC
+  workflow_dispatch:
+
+concurrency: { group: fetch-macro-rates, cancel-in-progress: false }
+permissions: { contents: write }
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Guard file present
+        run: test -f fetch_macro_rates.py || { echo "::error::fetch_macro_rates.py missing"; exit 1; }
+      - name: Fetch rates
+        run: python fetch_macro_rates.py
+      - name: Commit macro-rates.json (newest-wins)
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add macro-rates.json
+          if git diff --staged --quiet; then echo "no change"; exit 0; fi
+          git commit -m "data: refresh macro-rates.json [skip ci]"
+          for attempt in 1 2 3 4 5; do
+            if git push origin HEAD:main 2>&1; then echo "pushed on $attempt"; exit 0; fi
+            [ "$attempt" = 5 ] && { echo "::error::push failed"; exit 1; }
+            git fetch origin main
+            F="$(git diff --name-only HEAD~1 HEAD)" && M="$(git log -1 --format=%s)" && git reset --mixed origin/main && git add -f -- $F && git commit -m "$M" --quiet || true
+            sleep $((attempt * 3))
+          done
