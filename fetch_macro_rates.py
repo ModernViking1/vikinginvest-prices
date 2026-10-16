@@ -12,8 +12,11 @@ CI (fetch-macro-rates.yml). Produces macro-rates.json in the macro-rates.sample.
 
     python fetch_macro_rates.py
 """
-import json, os, sys, datetime as dt
+import json, os, sys, time, datetime as dt
 from urllib.request import urlopen, Request
+
+UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Chrome/125.0 Safari/537.36')
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'macro-rates.json')
@@ -37,9 +40,11 @@ SERIES = {
 
 def fetch_series(sid):
     url = f'https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}&cosd={START}'
-    req = Request(url, headers={'User-Agent': 'viking-macro/1.0'})
+    req = Request(url, headers={'User-Agent': UA, 'Accept': 'text/csv,*/*'})
     with urlopen(req, timeout=40) as r:
-        text = r.read().decode()
+        text = r.read().decode('utf-8', 'replace')
+    if not text.lstrip().lower().startswith(('observation_date', 'date', sid.lower())) and ',' not in text.split('\n', 1)[0]:
+        raise RuntimeError(f"non-CSV response: {text[:120]!r}")   # HTML/error page, not data
     rows = []
     for line in text.strip().split('\n')[1:]:          # skip header
         parts = line.split(',')
@@ -63,12 +68,13 @@ def main():
                 rows = fetch_series(sid)
                 if rows:
                     rates[ccy] = rows; used[ccy] = sid
-                    print(f"  {ccy}: {sid} -> {len(rows)} obs ({rows[0]['date']}..{rows[-1]['date']}, {rows[-1]['rate']}%)")
+                    print(f"  {ccy}: {sid} -> {len(rows)} obs ({rows[0]['date']}..{rows[-1]['date']}, {rows[-1]['rate']}%)", flush=True)
                     break
             except Exception as ex:
-                print(f"  {ccy}: {sid} fail ({str(ex)[:50]})")
+                print(f"  {ccy}: {sid} fail ({type(ex).__name__}: {str(ex)[:120]})", flush=True)
+            time.sleep(1.5)                                 # be gentle with FRED
         else:
-            print(f"  {ccy}: no series returned data")
+            print(f"  {ccy}: no series returned data", flush=True)
     if 'USD' not in rates:
         print('::error::USD rate missing — FRED unreachable?'); return 1
     doc = {
