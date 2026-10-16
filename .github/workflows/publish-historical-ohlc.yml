@@ -105,8 +105,12 @@ jobs:
           # days ≈ 328K bars ⇒ historical-ohlc.json ~55-65 MB. Well
           # under GitHub's 100MB push limit with headroom for the
           # daily + h1 layers and future pair additions.
+          # --daily-days 1095: fetch 3yr of DAILY bars (tiny, 1/day) for the macro rate-impact
+          # study while h1 stays at --days and m15 at 90d, so the file grows only ~3-4 MB and
+          # stays well under GitHub's 100 MB push limit.
           python fetch_historical_ohlc.py \
             --days $IN_DAYS \
+            --daily-days 1095 \
             --m15-days 90 \
             --output historical-ohlc.json \
             $PAIRS_ARG $MERGE_ARG

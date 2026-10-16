@@ -321,17 +321,21 @@ def fetch_coinbase_candles(product: str, granularity_seconds: int,
 # ── Per-pair fetch orchestration ────────────────────────────────────
 def fetch_pair_history(pair_key: str, pair_cfg: Dict[str, str],
                         days_total: int, m15_days: int,
-                        oanda_token: Optional[str]) -> Dict[str, List]:
+                        oanda_token: Optional[str], daily_days: Optional[int] = None) -> Dict[str, List]:
     """
     Fetches m15, h1, and daily bars for a single pair.
 
-    days_total: full window (e.g. 365 for 12 months)
+    days_total: full window for h1 (e.g. 365 for 12 months)
     m15_days:   how far back to fetch 15m bars. If less than days_total,
                 older period is filled with 1H bars only (hybrid mode).
+    daily_days: how far back to fetch DAILY bars (defaults to days_total). Daily bars are
+                tiny (1/day), so this can be 3yr+ for a macro study without bloating h1/m15.
     """
     now = datetime.now(timezone.utc)
-    from_full = now - timedelta(days=days_total)
-    from_m15  = now - timedelta(days=m15_days)
+    daily_days = daily_days or days_total
+    from_full  = now - timedelta(days=days_total)
+    from_daily = now - timedelta(days=daily_days)
+    from_m15   = now - timedelta(days=m15_days)
 
     result = {"m15": [], "h1": [], "daily": []}
 
@@ -340,8 +344,8 @@ def fetch_pair_history(pair_key: str, pair_cfg: Dict[str, str],
             print(f"  {pair_key}: skipped (no OANDA token)", flush=True)
             return result
         instr = pair_cfg["oanda"]
-        print(f"  {pair_key}: fetching daily ({days_total}d)...", flush=True)
-        result["daily"] = fetch_oanda_candles(oanda_token, instr, "D", from_full, now)
+        print(f"  {pair_key}: fetching daily ({daily_days}d)...", flush=True)
+        result["daily"] = fetch_oanda_candles(oanda_token, instr, "D", from_daily, now)
         print(f"    {len(result['daily'])} daily bars", flush=True)
         print(f"  {pair_key}: fetching h1 ({days_total}d)...", flush=True)
         result["h1"] = fetch_oanda_candles(oanda_token, instr, "H1", from_full, now)
@@ -351,8 +355,8 @@ def fetch_pair_history(pair_key: str, pair_cfg: Dict[str, str],
         print(f"    {len(result['m15'])} m15 bars", flush=True)
     elif "coinbase" in pair_cfg:
         product = pair_cfg["coinbase"]
-        print(f"  {pair_key}: fetching daily ({days_total}d)...", flush=True)
-        result["daily"] = fetch_coinbase_candles(product, 86400, from_full, now)
+        print(f"  {pair_key}: fetching daily ({daily_days}d)...", flush=True)
+        result["daily"] = fetch_coinbase_candles(product, 86400, from_daily, now)
         print(f"    {len(result['daily'])} daily bars", flush=True)
         print(f"  {pair_key}: fetching h1 ({days_total}d)...", flush=True)
         result["h1"] = fetch_coinbase_candles(product, 3600, from_full, now)
@@ -368,7 +372,10 @@ def fetch_pair_history(pair_key: str, pair_cfg: Dict[str, str],
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--days", type=int, default=365,
-                    help="Total history window in days (default 365)")
+                    help="Total history window in days for h1 (default 365)")
+    ap.add_argument("--daily-days", type=int, default=None,
+                    help="History window for DAILY bars only (defaults to --days). Daily bars are "
+                         "tiny, so set this to ~1095 for a 3yr macro study without bloating h1/m15.")
     ap.add_argument("--m15-days", type=int, default=None,
                     help="If set, only fetch m15 bars for this many recent days. "
                          "Older period uses only h1 + daily (hybrid mode). "
@@ -450,7 +457,7 @@ def main():
         try:
             pair_data = fetch_pair_history(
                 pair_key, PAIRS[pair_key],
-                args.days, m15_days, oanda_token
+                args.days, m15_days, oanda_token, daily_days=args.daily_days
             )
         except Exception as e:
             print(f"  ERROR: {e}", flush=True)
