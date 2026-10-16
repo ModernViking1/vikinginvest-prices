@@ -70,7 +70,7 @@ def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--hist', default='viking_intl_ohlc.json')
     args = ap.parse_args()
     pairs = json.load(open(args.hist)).get('pairs', {})
-    evtypes = ['nfp', 'fomc', 'cpi', 'tw']
+    evtypes = ['nfp', 'fomc', 'cpi', 'tw', 'pce', 'ism']
     by_eb = defaultdict(list)          # (evtype, bucket) -> [r]
     by_seb = defaultdict(list)         # (strat, evtype, bucket) -> [r]
     nsym = 0
@@ -113,30 +113,29 @@ def main():
         return n, (100*w/n if n else 0), (sum(rs)/n if n else 0), sum(rs)
 
     print(f"Equity strategies vs US macro events — {nsym} symbols, trailing exit.")
-    print(f"NFP={len(EV['nfp'])} FOMC={len(EV['fomc'])} CPI={len(EV['cpi'])} releases (macro-events.json).")
+    print("releases: " + "  ".join(f"{e.upper()}={len(EV.get(e,[]))}" for e in evtypes) + "  (macro-events.json)")
     print(f"'across'=held through the event; 'post'=entered <={POST_H:.0f}h after; 'clear'=neither.\n")
 
+    print(f"OVERALL — 'across' (held through) vs 'clear':")
+    print(f"  {'event':<6}{'n_across':>9}{'WR_a':>6}{'expR_a':>8}{'expR_clear':>12}{'delta':>8}")
     for ev in evtypes:
-        print(f"===== {ev.upper()} =====")
-        print(f"  {'bucket':<9}{'n':>8}{'WR':>6}{'expR':>8}{'totR':>9}")
-        for bkt in ('across', 'post', 'clear'):
-            n, wr, e, t = agg(by_eb[(ev, bkt)])
-            print(f"  {bkt:<9}{n:>8}{wr:>5.0f}%{e:>+8.3f}{t:>+9.0f}")
+        na, wa, ea, _ = agg(by_eb[(ev, 'across')])
+        nc, wc, ec, _ = agg(by_eb[(ev, 'clear')])
+        print(f"  {ev.upper():<6}{na:>9}{wa:>5.0f}%{ea:>+8.3f}{ec:>+12.3f}{ea-ec:>+8.3f}")
 
-    print(f"\nPER STRATEGY — expR  across / clear  (does holding through the event help?)")
-    print(f"  {'strategy':<20}{'NFP a/c':>18}{'FOMC a/c':>18}{'CPI a/c':>18}")
+    print(f"\nPER STRATEGY — 'across' expR by event (clear baseline in last col):")
+    print(f"  {'strategy':<20}" + "".join(f"{e.upper():>8}" for e in evtypes) + f"{'clear':>8}")
     strs = sorted({s for (s, _, _) in by_seb})
     for s in strs:
         cells = []
         for ev in evtypes:
             _, _, ea, _ = agg(by_seb[(s, ev, 'across')])
-            _, _, ec, _ = agg(by_seb[(s, ev, 'clear')])
-            na = len(by_seb[(s, ev, 'across')])
-            cells.append(f"{ea:+.2f}/{ec:+.2f} (n{na})")
-        print(f"  {s:<20}" + "".join(f"{c:>18}" for c in cells))
+            cells.append(f"{ea:+.2f}" if by_seb[(s, ev, 'across')] else "—")
+        _, _, ec, _ = agg(by_seb[(s, evtypes[0], 'clear')])
+        print(f"  {s:<20}" + "".join(f"{c:>8}" for c in cells) + f"{ec:>+8.2f}")
 
-    print("\nRead: across >> clear = the event is a tailwind when already positioned; across << clear")
-    print("= holding through it hurts (consider flat-before / no-new-entry around that event).")
+    print("\ndelta = across - clear. Positive = event is a tailwind when already positioned;")
+    print("negative = holding through it hurts (consider flat-before / no-new-entry around it).")
 
 
 if __name__ == '__main__':

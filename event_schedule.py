@@ -38,9 +38,39 @@ CPI_DATES = [
 ]
 
 
+# PCE (Fed's preferred inflation gauge, 08:30 ET) — BEST-EFFORT dates (~month-end, shift a few days).
+PCE_DATES = [
+    '2023-01-27', '2023-02-24', '2023-03-31', '2023-04-28', '2023-05-26', '2023-06-30', '2023-07-28', '2023-08-31', '2023-09-29', '2023-10-27', '2023-11-30', '2023-12-22',
+    '2024-01-26', '2024-02-29', '2024-03-29', '2024-04-26', '2024-05-31', '2024-06-28', '2024-07-26', '2024-08-30', '2024-09-27', '2024-10-31', '2024-11-27', '2024-12-20',
+    '2025-01-31', '2025-02-28', '2025-03-28', '2025-04-30', '2025-05-30', '2025-06-27', '2025-07-31', '2025-08-29', '2025-09-26', '2025-10-31', '2025-11-26', '2025-12-19',
+    '2026-01-30', '2026-02-27', '2026-03-27', '2026-04-30', '2026-05-29', '2026-06-26', '2026-07-31', '2026-08-28', '2026-09-25', '2026-10-30',
+]
+
+
 def _nth_weekday(year, month, weekday, n):
     d = dt.date(year, month, 1)
     return d + dt.timedelta(days=(weekday - d.weekday()) % 7 + 7 * (n - 1))
+
+
+def _business_day(year, month, n):
+    """n-th weekday (Mon-Fri) of the month, ignoring holidays (fine for a multi-hour window)."""
+    d = dt.date(year, month, 1); count = 0
+    while True:
+        if d.weekday() < 5:
+            count += 1
+            if count == n:
+                return d
+        d += dt.timedelta(days=1)
+
+
+def ism_times(start_year=2023, end_year=2026):
+    """ISM PMIs, 10:00 ET: Manufacturing = 1st business day, Services = 3rd business day. Formulaic."""
+    out = []
+    for y in range(start_year, end_year + 1):
+        for m in range(1, 13):
+            out.append(_et_to_utc(_business_day(y, m, 1), 10, 0))   # ISM Manufacturing
+            out.append(_et_to_utc(_business_day(y, m, 3), 10, 0))   # ISM Services
+    return out
 
 
 def us_dst(d):
@@ -80,7 +110,9 @@ def all_events():
     evs = [('nfp', t) for t in nfp_times()] + \
           [('fomc', t) for t in _from_dates(FOMC_DATES, 14, 0)] + \
           [('cpi', t) for t in _from_dates(CPI_DATES, 8, 30)] + \
-          [('tw', t) for t in tw_times()]
+          [('tw', t) for t in tw_times()] + \
+          [('pce', t) for t in _from_dates(PCE_DATES, 8, 30)] + \
+          [('ism', t) for t in ism_times()]
     return sorted(evs, key=lambda x: x[1])
 
 
