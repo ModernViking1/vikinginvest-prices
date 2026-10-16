@@ -70,7 +70,7 @@ def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--hist', default='viking_intl_ohlc.json')
     args = ap.parse_args()
     pairs = json.load(open(args.hist)).get('pairs', {})
-    evtypes = ['nfp', 'fomc', 'cpi']
+    evtypes = ['nfp', 'fomc', 'cpi', 'tw']
     by_eb = defaultdict(list)          # (evtype, bucket) -> [r]
     by_seb = defaultdict(list)         # (strat, evtype, bucket) -> [r]
     nsym = 0

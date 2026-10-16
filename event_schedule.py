@@ -64,11 +64,23 @@ def _from_dates(dates, hour, minute):
     return [_et_to_utc(dt.date.fromisoformat(s), hour, minute) for s in dates]
 
 
+def tw_times(start_year=2023, end_year=2026):
+    """Triple Witching: 3rd Friday of Mar/Jun/Sep/Dec, timed at the 16:00 ET close (peak
+    volume/volatility). Equity-specific (options+index-futures+single-stock expiry) and fully
+    deterministic — the biggest scheduled EQUITY event after FOMC."""
+    out = []
+    for y in range(start_year, end_year + 1):
+        for m in (3, 6, 9, 12):
+            out.append(_et_to_utc(_nth_weekday(y, m, 4, 3), 16, 0))
+    return out
+
+
 def all_events():
     """[(type, datetime_utc)] sorted by time."""
     evs = [('nfp', t) for t in nfp_times()] + \
           [('fomc', t) for t in _from_dates(FOMC_DATES, 14, 0)] + \
-          [('cpi', t) for t in _from_dates(CPI_DATES, 8, 30)]
+          [('cpi', t) for t in _from_dates(CPI_DATES, 8, 30)] + \
+          [('tw', t) for t in tw_times()]
     return sorted(evs, key=lambda x: x[1])
 
 
@@ -79,7 +91,7 @@ def build_store(path=STORE):
         'note': 'US macro events for historical event-window analysis. NFP=first-Friday 08:30 ET '
                 '(deterministic); FOMC=14:00 ET exact published dates; CPI=08:30 ET best-effort dates. '
                 'DST-aware UTC. Built by event_schedule.build_store; retrievable via load_store.',
-        'counts': {t: sum(1 for x, _ in evs if x == t) for t in ('nfp', 'fomc', 'cpi')},
+        'counts': {t: sum(1 for x, _ in evs if x == t) for t in sorted({x for x, _ in evs})},
         'events': [{'type': t, 'ts': x.timestamp(), 'utc': x.isoformat()} for t, x in evs],
     }
     with open(path, 'w') as f:
