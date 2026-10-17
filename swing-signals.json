@@ -1,10 +1,38 @@
 {
  "schema_version": 1,
- "generated": "2026-10-17T16:00:00+00:00",
- "data_end_ts": 1792252800,
- "raw_signal_count": 7,
- "count": 7,
+ "generated": "2026-10-17T17:00:00+00:00",
+ "data_end_ts": 1792256400,
+ "raw_signal_count": 9,
+ "count": 9,
  "signals": [
+  {
+   "id": "volbreak:suiusd:1792256400",
+   "strategy": "volbreak",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "suiusd",
+   "symbol": "SUIUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 0.98514643,
+   "ref_entry": 0.9733,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": true,
+   "trigger_ts": 1792256400,
+   "created_ts": 1792256400,
+   "expiry_ts": 1792299600,
+   "state": "triggered",
+   "cofire": [
+    "volbreak"
+   ],
+   "cofire_dirs": [
+    "volbreak:bear"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "volbreak:taousd:1792252800",
    "strategy": "volbreak",
@@ -22,7 +50,7 @@
    "entry_mode": "limit",
    "demo_only": true,
    "trigger_ts": 1792252800,
-   "created_ts": 1792252800,
+   "created_ts": 1792256400,
    "expiry_ts": 1792296000,
    "state": "triggered",
    "cofire": [
@@ -50,7 +78,7 @@
    "entry_mode": "limit",
    "demo_only": true,
    "trigger_ts": 1792252800,
-   "created_ts": 1792252800,
+   "created_ts": 1792256400,
    "expiry_ts": 1792296000,
    "state": "triggered",
    "cofire": [
@@ -78,7 +106,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1792249200,
-   "created_ts": 1792252800,
+   "created_ts": 1792256400,
    "expiry_ts": 1792292400,
    "state": "triggered",
    "cofire": [
@@ -106,7 +134,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1792249200,
-   "created_ts": 1792252800,
+   "created_ts": 1792256400,
    "expiry_ts": 1792292400,
    "state": "triggered",
    "cofire": [
@@ -134,7 +162,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1792249200,
-   "created_ts": 1792252800,
+   "created_ts": 1792256400,
    "expiry_ts": 1792292400,
    "state": "triggered",
    "cofire": [
@@ -142,6 +170,34 @@
    ],
    "cofire_dirs": [
     "mmove:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "engulf_manip:ethusd:1792245600",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "ethusd",
+   "symbol": "ETHUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 2441.96635714,
+   "ref_entry": 2420.36,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1792245600,
+   "created_ts": 1792256400,
+   "expiry_ts": 1792288800,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear"
    ],
    "suppressed": 0
   },
@@ -162,7 +218,7 @@
    "entry_mode": "limit",
    "demo_only": true,
    "trigger_ts": 1792242000,
-   "created_ts": 1792252800,
+   "created_ts": 1792256400,
    "expiry_ts": 1792285200,
    "state": "triggered",
    "cofire": [
@@ -190,7 +246,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1792180800,
-   "created_ts": 1792252800,
+   "created_ts": 1792256400,
    "expiry_ts": 1792224000,
    "state": "triggered",
    "cofire": [
