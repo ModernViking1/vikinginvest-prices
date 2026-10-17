@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-10-17T16:00:00+00:00",
  "data_end_ts": 1792252800,
- "raw_signal_count": 6,
- "count": 6,
+ "raw_signal_count": 7,
+ "count": 7,
  "signals": [
   {
    "id": "volbreak:taousd:1792252800",
@@ -30,6 +30,34 @@
    ],
    "cofire_dirs": [
     "volbreak:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "zbreak_crypto:taousd:1792252800",
+   "strategy": "zbreak_crypto",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "taousd",
+   "symbol": "TAOUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 275.68392857,
+   "ref_entry": 267.97,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": true,
+   "trigger_ts": 1792252800,
+   "created_ts": 1792252800,
+   "expiry_ts": 1792296000,
+   "state": "triggered",
+   "cofire": [
+    "zbreak_crypto"
+   ],
+   "cofire_dirs": [
+    "zbreak_crypto:bear"
    ],
    "suppressed": 0
   },
