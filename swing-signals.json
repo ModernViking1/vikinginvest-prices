@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-10-17T17:00:00+00:00",
  "data_end_ts": 1792256400,
- "raw_signal_count": 9,
- "count": 9,
+ "raw_signal_count": 10,
+ "count": 10,
  "signals": [
   {
    "id": "volbreak:suiusd:1792256400",
@@ -30,6 +30,34 @@
    ],
    "cofire_dirs": [
     "volbreak:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "zbreak_crypto:suiusd:1792256400",
+   "strategy": "zbreak_crypto",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "suiusd",
+   "symbol": "SUIUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 0.98514643,
+   "ref_entry": 0.9733,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": true,
+   "trigger_ts": 1792256400,
+   "created_ts": 1792256400,
+   "expiry_ts": 1792299600,
+   "state": "triggered",
+   "cofire": [
+    "zbreak_crypto"
+   ],
+   "cofire_dirs": [
+    "zbreak_crypto:bear"
    ],
    "suppressed": 0
   },
