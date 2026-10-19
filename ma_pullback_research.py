@@ -19,11 +19,13 @@ from collections import defaultdict
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
 from five_strategies_research import agg4h, atr, cost
-from unified_shadow_harness import _ema
+import unified_shadow_harness as H
+from unified_shadow_harness import _ema, score_trail_open, TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST
 from equity_broker_backtest import market
 
 PB = 5
 BUF = 0.25
+FAST_EMA = 8          # user: buy the retrace to 20SMA / 8EMA
 RRS = [1.0, 2.0, 3.0]
 HOLD = {'m15': 40, 'h1': 60, '4h': 40, 'daily': 30}
 
@@ -42,7 +44,7 @@ def scan(bars):
     if n < 230:
         return []
     closes = [b['c'] for b in bars]
-    s20 = _sma(closes, 20); s200 = _sma(closes, 200); e9 = _ema(closes, 9)
+    s20 = _sma(closes, 20); s200 = _sma(closes, 200); e9 = _ema(closes, FAST_EMA)
     out = []; last = -1
     for i in range(201, n-1):
         if None in (s20[i], s200[i], e9[i]):
@@ -96,8 +98,12 @@ def run(bars, tf, cls, store):
             o = walk(bars, ei, entry, stop, tgt, d, hold)
             if o is None:
                 continue
-            net = o - cost(o, entry, R)
-            store[(cls, tf, rr)].append((ts, net))
+            store[(cls, tf, rr)].append((ts, o - cost(o, entry, R)))
+        # TRAILING-runner exit — "ride the trend toward the 200SMA" (let winners run), the
+        # equity book's native exit. This is the exit the strategy actually intends (not a fixed RR).
+        st, o = score_trail_open(bars, ts, entry, stop, d, TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
+        if st == 'resolved':
+            store[(cls, tf, 'trail')].append((ts, o - cost(o, entry, R)))
 
 
 def agg(rows):
@@ -115,7 +121,7 @@ def main():
     args = ap.parse_args()
     store = defaultdict(list)
 
-    pairs = json.load(open(args.hist)).get('pairs', {})
+    pairs = json.load(open(args.hist)).get('pairs', {}) if args.hist.lower() not in ('', 'none') else {}
     for pk, layers in pairs.items():
         cls = PAIR_CLASS.get(pk)
         if not cls:
@@ -142,7 +148,17 @@ def main():
 
     classes = ['major', 'minor', 'comm', 'index', 'crypto', 'equity']
     tfs = ['m15', 'h1', '4h', 'daily']
-    print("9EMA/20SMA pullback + 200SMA trend filter — WR% / expR by class x timeframe x RR target\n")
+    print(f"{FAST_EMA}EMA/20SMA pullback + 200SMA trend filter (with-trend only) — WR% / expR by class x tf\n")
+    # TRAILING exit first — the intended 'ride toward the 200SMA' exit
+    print("===== TRAILING-runner exit (ride the trend) =====")
+    print(f"  {'class':<8}" + "".join(f"{tf:>18}" for tf in tfs))
+    for cls in classes:
+        cells = []
+        for tf in tfs:
+            a = agg(store[(cls, tf, 'trail')])
+            cells.append(f"{a[1]:.0f}%/{a[2]:+.2f}/n{a[0]}" if a else "—")
+        print(f"  {cls:<8}" + "".join(f"{c:>18}" for c in cells))
+    print()
     for rr in RRS:
         print(f"===== TARGET 1:{int(rr)} =====")
         print(f"  {'class':<8}" + "".join(f"{tf:>16}" for tf in tfs))
@@ -155,10 +171,11 @@ def main():
         print()
 
     print("Best cells (exp>+0.05R, n>=40, both OOS halves +):")
-    for (cls, tf, rr), rows in sorted(store.items()):
+    for (cls, tf, rr), rows in sorted(store.items(), key=lambda kv: str(kv[0])):
         a = agg(rows)
         if a and a[0] >= 40 and a[2] > 0.05 and a[4] > 0 and a[5] > 0:
-            print(f"  {cls:<7} {tf:<5} 1:{int(rr)}  n={a[0]:<5} WR={a[1]:.0f}% exp={a[2]:+.3f}R totR={a[3]:+.0f} OOS[{a[4]:+.2f}/{a[5]:+.2f}]")
+            lbl = 'trail' if rr == 'trail' else f"1:{int(rr)}"
+            print(f"  {cls:<7} {tf:<5} {lbl:<6} n={a[0]:<5} WR={a[1]:.0f}% exp={a[2]:+.3f}R totR={a[3]:+.0f} OOS[{a[4]:+.2f}/{a[5]:+.2f}]")
 
 
 if __name__ == '__main__':
