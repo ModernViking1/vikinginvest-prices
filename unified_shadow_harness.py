@@ -692,6 +692,71 @@ def _ma_pull_signals(pk, bars, tf):
     return out
 
 
+# gap_eq (2026-10-19) — opening-gap, TREND-ALIGNED continuation. Enter at the first m15 bar of
+# the RTH session when the overnight gap (|open - prior session close| >= GAP_MIN * daily ATR) is
+# in the direction of the daily SMA200 trend; stop GAP_R_ATR*dailyATR away; trailing exit (the
+# book's native runner). Orthogonal by construction — the only .EQ setup keyed on the session open.
+# gap_research full 3yr x 78-symbol: the trend-aligned GO slice is +0.060R all / +0.070R small /
+# +0.163R large, BOTH OOS halves + (the counter-trend edge was a 5-symbol mega-cap artifact and
+# washed out; the fade half is deferred). US demo-first. Needs a DAILY series for SMA200+ATR.
+GAP_R_ATR, GAP_MIN = 0.5, 0.25
+
+
+def _gap_signals(pk, m15, daily):
+    """Trend-aligned opening-gap continuation (tag `gap_eq`), m15 entry + daily SMA200/ATR gate.
+    `daily` is a real D1 series (live) or one synthesized from h1 (backtest) — >=201 bars needed."""
+    if len(m15) < 300 or len(daily) < 201:
+        return []
+    dcloses = [b['c'] for b in daily]
+    dsma = _sma_series(daily, 200)
+    dts = [b['_ts'] for b in daily]
+    out = []
+    i = 0; n = len(m15); prev_close = None
+    while i < n:
+        day = m15[i]['t'][:10]; j = i
+        while j < n and m15[j]['t'][:10] == day:
+            j += 1
+        if prev_close is not None:
+            op = m15[i]['o']
+            try:
+                ts0 = datetime.fromisoformat(day + ' 00:00:00').timestamp()
+            except Exception:
+                ts0 = m15[i]['_ts']
+            di = bisect.bisect_left(dts, ts0) - 1          # last daily bar strictly before -> causal
+            if di >= 200 and dsma[di] is not None:
+                a = atr(daily, 14, di)
+                if a and a > 0:
+                    gap = op - prev_close
+                    if abs(gap) >= GAP_MIN * a:
+                        trend_bull = dcloses[di] > dsma[di]
+                        R = GAP_R_ATR * a
+                        if gap > 0 and trend_bull:         # gap up WITH uptrend -> go long
+                            out.append({'strategy': 'gap_eq', 'tf': 'm15', 'pair': pk, 'dir': 'bull',
+                                        'entry_ts': m15[i]['_ts'], 'entry': op, 'stop': op - R})
+                        elif gap < 0 and not trend_bull:   # gap down WITH downtrend -> go short
+                            out.append({'strategy': 'gap_eq', 'tf': 'm15', 'pair': pk, 'dir': 'bear',
+                                        'entry_ts': m15[i]['_ts'], 'entry': op, 'stop': op + R})
+        prev_close = m15[j-1]['c']
+        i = j
+    return out
+
+
+def _h1_to_daily(h1):
+    """RTH daily bars from h1 (broker exports carry no D1). Group by date; ts = date 00:00:00."""
+    out = []; i = 0; n = len(h1)
+    while i < n:
+        d = h1[i]['t'][:10]; j = i; hi = h1[i]['h']; lo = h1[i]['l']
+        while j < n and h1[j]['t'][:10] == d:
+            hi = max(hi, h1[j]['h']); lo = min(lo, h1[j]['l']); j += 1
+        try:
+            ts = datetime.fromisoformat(d + ' 00:00:00').timestamp()
+        except Exception:
+            ts = h1[i]['_ts']
+        out.append({'o': h1[i]['o'], 'h': hi, 'l': lo, 'c': h1[j-1]['c'], 'v': 0, 't': d, '_ts': ts})
+        i = j
+    return out
+
+
 def detect_fibgz_trend(pk, h1, daily):
     """Trend-gated golden-zone fib (tag `fibgz_t`), RR2. comm: h1 + 4h, trend-only;
     major FX: h1, trend + London/NY session. See the block comment above."""
