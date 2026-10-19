@@ -321,6 +321,33 @@ def build_doc(mt5, bars_n, demo):
                 'max_age_min': 270 if tf == '4h' else 120,
                 'source': 'mt5-bridge', 'demo_only': demo,
             })
+        # ma_pull_eq (2026-10-19) — 9EMA/20SMA pullback-runner, trailing exit. US m15 + h1,
+        # DEMO-ONLY pilot (demo_only=True regardless of --demo): additive vs the existing m15 book
+        # (+0.262R on the 59% non-overlapping, both OOS halves +). Let live demo fills validate it.
+        for tf in (['m15', 'h1'] if _is_us else []):
+            bars = layers.get(tf) or []
+            if len(bars) < 400:
+                continue
+            raw = H._ma_pull_signals(pk, bars, tf)
+            if not raw:
+                continue
+            s = max(raw, key=lambda x: x['entry_ts'])
+            age = (bars[-1]['_ts'] - s['entry_ts']) / 60.0
+            if age > FRESH_MIN.get(tf, 60):
+                continue
+            entry, stop, d = s['entry'], s['stop'], s['dir']
+            R = abs(entry - stop)
+            if R <= 0:
+                continue
+            sigs.append({
+                'id': f"ma_pull_eq:{pk}:{int(s['entry_ts'])}", 'pair': pk, 'sym': sym, 'cls': 'equity',
+                'strategy': 'ma_pull_eq', 'dir': d, 'state': 'armed',
+                'entry': round(entry, 4), 'stop': round(stop, 4),
+                'exit_mode': 'trail', 'trail_arm_r': TA, 'trail_dist_r': TD, 'trail_hold_bars': TH,
+                'tf': tf, 'entry_ts_ms': int(s['entry_ts'] * 1000), 'age_min': round(age, 1),
+                'max_age_min': 120,
+                'source': 'mt5-bridge', 'demo_only': True,
+            })
     return {
         'schema_version': 2, 'generated': now.isoformat(), 'generated_ms': int(now.timestamp() * 1000),
         'broker': 'mt5', 'demo_only_default': demo, 'source': 'mt5-bridge',
@@ -521,7 +548,7 @@ def main():
     # Active equity strategy set (also a code-version indicator: if fib_eq is listed you're on the
     # trend-gated golden-zone build; if it's absent the clone is stale — git pull + restart).
     _fib_ok = hasattr(H, '_fib_eq_signals')
-    _eq_strats = [t for t, _, _ in STRATS] + (['fib_eq'] if _fib_ok else [])
+    _eq_strats = [t for t, _, _ in STRATS] + (['fib_eq'] if _fib_ok else []) + (['ma_pull_eq (demo)'] if hasattr(H, '_ma_pull_signals') else [])
     print(f"  strategies ({len(_eq_strats)}):     {', '.join(_eq_strats)}", flush=True)
     print(f"  scope notes:        threepush_eq US-only"
           + ("; fib_eq US h1+4h / UK+FR h1" if _fib_ok else " (fib_eq MISSING — stale clone, git pull)"), flush=True)

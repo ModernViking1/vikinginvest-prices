@@ -649,6 +649,49 @@ def _fib_eq_signals(pk, bars, tf):
     return _fibgzt_scan(pk, bars, tf, need_sess=False, tag='fib_eq')
 
 
+# ma_pull_eq (2026-10-19) — 9EMA/20SMA pullback-RUNNER, 200SMA trend filter, trailing exit.
+# From the screenshot strategy: in a trend (price & SMA20 vs SMA200, EMA9 vs SMA20), buy the
+# retrace to the 9EMA/20SMA and RIDE the trend toward the 200SMA (trailing runner, NOT a fixed RR).
+# ma_pullback_research/ma_pull_check over 3yr equity m15: +0.156R all / +0.262R on the 59% that
+# DON'T overlap holygrail_eq_m15/turtle_soup_eq_m15 (both OOS halves +). Additive edge, demo-first.
+MAPULL_FAST, MAPULL_PB, MAPULL_BUF = 9, 5, 0.25
+
+
+def _ma_pull_signals(pk, bars, tf):
+    n = len(bars)
+    if n < 230:
+        return []
+    closes = [b['c'] for b in bars]
+    s20 = _sma_series(bars, 20); s200 = _sma_series(bars, 200); e9 = _ema(closes, MAPULL_FAST)
+    out = []; last = -1
+    for i in range(201, n-1):
+        if s200[i] is None or s20[i] is None or e9[i] is None:
+            continue
+        c = bars[i]['c']
+        bull = c > s200[i] and s20[i] > s200[i] and e9[i] > s20[i]
+        bear = c < s200[i] and s20[i] < s200[i] and e9[i] < s20[i]
+        if not (bull or bear) or i <= last:
+            continue
+        lo = max(0, i-MAPULL_PB)
+        if bull:
+            pulled = any(bars[j]['l'] <= max(e9[j], s20[j]) for j in range(lo, i+1))
+            if pulled and c > e9[i] and bars[i]['h'] > bars[i-1]['h']:
+                entry = bars[i+1]['o']; a = atr(bars, 14, i) or 0.0
+                stop = min(bars[j]['l'] for j in range(lo, i+1)) - MAPULL_BUF*a
+                if stop < entry:
+                    out.append({'strategy': 'ma_pull_eq', 'tf': tf, 'pair': pk, 'dir': 'bull',
+                                'entry_ts': bars[i+1]['_ts'], 'entry': entry, 'stop': stop}); last = i+2
+        else:
+            pulled = any(bars[j]['h'] >= min(e9[j], s20[j]) for j in range(lo, i+1))
+            if pulled and c < e9[i] and bars[i]['l'] < bars[i-1]['l']:
+                entry = bars[i+1]['o']; a = atr(bars, 14, i) or 0.0
+                stop = max(bars[j]['h'] for j in range(lo, i+1)) + MAPULL_BUF*a
+                if stop > entry:
+                    out.append({'strategy': 'ma_pull_eq', 'tf': tf, 'pair': pk, 'dir': 'bear',
+                                'entry_ts': bars[i+1]['_ts'], 'entry': entry, 'stop': stop}); last = i+2
+    return out
+
+
 def detect_fibgz_trend(pk, h1, daily):
     """Trend-gated golden-zone fib (tag `fibgz_t`), RR2. comm: h1 + 4h, trend-only;
     major FX: h1, trend + London/NY session. See the block comment above."""
@@ -2750,6 +2793,12 @@ def main():
                     eqsigs += _fib_eq_signals(pk, eh1, 'h1')
                 if len(e4h) >= 250:
                     eqsigs += _fib_eq_signals(pk, e4h, '4h')
+                # ma_pull_eq (2026-10-19) — 9EMA/20SMA pullback-runner, trailing exit. m15 + h1
+                # (US observer universe). Additive vs the existing m15 book (+0.262R non-overlap).
+                if len(em15) >= 400:
+                    eqsigs += _ma_pull_signals(pk, em15, 'm15')
+                if len(eh1) >= 400:
+                    eqsigs += _ma_pull_signals(pk, eh1, 'h1')
                 for s in eqsigs:
                     detected += 1
                     k = f"{s['strategy']}:{s['pair']}:{int(s['entry_ts'])}"
@@ -2766,6 +2815,9 @@ def main():
                     elif rec['strategy'] == 'fib_eq':
                         _fb = e4h if rec['tf'] == '4h' else eh1
                         st, o = score_trail_open(_fb, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
+                    elif rec['strategy'] == 'ma_pull_eq':
+                        _mb = em15 if rec['tf'] == 'm15' else eh1
+                        st, o = score_trail_open(_mb, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
                     else:                       # holygrail_eq / volbreak_eq / twob_eq / turtle_soup_eq — h1 runner
                         st, o = score_trail_open(eh1, rec['entry_ts'], rec['entry'], rec['stop'], rec['dir'], TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
                     rec['status'] = st
@@ -2869,7 +2921,7 @@ def main():
     base = log['baseline_data_end']; allv = list(sigs.values())
     def rep(title, rows):
         print(f"\n{title}")
-        for strat in ('hs', 'hs_crypto', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fibgz_t', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'turtle_soup_eq', 'turtle_soup_eq_m15', 'threepush_eq', 'fib_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'orb_ln', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'po3_kane', 'po3_conf', 'cam_rev', 'absorb_btc'):
+        for strat in ('hs', 'hs_crypto', 's5_engulf', 's5_rsi', 'ob', 'tl_nowick', 'w5_pullback', 's5_rsi_wide', 'rsimr', 'fib_gz', 'fibgz_t', 'fred_tl', 'threepush', 'engulf_manip', 'sweeprev', 'asianglitch', 'wm', 'sid', 'obfvg', 'obfvg_w', 'obfvg_fx4', 'gbreak', 'gtrend', 'gtrend_inv', 'gfib', 'e90break', 'mmove', 'mmove_ix', 'mmove_ix4', 'mmove_c4', 'mmove_m15', 'ema920v', 'obfvg_m15', 'orb_eq', 'varev_ix', 'holygrail', 'holygrail_cm', 'holygrail_eq', 'volbreak', 'volbreak_ix', 'volbreak_eq', 'zbreak_crypto', 'zbreak_ix', 'zbreak_gold', 'twob', 'twob_ix', 'twob_cm', 'twob_eq', 'turtle_soup_eq', 'turtle_soup_eq_m15', 'threepush_eq', 'fib_eq', 'ma_pull_eq', 'holygrail_cm_m15', 'holygrail_eq_m15', 'gold_us2h', 'orb_ln', 'fma_gold', 'fma_sweep_cm', 'fma_sweep_ix', 'po3_cm', 'sweepfvg_ix', 'ew_wave5_4h', 'ew_wave5_fib_4h', 'po3_kane', 'po3_conf', 'cam_rev', 'absorb_btc'):
             sub = [s for s in rows if s['strategy'] == strat and s['status'] == 'resolved' and 'r' in s]
             pend = sum(1 for s in rows if s['strategy'] == strat and s['status'] == 'pending')
             ts0 = tracking.get(strat)

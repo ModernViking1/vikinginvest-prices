@@ -100,6 +100,20 @@ def main():
                 by_mkt[mkt].append((s['entry_ts'], r))
                 by_ms[(mkt, 'fib_eq')].append((s['entry_ts'], r))
                 by_strat['fib_eq'].append((s['entry_ts'], r))
+        # ma_pull_eq — 9EMA/20SMA pullback-runner, US m15+h1 (demo pilot), trailing exit.
+        if mkt == 'US':
+            for tf in ('m15', 'h1'):
+                bars = _bars_norm(layers.get(tf) or [])
+                if len(bars) < MIN_BARS:
+                    continue
+                for s in H._ma_pull_signals(key, bars, tf):
+                    r = _score(bars, s)
+                    if r is None:
+                        continue
+                    by_sym[sym]['ma_pull_eq'].append((s['entry_ts'], r))
+                    by_mkt[mkt].append((s['entry_ts'], r))
+                    by_ms[(mkt, 'ma_pull_eq')].append((s['entry_ts'], r))
+                    by_strat['ma_pull_eq'].append((s['entry_ts'], r))
         meta[sym] = (mkt, got, {tf: len(_bars_norm(layers.get(tf) or [])) for tf in ('h1', 'm15')})
 
     print('=== .EQ on broker-exported data ·', args.hist, '===\n')
@@ -120,7 +134,7 @@ def main():
     print('\nBY MARKET x STRATEGY (exp R / n):')
     mkts = sorted({m for m, _ in by_ms})
     print(f"  {'strategy':<18}" + ''.join(f"{m:>13}" for m in mkts))
-    for tag in [t for t, _, _ in STRATS] + ['fib_eq']:
+    for tag in [t for t, _, _ in STRATS] + ['fib_eq', 'ma_pull_eq']:
         cells = []
         for mkt in mkts:
             a = _agg(by_ms[(mkt, tag)])
