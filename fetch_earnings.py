@@ -23,11 +23,25 @@ START = '2023-01-01'
 
 
 def _us_tickers():
-    """US bridge symbols -> bare TwelveData tickers (strip .NAS/.NYSE). BRK-B -> BRK.B."""
+    """US bridge symbols -> bare TwelveData tickers (strip .NAS/.NYSE). BRK-B -> BRK.B.
+
+    Parse the SYMBOLS dict literal straight out of equity_bridge.py with ast — do NOT import
+    the bridge. Importing it drags in the whole MT5/detector stack (detect_triggers hard
+    `sys.exit`s if `requests` is missing, and that SystemExit punches through except Exception),
+    which killed every CI run and left the earnings blackout off. ast keeps this fetcher
+    stdlib-only so it runs anywhere the TD key is set."""
+    import ast
+    syms = []
     try:
-        import equity_bridge as e
-        syms = [v for v in e.SYMBOLS.values() if v.endswith('.NAS') or v.endswith('.NYSE')]
-    except Exception:
+        src = open(os.path.join(HERE, 'equity_bridge.py'), encoding='utf-8').read()
+        for node in ast.walk(ast.parse(src)):
+            if isinstance(node, ast.Assign) and any(
+                    isinstance(t, ast.Name) and t.id == 'SYMBOLS' for t in node.targets):
+                d = ast.literal_eval(node.value)
+                syms = [v for v in d.values() if v.endswith('.NAS') or v.endswith('.NYSE')]
+                break
+    except Exception as ex:
+        print(f"::warning::could not parse SYMBOLS from equity_bridge.py ({ex})")
         syms = []
     out = []
     for s in syms:
