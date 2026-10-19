@@ -474,27 +474,40 @@ def _push_executions(repo, token, out_dir):
             return                                  # unchanged since last push — skip
     except Exception:
         pass
+    import urllib.error
     api = f"https://api.github.com/repos/{repo}/contents/equity-executions.json"
     hdr = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
            "User-Agent": "viking-equity-bridge"}
-    sha = None
-    try:
-        req = urllib.request.Request(api + "?ref=main", headers=hdr)
-        with urllib.request.urlopen(req, timeout=10) as r:
-            sha = json.load(r).get("sha")
-    except Exception:
-        sha = None                                  # file may not exist yet — first push creates it
-    body = {"message": "data: equity executions (bridge) [skip ci]",
-            "content": base64.b64encode(content).decode(), "branch": "main"}
-    if sha:
-        body["sha"] = sha
-    try:
-        req = urllib.request.Request(api, data=json.dumps(body).encode(), method="PUT", headers=hdr)
-        urllib.request.urlopen(req, timeout=15)
-        open(stamp, 'w').write(h)
-        print("           pushed equity-executions.json", flush=True)
-    except Exception as e:
-        print(f"::warning:: equity-executions push failed ({e})", flush=True)
+    b64 = base64.b64encode(content).decode()
+    # Retry on 409: the contents API conflicts when the file's SHA goes stale between our GET and
+    # PUT — a race with main's frequent data commits (and our own prior push). Re-fetch the fresh
+    # SHA and PUT again a few times before giving up (next poll would otherwise re-push anyway).
+    for attempt in range(4):
+        sha = None
+        try:
+            req = urllib.request.Request(api + "?ref=main", headers=hdr)
+            with urllib.request.urlopen(req, timeout=10) as r:
+                sha = json.load(r).get("sha")
+        except Exception:
+            sha = None                              # file may not exist yet — first push creates it
+        body = {"message": "data: equity executions (bridge) [skip ci]", "content": b64, "branch": "main"}
+        if sha:
+            body["sha"] = sha
+        try:
+            req = urllib.request.Request(api, data=json.dumps(body).encode(), method="PUT", headers=hdr)
+            urllib.request.urlopen(req, timeout=15)
+            open(stamp, 'w').write(h)
+            print("           pushed equity-executions.json", flush=True)
+            return
+        except urllib.error.HTTPError as e:
+            if e.code == 409 and attempt < 3:
+                time.sleep(1.5 * (attempt + 1))     # stale SHA / concurrent write — refetch + retry
+                continue
+            print(f"::warning:: equity-executions push failed (HTTP Error {e.code}: {e.reason})", flush=True)
+            return
+        except Exception as e:
+            print(f"::warning:: equity-executions push failed ({e})", flush=True)
+            return
 
 
 def _heartbeat(token, repo, acct, emitted):
