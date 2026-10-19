@@ -25,7 +25,7 @@ from equity_broker_backtest import market
 
 PB = 5
 BUF = 0.25
-FAST_EMA = 8          # user: buy the retrace to 20SMA / 8EMA
+FAST_EMA = 9          # buy the retrace to 20SMA / 9EMA (per the chart indicators)
 RRS = [1.0, 2.0, 3.0]
 HOLD = {'m15': 40, 'h1': 60, '4h': 40, 'daily': 30}
 
