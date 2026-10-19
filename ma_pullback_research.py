@@ -27,7 +27,7 @@ PB = 5
 BUF = 0.25
 FAST_EMA = 9          # buy the retrace to 20SMA / 9EMA (per the chart indicators)
 RRS = [1.0, 2.0, 3.0]
-HOLD = {'m15': 40, 'h1': 60, '4h': 40, 'daily': 30}
+HOLD = {'m1': 60, 'm5': 48, 'm15': 40, 'h1': 60, '4h': 40, 'daily': 30}
 
 
 def _sma(closes, p):
@@ -118,8 +118,34 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--hist', default='historical-ohlc.json')
     ap.add_argument('--equity', default='')
+    ap.add_argument('--lowtf', default='', help='one-off equity-lowtf-ohlc.json (m5+m1) from VikingHistoryExportLowTF')
     args = ap.parse_args()
     store = defaultdict(list)
+
+    if args.lowtf:          # one-off finer-TF test (separate file; not the live pipeline)
+        from unified_shadow_harness import score_trail_open, TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST
+        lt = json.load(open(args.lowtf)).get('pairs', {})
+        lstore = defaultdict(list)
+        for key, layers in lt.items():
+            for tf in ('m5', 'm1'):
+                bars = _bars_norm(layers.get(tf) or [])
+                if len(bars) < 300:
+                    continue
+                for d, ei, entry, stop, ts in scan(bars):
+                    R = abs(entry-stop)
+                    st, o = score_trail_open(bars, ts, entry, stop, d, TRAIL_HOLD, TRAIL_ARM, TRAIL_DIST)
+                    if st == 'resolved':
+                        lstore[(tf, 'trail')].append((ts, o - cost(o, entry, R)))
+                    o2 = walk(bars, ei, entry, stop, entry + 2*R if d == 'bull' else entry - 2*R, d, HOLD[tf])
+                    if o2 is not None:
+                        lstore[(tf, 2.0)].append((ts, o2 - cost(o2, entry, R)))
+        print(f"ma_pull on equity LOW TIMEFRAMES (one-off, {len(lt)} symbols) — trailing + 1:2\n")
+        for tf in ('m5', 'm1'):
+            for ex in ('trail', 2.0):
+                a = agg(lstore[(tf, ex)])
+                lbl = 'trail' if ex == 'trail' else '1:2'
+                print(f"  {tf:<4} {lbl:<6} " + (f"n={a[0]:<6} WR={a[1]:.0f}% exp={a[2]:+.3f}R totR={a[3]:+.0f} OOS[{a[4]:+.2f}/{a[5]:+.2f}]" if a else "no data"))
+        return
 
     pairs = json.load(open(args.hist)).get('pairs', {}) if args.hist.lower() not in ('', 'none') else {}
     for pk, layers in pairs.items():
