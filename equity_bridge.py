@@ -90,14 +90,21 @@ TA, TD, TH = H.TRAIL_ARM, H.TRAIL_DIST, H.TRAIL_HOLD
 MAGIC = 5204940                            # must match the EA's InpMagic
 LEDGER = 'equity_trades_open.csv'          # the EA's open-trade ledger (ticket -> entry/SL)
 
-# ── Earnings blackout (2026-10-16) ─────────────────────────────────────────────
-# Single-stock EARNINGS gap through the stop (equity_gap_study: worst -235R; the raised US
-# notional cap amplifies the $ hit). Primary defence: do NOT open a NEW position in the days
-# before a symbol's earnings, so we're never holding through the report's overnight gap. Reads
-# earnings-dates.json (populated by fetch_earnings.py in CI). Fail-open: no file -> no blackout.
+# ── Earnings blackout (2026-10-16; DISABLED 2026-10-19) ────────────────────────
+# DISABLED by the precise full-universe study (precise_earnings_study.py, 152k trades / 25 US
+# names, real yfinance calendar, gap-aware exit). Verdict: the PRE=2 rule (a) COSTS the book
+# ~+161R of mean — the entries it removes are marginally POSITIVE (+0.026R), and holding through
+# a report is actually the highest-expectancy cohort (+0.202R) for this trend book — and (b) does
+# NOT reduce the worst-case tail: the catastrophic gap-through (-541R in the backtest) is a
+# NON-earnings event, untouched by the blackout. Gap-through risk is handled instead by the EA's
+# InpMaxLossPct=4% backstop, which catches EVERY gap regardless of earnings. (The original -235R
+# rationale came from a >=4% price-gap PROXY that mislabelled favourable continuation gaps.)
+# The fetcher/CI stay live so earnings-dates.json keeps refreshing for study; flip ENABLED back
+# on only if a later analysis changes the verdict.
 _HERE = os.path.dirname(os.path.abspath(__file__))
 EARNINGS_FILE = os.path.join(_HERE, 'earnings-dates.json')
-EARNINGS_PRE_DAYS = 2      # no new entry within this many days BEFORE earnings
+EARNINGS_BLACKOUT_ENABLED = False     # see block comment — off on full-universe evidence
+EARNINGS_PRE_DAYS = 2      # no new entry within this many days BEFORE earnings (unused while disabled)
 EARNINGS_POST_DAYS = 0     # the gap is at the report; entering after it is fine (macro 'post' was OK)
 
 
@@ -129,6 +136,8 @@ def _ticker(sym):
 
 
 def _in_earnings_blackout(sym, now_ts):
+    if not EARNINGS_BLACKOUT_ENABLED:
+        return False
     ds = _EARNINGS.get(_ticker(sym))
     if not ds:
         return False
@@ -557,7 +566,13 @@ def main():
     _suf2reg = {'NAS': 'US', 'NYSE': 'US', 'ETR': 'DE', 'LSE': 'UK', 'PAR': 'FR', 'TSE': 'JP', 'HK': 'HK', 'MAD': 'ES'}
     _reg = _Counter(_suf2reg.get(v.rsplit('.', 1)[-1], v.rsplit('.', 1)[-1]) for v in SYMBOLS.values())
     print(f"  symbols ({len(SYMBOLS)}):      " + ", ".join(f"{k} {_reg[k]}" for k in sorted(_reg, key=lambda x: -_reg[x])), flush=True)
-    print(f"  earnings blackout:  {('ON (' + str(len(_EARNINGS)) + ' tickers, ' + str(EARNINGS_PRE_DAYS) + 'd pre)') if _EARNINGS else 'OFF (no earnings-dates.json — run fetch_earnings.py in CI)'}", flush=True)
+    if not EARNINGS_BLACKOUT_ENABLED:
+        _eb = f"OFF (disabled by precise_earnings_study — costs mean, no tail benefit; 4% EA backstop handles gaps; {len(_EARNINGS)} tickers loaded for study)"
+    elif _EARNINGS:
+        _eb = f"ON ({len(_EARNINGS)} tickers, {EARNINGS_PRE_DAYS}d pre)"
+    else:
+        _eb = "ON but no earnings-dates.json loaded — run fetch_earnings.py in CI"
+    print(f"  earnings blackout:  {_eb}", flush=True)
 
     try:
         while True:
