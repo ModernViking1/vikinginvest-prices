@@ -21,7 +21,7 @@
 //|    Attach to ONE chart (any symbol); it manages all .EQ symbols. |
 //+------------------------------------------------------------------+
 #property copyright "Viking Invest"
-#property version   "1.08"
+#property version   "1.09"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -67,6 +67,17 @@ input int    InpLimitExpiryMin = 240;     // a resting limit entry expires unfil
 input double InpTrailDistR    = 0.75;     // trail the stop this many R behind the best price once armed
                                           //   (arm stays +1R). 0.75 beat 1.0 by +0.020R/trade over 137k
                                           //   signals / 3yr / both OOS halves / every asset class.
+// ── Weekend-flat + portfolio risk cap (2026-10-19; eod_study + cross-region review) ───────────
+input bool   InpWeekendFlat        = true;   // close EA positions before the weekend. eod_study (152k trades):
+                                             //   the Fri->Mon gap is -0.043R / 54% adverse; a flat-before-weekend
+                                             //   rule ~2x's the book's expectancy (+0.013 vs +0.006R).
+input int    InpWkndFlatMinBefore  = 10;     // flatten this many minutes before a symbol's FRIDAY session close
+input double InpMaxBookNotionalPct = 150.0;  // PORTFOLIO cap: TOTAL open notional across ALL EA positions, % of
+                                             //   equity (0=off). Per-position caps miss leverage STACKING — e.g.
+                                             //   LLY+BLK each ~100% notional reached ~285% combined. Shrink-to-fit.
+input double InpMaxBookRiskPct     = 8.0;    // PORTFOLIO cap: TOTAL open risk-to-initial-stop across all EA
+                                             //   positions, % of equity (0=off). Loose ceiling for extremes —
+                                             //   the notional cap is the primary brake. Shrink-to-fit. Tune both.
 
 CTrade        trade;
 CPositionInfo pos;
@@ -89,6 +100,8 @@ int OnInit()
    EventSetTimer(MathMax(5, InpPollSeconds));
    PrintFormat("VikingEquityEA init — demo-only=%s, risk=%.2f%%, feed=%s",
                (string)(!InpAllowLive), InpRiskPct, InpFeedURL);
+   PrintFormat("  weekend-flat=%s (%dm pre Fri close) | book caps: notional<=%.0f%%, risk<=%.1f%% of equity",
+               (string)InpWeekendFlat, InpWkndFlatMinBefore, InpMaxBookNotionalPct, InpMaxBookRiskPct);
    if(!IsTradeableAccount())
       Print("WARNING: live account + AllowLive=false → EA will NOT place trades (demo guard).");
    return(INIT_SUCCEEDED);
@@ -161,6 +174,10 @@ void ManageOpen(bool beat=false)
            }
         }
 
+      // weekend-flat — close before the weekend (eod_study: holding over the Fri->Mon gap is a net drag)
+      if(NearWeekendClose(sym))
+        { trade.PositionClose(gStates[i].ticket); if(InpVerbose) PrintFormat("%s: WEEKEND-FLAT close", sym); continue; }
+
       // track best price
       if(gStates[i].dir>0) gStates[i].best = MathMax(gStates[i].best, px);
       else                 gStates[i].best = MathMin(gStates[i].best, px);
@@ -228,6 +245,7 @@ void ProcessSignal(const string obj)
    if(OpenCountForSymbol(sym) + PendingCountForSymbol(sym) >= InpMaxOpenPerSym) return;  // count resting limits too
    if(!SymbolSelect(sym, true)) { PrintFormat("skip %s — symbol %s not in Market Watch", id, sym); return; }
    if((ENUM_SYMBOL_TRADE_MODE)SymbolInfoInteger(sym, SYMBOL_TRADE_MODE)==SYMBOL_TRADE_MODE_DISABLED) return;
+   if(NearWeekendClose(sym)) { if(InpVerbose) PrintFormat("skip %s — weekend-flat window (no new entry before the weekend)", id); return; }
 
    int dir = (dirS=="bull") ? 1 : -1;
    if(MathAbs(entry - stop) <= 0) return;
@@ -315,6 +333,59 @@ void LogOpen(ulong tk, const string id, const string sym, int dir, double entry,
   }
 
 //+------------------------------------------------------------------+
+//| Portfolio exposure + weekend-flat helpers                        |
+//+------------------------------------------------------------------+
+// Total open NOTIONAL across all this-EA positions, in account currency.
+double BookNotionalCcy()
+  {
+   double tot = 0;
+   for(int i = PositionsTotal()-1; i >= 0; i--)
+     {
+      ulong tk = PositionGetTicket(i);
+      if(!PositionSelectByTicket(tk)) continue;
+      if(PositionGetInteger(POSITION_MAGIC) != InpMagic) continue;
+      string s = PositionGetString(POSITION_SYMBOL);
+      double tv = SymbolInfoDouble(s, SYMBOL_TRADE_TICK_VALUE);
+      double tz = SymbolInfoDouble(s, SYMBOL_TRADE_TICK_SIZE);
+      if(tz > 0)
+         tot += PositionGetDouble(POSITION_VOLUME) * PositionGetDouble(POSITION_PRICE_OPEN) * tv / tz;
+     }
+   return tot;
+  }
+
+// Total open RISK-to-initial-stop across this-EA positions (account ccy), from tracked gStates.R.
+double BookRiskCcy()
+  {
+   double tot = 0;
+   for(int i = ArraySize(gStates)-1; i >= 0; i--)
+     {
+      if(!PositionSelectByTicket(gStates[i].ticket)) continue;
+      string s = PositionGetString(POSITION_SYMBOL);
+      double tv = SymbolInfoDouble(s, SYMBOL_TRADE_TICK_VALUE);
+      double tz = SymbolInfoDouble(s, SYMBOL_TRADE_TICK_SIZE);
+      if(tz > 0)
+         tot += (gStates[i].R / tz) * tv * PositionGetDouble(POSITION_VOLUME);
+     }
+   return tot;
+  }
+
+// Weekend-flat window: true on FRIDAY within InpWkndFlatMinBefore of this symbol's last Friday session
+// close. Per-symbol (SymbolInfoSessionTrade), so US and JP each flatten at their own close. If the
+// session can't be read we return false (don't force-close at a guessed time).
+bool NearWeekendClose(const string sym)
+  {
+   if(!InpWeekendFlat) return false;
+   MqlDateTime now; TimeToStruct(TimeCurrent(), now);
+   if(now.day_of_week != 5) return false;                 // 0=Sun .. 5=Fri .. 6=Sat
+   datetime a, b; int lastTo = -1;
+   for(int s = 0; s < 8; s++)
+     { if(!SymbolInfoSessionTrade(sym, FRIDAY, (uint)s, a, b)) break; lastTo = (int)b; }
+   if(lastTo <= 0) return false;
+   int secNow = now.hour*3600 + now.min*60 + now.sec;
+   return secNow >= lastTo - InpWkndFlatMinBefore*60;
+  }
+
+//+------------------------------------------------------------------+
 //| Risk-based position sizing                                       |
 //+------------------------------------------------------------------+
 double LotsForRisk(const string sym, double stopDist, double price)
@@ -347,13 +418,35 @@ double LotsForRisk(const string sym, double stopDist, double price)
       maxLotsByNotional = (equity * (notCapPct/100.0)) / notionalPerLot;
       lots = MathMin(lots, maxLotsByNotional);
      }
+   // PORTFOLIO caps (shrink-to-fit) — never let TOTAL open notional/risk across all EA positions exceed
+   // the book budget. Per-position caps miss leverage stacking (several ~100%-notional names at once).
+   if(InpMaxBookNotionalPct > 0 && notionalPerLot > 0)
+     {
+      double freeNot = equity*(InpMaxBookNotionalPct/100.0) - BookNotionalCcy();
+      lots = MathMin(lots, (freeNot > 0 ? freeNot/notionalPerLot : 0.0));
+     }
+   if(InpMaxBookRiskPct > 0 && lossPerLot > 0)
+     {
+      double freeRisk = equity*(InpMaxBookRiskPct/100.0) - BookRiskCcy();
+      lots = MathMin(lots, (freeRisk > 0 ? freeRisk/lossPerLot : 0.0));
+     }
    // clamp to symbol volume constraints + the absolute backstop
    double vmin = SymbolInfoDouble(sym, SYMBOL_VOLUME_MIN);
    double brokerMax = SymbolInfoDouble(sym, SYMBOL_VOLUME_MAX);
    double vmax = MathMin(brokerMax, InpMaxLot);
    double vstep= SymbolInfoDouble(sym, SYMBOL_VOLUME_STEP);
    if(vstep>0) lots = MathFloor(lots/vstep)*vstep;
-   lots = MathMax(vmin, MathMin(vmax, lots));
+   // If the portfolio budget squeezed size below the min lot, DON'T open (vs forcing vmin up, which would
+   // breach the cap). A sub-vmin size from a tight-stop risk target still opens at vmin IF it fits the book.
+   if(lots < vmin)
+     {
+      bool fits = (InpMaxBookNotionalPct <= 0 || BookNotionalCcy() + vmin*notionalPerLot <= equity*(InpMaxBookNotionalPct/100.0))
+               && (InpMaxBookRiskPct     <= 0 || BookRiskCcy()     + vmin*lossPerLot     <= equity*(InpMaxBookRiskPct/100.0));
+      if(!fits)
+        { if(InpVerbose) PrintFormat("skip %s — portfolio cap full (bookNotional=%.0f, bookRisk=%.0f)", sym, BookNotionalCcy(), BookRiskCcy()); return 0.0; }
+      lots = vmin;
+     }
+   lots = MathMin(vmax, lots);
    // Sizing breakdown so it's visible WHICH cap binds (risk target vs the region notional cap vs the
    // broker's own max volume per order). A size far below the risk target with lots==brokerMax means
    // the broker caps that symbol (e.g. many EU/UK stock CFDs max out at 1000 units) — not an EA bug.
