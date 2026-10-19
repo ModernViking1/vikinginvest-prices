@@ -62,20 +62,24 @@ SYMBOLS = {
     'fis': 'FIS.NYSE', 'gm': 'GM.NYSE', 'ice': 'ICE.NYSE', 'nclh': 'NCLH.NYSE', 'snow': 'SNOW.NYSE',
     'bx': 'BX.NYSE', 'kkr': 'KKR.NYSE', 'levi': 'LEVI.NYSE', 'khc': 'KHC.NYSE',
     # dropped 2026-10-15: gty (+0.13R weakest), vsxy (never exported — unvalidated)
-    # DE (.ETR)
-    'dbk': 'DBK.ETR', 'boss': 'BOSS.ETR', 'pah3': 'PAH3.ETR', 'vowg': 'VOWG.ETR',
-    'bayn': 'BAYN.ETR', 'cbk': 'CBK.ETR', 'mbg': 'MBGn.ETR',
-    # UK (.LSE)
-    'barc': 'BARC.LSE', 'ba': 'BA.LSE', 'lse': 'LSE.LSE', 'rr': 'RR.LSE', 'tsco': 'TSCO.LSE',
-    'aml': 'AML.LSE', 'bkg': 'BKG.LSE', 'ezj': 'EZJ.LSE', 'mks': 'MKS.LSE', 'rdsb': 'RDSB.LSE', 'nwg': 'NWG.LSE',
-    # FR (.PAR)
-    'bnp': 'BNP.PAR', 'cap': 'CAP.PAR', 'ca': 'CA.PAR', 'bn': 'BN.PAR', 'cdi': 'CDI.PAR',
-    # JP (.TSE) / HK (.HK) — validated on the 3yr broker export (JP +0.53R, HK +0.24R, both OOS+).
+    # ── Europe + HK CUT from LIVE 2026-10-19 (cross-region demo review, equity_report.py) ──────
+    # The demo record made Europe the ENTIRE book-level loss: NET DE -12.5k, UK -12.6k, FR -5.5k
+    # vs US +13.6k, JP +1.4k (book -15.8k = all EU). Driver is COMMISSION on throttled-tiny
+    # positions: UK median risk 0.004% (~$40) but ~$68 commission/trade, so cost > the whole risk
+    # budget. DE/UK are also negative on GROSS (no price edge, sizing up can't save them); FR is
+    # price-breakeven (+60 gross) but -5.5k on commission alone. HK cut too (live -188, negligible,
+    # despite a marginal +0.24R backtest edge — the live cost structure doesn't support it). Trade
+    # live on US (the engine) + JP (+0.32R live, monitored). Removed names stay in the
+    # export/backtest universe (VikingHistoryExport) for monitoring; re-enable a region only if its
+    # NET (post-commission) turns positive. Open EU/HK positions are left to the EA's trailing exit
+    # (we stop OPENING there, we don't force-close). To re-enable, uncomment the region.
+    # DE (.ETR):  'dbk':'DBK.ETR','boss':'BOSS.ETR','pah3':'PAH3.ETR','vowg':'VOWG.ETR','bayn':'BAYN.ETR','cbk':'CBK.ETR','mbg':'MBGn.ETR',
+    # UK (.LSE):  'barc':'BARC.LSE','ba':'BA.LSE','lse':'LSE.LSE','rr':'RR.LSE','tsco':'TSCO.LSE','aml':'AML.LSE','bkg':'BKG.LSE','ezj':'EZJ.LSE','mks':'MKS.LSE','rdsb':'RDSB.LSE','nwg':'NWG.LSE',
+    # FR (.PAR):  'bnp':'BNP.PAR','cap':'CAP.PAR','ca':'CA.PAR','bn':'BN.PAR','cdi':'CDI.PAR',
+    # HK (.HK):   'hk1288':'1288.HK','hk9898':'9898.HK','hk0003':'0003.HK',
+    # JP (.TSE) — KEPT (live +0.32R net; 3yr export +0.53R, both OOS+).
     'jp7267': '7267.TSE', 'jp8306': '8306.TSE', 'jp7974': '7974.TSE', 'jp6758': '6758.TSE',
-    'hk1288': '1288.HK', 'hk9898': '9898.HK', 'hk0003': '0003.HK',
-    # ES (.MAD) HELD OUT — failed the 3yr validation (pooled -0.027R, OOS1 -0.162; SAN.MAD -0.079R
-    # and the m15 strategies negative there). Still in the export/backtest universe for monitoring;
-    # re-enable only if it turns positive with more data. Do NOT trade live.
+    # ES (.MAD) HELD OUT — failed the 3yr validation. Still in export/backtest only. Do NOT trade live.
     #   'cabk': 'CABK.MAD', 'san': 'SAN.MAD',
 }
 # (tag, timeframe, generator) — identical to the live equity feed's .EQ book.
