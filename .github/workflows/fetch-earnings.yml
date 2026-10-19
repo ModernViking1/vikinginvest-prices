@@ -1,10 +1,10 @@
 name: Fetch Earnings Dates (US equity blackout)
 
-# Populates earnings-dates.json for the US equity universe via TwelveData /earnings.
-# The equity bridge reads this to BLACK OUT new entries in the days before a symbol's
-# earnings (equity_gap_study found earnings-scale gaps blow tight-stop positions far past
-# -1R; the raised US notional cap amplifies the $ hit). Weekly is ample — earnings move
-# slowly and the blackout only needs the next report date per name.
+# Populates earnings-dates.json for the US equity universe via yfinance (Yahoo, KEYLESS —
+# TwelveData /earnings 403s on our plan). The equity bridge reads this to BLACK OUT new
+# entries in the days before a symbol's earnings (equity_gap_study found earnings-scale gaps
+# blow tight-stop positions far past -1R; the raised US notional cap amplifies the $ hit).
+# Weekly is ample — earnings move slowly and the blackout only needs the next report per name.
 
 on:
   schedule:
@@ -23,11 +23,11 @@ jobs:
         with: { fetch-depth: 1 }
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
+      - name: Install deps
+        run: pip install --quiet yfinance
       - name: Guard files present
         run: for f in fetch_earnings.py equity_bridge.py; do [ -f "$f" ] || { echo "::error::$f missing"; exit 1; }; done
       - name: Fetch earnings dates
-        env:
-          TWELVEDATA_API_KEY: ${{ secrets.TD_API_KEY }}
         run: python fetch_earnings.py
       - name: Commit earnings-dates.json (newest-wins)
         run: |

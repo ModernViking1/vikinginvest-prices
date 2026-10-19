@@ -1,25 +1,25 @@
-"""Fetch historical EARNINGS dates for the US equity universe -> earnings-dates.json.
+"""Fetch EARNINGS dates for the US equity universe -> earnings-dates.json.
 
-Single-stock earnings are the biggest per-name event and the one that GAPS through stops.
-equity_gap_study.py already finds earnings-SCALE gaps straight from price (no key needed);
-this fetcher adds the PRECISE earnings calendar so gaps can be labelled earnings-vs-other
-and a flat-before-earnings rule can key off real dates.
+Single-stock earnings are the biggest per-name event and the one that GAPS through stops; the
+bridge blacks out NEW entries in the days before a symbol's next report so we never hold into it.
 
-Uses the TwelveData /earnings endpoint. Needs TWELVEDATA_API_KEY (a GitHub Actions secret —
-not present in the local sandbox), so run it in CI or anywhere the key is set:
+Source: yfinance (Yahoo Finance) — KEYLESS. TwelveData's /earnings endpoint 403s on our plan
+(it's a paid add-on), so this uses Yahoo's per-ticker earnings calendar instead: no API key, no
+secret. Yahoo is unofficial/scraped and rate-limits, so fail-open per symbol (a miss just leaves
+that name un-blacked-out that week). Needs the dep (CI does `pip install yfinance`); Yahoo is
+blocked from the dev sandbox proxy, so validate in CI.
 
-    TWELVEDATA_API_KEY=... python fetch_earnings.py
+    pip install yfinance && python fetch_earnings.py
 
 Writes earnings-dates.json: {generated, source, symbols: {TICKER: ["YYYY-MM-DD", ...]}}.
-Free tier is US-only and rate-limited (8 req/min) — fail-open per symbol.
+We only need the NEXT report per name for a forward blackout; recent past dates are harmless.
 """
 import json, os, sys, time, datetime as dt
-from urllib.parse import urlencode
-from urllib.request import urlopen
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'earnings-dates.json')
-START = '2023-01-01'
+PER_TICKER_LIMIT = 16      # ~4yr of quarterly reports + the next upcoming one
+SLEEP_SEC = 2.0            # polite spacing — Yahoo rate-limits aggressively
 
 
 def _us_tickers():
@@ -28,8 +28,9 @@ def _us_tickers():
     Parse the SYMBOLS dict literal straight out of equity_bridge.py with ast — do NOT import
     the bridge. Importing it drags in the whole MT5/detector stack (detect_triggers hard
     `sys.exit`s if `requests` is missing, and that SystemExit punches through except Exception),
-    which killed every CI run and left the earnings blackout off. ast keeps this fetcher
-    stdlib-only so it runs anywhere the TD key is set."""
+    which killed every CI run and left the earnings blackout off. ast keeps this parse
+    independent of the bridge's runtime deps. The KEY stored per ticker is BRK.B (matches the
+    bridge's _ticker()); fetch_one converts to Yahoo's BRK-B form only for the query."""
     import ast
     syms = []
     try:
@@ -50,42 +51,62 @@ def _us_tickers():
     return sorted(set(out))
 
 
-def fetch_one(ticker, key):
-    end = (dt.date.today() + dt.timedelta(days=1)).isoformat()
-    url = 'https://api.twelvedata.com/earnings?' + urlencode(
-        {'symbol': ticker, 'apikey': key, 'start_date': START, 'end_date': end, 'outputsize': 5000})
-    with urlopen(url, timeout=30) as r:
-        d = json.loads(r.read().decode())
-    if isinstance(d, dict) and d.get('status') == 'error':
-        raise RuntimeError(d.get('message', 'TD error'))
-    rows = d.get('earnings', d if isinstance(d, list) else [])
-    dates = sorted({row['date'] for row in rows if row.get('date')})
-    return dates
+def fetch_one(ticker):
+    """Earnings dates for one ticker via yfinance. Returns sorted ['YYYY-MM-DD', ...] (may be
+    empty). Yahoo uses BRK-B (not BRK.B); convert for the query only. Fail-open: raises on hard
+    failure so the caller can skip, returns [] if the name simply has no calendar."""
+    import yfinance as yf
+    ysym = ticker.replace('.', '-')                   # BRK.B -> BRK-B (Yahoo convention)
+    t = yf.Ticker(ysym)
+    dates = set()
+    try:
+        df = t.get_earnings_dates(limit=PER_TICKER_LIMIT)
+        if df is not None:
+            for idx in df.index:
+                try:
+                    dates.add(idx.strftime('%Y-%m-%d'))
+                except Exception:
+                    continue
+    except Exception:
+        pass
+    if not dates:                                     # fall back to the single upcoming date
+        cal = t.calendar
+        ed = cal.get('Earnings Date') if isinstance(cal, dict) else None
+        for d in (ed if isinstance(ed, (list, tuple)) else ([ed] if ed else [])):
+            try:
+                dates.add(d.strftime('%Y-%m-%d'))
+            except Exception:
+                s = str(d)[:10]
+                if len(s) == 10 and s[4] == '-':
+                    dates.add(s)
+    return sorted(dates)
 
 
 def main():
-    key = os.environ.get('TWELVEDATA_API_KEY', '').strip()
-    if not key:
-        print('::error::TWELVEDATA_API_KEY not set — run in CI or set the key. '
-              '(equity_gap_study.py needs no key and already measures gap risk.)')
-        return 1
     tickers = _us_tickers()
-    print(f"fetching earnings for {len(tickers)} US tickers since {START}...")
+    if not tickers:
+        print('::error::no US tickers parsed from equity_bridge.py — nothing to fetch')
+        return 1
+    print(f"fetching earnings for {len(tickers)} US tickers via yfinance...")
     syms = {}
-    for i, t in enumerate(tickers):
+    for t in tickers:
         try:
-            syms[t] = fetch_one(t, key)
+            syms[t] = fetch_one(t)
             print(f"  {t:<8} {len(syms[t])} dates")
         except Exception as ex:
-            print(f"  {t:<8} skip ({str(ex)[:60]})")
-        time.sleep(8.0)                               # free-tier 8 req/min
+            print(f"  {t:<8} skip ({type(ex).__name__}: {str(ex)[:50]})")
+        time.sleep(SLEEP_SEC)
+    got = {k: v for k, v in syms.items() if v}
     doc = {'generated': dt.datetime.now(dt.timezone.utc).isoformat(),
-           'source': 'twelvedata.com /earnings', 'start': START,
-           'symbols': syms, 'count': sum(len(v) for v in syms.values())}
+           'source': 'yahoo finance (yfinance)',
+           'symbols': got, 'count': sum(len(v) for v in got.values())}
     with open(OUT, 'w') as f:
         json.dump(doc, f, indent=1)
-    print(f"wrote {OUT}: {doc['count']} earnings dates across {len(syms)} tickers")
-    return 0
+    print(f"wrote {OUT}: {doc['count']} earnings dates across {len(got)} tickers")
+    # Guard: don't let an all-Yahoo-failure silently publish an EMPTY calendar that the commit
+    # step would push (leaving the blackout off while looking 'refreshed'). Non-zero so the run
+    # is visibly red and the previous good file (if any) is kept.
+    return 0 if got else 1
 
 
 if __name__ == '__main__':
