@@ -21,7 +21,7 @@
 //|    Attach to ONE chart (any symbol); it manages all .EQ symbols. |
 //+------------------------------------------------------------------+
 #property copyright "Viking Invest"
-#property version   "1.09"
+#property version   "1.10"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -78,6 +78,10 @@ input double InpMaxBookNotionalPct = 150.0;  // PORTFOLIO cap: TOTAL open notion
 input double InpMaxBookRiskPct     = 8.0;    // PORTFOLIO cap: TOTAL open risk-to-initial-stop across all EA
                                              //   positions, % of equity (0=off). Loose ceiling for extremes —
                                              //   the notional cap is the primary brake. Shrink-to-fit. Tune both.
+input int    InpCloseOnlyRetryMin  = 3;      // after a CLOSE_ONLY reject (rc 10044 — symbol in a transient
+                                             //   out-of-session/pre-open/post-close window), back off this many
+                                             //   minutes per symbol then retry. The signal is KEPT (not dropped)
+                                             //   so it fills on reopen while still within its max-age window.
 
 CTrade        trade;
 CPositionInfo pos;
@@ -85,6 +89,10 @@ CPositionInfo pos;
 // per-ticket trail state (rebuilt on init from open EA positions)
 struct TrailState { ulong ticket; double entry; double initStop; double R; int dir; bool armed; double best; datetime expiry; };
 TrailState gStates[];
+// per-symbol close-only backoff (rc 10044): retry-after timestamps so a transient out-of-session
+// window doesn't make us re-send every poll, while the signal stays alive to fill on reopen.
+string   gCoSym[];
+datetime gCoUntil[];
 string      gActed[];          // signal ids already acted this session (dedup)
 string      gActedFile = "viking_equity_acted.csv";
 string      gOpenLedger = "equity_trades_open.csv";   // ticket->entry/SL so WR/RR can be computed
@@ -246,6 +254,7 @@ void ProcessSignal(const string obj)
    if(!SymbolSelect(sym, true)) { PrintFormat("skip %s — symbol %s not in Market Watch", id, sym); return; }
    if((ENUM_SYMBOL_TRADE_MODE)SymbolInfoInteger(sym, SYMBOL_TRADE_MODE)==SYMBOL_TRADE_MODE_DISABLED) return;
    if(NearWeekendClose(sym)) { if(InpVerbose) PrintFormat("skip %s — weekend-flat window (no new entry before the weekend)", id); return; }
+   if(InCloseOnlyCooldown(sym)) return;   // backing off after a recent close-only (10044) reject on this symbol
 
    int dir = (dirS=="bull") ? 1 : -1;
    if(MathAbs(entry - stop) <= 0) return;
@@ -495,14 +504,31 @@ int PendingCountForSymbol(const string sym)
      }
    return c;
   }
+bool InCloseOnlyCooldown(const string sym)
+  {
+   for(int i=0;i<ArraySize(gCoSym);i++) if(gCoSym[i]==sym) return (TimeCurrent() < gCoUntil[i]);
+   return false;
+  }
+void SetCloseOnlyCooldown(const string sym)
+  {
+   for(int i=0;i<ArraySize(gCoSym);i++)
+      if(gCoSym[i]==sym) { gCoUntil[i]=TimeCurrent()+InpCloseOnlyRetryMin*60; return; }
+   int n=ArraySize(gCoSym); ArrayResize(gCoSym,n+1); ArrayResize(gCoUntil,n+1);
+   gCoSym[n]=sym; gCoUntil[n]=TimeCurrent()+InpCloseOnlyRetryMin*60;
+  }
+
 void HandleOrderFail(const string id, const string sym, const string dirS)
   {
    int rc=(int)trade.ResultRetcode();
    PrintFormat("ORDER FAIL %s %s: %d %s", sym, dirS, rc, trade.ResultRetcodeDescription());
-   // structural rejects that won't clear by re-sending THIS signal -> mark acted, stop hammering.
-   if(rc==TRADE_RETCODE_CLOSE_ONLY || rc==TRADE_RETCODE_LONG_ONLY || rc==TRADE_RETCODE_SHORT_ONLY ||
-      rc==TRADE_RETCODE_TRADE_DISABLED)
-     { MarkActed(id); PrintFormat("  -> %s %s not openable now (rc %d); skipping this signal", sym, dirS, rc); }
+   // CLOSE_ONLY (rc 10044) is TRANSIENT — the symbol only allows closing right now (out-of-session /
+   // pre-open / post-close). Do NOT mark acted: keep the signal so it RETRIES and fills on reopen while
+   // still within max_age. Back off per symbol so we don't re-send every poll.
+   if(rc==TRADE_RETCODE_CLOSE_ONLY)
+     { SetCloseOnlyCooldown(sym); PrintFormat("  -> %s close-only now (rc %d); backing off %dm, will retry while fresh", sym, rc, InpCloseOnlyRetryMin); return; }
+   // STRUCTURAL rejects that won't clear for THIS signal's direction -> mark acted, stop hammering.
+   if(rc==TRADE_RETCODE_LONG_ONLY || rc==TRADE_RETCODE_SHORT_ONLY || rc==TRADE_RETCODE_TRADE_DISABLED)
+     { MarkActed(id); PrintFormat("  -> %s %s not openable (rc %d); skipping this signal", sym, dirS, rc); }
   }
 // Adopt any open EA position not yet tracked (e.g. a LIMIT entry that just filled) so the trailing
 // runner manages it. Reconstructs R from the position's SL and logs it to the ledger via its comment.
