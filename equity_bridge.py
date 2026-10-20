@@ -396,6 +396,56 @@ ALERTED = 'equity-alerted.json'            # local: tickets already alerted on e
 # Telegram trade alerts are SCOPED (user 2026-10-20): swing/intraday alerts are off; the equity bridge
 # alerts only these strategies. None = all. Set in main() from --alert-strats (default 'ma_pull_eq').
 ALERT_STRATS = {'ma_pull_eq'}
+SL_STATE = 'equity-sl-state.json'          # local: last-seen SL per open ticket (trailing-move alert dedup)
+
+
+def _alert_sl_moves(mt5, out_dir, tg_token, tg_chat):
+    """Telegram when a position's stop LOSS moves to a new price while STILL OPEN (the trailing stop
+    ratcheting) — scoped to ALERT_STRATS, with the previous -> new SL. Compares each open EA position's
+    live SL to the last seen; seeds silently on first run so it never backfills. Fail-open."""
+    path = os.path.join(out_dir, SL_STATE)
+    try:
+        prev = json.load(open(path)); seeded = True
+    except Exception:
+        prev, seeded = {}, False
+    if not isinstance(prev, dict):
+        prev = {}
+    cur = {}
+    try:
+        positions = mt5.positions_get() or []
+    except Exception:
+        positions = []
+    for p in positions:
+        if getattr(p, 'magic', 0) != MAGIC:
+            continue
+        tk = str(p.ticket)
+        sl = float(getattr(p, 'sl', 0) or 0)
+        cur[tk] = sl                                   # track every EA position (so a later scope change can't backfill)
+        comment = getattr(p, 'comment', '') or ''
+        strat = comment.split(':')[0] if ':' in comment else '?'
+        if ALERT_STRATS is not None and strat not in ALERT_STRATS:
+            continue
+        if not (seeded and tg_token):
+            continue
+        old = prev.get(tk)
+        if old is None or old == 0 or sl == 0 or abs(sl - old) < 1e-9:
+            continue
+        sym = getattr(p, 'symbol', '?')
+        side = 'SELL' if getattr(p, 'type', 0) == 1 else 'BUY'
+        dg = 5
+        try:
+            dg = int(mt5.symbol_info(sym).digits)
+        except Exception:
+            pass
+        # a trail ratchets the stop TOWARD price (up for a long, down for a short) = locking in more
+        locks = (sl > old) if side == 'BUY' else (sl < old)
+        arrow = '🔒' if locks else '🔸'
+        _tg(f"{arrow} <b>SL moved · {strat}</b>\n{sym} {side}  SL {old:.{dg}f} → <b>{sl:.{dg}f}</b>",
+            tg_token, tg_chat)
+    try:
+        json.dump(cur, open(path, 'w'))               # cur only -> closed tickets drop out automatically
+    except Exception:
+        pass
 
 
 def _alert_new_entries(out_dir, ledger, tg_token, tg_chat):
@@ -657,6 +707,10 @@ def main():
                                    args.tg_token, args.tg_chat)
             except Exception as e:
                 print(f"::warning:: entry alert failed ({e})", flush=True)
+            try:
+                _alert_sl_moves(mt5, out_dir, args.tg_token, args.tg_chat)   # trailing-stop MOVED alert (prev->new SL)
+            except Exception as e:
+                print(f"::warning:: SL-move alert failed ({e})", flush=True)
             try:
                 nx = write_executions(mt5, out_dir)
                 print(f"           executions log: {nx} closed trade(s)", flush=True)
