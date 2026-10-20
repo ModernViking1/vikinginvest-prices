@@ -387,6 +387,9 @@ def _tg(msg, token, chat):
 
 
 ALERTED = 'equity-alerted.json'            # local: tickets already alerted on entry (dedup across cycles)
+# Telegram trade alerts are SCOPED (user 2026-10-20): swing/intraday alerts are off; the equity bridge
+# alerts only these strategies. None = all. Set in main() from --alert-strats (default 'ma_pull_eq').
+ALERT_STRATS = {'ma_pull_eq'}
 
 
 def _alert_new_entries(out_dir, ledger, tg_token, tg_chat):
@@ -402,6 +405,8 @@ def _alert_new_entries(out_dir, ledger, tg_token, tg_chat):
     if seeded and tg_token:
         for tk, p in sorted(new, key=lambda kv: kv[1].get('open_ms', 0)):
             strat = (p.get('id', '') or '').split(':')[0] or '?'
+            if ALERT_STRATS is not None and strat not in ALERT_STRATS:
+                continue                       # scoped out (e.g. only ma_pull_eq alerts) — still deduped below
             side = 'SELL' if p.get('dir', 1) < 0 else 'BUY'
             oms = p.get('open_ms')
             ttxt = (f"\n🕒 opened {_uklocal(oms)} UK" if isinstance(oms, (int, float)) else "")
@@ -440,6 +445,8 @@ def _alert_new_closes(out_dir, tg_token, tg_chat):
             new.append(e)
     if seeded and tg_token:
         for e in sorted(new, key=lambda x: x.get('closed_ms', 0)):
+            if ALERT_STRATS is not None and e.get('strategy') not in ALERT_STRATS:
+                continue                       # scoped out — still deduped below
             r = e.get('realized_r'); pnl = e.get('profit_ccy')
             side = 'SELL' if e.get('dir') == 'bear' else 'BUY'
             emoji = '✅' if (isinstance(r, (int, float)) and r > 0) else ('❌' if isinstance(r, (int, float)) else '➖')
@@ -547,8 +554,14 @@ def main():
                     help='Telegram bot token for entry alerts (falls back to TELEGRAM_BOT_TOKEN env). Optional.')
     ap.add_argument('--tg-chat', default=os.environ.get('TELEGRAM_CHAT_ID', ''),
                     help='Telegram chat id for entry alerts (falls back to TELEGRAM_CHAT_ID env). Optional.')
+    ap.add_argument('--alert-strats', default=os.environ.get('EQ_ALERT_STRATS', 'ma_pull_eq'),
+                    help='comma list of equity strategies to Telegram-alert on (entry+exit). Default '
+                         '"ma_pull_eq". "all" alerts every strategy. Expand as strategies qualify.')
     args = ap.parse_args()
     demo = args.demo != '0'
+    global ALERT_STRATS
+    _as = (args.alert_strats or '').strip().lower()
+    ALERT_STRATS = None if _as in ('', 'all', '*') else set(s.strip() for s in args.alert_strats.split(',') if s.strip())
 
     try:
         import MetaTrader5 as mt5
@@ -569,7 +582,8 @@ def main():
         print("  NOTE: account is not demo — the EA's demo guard will still block live fills.", flush=True)
     print(f"  watchdog heartbeat: {'ON -> ' + args.gh_repo if args.gh_token else 'OFF (set --gh-token or GH_TOKEN to enable)'}", flush=True)
     print(f"  executions push:    {'ON -> ' + args.gh_repo if args.gh_token else 'OFF (needs --gh-token/GH_TOKEN)'}", flush=True)
-    print(f"  entry+exit alerts:  {'ON (Telegram)' if (args.tg_token and args.tg_chat) else 'OFF (set --tg-token/--tg-chat or TELEGRAM_* env)'}", flush=True)
+    _alert_scope = ('ALL strategies' if ALERT_STRATS is None else ', '.join(sorted(ALERT_STRATS)))
+    print(f"  entry+exit alerts:  {('ON (Telegram) — ' + _alert_scope) if (args.tg_token and args.tg_chat) else 'OFF (set --tg-token/--tg-chat or TELEGRAM_* env)'}", flush=True)
     print(f"  trend filter:       {'ON (SMA' + str(H.TREND_SMA) + ' alignment)' if hasattr(H, 'trend_filter_signals') else 'OFF (old code — git pull)'}", flush=True)
     # Active equity strategy set (also a code-version indicator: if fib_eq is listed you're on the
     # trend-gated golden-zone build; if it's absent the clone is stale — git pull + restart).

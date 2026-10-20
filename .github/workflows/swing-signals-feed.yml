@@ -119,7 +119,11 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python cam_rev_alert.py --prev /tmp/swing-prev.json --cur swing-signals.json || echo "cam_rev_alert failed (fail-open)"
+        # Swing Telegram trade alerts DISABLED per user 2026-10-20 — only equity (ma_pull_eq, +
+        # other equity strategies if they qualify) alert now. Feed generation above is untouched;
+        # only the Telegram send is off. Re-enable by restoring the python call.
+        run: echo "cam_rev_alert skipped (swing Telegram trade alerts disabled per user 2026-10-20)"
+        # run: python cam_rev_alert.py --prev /tmp/swing-prev.json --cur swing-signals.json || echo "cam_rev_alert failed (fail-open)"
 
       # Drop the transient tail freshening (H1 + daily + m15 all splice into this one file) so
       # the working tree is clean: the commit step stages ONLY swing-signals.json, and a dirty
