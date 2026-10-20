@@ -214,7 +214,13 @@ def write_executions(mt5, out_dir, days=120):
         strat = sid.split(':')[0] if (sid and sid.count(':') >= 2) else 'unknown'
         if not sid:
             sid = str(pid)
-        execs.append({'id': sid, 'strategy': strat,
+        # Exit reason of the final closing deal — so the alert can say WHY it closed (a trailing-stop
+        # hit = DEAL_REASON_SL, vs an EA-driven horizon/backstop/weekend close = DEAL_REASON_EXPERT).
+        _rc = int(getattr(outs[-1], 'reason', -1))
+        _rmap = {getattr(mt5, 'DEAL_REASON_SL', 4): 'sl', getattr(mt5, 'DEAL_REASON_SO', 6): 'so',
+                 getattr(mt5, 'DEAL_REASON_TP', 5): 'tp', getattr(mt5, 'DEAL_REASON_EXPERT', 3): 'expert'}
+        exit_reason = _rmap.get(_rc, 'other')
+        execs.append({'id': sid, 'strategy': strat, 'exit_reason': exit_reason,
                       'sym': (info['sym'] if info else dl[0].symbol),
                       'dir': ('bull' if dirn > 0 else 'bear'),
                       'entry': entry, 'exit': exit_px, 'init_sl': sl,
@@ -452,12 +458,21 @@ def _alert_new_closes(out_dir, tg_token, tg_chat):
             emoji = '✅' if (isinstance(r, (int, float)) and r > 0) else ('❌' if isinstance(r, (int, float)) else '➖')
             rtxt = f"{r:+.2f}R" if isinstance(r, (int, float)) else "—"
             pnltxt = f" · {pnl:+.2f}" if isinstance(pnl, (int, float)) else ""
+            # WHY it closed — a trailing-stop hit (DEAL_REASON_SL that locked profit) vs an EA-driven
+            # close. 'sl' with R>0 = the runner's trailing stop triggered in profit (what the user wants
+            # flagged); 'sl' with R<=0 = the initial/giveback stop; 'expert' = horizon/backstop/weekend.
+            _rsn = e.get('exit_reason', 'other')
+            if _rsn == 'sl':       why = 'trailing-stop 🎯' if (isinstance(r, (int, float)) and r > 0) else 'stop-loss 🛑'
+            elif _rsn == 'so':     why = 'margin stop-out ⚠'
+            elif _rsn == 'expert': why = 'EA close (horizon/backstop/weekend)'
+            elif _rsn == 'tp':     why = 'take-profit'
+            else:                  why = 'closed'
             # stamp the actual fill time (UTC) so it reads unambiguously vs the phone's local
             # Telegram delivery time — the two differ by the phone's UTC offset, not a real delay.
             cms = e.get('closed_ms')
             ttxt = (f"\n🕒 closed {_uklocal(cms)} UK" if isinstance(cms, (int, float)) else "")
             _tg(f"{emoji} <b>Equity EXIT · {e.get('strategy','?')}</b>\n{e.get('sym','?')} {side} closed "
-                f"<b>{rtxt}</b>{pnltxt}\nentry {e.get('entry','?')} → exit {e.get('exit','?')}{ttxt}", tg_token, tg_chat)
+                f"<b>{rtxt}</b>{pnltxt} · {why}\nentry {e.get('entry','?')} → exit {e.get('exit','?')}{ttxt}", tg_token, tg_chat)
     try:
         json.dump({'keys': sorted(set(keys))}, open(path, 'w'))
     except Exception:
