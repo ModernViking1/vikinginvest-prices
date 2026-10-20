@@ -557,6 +557,10 @@ def main():
     ap.add_argument('--alert-strats', default=os.environ.get('EQ_ALERT_STRATS', 'ma_pull_eq'),
                     help='comma list of equity strategies to Telegram-alert on (entry+exit). Default '
                          '"ma_pull_eq". "all" alerts every strategy. Expand as strategies qualify.')
+    ap.add_argument('--alert-poll', type=int, default=120,
+                    help='seconds between the FAST alert/executions/push sub-cycle (default 120 = 2 min). '
+                         'Signal GENERATION still runs every --poll; this keeps Telegram alerts + the '
+                         'executions log near-real-time without re-fetching all bars. Set >= --poll to disable.')
     args = ap.parse_args()
     demo = args.demo != '0'
     global ALERT_STRATS
@@ -583,7 +587,10 @@ def main():
     print(f"  watchdog heartbeat: {'ON -> ' + args.gh_repo if args.gh_token else 'OFF (set --gh-token or GH_TOKEN to enable)'}", flush=True)
     print(f"  executions push:    {'ON -> ' + args.gh_repo if args.gh_token else 'OFF (needs --gh-token/GH_TOKEN)'}", flush=True)
     _alert_scope = ('ALL strategies' if ALERT_STRATS is None else ', '.join(sorted(ALERT_STRATS)))
-    print(f"  entry+exit alerts:  {('ON (Telegram) — ' + _alert_scope) if (args.tg_token and args.tg_chat) else 'OFF (set --tg-token/--tg-chat or TELEGRAM_* env)'}", flush=True)
+    _apoll = args.alert_poll if (0 < args.alert_poll < args.poll) else args.poll
+    _alert_desc = (f"ON (Telegram) — {_alert_scope}, every {_apoll}s" if (args.tg_token and args.tg_chat)
+                   else 'OFF (set --tg-token/--tg-chat or TELEGRAM_* env)')
+    print(f"  entry+exit alerts:  {_alert_desc}", flush=True)
     print(f"  trend filter:       {'ON (SMA' + str(H.TREND_SMA) + ' alignment)' if hasattr(H, 'trend_filter_signals') else 'OFF (old code — git pull)'}", flush=True)
     # Active equity strategy set (also a code-version indicator: if fib_eq is listed you're on the
     # trend-gated golden-zone build; if it's absent the clone is stale — git pull + restart).
@@ -605,39 +612,44 @@ def main():
         _eb = "ON but no earnings-dates.json loaded — run fetch_earnings.py in CI"
     print(f"  earnings blackout:  {_eb}", flush=True)
 
+    # Two cadences: HEAVY signal generation every --poll; a FAST alert/executions/push sub-cycle every
+    # _apoll so Telegram alerts + the executions log stay near-real-time without re-fetching all bars
+    # each tick. _apoll == --poll (when --alert-poll is >= --poll) collapses to the legacy single cycle.
+    last_sig = 0.0
     try:
         while True:
+            cyc = time.time()
+            if cyc - last_sig >= args.poll:        # HEAVY: regenerate the signal feed (all symbols x TFs)
+                try:
+                    doc = build_doc(mt5, args.bars, demo)
+                    tmp = out_path + '.tmp'
+                    with open(tmp, 'w', encoding='utf-8') as f:
+                        json.dump(doc, f, separators=(',', ':'))
+                    os.replace(tmp, out_path)
+                    n = doc['counts']['emitted']
+                    print(f"{dt.datetime.now():%H:%M:%S} wrote {n} signal(s)"
+                          + (": " + ", ".join(f"{s['sym']}/{s['strategy']} {s['dir']}" for s in doc['signals']) if n else ""),
+                          flush=True)
+                    # Liveness heartbeat so the watchdog can see MT5/the bridge is up (server-side).
+                    _heartbeat(args.gh_token, args.gh_repo, getattr(acct, 'login', '?'), n)
+                except Exception as e:
+                    print(f"::warning:: build cycle failed ({e}) — retrying next poll", flush=True)
+                last_sig = cyc
+            # FAST: entry/exit alerts + executions log + push — cheap vs bar-fetching, so run every _apoll
+            # to keep alerts near-real-time (bounded latency = _apoll, not --poll).
             try:
-                doc = build_doc(mt5, args.bars, demo)
-                tmp = out_path + '.tmp'
-                with open(tmp, 'w', encoding='utf-8') as f:
-                    json.dump(doc, f, separators=(',', ':'))
-                os.replace(tmp, out_path)
-                n = doc['counts']['emitted']
-                print(f"{dt.datetime.now():%H:%M:%S} wrote {n} signal(s)"
-                      + (": " + ", ".join(f"{s['sym']}/{s['strategy']} {s['dir']}" for s in doc['signals']) if n else ""),
-                      flush=True)
-                # Telegram one alert per NEW entry the EA opened this cycle (mirrors swing/intraday).
-                try:
-                    _alert_new_entries(out_dir, _load_ledger(os.path.join(out_dir, LEDGER)),
-                                       args.tg_token, args.tg_chat)
-                except Exception as e:
-                    print(f"::warning:: entry alert failed ({e})", flush=True)
-                try:
-                    nx = write_executions(mt5, out_dir)
-                    print(f"           executions log: {nx} closed trade(s)", flush=True)
-                    # Telegram one alert per NEW close (strategy, side, realised R, P&L).
-                    _alert_new_closes(out_dir, args.tg_token, args.tg_chat)
-                    # Publish the per-strategy win/loss record to the repo (on change) — server-visible
-                    # + auto-refreshes the dashboard via live-book.yml.
-                    _push_executions(args.gh_repo, args.gh_token, out_dir)
-                except Exception as e:
-                    print(f"::warning:: executions log/push failed ({e})", flush=True)
-                # Liveness heartbeat so the watchdog can see MT5/the bridge is up (server-side).
-                _heartbeat(args.gh_token, args.gh_repo, getattr(acct, 'login', '?'), n)
+                _alert_new_entries(out_dir, _load_ledger(os.path.join(out_dir, LEDGER)),
+                                   args.tg_token, args.tg_chat)
             except Exception as e:
-                print(f"::warning:: build cycle failed ({e}) — retrying next poll", flush=True)
-            time.sleep(args.poll)
+                print(f"::warning:: entry alert failed ({e})", flush=True)
+            try:
+                nx = write_executions(mt5, out_dir)
+                print(f"           executions log: {nx} closed trade(s)", flush=True)
+                _alert_new_closes(out_dir, args.tg_token, args.tg_chat)
+                _push_executions(args.gh_repo, args.gh_token, out_dir)
+            except Exception as e:
+                print(f"::warning:: executions log/push failed ({e})", flush=True)
+            time.sleep(_apoll)
     except KeyboardInterrupt:
         print("stopping", flush=True)
     finally:
