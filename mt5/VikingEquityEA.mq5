@@ -21,7 +21,7 @@
 //|    Attach to ONE chart (any symbol); it manages all .EQ symbols. |
 //+------------------------------------------------------------------+
 #property copyright "Viking Invest"
-#property version   "1.10"
+#property version   "1.11"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -72,12 +72,13 @@ input bool   InpWeekendFlat        = true;   // close EA positions before the we
                                              //   the Fri->Mon gap is -0.043R / 54% adverse; a flat-before-weekend
                                              //   rule ~2x's the book's expectancy (+0.013 vs +0.006R).
 input int    InpWkndFlatMinBefore  = 10;     // flatten this many minutes before a symbol's FRIDAY session close
-input double InpMaxBookNotionalPct = 150.0;  // PORTFOLIO cap: TOTAL open notional across ALL EA positions, % of
-                                             //   equity (0=off). Per-position caps miss leverage STACKING — e.g.
-                                             //   LLY+BLK each ~100% notional reached ~285% combined. Shrink-to-fit.
-input double InpMaxBookRiskPct     = 8.0;    // PORTFOLIO cap: TOTAL open risk-to-initial-stop across all EA
-                                             //   positions, % of equity (0=off). Loose ceiling for extremes —
-                                             //   the notional cap is the primary brake. Shrink-to-fit. Tune both.
+// PORTFOLIO caps DISABLED for demo full-strategy testing (user 2026-10-20): at 1000-units/symbol the
+// high-priced names (LLY/BLK/MA …) stack to ~300% notional, so a 150% cap blocked ~all new entries
+// incl. ma_pull_eq. On demo the only cost of high leverage is bigger P&L swings (= more test data),
+// and the per-position 4% backstop + weekend-flat still apply. *** RE-ENABLE BEFORE ANY LIVE FUNDING ***
+// (notional ~150%, risk ~8%) — leverage stacking is a real risk on live capital. Shrink-to-fit when >0.
+input double InpMaxBookNotionalPct = 0.0;    // PORTFOLIO cap: TOTAL open notional, % equity (0=OFF; set ~150 live)
+input double InpMaxBookRiskPct     = 0.0;    // PORTFOLIO cap: TOTAL open risk-to-stop, % equity (0=OFF; set ~8 live)
 input int    InpCloseOnlyRetryMin  = 3;      // after a CLOSE_ONLY reject (rc 10044 — symbol in a transient
                                              //   out-of-session/pre-open/post-close window), back off this many
                                              //   minutes per symbol then retry. The signal is KEPT (not dropped)
