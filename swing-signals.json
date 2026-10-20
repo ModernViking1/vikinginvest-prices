@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-10-20T11:00:00+00:00",
  "data_end_ts": 1792494000,
- "raw_signal_count": 26,
- "count": 22,
+ "raw_signal_count": 23,
+ "count": 19,
  "signals": [
   {
    "id": "gbreak:xauusd:1792490400:t1",
@@ -272,34 +272,6 @@
    "suppressed": 0
   },
   {
-   "id": "holygrail_cm_m15:natgas:1792476900",
-   "strategy": "holygrail_cm_m15",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "natgas",
-   "symbol": "NATGAS",
-   "class": "comm",
-   "dir": "bear",
-   "stop": 2.98667143,
-   "ref_entry": 2.974,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1792476900,
-   "created_ts": 1792494000,
-   "expiry_ts": 1792520100,
-   "state": "triggered",
-   "cofire": [
-    "holygrail_cm_m15"
-   ],
-   "cofire_dirs": [
-    "holygrail_cm_m15:bear"
-   ],
-   "suppressed": 0
-  },
-  {
    "id": "volbreak:lighterusd:1792468800",
    "strategy": "volbreak",
    "regime": null,
@@ -384,32 +356,34 @@
    "suppressed": 0
   },
   {
-   "id": "fibgz_t:xagusd:1792450800",
+   "id": "fibgz_t:natgas:1792454400",
    "strategy": "fibgz_t",
    "regime": null,
    "risk_mult": 1.0,
-   "pair": "xagusd",
-   "symbol": "XAGUSD",
+   "pair": "natgas",
+   "symbol": "NATGAS",
    "class": "comm",
-   "dir": "bear",
-   "stop": 57.89071654,
-   "ref_entry": 56.9035,
+   "dir": "bull",
+   "stop": 2.87128057,
+   "ref_entry": 3.002,
    "pivot": null,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "limit",
    "demo_only": false,
-   "trigger_ts": 1792450800,
+   "trigger_ts": 1792454400,
    "created_ts": 1792494000,
-   "expiry_ts": 1792494000,
+   "expiry_ts": 1792497600,
    "state": "triggered",
    "cofire": [
-    "fibgz_t"
+    "fibgz_t",
+    "holygrail_cm_m15"
    ],
    "cofire_dirs": [
-    "fibgz_t:bear"
+    "fibgz_t:bull",
+    "holygrail_cm_m15:bear"
    ],
-   "suppressed": 0
+   "suppressed": 1
   },
   {
    "id": "fibgz_t:nzdusd:1792443600",
@@ -552,90 +526,32 @@
    "suppressed": 0
   },
   {
-   "id": "engulf_manip:nearusd:1792407600",
-   "strategy": "engulf_manip",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "nearusd",
-   "symbol": "NEARUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 5.14980857,
-   "ref_entry": 4.9917,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1792407600,
-   "created_ts": 1792494000,
-   "expiry_ts": 1792450800,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "engulf_manip:taousd:1792407600",
-   "strategy": "engulf_manip",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "taousd",
-   "symbol": "TAOUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 276.339,
-   "ref_entry": 270.0,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1792407600,
-   "created_ts": 1792494000,
-   "expiry_ts": 1792450800,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "engulf_manip:xrpusd:1792407600",
-   "strategy": "engulf_manip",
+   "id": "mmove:xrpusd:1792422000",
+   "strategy": "mmove",
    "regime": null,
    "risk_mult": 1.0,
    "pair": "xrpusd",
    "symbol": "XRPUSD",
    "class": "crypto",
-   "dir": "bear",
-   "stop": 1.322125,
-   "ref_entry": 1.3033,
+   "dir": "bull",
+   "stop": 1.27397143,
+   "ref_entry": 1.3037,
    "pivot": null,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "limit",
    "demo_only": false,
-   "trigger_ts": 1792407600,
+   "trigger_ts": 1792422000,
    "created_ts": 1792494000,
-   "expiry_ts": 1792450800,
+   "expiry_ts": 1792465200,
    "state": "triggered",
    "cofire": [
-    "engulf_manip",
     "mmove"
    ],
    "cofire_dirs": [
-    "engulf_manip:bear",
     "mmove:bull"
    ],
-   "suppressed": 1
+   "suppressed": 0
   }
  ]
 }
