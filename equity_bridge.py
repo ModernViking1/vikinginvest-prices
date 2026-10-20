@@ -545,31 +545,29 @@ def _alert_new_closes(out_dir, tg_token, tg_chat):
         pass
 
 
-def _push_executions(repo, token, out_dir):
-    """Push equity-executions.json to the repo (GitHub contents API) when it CHANGES, so the
-    per-strategy win/loss record is visible server-side and auto-refreshes the dashboard. Fail-open."""
+def _push_file(repo, token, out_dir, fname, commit_msg):
+    """Push a bridge data file to the repo (GitHub contents API) when it CHANGES, with 409-retry.
+    Server-visible + auto-refreshes the dashboard. Fail-open."""
     if not token or not repo:
         return
-    import base64, hashlib, urllib.request
-    src = os.path.join(out_dir, 'equity-executions.json')
+    import base64, hashlib, urllib.request, urllib.error
+    src = os.path.join(out_dir, fname)
     if not os.path.exists(src):
         return
     content = open(src, 'rb').read()
-    stamp = os.path.join(out_dir, '.eqexec-pushed')
+    stamp = os.path.join(out_dir, '.' + fname + '.pushed')
     h = hashlib.sha256(content).hexdigest()
     try:
         if open(stamp).read().strip() == h:
             return                                  # unchanged since last push — skip
     except Exception:
         pass
-    import urllib.error
-    api = f"https://api.github.com/repos/{repo}/contents/equity-executions.json"
+    api = f"https://api.github.com/repos/{repo}/contents/{fname}"
     hdr = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
            "User-Agent": "viking-equity-bridge"}
     b64 = base64.b64encode(content).decode()
     # Retry on 409: the contents API conflicts when the file's SHA goes stale between our GET and
-    # PUT — a race with main's frequent data commits (and our own prior push). Re-fetch the fresh
-    # SHA and PUT again a few times before giving up (next poll would otherwise re-push anyway).
+    # PUT — a race with main's frequent data commits (and our own prior push). Re-fetch + PUT again.
     for attempt in range(4):
         sha = None
         try:
@@ -578,24 +576,70 @@ def _push_executions(repo, token, out_dir):
                 sha = json.load(r).get("sha")
         except Exception:
             sha = None                              # file may not exist yet — first push creates it
-        body = {"message": "data: equity executions (bridge) [skip ci]", "content": b64, "branch": "main"}
+        body = {"message": commit_msg, "content": b64, "branch": "main"}
         if sha:
             body["sha"] = sha
         try:
             req = urllib.request.Request(api, data=json.dumps(body).encode(), method="PUT", headers=hdr)
             urllib.request.urlopen(req, timeout=15)
             open(stamp, 'w').write(h)
-            print("           pushed equity-executions.json", flush=True)
+            print(f"           pushed {fname}", flush=True)
             return
         except urllib.error.HTTPError as e:
             if e.code == 409 and attempt < 3:
                 time.sleep(1.5 * (attempt + 1))     # stale SHA / concurrent write — refetch + retry
                 continue
-            print(f"::warning:: equity-executions push failed (HTTP Error {e.code}: {e.reason})", flush=True)
+            print(f"::warning:: {fname} push failed (HTTP Error {e.code}: {e.reason})", flush=True)
             return
         except Exception as e:
-            print(f"::warning:: equity-executions push failed ({e})", flush=True)
+            print(f"::warning:: {fname} push failed ({e})", flush=True)
             return
+
+
+def _push_executions(repo, token, out_dir):
+    _push_file(repo, token, out_dir, 'equity-executions.json', "data: equity executions (bridge) [skip ci]")
+
+
+def write_open_positions(mt5, out_dir):
+    """Snapshot the OPEN EA positions with live floating P&L + strategy, so the open book is visible
+    server-side (pushed like executions). Floating R uses the ledger's initial stop. Returns count."""
+    ledger = _load_ledger(os.path.join(out_dir, LEDGER))
+    try:
+        positions = mt5.positions_get() or []
+    except Exception:
+        positions = []
+    now = dt.datetime.now(dt.timezone.utc)
+    rows = []
+    for p in positions:
+        if getattr(p, 'magic', 0) != MAGIC:
+            continue
+        sym = getattr(p, 'symbol', '?')
+        entry = float(getattr(p, 'price_open', 0) or 0)
+        cur = float(getattr(p, 'price_current', 0) or 0)
+        dirn = 1 if getattr(p, 'type', 0) == 0 else -1          # POSITION_TYPE_BUY = 0
+        comment = getattr(p, 'comment', '') or ''
+        strat = comment.split(':')[0] if ':' in comment else 'unknown'
+        info = ledger.get(int(getattr(p, 'ticket', 0)))
+        R = abs(info['entry'] - info['sl']) if info else 0.0
+        rmult = (((cur - entry) if dirn > 0 else (entry - cur)) / R) if R > 0 else None
+        rows.append({'ticket': int(p.ticket), 'strategy': strat, 'sym': sym,
+                     'dir': 'bull' if dirn > 0 else 'bear', 'entry': entry, 'price': cur,
+                     'sl': round(float(getattr(p, 'sl', 0) or 0), 5), 'lots': float(getattr(p, 'volume', 0) or 0),
+                     'float_r': (round(rmult, 3) if rmult is not None else None),
+                     'float_ccy': round(float(getattr(p, 'profit', 0) or 0) + float(getattr(p, 'swap', 0) or 0), 2),
+                     'open_ms': int(getattr(p, 'time', 0)) * 1000})
+    bys = {}
+    for r in rows:
+        s = bys.setdefault(r['strategy'], {'n': 0, 'long': 0, 'short': 0, 'float_ccy': 0.0})
+        s['n'] += 1; s['float_ccy'] += r['float_ccy']; s['long' if r['dir'] == 'bull' else 'short'] += 1
+    for s in bys.values():
+        s['float_ccy'] = round(s['float_ccy'], 2)
+    doc = {'generated': now.isoformat(), 'generated_ms': int(now.timestamp() * 1000), 'source': 'mt5-bridge',
+           'magic': MAGIC, 'count': len(rows), 'total_float_ccy': round(sum(r['float_ccy'] for r in rows), 2),
+           'by_strategy': bys, 'positions': rows}
+    with open(os.path.join(out_dir, 'equity-open.json'), 'w', encoding='utf-8') as f:
+        json.dump(doc, f, separators=(',', ':'))
+    return len(rows)
 
 
 def _heartbeat(token, repo, acct, emitted):
@@ -728,6 +772,13 @@ def main():
                     _heartbeat(args.gh_token, args.gh_repo, getattr(acct, 'login', '?'), n)
                 except Exception as e:
                     print(f"::warning:: build cycle failed ({e}) — retrying next poll", flush=True)
+                try:
+                    no = write_open_positions(mt5, out_dir)         # open book snapshot (live floating P&L)
+                    _push_file(args.gh_repo, args.gh_token, out_dir, 'equity-open.json',
+                               "data: equity open positions (bridge) [skip ci]")
+                    print(f"           open positions: {no}", flush=True)
+                except Exception as e:
+                    print(f"::warning:: open-positions snapshot failed ({e})", flush=True)
                 last_sig = cyc
             # FAST: entry/exit alerts + executions log + push — cheap vs bar-fetching, so run every _apoll
             # to keep alerts near-real-time (bounded latency = _apoll, not --poll).
