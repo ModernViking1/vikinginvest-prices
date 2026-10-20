@@ -396,13 +396,18 @@ ALERTED = 'equity-alerted.json'            # local: tickets already alerted on e
 # Telegram trade alerts are SCOPED (user 2026-10-20): swing/intraday alerts are off; the equity bridge
 # alerts only these strategies. None = all. Set in main() from --alert-strats (default 'ma_pull_eq').
 ALERT_STRATS = {'ma_pull_eq'}
+# SL-MOVE alert is PINNED to ma_pull_eq (user 2026-10-20), on purpose INDEPENDENT of ALERT_STRATS:
+# widening --alert-strats (entry/exit) must NOT start sending trailing-stop-move alerts for other
+# strategies. Change this set only to intentionally re-scope the SL-move alert.
+SL_ALERT_STRATS = {'ma_pull_eq'}
 SL_STATE = 'equity-sl-state.json'          # local: last-seen SL per open ticket (trailing-move alert dedup)
 
 
 def _alert_sl_moves(mt5, out_dir, tg_token, tg_chat):
     """Telegram when a position's stop LOSS moves to a new price while STILL OPEN (the trailing stop
-    ratcheting) — scoped to ALERT_STRATS, with the previous -> new SL. Compares each open EA position's
-    live SL to the last seen; seeds silently on first run so it never backfills. Fail-open."""
+    ratcheting) — scoped to SL_ALERT_STRATS (pinned ma_pull_eq, independent of --alert-strats), with
+    the previous -> new SL. Compares each open EA position's live SL to the last seen; seeds silently
+    on first run so it never backfills. Fail-open."""
     path = os.path.join(out_dir, SL_STATE)
     try:
         prev = json.load(open(path)); seeded = True
@@ -423,7 +428,7 @@ def _alert_sl_moves(mt5, out_dir, tg_token, tg_chat):
         cur[tk] = sl                                   # track every EA position (so a later scope change can't backfill)
         comment = getattr(p, 'comment', '') or ''
         strat = comment.split(':')[0] if ':' in comment else '?'
-        if ALERT_STRATS is not None and strat not in ALERT_STRATS:
+        if strat not in SL_ALERT_STRATS:               # pinned to ma_pull_eq, independent of --alert-strats
             continue
         if not (seeded and tg_token):
             continue
