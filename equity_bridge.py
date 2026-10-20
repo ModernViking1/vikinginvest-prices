@@ -400,7 +400,10 @@ ALERT_STRATS = {'ma_pull_eq'}
 # widening --alert-strats (entry/exit) must NOT start sending trailing-stop-move alerts for other
 # strategies. Change this set only to intentionally re-scope the SL-move alert.
 SL_ALERT_STRATS = {'ma_pull_eq'}
-SL_STATE = 'equity-sl-state.json'          # local: last-seen SL per open ticket (trailing-move alert dedup)
+SL_STATE = 'equity-sl-state.json'          # local: last-ALERTED SL per open ticket (trailing-move dedup)
+SL_MIN_MOVE_R = 0.5                         # only alert when the SL has advanced >= this * R since the last
+                                           #   alert (R = |entry-initial stop|) — suppresses cent-by-cent
+                                           #   ratchet spam. Set in main() from --sl-alert-min-r.
 
 
 def _alert_sl_moves(mt5, out_dir, tg_token, tg_chat):
@@ -415,6 +418,7 @@ def _alert_sl_moves(mt5, out_dir, tg_token, tg_chat):
         prev, seeded = {}, False
     if not isinstance(prev, dict):
         prev = {}
+    ledger = _load_ledger(os.path.join(out_dir, LEDGER))
     cur = {}
     try:
         positions = mt5.positions_get() or []
@@ -425,15 +429,18 @@ def _alert_sl_moves(mt5, out_dir, tg_token, tg_chat):
             continue
         tk = str(p.ticket)
         sl = float(getattr(p, 'sl', 0) or 0)
-        cur[tk] = sl                                   # track every EA position (so a later scope change can't backfill)
-        comment = getattr(p, 'comment', '') or ''
-        strat = comment.split(':')[0] if ':' in comment else '?'
-        if strat not in SL_ALERT_STRATS:               # pinned to ma_pull_eq, independent of --alert-strats
+        strat = (getattr(p, 'comment', '') or '').split(':')[0]
+        base = prev.get(tk)                            # last-ALERTED SL for this ticket
+        # out of scope / brand-new / unseeded / no SL yet -> just (re)baseline, never alert
+        if (strat not in SL_ALERT_STRATS) or base is None or not (seeded and tg_token) or base == 0 or sl == 0:
+            cur[tk] = sl
             continue
-        if not (seeded and tg_token):
-            continue
-        old = prev.get(tk)
-        if old is None or old == 0 or sl == 0 or abs(sl - old) < 1e-9:
+        info = ledger.get(p.ticket)
+        R = abs(info['entry'] - info['sl']) if info else 0.0
+        moved = abs(sl - base)
+        # only alert on a MEANINGFUL advance; keep the baseline otherwise so small moves ACCUMULATE
+        if moved < 1e-9 or (R > 0 and moved < SL_MIN_MOVE_R * R):
+            cur[tk] = base
             continue
         sym = getattr(p, 'symbol', '?')
         side = 'SELL' if getattr(p, 'type', 0) == 1 else 'BUY'
@@ -442,13 +449,14 @@ def _alert_sl_moves(mt5, out_dir, tg_token, tg_chat):
             dg = int(mt5.symbol_info(sym).digits)
         except Exception:
             pass
-        # a trail ratchets the stop TOWARD price (up for a long, down for a short) = locking in more
-        locks = (sl > old) if side == 'BUY' else (sl < old)
+        locks = (sl > base) if side == 'BUY' else (sl < base)   # ratchets toward price = locking more
         arrow = '🔒' if locks else '🔸'
-        _tg(f"{arrow} <b>SL moved · {strat}</b>\n{sym} {side}  SL {old:.{dg}f} → <b>{sl:.{dg}f}</b>",
+        rtxt = f"  (+{moved / R:.2f}R)" if R > 0 else ""
+        _tg(f"{arrow} <b>SL moved · {strat}</b>\n{sym} {side}  SL {base:.{dg}f} → <b>{sl:.{dg}f}</b>{rtxt}",
             tg_token, tg_chat)
+        cur[tk] = sl                                   # advance the last-ALERTED baseline
     try:
-        json.dump(cur, open(path, 'w'))               # cur only -> closed tickets drop out automatically
+        json.dump(cur, open(path, 'w'))               # cur = live tickets only -> closed drop out
     except Exception:
         pass
 
@@ -631,11 +639,15 @@ def main():
                     help='seconds between the FAST alert/executions/push sub-cycle (default 120 = 2 min). '
                          'Signal GENERATION still runs every --poll; this keeps Telegram alerts + the '
                          'executions log near-real-time without re-fetching all bars. Set >= --poll to disable.')
+    ap.add_argument('--sl-alert-min-r', type=float, default=0.5,
+                    help='SL-MOVE alert fires only when the trailing stop advanced >= this * R since the '
+                         'last alert (default 0.5R) — stops cent-by-cent ratchet spam. Raise for fewer; 0 = every change.')
     args = ap.parse_args()
     demo = args.demo != '0'
-    global ALERT_STRATS
+    global ALERT_STRATS, SL_MIN_MOVE_R
     _as = (args.alert_strats or '').strip().lower()
     ALERT_STRATS = None if _as in ('', 'all', '*') else set(s.strip() for s in args.alert_strats.split(',') if s.strip())
+    SL_MIN_MOVE_R = max(0.0, args.sl_alert_min_r)
 
     try:
         import MetaTrader5 as mt5
