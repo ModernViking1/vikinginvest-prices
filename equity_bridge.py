@@ -395,7 +395,10 @@ def _tg(msg, token, chat):
 ALERTED = 'equity-alerted.json'            # local: tickets already alerted on entry (dedup across cycles)
 # Telegram trade alerts are SCOPED (user 2026-10-20): swing/intraday alerts are off; the equity bridge
 # alerts only these strategies. None = all. Set in main() from --alert-strats (default 'ma_pull_eq').
-ALERT_STRATS = {'ma_pull_eq'}
+ALERT_STRATS = {'ma_pull_eq'}              # ENTRY alerts (set in main from --alert-strats)
+# EXIT (close / SL-hit) alerts — OFF by default (user 2026-10-20): ma_pull_eq wants only the ENTRY
+# and the SL-MOVE alerts, not a message when a trade closes or hits its stop. None = all; empty = none.
+EXIT_ALERT_STRATS = set()
 # SL-MOVE alert is PINNED to ma_pull_eq (user 2026-10-20), on purpose INDEPENDENT of ALERT_STRATS:
 # widening --alert-strats (entry/exit) must NOT start sending trailing-stop-move alerts for other
 # strategies. Change this set only to intentionally re-scope the SL-move alert.
@@ -514,8 +517,8 @@ def _alert_new_closes(out_dir, tg_token, tg_chat):
             new.append(e)
     if seeded and tg_token:
         for e in sorted(new, key=lambda x: x.get('closed_ms', 0)):
-            if ALERT_STRATS is not None and e.get('strategy') not in ALERT_STRATS:
-                continue                       # scoped out — still deduped below
+            if EXIT_ALERT_STRATS is not None and e.get('strategy') not in EXIT_ALERT_STRATS:
+                continue                       # exit alerts off/scoped (default off) — still deduped below
             r = e.get('realized_r'); pnl = e.get('profit_ccy')
             side = 'SELL' if e.get('dir') == 'bear' else 'BUY'
             emoji = '✅' if (isinstance(r, (int, float)) and r > 0) else ('❌' if isinstance(r, (int, float)) else '➖')
@@ -633,8 +636,11 @@ def main():
     ap.add_argument('--tg-chat', default=os.environ.get('TELEGRAM_CHAT_ID', ''),
                     help='Telegram chat id for entry alerts (falls back to TELEGRAM_CHAT_ID env). Optional.')
     ap.add_argument('--alert-strats', default=os.environ.get('EQ_ALERT_STRATS', 'ma_pull_eq'),
-                    help='comma list of equity strategies to Telegram-alert on (entry+exit). Default '
-                         '"ma_pull_eq". "all" alerts every strategy. Expand as strategies qualify.')
+                    help='comma list of equity strategies to send ENTRY alerts for. Default "ma_pull_eq". '
+                         '"all" = every strategy. Expand as strategies qualify.')
+    ap.add_argument('--exit-alert-strats', default=os.environ.get('EQ_EXIT_ALERT_STRATS', ''),
+                    help='comma list of strategies to send EXIT (close / stop-hit) alerts for. Default '
+                         'EMPTY = no exit alerts. "all" = every strategy. (Entry + SL-move alerts are separate.)')
     ap.add_argument('--alert-poll', type=int, default=120,
                     help='seconds between the FAST alert/executions/push sub-cycle (default 120 = 2 min). '
                          'Signal GENERATION still runs every --poll; this keeps Telegram alerts + the '
@@ -644,9 +650,11 @@ def main():
                          'last alert (default 0.5R) — stops cent-by-cent ratchet spam. Raise for fewer; 0 = every change.')
     args = ap.parse_args()
     demo = args.demo != '0'
-    global ALERT_STRATS, SL_MIN_MOVE_R
+    global ALERT_STRATS, EXIT_ALERT_STRATS, SL_MIN_MOVE_R
     _as = (args.alert_strats or '').strip().lower()
     ALERT_STRATS = None if _as in ('', 'all', '*') else set(s.strip() for s in args.alert_strats.split(',') if s.strip())
+    _es = (args.exit_alert_strats or '').strip().lower()
+    EXIT_ALERT_STRATS = None if _es == 'all' else set(s.strip() for s in args.exit_alert_strats.split(',') if s.strip())
     SL_MIN_MOVE_R = max(0.0, args.sl_alert_min_r)
 
     try:
@@ -668,11 +676,15 @@ def main():
         print("  NOTE: account is not demo — the EA's demo guard will still block live fills.", flush=True)
     print(f"  watchdog heartbeat: {'ON -> ' + args.gh_repo if args.gh_token else 'OFF (set --gh-token or GH_TOKEN to enable)'}", flush=True)
     print(f"  executions push:    {'ON -> ' + args.gh_repo if args.gh_token else 'OFF (needs --gh-token/GH_TOKEN)'}", flush=True)
-    _alert_scope = ('ALL strategies' if ALERT_STRATS is None else ', '.join(sorted(ALERT_STRATS)))
     _apoll = args.alert_poll if (0 < args.alert_poll < args.poll) else args.poll
-    _alert_desc = (f"ON (Telegram) — {_alert_scope}, every {_apoll}s" if (args.tg_token and args.tg_chat)
-                   else 'OFF (set --tg-token/--tg-chat or TELEGRAM_* env)')
-    print(f"  entry+exit alerts:  {_alert_desc}", flush=True)
+    _entry = 'ALL' if ALERT_STRATS is None else (','.join(sorted(ALERT_STRATS)) or 'none')
+    _exit = 'ALL' if EXIT_ALERT_STRATS is None else (','.join(sorted(EXIT_ALERT_STRATS)) or 'off')
+    _slm = ','.join(sorted(SL_ALERT_STRATS))
+    if args.tg_token and args.tg_chat:
+        _alert_desc = f"entry={_entry} · exit={_exit} · SL-move={_slm}(>={SL_MIN_MOVE_R}R) · every {_apoll}s"
+    else:
+        _alert_desc = 'OFF (set --tg-token/--tg-chat or TELEGRAM_* env)'
+    print(f"  telegram alerts:    {_alert_desc}", flush=True)
     print(f"  trend filter:       {'ON (SMA' + str(H.TREND_SMA) + ' alignment)' if hasattr(H, 'trend_filter_signals') else 'OFF (old code — git pull)'}", flush=True)
     # Active equity strategy set (also a code-version indicator: if fib_eq is listed you're on the
     # trend-gated golden-zone build; if it's absent the clone is stale — git pull + restart).
