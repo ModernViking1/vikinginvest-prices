@@ -19,7 +19,11 @@
 #property script_show_inputs
 #property strict
 
-input string InpSymbols = "AAPL.NAS,MSFT.NAS,NVDA.NAS,TSLA.NAS,AMZN.NAS,PEP.NAS,PYPL.NAS,HOOD.NAS,COIN.NAS,PLTR.NAS,AXP.NYSE,BA.NYSE,BAC.NYSE,BLK.NYSE,JPM.NYSE,LLY.NYSE,MA.NYSE,MCD.NYSE,ACN.NYSE,UBER.NYSE,ICE.NYSE,BX.NYSE,KKR.NYSE";
+// High-priced CANDIDATE replacements to vet (2026-10-21): confirm the broker offers each ("symbol
+// not found" = it doesn't) and that 1000 units hits ~0.5% ("OK" verdict). Keep the 5 proven keepers
+// (LLY/BLK/MA/MSFT/BRK-B) at the front for reference. Swap the throttled sub-$200 names for whichever
+// of these come back available + OK.
+input string InpSymbols = "LLY.NYSE,BLK.NYSE,MA.NYSE,MSFT.NAS,BRK-B.NYSE,NFLX.NAS,COST.NAS,META.NAS,ADBE.NAS,ISRG.NAS,INTU.NAS,BKNG.NAS,ASML.NAS,MELI.NAS,NOW.NYSE,AZO.NYSE,SPGI.NYSE,TMO.NYSE,MCK.NYSE,GS.NYSE,LMT.NYSE,TDG.NYSE,FICO.NYSE,GWW.NYSE";
 input double InpRiskPct      = 0.5;     // the risk target we're trying to hit
 input double InpNotionalPctUS= 100.0;   // US notional cap (matches EA InpMaxNotionalPctUS)
 input double InpRefStopPct   = 1.0;     // reference stop as % of price (typical .EQ structural stop)
