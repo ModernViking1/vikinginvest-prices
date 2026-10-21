@@ -128,14 +128,11 @@ jobs:
           curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/executions.json" || echo "purge npm executions failed"
 
       - name: Telegram alert (Phase 4 — non-fatal)
-        # Sends one Telegram message per ingested execution. The cBot
-        # also sends its own Telegram on close events (for redundancy
-        # against a workflow outage), but this server-side path is the
-        # canonical "this is what landed in the repo" notification —
-        # it only fires after successful ingestion, so it cannot lie.
-        # Both TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are existing
-        # secrets shared with the detect_triggers Telegram path.
-        if: ${{ env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != '' }}
+        # DISABLED 2026-10-21 (user): the per-execution "[Viking cBot · ingested]" trade alerts are
+        # removed. Ingestion above still runs (executions keep recording for the reports) — only this
+        # Telegram notification is off. Re-enable by restoring the original `if` condition below.
+        if: false
+        # if: ${{ env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != '' }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
