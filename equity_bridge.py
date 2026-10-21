@@ -61,10 +61,15 @@ SYMBOLS = {
     'cost': 'COST.NAS', 'asml': 'ASML.NAS', 'meli': 'MELI.NAS',
     'azo': 'AZO.NYSE', 'tmo': 'TMO.NYSE', 'mck': 'MCK.NYSE', 'gs': 'GS.NYSE',
     'lmt': 'LMT.NYSE', 'tdg': 'TDG.NYSE', 'gww': 'GWW.NYSE',
+    # Re-added 2026-10-21 (user) — dropped by the >=$200 price rule but PROVEN net-positive on live
+    # fills, so kept despite throttled size (thin n, modest upside): COIN +$2.6k (n6), WDAY +$9.5k
+    # (n3), HOOD +$2.1k (n3), BAC +$1.1k (n3, 100% WR). (ABNB +$2.1k also qualifies — held out as the
+    # user's flagged "insignificant" name; add 'abnb':'ABNB.NAS' here to include it.)
+    'coin': 'COIN.NAS', 'wday': 'WDAY.NAS', 'hood': 'HOOD.NAS', 'bac': 'BAC.NYSE',
     # DROPPED 2026-10-21 — throttled sub-$200 noise (<0.2% risk at the 1000-unit cap; commission ≈
-    # profit). Still in the export/backtest universe. Re-add a line here only if it earns proper size.
-    #   NAS:  'pep':'PEP.NAS','pypl':'PYPL.NAS','aal':'AAL.NAS','abnb':'ABNB.NAS','wday':'WDAY.NAS','vktx':'VKTX.NAS','mat':'MAT.NAS','pzza':'PZZA.NAS','ryaay':'RYAAY.NAS','hood':'HOOD.NAS','coin':'COIN.NAS','pltr':'PLTR.NAS','tri':'TRI.NAS','abtc':'ABTC.NAS',
-    #   NYSE: 'ban':'BA.NYSE','bac':'BAC.NYSE','c':'C.NYSE','dis':'DIS.NYSE','dow':'DOW.NYSE','ko':'KO.NYSE','ms':'MS.NYSE','nke':'NKE.NYSE','pfe':'PFE.NYSE','uber':'UBER.NYSE','cof':'COF.NYSE','dal':'DAL.NYSE','fis':'FIS.NYSE','gm':'GM.NYSE','ice':'ICE.NYSE','nclh':'NCLH.NYSE','bx':'BX.NYSE','kkr':'KKR.NYSE','levi':'LEVI.NYSE','khc':'KHC.NYSE',
+    # profit) with no proven edge. Still in the export/backtest universe. Re-add a line only if earned.
+    #   NAS:  'pep':'PEP.NAS','pypl':'PYPL.NAS','aal':'AAL.NAS','abnb':'ABNB.NAS','vktx':'VKTX.NAS','mat':'MAT.NAS','pzza':'PZZA.NAS','ryaay':'RYAAY.NAS','pltr':'PLTR.NAS','tri':'TRI.NAS','abtc':'ABTC.NAS',
+    #   NYSE: 'ban':'BA.NYSE','c':'C.NYSE','dis':'DIS.NYSE','dow':'DOW.NYSE','ko':'KO.NYSE','ms':'MS.NYSE','nke':'NKE.NYSE','pfe':'PFE.NYSE','uber':'UBER.NYSE','cof':'COF.NYSE','dal':'DAL.NYSE','fis':'FIS.NYSE','gm':'GM.NYSE','ice':'ICE.NYSE','nclh':'NCLH.NYSE','bx':'BX.NYSE','kkr':'KKR.NYSE','levi':'LEVI.NYSE','khc':'KHC.NYSE',
     # ── Europe + HK CUT from LIVE 2026-10-19 (cross-region demo review, equity_report.py) ──────
     # The demo record made Europe the ENTIRE book-level loss: NET DE -12.5k, UK -12.6k, FR -5.5k
     # vs US +13.6k, JP +1.4k (book -15.8k = all EU). Driver is COMMISSION on throttled-tiny
