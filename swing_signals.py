@@ -246,6 +246,16 @@ THIN_NEG_HELD = _load_thin_neg_held()
 # only live emission is blocked. Keep in sync with build_signals_json.LIVE_BLACKLIST.
 LIVE_BLACKLIST = {'xptusd'}
 
+# STRIP TO SURVIVORS (user 2026-10-21). The swing book's live demo record (swing-executions.json,
+# 533 closed fills) was NET -$342.7K cumulative / -$13.4K last week at -0.38R / 32% WR — the live-vs-
+# model gap (spread/slippage) eats the thin model edges, same failure that sank the EU equity book,
+# magnified. Only twob_ix (+$8.5K, n55), asianglitch (+$7.6K, n9) and engulf_manip (+$9.5K, n11; on
+# watch — +net but ~0 R) are net-positive. Emit ONLY these to the live feed; EVERYTHING else stays
+# shadow-observed (evidence continues) but STOPS trading. Re-add a strategy here once it re-earns a
+# live-positive record. (Note: on the demo account demo_only still TRADES, so stripping = not emitting
+# to the feed, not demo_only.)
+LIVE_STRATS = {'twob_ix', 'asianglitch', 'engulf_manip'}
+
 # Scaled exit for the 2:1 gold signals (2026-08-01) — bank profit progressively instead of a
 # single far TP. gbreak/gtrend are emitted as THREE legs (1/3 risk each, SHARED stop) with
 # targets at 1R / 2R / 3R. The cBot opens one market position per signal id, so 3 ids = 3
@@ -550,6 +560,9 @@ def main():
         primary['suppressed'] = len(group) - 1
         deduped.append(primary)
     rows = deduped + demo_rows          # demo-only pilots bypass the per-pair cap
+    # STRIP TO SURVIVORS — emit ONLY the net-positive live strategies; everything else is dropped from
+    # the live feed (still shadow-observed, just not traded). See LIVE_STRATS note above.
+    rows = [r for r in rows if r['strategy'] in LIVE_STRATS]
 
     # ---- scaled exit: split the 2:1 gold signals into 3 partial-TP legs (1R/2R/3R) ----
     scaled = []
