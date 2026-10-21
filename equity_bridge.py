@@ -43,25 +43,28 @@ def _uklocal(ms):
 # local_key -> MT5 Market Watch symbol. The whole equity book — US + DE + UK — driven off the broker's
 # own bars through this bridge. The EA reads this bridge's LOCAL file, so every tradeable name lives here.
 SYMBOLS = {
-    # US (.NAS) — driven off the broker's own bars via this bridge, same as EU/UK. The EA reads the
-    # LOCAL bridge file (InpLocalFile), which takes precedence over the TwelveData CDN feed, so the US
-    # names MUST be here to trade — otherwise only the EU/UK book reaches the terminal.
+    # US LIVE universe — RESIZED for proper risk/reward 2026-10-21. The broker hard-caps 1000 units/
+    # symbol (SYMBOL_VOLUME_LIMIT == VOLUME_MAX == 1000, splitting impossible), so only ~$500+ names
+    # hit the 0.5% risk target at 1000 units; sub-$200 names are throttled to <0.2% ("ABNB-style" —
+    # commission ≈ profit). KEPT the >=$200 mega-caps/sizeable + the 5 already at 0.5% (MSFT/BLK/LLY/
+    # MA/BRK-B). ADDED high-priced names vetted via VikingSizingDiag as available + OK @ 0.5%.
+    # ⚠ The broker MISMAPS some tickers (NFLX.NAS=$65, BKNG.NAS=$158, NOW.NYSE=$153 are NOT those
+    # companies) — spot-check each ADD's identity in MT5 (right-click → Specification). FICO held out
+    # ($795 vs ~$2000 expected — likely a mismap; verify before adding). New names are UNVALIDATED on
+    # the detectors (not in the 3yr backtest); re-run the MT5 export to backtest them when convenient.
+    # The EA reads the LOCAL bridge file (InpLocalFile) so these US names MUST be here to trade.
+    # Kept — mega-caps / sizeable (>=$200):
     'aapl': 'AAPL.NAS', 'amzn': 'AMZN.NAS', 'msft': 'MSFT.NAS', 'nvda': 'NVDA.NAS', 'tsla': 'TSLA.NAS',
-    # US expansion (2026-10-15) — concentrate on US where the edge + cheap commission hold. Added live
-    # on demo; validate on the 3yr broker export (VikingHistoryExport InpSymUS2) before trusting.
-    'pep': 'PEP.NAS', 'pypl': 'PYPL.NAS', 'aal': 'AAL.NAS', 'abnb': 'ABNB.NAS', 'wday': 'WDAY.NAS',
-    'vktx': 'VKTX.NAS', 'mat': 'MAT.NAS', 'pzza': 'PZZA.NAS', 'ryaay': 'RYAAY.NAS',
-    'hood': 'HOOD.NAS', 'coin': 'COIN.NAS', 'pltr': 'PLTR.NAS', 'tri': 'TRI.NAS',
-    'abtc': 'ABTC.NAS',   # dropped 2026-10-15: dpz (no quote/0 bars), wmg (+0.13R weakest)
-    # US NYSE expansion (2026-10-15). NB 'ban' = BA.NYSE (Boeing) — 'ba' is already BA.LSE (BAE);
-    # 'brkb' = BRK-B.NYSE. .NYSE is classed US everywhere (market() + bridge _is_us). Live on demo.
-    'axp': 'AXP.NYSE', 'ban': 'BA.NYSE', 'bac': 'BAC.NYSE', 'blk': 'BLK.NYSE', 'c': 'C.NYSE',
-    'dis': 'DIS.NYSE', 'dow': 'DOW.NYSE', 'jpm': 'JPM.NYSE', 'ko': 'KO.NYSE', 'lly': 'LLY.NYSE',
-    'ma': 'MA.NYSE', 'mcd': 'MCD.NYSE', 'ms': 'MS.NYSE', 'nke': 'NKE.NYSE', 'pfe': 'PFE.NYSE',
-    'brkb': 'BRK-B.NYSE', 'uber': 'UBER.NYSE', 'cof': 'COF.NYSE', 'acn': 'ACN.NYSE', 'dal': 'DAL.NYSE',
-    'fis': 'FIS.NYSE', 'gm': 'GM.NYSE', 'ice': 'ICE.NYSE', 'nclh': 'NCLH.NYSE', 'snow': 'SNOW.NYSE',
-    'bx': 'BX.NYSE', 'kkr': 'KKR.NYSE', 'levi': 'LEVI.NYSE', 'khc': 'KHC.NYSE',
-    # dropped 2026-10-15: gty (+0.13R weakest), vsxy (never exported — unvalidated)
+    'axp': 'AXP.NYSE', 'jpm': 'JPM.NYSE', 'mcd': 'MCD.NYSE', 'acn': 'ACN.NYSE', 'snow': 'SNOW.NYSE',
+    'blk': 'BLK.NYSE', 'lly': 'LLY.NYSE', 'ma': 'MA.NYSE', 'brkb': 'BRK-B.NYSE',
+    # Added — high-priced, VikingSizingDiag-confirmed available + OK @ 0.5% at 1000 units (2026-10-21):
+    'cost': 'COST.NAS', 'asml': 'ASML.NAS', 'meli': 'MELI.NAS',
+    'azo': 'AZO.NYSE', 'tmo': 'TMO.NYSE', 'mck': 'MCK.NYSE', 'gs': 'GS.NYSE',
+    'lmt': 'LMT.NYSE', 'tdg': 'TDG.NYSE', 'gww': 'GWW.NYSE',
+    # DROPPED 2026-10-21 — throttled sub-$200 noise (<0.2% risk at the 1000-unit cap; commission ≈
+    # profit). Still in the export/backtest universe. Re-add a line here only if it earns proper size.
+    #   NAS:  'pep':'PEP.NAS','pypl':'PYPL.NAS','aal':'AAL.NAS','abnb':'ABNB.NAS','wday':'WDAY.NAS','vktx':'VKTX.NAS','mat':'MAT.NAS','pzza':'PZZA.NAS','ryaay':'RYAAY.NAS','hood':'HOOD.NAS','coin':'COIN.NAS','pltr':'PLTR.NAS','tri':'TRI.NAS','abtc':'ABTC.NAS',
+    #   NYSE: 'ban':'BA.NYSE','bac':'BAC.NYSE','c':'C.NYSE','dis':'DIS.NYSE','dow':'DOW.NYSE','ko':'KO.NYSE','ms':'MS.NYSE','nke':'NKE.NYSE','pfe':'PFE.NYSE','uber':'UBER.NYSE','cof':'COF.NYSE','dal':'DAL.NYSE','fis':'FIS.NYSE','gm':'GM.NYSE','ice':'ICE.NYSE','nclh':'NCLH.NYSE','bx':'BX.NYSE','kkr':'KKR.NYSE','levi':'LEVI.NYSE','khc':'KHC.NYSE',
     # ── Europe + HK CUT from LIVE 2026-10-19 (cross-region demo review, equity_report.py) ──────
     # The demo record made Europe the ENTIRE book-level loss: NET DE -12.5k, UK -12.6k, FR -5.5k
     # vs US +13.6k, JP +1.4k (book -15.8k = all EU). Driver is COMMISSION on throttled-tiny
