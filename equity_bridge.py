@@ -74,11 +74,17 @@ SYMBOLS = {
     # core book (volbreak +0.44R, twob +0.39R, HG-m15 +0.31R, TS-m15 +0.29R, HG +0.21R, TS +0.17R,
     # ma_pull +0.10R; fib/threepush weak as elsewhere). Live.
     'cof': 'COF.NYSE',
-    # GATED pending 3yr backtest (user 2026-10-23: "back test before adding"). These 6 have NO exported
-    # broker bars, so they could not be validated. To enable: run VikingHistoryExport.mq5 for these
-    # exact symbols, upload the JSON, backtest, then uncomment the ones that pass. ⚠ Also spot-check
-    # AMD/CAT/AMGN identity in MT5 Specification (prices higher than expected).
-    #   'abbv': 'ABBV.NYSE', 'adbe': 'ADBE.NAS', 'amd': 'AMD.NAS', 'amgn': 'AMGN.NAS', 'avgo': 'AVGO.NAS', 'cat': 'CAT.NYSE',
+    # Added 2026-10-23 — PASSED a 3yr detector backtest on the broker export (resolved-only, both-OOS,
+    # trailing-runner + cost model). ma_pull_eq per name, all positive in BOTH OOS halves: AMD +0.258R,
+    # AVGO +0.228R, ADBE +0.195R, AMGN +0.172R, ABBV +0.129R — with the full swing book positive
+    # alongside (twob/holygrail/turtle_soup +0.2..+0.6R). Live.
+    'abbv': 'ABBV.NYSE', 'adbe': 'ADBE.NAS', 'amd': 'AMD.NAS', 'amgn': 'AMGN.NAS', 'avgo': 'AVGO.NAS',
+    # CAT — HELD (3yr backtest 2026-10-23). The broker returned only ~1yr of bars (1863 h1 vs 8000),
+    # and on that data ma_pull_eq is flat (+0.002R) and FAILS the OOS split (+0.116 then -0.113) — the
+    # hero strategy carries no edge here. Its swing book IS positive (twob +0.75R, HG-m15 +0.61R,
+    # HG +0.55R, TS +0.55R). ⚠ Re-check CAT.NYSE identity in MT5 Specification ($703 shown, higher
+    # than expected) and re-export once the broker has fuller history; enable then if it clears.
+    #   'cat': 'CAT.NYSE',
     # DROPPED 2026-10-21 — throttled sub-$200 noise (<0.2% risk at the 1000-unit cap; commission ≈
     # profit) with no proven edge. Still in the export/backtest universe. Re-add a line only if earned.
     #   NAS:  'pep':'PEP.NAS','pypl':'PYPL.NAS','aal':'AAL.NAS','abnb':'ABNB.NAS','vktx':'VKTX.NAS','mat':'MAT.NAS','pzza':'PZZA.NAS','ryaay':'RYAAY.NAS','pltr':'PLTR.NAS','tri':'TRI.NAS','abtc':'ABTC.NAS',
