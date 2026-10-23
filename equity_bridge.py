@@ -68,12 +68,17 @@ SYMBOLS = {
     'coin': 'COIN.NAS', 'wday': 'WDAY.NAS', 'hood': 'HOOD.NAS', 'bac': 'BAC.NYSE',
     # Added 2026-10-23 (user) — from a broker market-watch shown with a .NSDQ suffix, MAPPED to the
     # engine's .NAS/.NYSE convention (same live account; NASDAQ-listed → .NAS, NYSE-listed → .NYSE).
-    # Only the cap-efficient >=$200 names kept (sub-$200 names skipped per the 2026-10-21 throttle rule;
-    # BKNG excluded — shown at ~$161, a known mismap for a ~$5k stock). ⚠ Spot-check AMD/CAT/AMGN
-    # identity in MT5 Specification (prices higher than expected). UNVALIDATED on the detectors (not in
-    # the 3yr backtest) — re-run the MT5 export to backtest when convenient.
-    'abbv': 'ABBV.NYSE', 'adbe': 'ADBE.NAS', 'amd': 'AMD.NAS', 'amgn': 'AMGN.NAS',
-    'avgo': 'AVGO.NAS', 'cat': 'CAT.NYSE', 'cof': 'COF.NYSE',
+    # Only the cap-efficient >=$200 names (sub-$200 skipped per the 2026-10-21 throttle rule; BKNG
+    # excluded — shown ~$161, a known mismap for a ~$5k stock).
+    # COF: PASSED a 3yr detector backtest (broker bars already exported) — positive + both-OOS on the
+    # core book (volbreak +0.44R, twob +0.39R, HG-m15 +0.31R, TS-m15 +0.29R, HG +0.21R, TS +0.17R,
+    # ma_pull +0.10R; fib/threepush weak as elsewhere). Live.
+    'cof': 'COF.NYSE',
+    # GATED pending 3yr backtest (user 2026-10-23: "back test before adding"). These 6 have NO exported
+    # broker bars, so they could not be validated. To enable: run VikingHistoryExport.mq5 for these
+    # exact symbols, upload the JSON, backtest, then uncomment the ones that pass. ⚠ Also spot-check
+    # AMD/CAT/AMGN identity in MT5 Specification (prices higher than expected).
+    #   'abbv': 'ABBV.NYSE', 'adbe': 'ADBE.NAS', 'amd': 'AMD.NAS', 'amgn': 'AMGN.NAS', 'avgo': 'AVGO.NAS', 'cat': 'CAT.NYSE',
     # DROPPED 2026-10-21 — throttled sub-$200 noise (<0.2% risk at the 1000-unit cap; commission ≈
     # profit) with no proven edge. Still in the export/backtest universe. Re-add a line only if earned.
     #   NAS:  'pep':'PEP.NAS','pypl':'PYPL.NAS','aal':'AAL.NAS','abnb':'ABNB.NAS','vktx':'VKTX.NAS','mat':'MAT.NAS','pzza':'PZZA.NAS','ryaay':'RYAAY.NAS','pltr':'PLTR.NAS','tri':'TRI.NAS','abtc':'ABTC.NAS',
