@@ -109,6 +109,10 @@ SYMBOLS = {
     # ES (.MAD) HELD OUT — failed the 3yr validation. Still in export/backtest only. Do NOT trade live.
     #   'cabk': 'CABK.MAD', 'san': 'SAN.MAD',
 }
+# ⚠ WATCH 2026-10-25 (user) — volbreak_eq: the weekly observer review has it forward-NEGATIVE
+# (-0.099R, n=76), a live-vs-model gap vs its strong 3yr backtest (+0.399R pooled across the new
+# names). NOT pulled yet — kept live on the backtest strength, but on watch: if the forward loss
+# persists / deepens, demote it from this STRATS list (it then stays shadow-observed only).
 # (tag, timeframe, generator) — identical to the live equity feed's .EQ book.
 STRATS = [('holygrail_eq', 'h1', H._holygrail_sig), ('twob_eq', 'h1', H._twob_sig),
           ('volbreak_eq', 'h1', H._volbreak_sig), ('holygrail_eq_m15', 'm15', H._holygrail_sig),
