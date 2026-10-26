@@ -423,6 +423,24 @@ def _tg(msg, token, chat):
         print(f"  telegram send failed (non-fatal): {e}", flush=True)
 
 
+def _terminal_connected(mt5):
+    """(ok, detail) — is the terminal connected to the trade server with our symbols available?
+
+    The Fri→Mon dark-bridge failure (2026-10-25): the MT5 terminal drops its weekend connection, but
+    the bridge keeps looping and publishes EMPTY signals/open/executions — clobbering the last-good
+    files with zeros until it's noticed Monday. This gate lets the loop HOLD the last-good files (never
+    write zeros) and alert while the terminal is down. `connected` is the trade-server link; the
+    symbol check also catches a logged-out / wrong-account / empty-Market-Watch state where `connected`
+    may read True. The `any()` short-circuits on the first resolvable symbol, so the healthy path costs
+    one symbol_select call."""
+    ti = mt5.terminal_info()
+    if not ti or not getattr(ti, 'connected', False):
+        return False, 'MT5 not connected to the trade server'
+    if not any(mt5.symbol_select(s, True) for s in SYMBOLS.values()):
+        return False, f'0/{len(SYMBOLS)} universe symbols selectable (empty Market Watch / wrong account)'
+    return True, 'connected'
+
+
 ALERTED = 'equity-alerted.json'            # local: tickets already alerted on entry (dedup across cycles)
 # Telegram trade alerts are SCOPED (user 2026-10-20): swing/intraday alerts are off; the equity bridge
 # alerts only these strategies. None = all. Set in main() from --alert-strats (default 'ma_pull_eq').
@@ -761,6 +779,7 @@ def main():
         _alert_desc = 'OFF (set --tg-token/--tg-chat or TELEGRAM_* env)'
     print(f"  telegram alerts:    {_alert_desc}", flush=True)
     print(f"  trend filter:       {'ON (SMA' + str(H.TREND_SMA) + ' alignment)' if hasattr(H, 'trend_filter_signals') else 'OFF (old code — git pull)'}", flush=True)
+    print(f"  dark-bridge guard:  ON (holds last-good files + alerts if MT5 disconnects — no weekend zero-wipe)", flush=True)
     # Active equity strategy set (also a code-version indicator: if fib_eq is listed you're on the
     # trend-gated golden-zone build; if it's absent the clone is stale — git pull + restart).
     _fib_ok = hasattr(H, '_fib_eq_signals')
@@ -785,9 +804,32 @@ def main():
     # _apoll so Telegram alerts + the executions log stay near-real-time without re-fetching all bars
     # each tick. _apoll == --poll (when --alert-poll is >= --poll) collapses to the legacy single cycle.
     last_sig = 0.0
+    _down_streak = 0        # consecutive failed connection checks (debounces transient blips)
+    _down_alerted = False   # alerted on the current outage (so we alert once, + once on recovery)
+    _DOWN_N = 2             # declare the bridge dark after this many consecutive failed checks
     try:
         while True:
             cyc = time.time()
+            # Dark-bridge guard — if MT5 is disconnected, HOLD the last-good published files (never
+            # overwrite them with zeros) and alert, instead of silently publishing an empty book.
+            _ok, _why = _terminal_connected(mt5)
+            if not _ok:
+                _down_streak += 1
+                if _down_streak == _DOWN_N:
+                    print(f"::warning:: {dt.datetime.now():%H:%M:%S} MT5 DISCONNECTED ({_why}) — holding "
+                          f"last-good files (NOT publishing zeros). Reconnect the terminal to resume.", flush=True)
+                    _tg(f"⚠️ <b>Equity bridge: MT5 disconnected</b>\n{_why}\nHolding last-good data — no "
+                        f"empty book published. Reconnect the terminal to resume.", args.tg_token, args.tg_chat)
+                    _down_alerted = True
+                time.sleep(_apoll)
+                continue                            # skip ALL publishing while down — never write zeros
+            if _down_streak:                        # just came back up
+                if _down_alerted:
+                    print(f"{dt.datetime.now():%H:%M:%S} MT5 reconnected — resuming publishes", flush=True)
+                    _tg("✅ <b>Equity bridge: MT5 reconnected</b>\nResuming signal + executions publishing.",
+                        args.tg_token, args.tg_chat)
+                _down_streak = 0; _down_alerted = False
+                last_sig = 0.0                      # force an immediate heavy cycle on recovery
             if cyc - last_sig >= args.poll:        # HEAVY: regenerate the signal feed (all symbols x TFs)
                 try:
                     doc = build_doc(mt5, args.bars, demo)
