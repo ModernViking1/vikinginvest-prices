@@ -47,6 +47,13 @@ input double InpMaxNotionalPctUS = 100.0; // US (.NAS/.NYSE) notional cap — ra
                                           //   at InpMaxNotionalPct (20%) — a higher cap there just amplifies
                                           //   the 20x commission drag.
 input double InpMaxLot       = 100000.0;  // absolute lot backstop (notional cap normally binds first)
+input double InpMinNotionalFracPct = 1.0; // SPEC-SANITY guard (US): skip a fill whose TRUE notional
+                                          // (lots*price*contractSize) is below this % of equity. A flaky/
+                                          // zero SYMBOL_TRADE_TICK_VALUE (seen on IC Markets US CFDs after
+                                          // a weekend reconnect) blows up the risk/notional math and
+                                          // collapses the size to a junk fraction (0.1-12u) while legit
+                                          // sizing is hundreds/1000s (always several % of equity). Validates
+                                          // with reliable inputs only (price+contract), NOT tickVal. 0 = OFF.
 input double InpMaxLossPct   = 4.0;       // CATASTROPHIC BACKSTOP: force-close any position whose floating
                                           //   loss exceeds this % of equity (0 = off). equity_gap_study
                                           //   found earnings-scale gaps can blow a tight-stop position far
@@ -457,6 +464,27 @@ double LotsForRisk(const string sym, double stopDist, double price)
       lots = vmin;
      }
    lots = MathMin(vmax, lots);
+   // SPEC-SANITY guard (US) — a flaky/zero SYMBOL_TRADE_TICK_VALUE (seen after a weekend reconnect on IC
+   // Markets US CFDs) blows up the risk/notional math and collapses the size to a junk fraction (0.1-12u)
+   // while legit sizing is hundreds/1000s. Validate the FINAL size with ONLY reliable inputs — live price
+   // + contract size (profit ccy == account ccy for US names) — never tickVal. Even a wide-stop or
+   // vmax-capped legit position is several % of equity, so a true notional below the guard means the tick
+   // data is garbage: SKIP rather than open an unmanageable micro-position that just clutters the book.
+   bool _isUS = (StringFind(sym, ".NAS") >= 0 || StringFind(sym, ".NYSE") >= 0);
+   if(_isUS && InpMinNotionalFracPct > 0 && lots > 0)
+     {
+      double contractSz = SymbolInfoDouble(sym, SYMBOL_TRADE_CONTRACT_SIZE);
+      if(contractSz <= 0) contractSz = 1.0;
+      double trueNotional = lots * price * contractSz;               // account ccy (USD) for US names
+      if(trueNotional < equity * (InpMinNotionalFracPct/100.0))
+        {
+         PrintFormat("skip %s — spec-sanity: notional %.0f < %.1f%% equity (%.0f); bad tick data "
+                     "(tickVal=%.6f tickSize=%.6f) — NOT opening a junk %.2f-lot fill",
+                     sym, trueNotional, InpMinNotionalFracPct, equity*(InpMinNotionalFracPct/100.0),
+                     tickVal, tickSize, lots);
+         return 0.0;
+        }
+     }
    // Sizing breakdown so it's visible WHICH cap binds (risk target vs the region notional cap vs the
    // broker's own max volume per order). A size far below the risk target with lots==brokerMax means
    // the broker caps that symbol (e.g. many EU/UK stock CFDs max out at 1000 units) — not an EA bug.
