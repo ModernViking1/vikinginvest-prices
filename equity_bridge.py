@@ -345,8 +345,14 @@ def build_doc(mt5, bars_n, demo):
         # our native trailing runner PASSES on US/UK/FR h1 (+0.226/+0.175/+0.115R, both OOS +) and
         # US 4h (+0.318R). DE marginal, JP/HK thin, ES held out — excluded. The SMA50>100>200 trend
         # gate is baked into the detector. Market-scoped here by symbol suffix.
+        # DE-SCOPED to US-only 2026-10-27 (user) — fib_eq's live record was R-positive (+0.53R/8) but
+        # CASH-NEGATIVE (-$4k): the +R came almost entirely from 2 throttled UK wins (RR +2.17R=$508,
+        # MKS +1.29R=$136) while its full-sized US trades were breakeven-to-negative. Dropping the UK/FR
+        # (.LSE/.PAR) h1 leg removes the markets where the edge can't convert to cash; US h1+4h stays
+        # live ON WATCH (weakest strategy in backtest too: +0.24R pooled, -0.06R on COF). Re-enable the
+        # UK/FR leg only if the throttle economics change.
         _is_us = ('.NAS' in sym or '.NYSE' in sym)
-        _fib_tfs = (['h1', '4h'] if _is_us else (['h1'] if ('.LSE' in sym or '.PAR' in sym) else []))
+        _fib_tfs = (['h1', '4h'] if _is_us else [])
         for tf in _fib_tfs:
             bars = layers.get(tf) or []
             if len(bars) < (250 if tf == '4h' else 400):
@@ -786,7 +792,7 @@ def main():
     _eq_strats = [t for t, _, _ in STRATS] + (['fib_eq'] if _fib_ok else []) + (['ma_pull_eq (demo)'] if hasattr(H, '_ma_pull_signals') else [])
     print(f"  strategies ({len(_eq_strats)}):     {', '.join(_eq_strats)}", flush=True)
     print(f"  scope notes:        threepush_eq US-only"
-          + ("; fib_eq US h1+4h / UK+FR h1" if _fib_ok else " (fib_eq MISSING — stale clone, git pull)"), flush=True)
+          + ("; fib_eq US h1+4h only (UK/FR dropped 2026-10-27, on watch)" if _fib_ok else " (fib_eq MISSING — stale clone, git pull)"), flush=True)
     # Universe count by region — confirms the loaded symbol set at a glance (e.g. after adding names).
     from collections import Counter as _Counter
     _suf2reg = {'NAS': 'US', 'NYSE': 'US', 'ETR': 'DE', 'LSE': 'UK', 'PAR': 'FR', 'TSE': 'JP', 'HK': 'HK', 'MAD': 'ES'}
