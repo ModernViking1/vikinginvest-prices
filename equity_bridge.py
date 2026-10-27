@@ -113,10 +113,18 @@ SYMBOLS = {
 # (-0.099R, n=76), a live-vs-model gap vs its strong 3yr backtest (+0.399R pooled across the new
 # names). NOT pulled yet — kept live on the backtest strength, but on watch: if the forward loss
 # persists / deepens, demote it from this STRATS list (it then stays shadow-observed only).
+# DROPPED from live 2026-10-27 (user) — the 610-trade since-inception report showed these three
+# persistently net-negative in BOTH R and cash despite strong 3yr backtests (the live-vs-model
+# execution gap — thin structural edges eaten by spread/commission, same failure as the swing book):
+#   holygrail_eq       n=31  -0.366R  -$23,988  (29% WR, worst in the book)
+#   turtle_soup_eq_m15 n=159 -0.134R  -$20,694
+#   twob_eq            n=109 -0.308R  -$11,769
+# They stay SHADOW-OBSERVED (evidence continues); re-add a line only if one re-earns a live-positive
+# record. Kept live: ma_pull_eq (the engine, +$121.8k) + turtle_soup_eq (+$10.8k) + holygrail_eq_m15
+# (turned +$8.4k since the investor note). volbreak_eq/threepush_eq stay on watch; fib_eq is US-only.
 # (tag, timeframe, generator) — identical to the live equity feed's .EQ book.
-STRATS = [('holygrail_eq', 'h1', H._holygrail_sig), ('twob_eq', 'h1', H._twob_sig),
-          ('volbreak_eq', 'h1', H._volbreak_sig), ('holygrail_eq_m15', 'm15', H._holygrail_sig),
-          ('turtle_soup_eq', 'h1', H._turtlesoup_sig), ('turtle_soup_eq_m15', 'm15', H._turtlesoup_sig),
+STRATS = [('volbreak_eq', 'h1', H._volbreak_sig), ('holygrail_eq_m15', 'm15', H._holygrail_sig),
+          ('turtle_soup_eq', 'h1', H._turtlesoup_sig),
           ('threepush_eq', '4h', H.threepush_core)]
 FRESH_MIN = {'h1': 90, 'm15': 45, '4h': 270}   # emit only a signal whose entry bar closed within this
                                            #   (4h = one bar + buffer; its signals also carry a wider
