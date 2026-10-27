@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-10-27T14:55:54.917926+00:00",
-  "generated_ms": 1793112951842,
-  "detector_last_check": "2026-10-27T14:55:50.294195+00:00",
+  "generated": "2026-10-27T15:02:02.059323+00:00",
+  "generated_ms": 1793113319185,
+  "detector_last_check": "2026-10-27T15:01:58.196714+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 1,
+    "total": 2,
     "armed": 0,
-    "triggered": 1,
+    "triggered": 2,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "btcusd:1793112300000:absorb_btc",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "absorb_btc",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 80285.36,
+      "stop": 80386.40535714,
+      "target": 80083.26928571,
+      "ew": null,
+      "tl": null,
+      "nw": null,
+      "cl": null,
+      "armedAt": 1793112300000,
+      "triggeredAt": 1793112300000,
+      "lastSeenAt": 1793113319185,
+      "source": "server-detector-absorb",
+      "event_aligned": null,
+      "held": false
+    },
     {
       "id": "fra40:1793100600000:mmove_m15",
       "pair": "fra40",
@@ -34,7 +57,7 @@
       "cl": null,
       "armedAt": 1793100600000,
       "triggeredAt": 1793100600000,
-      "lastSeenAt": 1793112951842,
+      "lastSeenAt": 1793113319185,
       "source": "server-detector-mmove",
       "event_aligned": null,
       "held": true
