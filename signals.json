@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-10-28T19:11:34.312987+00:00",
-  "generated_ms": 1793214691766,
-  "detector_last_check": "2026-10-28T19:11:30.623513+00:00",
+  "generated": "2026-10-28T19:16:32.345197+00:00",
+  "generated_ms": 1793214989596,
+  "detector_last_check": "2026-10-28T19:16:28.626686+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 1,
+    "total": 2,
     "armed": 0,
-    "triggered": 1,
+    "triggered": 2,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "btcusd:1793214000000:absorb_btc",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "absorb_btc",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 81011.68,
+      "stop": 81205.89221429,
+      "target": 80623.25557143,
+      "ew": null,
+      "tl": null,
+      "nw": null,
+      "cl": null,
+      "armedAt": 1793214000000,
+      "triggeredAt": 1793214000000,
+      "lastSeenAt": 1793214989596,
+      "source": "server-detector-absorb",
+      "event_aligned": null,
+      "held": false
+    },
     {
       "id": "natgas:1793189700000:fma_sweep_cm",
       "pair": "natgas",
@@ -34,7 +57,7 @@
       "cl": null,
       "armedAt": 1793189700000,
       "triggeredAt": 1793189700000,
-      "lastSeenAt": 1793214691766,
+      "lastSeenAt": 1793214989596,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
