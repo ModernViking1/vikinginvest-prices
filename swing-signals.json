@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-10-28T17:00:00+00:00",
  "data_end_ts": 1793206800,
- "raw_signal_count": 11,
- "count": 5,
+ "raw_signal_count": 12,
+ "count": 6,
  "signals": [
   {
    "id": "twob_ix:ftse100:1793199600",
@@ -33,6 +33,34 @@
     "twob_ix:bull"
    ],
    "suppressed": 1
+  },
+  {
+   "id": "engulf_manip:asterusd:1793196000",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "asterusd",
+   "symbol": "ASTERUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 0.71757071,
+   "ref_entry": 0.7016,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1793196000,
+   "created_ts": 1793206800,
+   "expiry_ts": 1793239200,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear"
+   ],
+   "suppressed": 0
   },
   {
    "id": "twob_ix:fra40:1793178000",
