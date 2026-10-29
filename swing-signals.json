@@ -1,10 +1,96 @@
 {
  "schema_version": 1,
- "generated": "2026-10-29T22:00:00+00:00",
- "data_end_ts": 1793311200,
- "raw_signal_count": 27,
- "count": 5,
+ "generated": "2026-10-29T23:00:00+00:00",
+ "data_end_ts": 1793314800,
+ "raw_signal_count": 29,
+ "count": 8,
  "signals": [
+  {
+   "id": "engulf_manip:nearusd:1793304000",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "nearusd",
+   "symbol": "NEARUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 4.70352429,
+   "ref_entry": 4.3964,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1793304000,
+   "created_ts": 1793314800,
+   "expiry_ts": 1793347200,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "engulf_manip:solusd:1793304000",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "solusd",
+   "symbol": "SOLUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 103.26014286,
+   "ref_entry": 99.7,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1793304000,
+   "created_ts": 1793314800,
+   "expiry_ts": 1793347200,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "engulf_manip:xrpusd:1793304000",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "xrpusd",
+   "symbol": "XRPUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 1.31896214,
+   "ref_entry": 1.2808,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1793304000,
+   "created_ts": 1793314800,
+   "expiry_ts": 1793347200,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip",
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear",
+    "mmove:bear"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "twob_ix:dj30:1793300400",
    "strategy": "twob_ix",
@@ -22,7 +108,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1793300400,
-   "created_ts": 1793311200,
+   "created_ts": 1793314800,
    "expiry_ts": 1793343600,
    "state": "triggered",
    "cofire": [
@@ -51,7 +137,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1793296800,
-   "created_ts": 1793311200,
+   "created_ts": 1793314800,
    "expiry_ts": 1793340000,
    "state": "triggered",
    "cofire": [
@@ -79,17 +165,16 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1793293200,
-   "created_ts": 1793311200,
+   "created_ts": 1793314800,
    "expiry_ts": 1793336400,
    "state": "triggered",
    "cofire": [
     "twob_ix"
    ],
    "cofire_dirs": [
-    "twob_ix:bear",
-    "twob_ix:bull"
+    "twob_ix:bear"
    ],
-   "suppressed": 1
+   "suppressed": 0
   },
   {
    "id": "twob_ix:fra40:1793286000",
@@ -108,7 +193,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1793286000,
-   "created_ts": 1793311200,
+   "created_ts": 1793314800,
    "expiry_ts": 1793329200,
    "state": "triggered",
    "cofire": [
@@ -136,7 +221,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1793282400,
-   "created_ts": 1793311200,
+   "created_ts": 1793314800,
    "expiry_ts": 1793325600,
    "state": "triggered",
    "cofire": [
