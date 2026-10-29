@@ -79,6 +79,13 @@ SYMBOLS = {
     # AVGO +0.228R, ADBE +0.195R, AMGN +0.172R, ABBV +0.129R — with the full swing book positive
     # alongside (twob/holygrail/turtle_soup +0.2..+0.6R). Live.
     'abbv': 'ABBV.NYSE', 'adbe': 'ADBE.NAS', 'amd': 'AMD.NAS', 'amgn': 'AMGN.NAS', 'avgo': 'AVGO.NAS',
+    # Added 2026-10-29 (user) — tech names from a broker market-watch (.NSDQ), MAPPED to the engine's
+    # .NAS/.NYSE convention by actual listing (CRM/IBM = NYSE; INTU/TXN = NASDAQ). Cap-efficient >=$200
+    # only (sub-$200 CSCO/INTC/ORCL/PLTR/QCOM skipped per the throttle rule; NOW excluded — shown ~$113,
+    # a mismap for a ~$900 stock). ADDED LIVE UNVALIDATED (user) — the 3yr OHLC export was wiped, so no
+    # detector backtest yet; ma_pull is proven + the EA spec-sanity guard protects sizing. ⚠ Spot-check
+    # CRM/IBM/INTU/TXN identity in MT5 Specification. Re-run the MT5 export to backtest when convenient.
+    'crm': 'CRM.NYSE', 'ibm': 'IBM.NYSE', 'intu': 'INTU.NAS', 'txn': 'TXN.NAS',
     # CAT — HELD (3yr backtest 2026-10-23). The broker returned only ~1yr of bars (1863 h1 vs 8000),
     # and on that data ma_pull_eq is flat (+0.002R) and FAILS the OOS split (+0.116 then -0.113) — the
     # hero strategy carries no edge here. Its swing book IS positive (twob +0.75R, HG-m15 +0.61R,
