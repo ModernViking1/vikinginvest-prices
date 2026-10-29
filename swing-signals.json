@@ -2,37 +2,9 @@
  "schema_version": 1,
  "generated": "2026-10-29T13:00:00+00:00",
  "data_end_ts": 1793278800,
- "raw_signal_count": 37,
- "count": 6,
+ "raw_signal_count": 34,
+ "count": 5,
  "signals": [
-  {
-   "id": "twob_ix:fra40:1793271600",
-   "strategy": "twob_ix",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "fra40",
-   "symbol": "FRA40",
-   "class": "index",
-   "dir": "bear",
-   "stop": 7981.80285714,
-   "ref_entry": 7964.5,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1793271600,
-   "created_ts": 1793278800,
-   "expiry_ts": 1793314800,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bear"
-   ],
-   "suppressed": 0
-  },
   {
    "id": "twob_ix:jp225:1793271600",
    "strategy": "twob_ix",
@@ -73,34 +45,6 @@
    "dir": "bear",
    "stop": 52919.56071429,
    "ref_entry": 52850.6,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1793268000,
-   "created_ts": 1793278800,
-   "expiry_ts": 1793311200,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob_ix:ftse100:1793268000",
-   "strategy": "twob_ix",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "ftse100",
-   "symbol": "FTSE100",
-   "class": "index",
-   "dir": "bear",
-   "stop": 10759.31,
-   "ref_entry": 10739.6,
    "pivot": null,
    "rr": 2.0,
    "r_pct": 1.0,
@@ -171,6 +115,34 @@
    ],
    "cofire_dirs": [
     "twob_ix:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "engulf_manip:asterusd:1793196000",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "asterusd",
+   "symbol": "ASTERUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 0.71757071,
+   "ref_entry": 0.7016,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1793196000,
+   "created_ts": 1793278800,
+   "expiry_ts": 1793239200,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear"
    ],
    "suppressed": 0
   }
