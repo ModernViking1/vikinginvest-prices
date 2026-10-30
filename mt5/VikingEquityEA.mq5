@@ -62,6 +62,17 @@ input double InpMaxLossPct   = 4.0;       // CATASTROPHIC BACKSTOP: force-close 
                                           //   realises at the gapped open) — the earnings blackout in the
                                           //   bridge is the primary gap defence; this bounds everything else
                                           //   (fast intraday crashes, short tails, continued post-gap bleed).
+input bool   InpSpikeGuard      = true;   // BAD-TICK SPIKE GUARD on exit management. The broker's US CFD
+                                          //   feed occasionally prints a lone outlier tick (the flaky
+                                          //   tick-value issue). Without this, such a spike could latch the
+                                          //   trail's 'best' (over-tightening the stop -> premature exit on
+                                          //   reversion) or trip the backstop on a phantom floating loss.
+                                          //   When on, a mark that jumps > InpSpikeMaxMovePct vs the last
+                                          //   TRUSTED mark is treated as suspect and IGNORED for best/trail/
+                                          //   backstop until a 2nd check confirms it. NOTE: this guards the
+                                          //   EA's OWN exit decisions only; the broker-side SL is unchanged
+                                          //   (the broker already filters bad ticks for execution).
+input double InpSpikeMaxMovePct = 3.0;    // a per-check mark jump beyond this % of price is a suspect spike
 input bool   InpVerbose      = true;      // log decisions
 // ── Execution fixes (2026-10-08) ──────────────────────────────────────────────
 input string InpEntryMode    = "limit";   // "limit" = rest a limit AT the model entry (aligns fills
@@ -95,7 +106,8 @@ CTrade        trade;
 CPositionInfo pos;
 
 // per-ticket trail state (rebuilt on init from open EA positions)
-struct TrailState { ulong ticket; double entry; double initStop; double R; int dir; bool armed; double best; datetime expiry; };
+struct TrailState { ulong ticket; double entry; double initStop; double R; int dir; bool armed; double best; datetime expiry;
+                    double trustedPx; int suspectN; };   // spike-guard: last trusted mark + consecutive-suspect count
 TrailState gStates[];
 // per-symbol close-only backoff (rc 10044): retry-after timestamps so a transient out-of-session
 // window doesn't make us re-send every poll, while the signal stays alive to fill on reopen.
@@ -176,9 +188,33 @@ void ManageOpen(bool beat=false)
       if(TimeCurrent() >= gStates[i].expiry)
         { trade.PositionClose(gStates[i].ticket); if(InpVerbose) PrintFormat("%s: horizon close", sym); continue; }
 
+      // BAD-TICK SPIKE GUARD — a lone outlier mark must not drive the trail or the backstop. A mark
+      // that jumps > InpSpikeMaxMovePct vs the last TRUSTED mark is suspect and ignored for price-based
+      // exit management until a 2nd consecutive check confirms the move (then it becomes trusted). Time-
+      // based exits (horizon above, weekend below) are unaffected; the broker-side SL is unchanged.
+      bool pxTrusted = true;
+      if(InpSpikeGuard)
+        {
+         if(gStates[i].trustedPx <= 0) gStates[i].trustedPx = px;          // seed on the first managed tick
+         else
+           {
+            double movePct = MathAbs(px - gStates[i].trustedPx) / gStates[i].trustedPx * 100.0;
+            if(movePct > InpSpikeMaxMovePct)
+              {
+               gStates[i].suspectN++;
+               if(gStates[i].suspectN >= 2) { gStates[i].trustedPx = px; gStates[i].suspectN = 0; }  // 2 in a row = real
+               else { pxTrusted = false;
+                      if(beat) PrintFormat("SPIKE-GUARD %-10s px=%.4f jumped %.1f%% vs trusted %.4f — ignored this check",
+                                           sym, px, movePct, gStates[i].trustedPx); }
+              }
+            else { gStates[i].trustedPx = px; gStates[i].suspectN = 0; }    // normal mark
+           }
+        }
+
       // catastrophic per-position backstop — force-close if the floating loss exceeds InpMaxLossPct
       // of equity. Bounds the tail the gap study exposed (worst -235R) + any fast intraday blowup.
-      if(InpMaxLossPct > 0)
+      // Gated on pxTrusted so a phantom spike can't trip it (a real breach confirms within one check).
+      if(InpMaxLossPct > 0 && pxTrusted)
         {
          double eqNow = AccountInfoDouble(ACCOUNT_EQUITY);
          double fpl   = PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
@@ -194,13 +230,16 @@ void ManageOpen(bool beat=false)
       if(NearWeekendClose(sym))
         { trade.PositionClose(gStates[i].ticket); if(InpVerbose) PrintFormat("%s: WEEKEND-FLAT close", sym); continue; }
 
-      // track best price
-      if(gStates[i].dir>0) gStates[i].best = MathMax(gStates[i].best, px);
-      else                 gStates[i].best = MathMin(gStates[i].best, px);
+      // track best price — SPIKE-GUARDED: never latch 'best' onto an unconfirmed outlier mark
+      if(pxTrusted)
+        {
+         if(gStates[i].dir>0) gStates[i].best = MathMax(gStates[i].best, px);
+         else                 gStates[i].best = MathMin(gStates[i].best, px);
+        }
 
       // arm once profit >= ArmR*R (ArmR folded into initStop distance == 1R; arm at +1R)
       double profitR = (gStates[i].dir>0) ? (px-gStates[i].entry)/R : (gStates[i].entry-px)/R;
-      if(!gStates[i].armed && profitR >= 1.0) gStates[i].armed = true;    // arm at +1R (TRAIL_ARM)
+      if(pxTrusted && !gStates[i].armed && profitR >= 1.0) gStates[i].armed = true;    // arm at +1R (TRAIL_ARM)
 
       int    dg    = (int)SymbolInfoInteger(sym, SYMBOL_DIGITS);
       double curSL = PositionGetDouble(POSITION_SL);
@@ -216,8 +255,8 @@ void ManageOpen(bool beat=false)
 
       if(!gStates[i].armed) continue;
 
-      // trail 1R behind the best (TRAIL_DIST=1R)
-      bool improve = (gStates[i].dir>0) ? (trailSL > curSL) : (trailSL < curSL || curSL==0);
+      // trail 1R behind the best (TRAIL_DIST=1R) — only on a trusted mark ('best' is already spike-guarded)
+      bool improve = pxTrusted && ((gStates[i].dir>0) ? (trailSL > curSL) : (trailSL < curSL || curSL==0));
       if(improve)
         {
          double tp = PositionGetDouble(POSITION_TP);
@@ -583,6 +622,7 @@ void AddState(ulong tk, double entry, double initStop, double R, int dir, dateti
    gStates[n].ticket=tk; gStates[n].entry=entry; gStates[n].initStop=initStop;
    gStates[n].R=R; gStates[n].dir=dir; gStates[n].armed=false;
    gStates[n].best=entry; gStates[n].expiry=expiry;
+   gStates[n].trustedPx=0.0; gStates[n].suspectN=0;     // spike-guard seeds on the first managed tick
   }
 void Remove(int i){ int n=ArraySize(gStates); if(i<0||i>=n)return; gStates[i]=gStates[n-1]; ArrayResize(gStates,n-1); }
 
