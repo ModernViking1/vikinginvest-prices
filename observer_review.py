@@ -75,7 +75,12 @@ LIVE = {'hs', 'engulf_manip',
         # holygrail_cm (H1) removed 2026-10-03; its m15 sibling holygrail_cm_m15 stays.
         # cam_rev removed 2026-10-03 — its backtest edge was a ~13h look-ahead artifact; the causal
         # re-validation is -0.26R/trade (both OOS halves, every class), matching the live -0.23R.
-        'mmove', 'holygrail_cm_m15'}
+        'mmove'}
+        # holygrail_cm_m15 removed from the LIVE roster 2026-10-31 (user) — it was stripped from the
+        # swing feed on 2026-10-20 (swing_signals.LIVE_STRATS={twob_ix,engulf_manip}); last live fill
+        # 2026-10-20. The weekly review kept flagging a STALE live-vs-model gap because this roster was
+        # never synced. (Broader desync noted: gbreak/fma_sweep_cm/mmove/hs are also listed here but are
+        # NOT in the current swing feed — reconcile this whole set against the real live emitters.)
         # asianglitch + obfvg removed 2026-09-18 (negative 1st OOS half on the 3-year test).
         # divg NOT included — retired at the detector (returns None), not trading.
         # sweepfvg_ix removed 2026-09-18 — net-negative across ALL indices over 3yr, both halves.
