@@ -116,10 +116,10 @@ SYMBOLS = {
     # ES (.MAD) HELD OUT — failed the 3yr validation. Still in export/backtest only. Do NOT trade live.
     #   'cabk': 'CABK.MAD', 'san': 'SAN.MAD',
 }
-# ⚠ WATCH 2026-10-25 (user) — volbreak_eq: the weekly observer review has it forward-NEGATIVE
-# (-0.099R, n=76), a live-vs-model gap vs its strong 3yr backtest (+0.399R pooled across the new
-# names). NOT pulled yet — kept live on the backtest strength, but on watch: if the forward loss
-# persists / deepens, demote it from this STRATS list (it then stays shadow-observed only).
+# volbreak_eq DROPPED from live 2026-10-31 (user) — the weekly observer review moved it from WATCH to a
+# DROP candidate (forward -0.099R, n=76): the live-vs-model gap (thin breakout edge eaten by execution
+# cost) outweighs its strong 3yr backtest (+0.399R pooled). Stays shadow-observed; re-add only if it
+# re-earns a live-positive record.
 # DROPPED from live 2026-10-27 (user) — the 610-trade since-inception report showed these three
 # persistently net-negative in BOTH R and cash despite strong 3yr backtests (the live-vs-model
 # execution gap — thin structural edges eaten by spread/commission, same failure as the swing book):
@@ -130,7 +130,7 @@ SYMBOLS = {
 # record. Kept live: ma_pull_eq (the engine, +$121.8k) + turtle_soup_eq (+$10.8k) + holygrail_eq_m15
 # (turned +$8.4k since the investor note). volbreak_eq/threepush_eq stay on watch; fib_eq is US-only.
 # (tag, timeframe, generator) — identical to the live equity feed's .EQ book.
-STRATS = [('volbreak_eq', 'h1', H._volbreak_sig), ('holygrail_eq_m15', 'm15', H._holygrail_sig),
+STRATS = [('holygrail_eq_m15', 'm15', H._holygrail_sig),
           ('turtle_soup_eq', 'h1', H._turtlesoup_sig),
           ('threepush_eq', '4h', H.threepush_core)]
 FRESH_MIN = {'h1': 90, 'm15': 45, '4h': 270}   # emit only a signal whose entry bar closed within this
