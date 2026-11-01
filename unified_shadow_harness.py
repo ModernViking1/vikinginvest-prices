@@ -655,6 +655,29 @@ def _fib_eq_signals(pk, bars, tf):
 # ma_pullback_research/ma_pull_check over 3yr equity m15: +0.156R all / +0.262R on the 59% that
 # DON'T overlap holygrail_eq_m15/turtle_soup_eq_m15 (both OOS halves +). Additive edge, demo-first.
 MAPULL_FAST, MAPULL_PB, MAPULL_BUF = 9, 5, 0.25
+# OPEN-TIMING FILTER (2026-11-01, open-timing study): skip NEW ma_pull entries in the weak post-open
+# window. The 3yr m15 study found ma_pull earns ~+0.05R (RR ~1.1) for entries 15-60 min after the US
+# open vs +0.23R once settled (2h+) — it is trend-following and the open has no established trend yet to
+# pull back into (reversal plays like turtle_soup/holygrail actually feed on that volatility and are NOT
+# filtered). Gates ENTRIES only: positions already open — including ones carried over from a prior day —
+# are never touched. On h1 the first session bar lands >=60 min after the open, so this is effectively an
+# m15 gate. Set MAPULL_SKIP_OPEN=False to disable.
+MAPULL_SKIP_OPEN = True
+MAPULL_OPEN_LO, MAPULL_OPEN_HI = 15, 60   # minutes after the session open to skip NEW entries
+
+
+def _session_open_ts(bars, gap_min=120):
+    """Per-bar _ts of the FIRST bar of that bar's trading session, detecting the overnight break as an
+    inter-bar gap > gap_min minutes. Lets a detector gate entries by minutes-after-open with no hard-
+    coded timezone or session hours."""
+    n = len(bars)
+    out = [0] * n
+    cur = bars[0]['_ts'] if n else 0
+    for i in range(n):
+        if i > 0 and (bars[i]['_ts'] - bars[i - 1]['_ts']) > gap_min * 60:
+            cur = bars[i]['_ts']
+        out[i] = cur
+    return out
 
 
 def _ma_pull_signals(pk, bars, tf):
@@ -663,6 +686,7 @@ def _ma_pull_signals(pk, bars, tf):
         return []
     closes = [b['c'] for b in bars]
     s20 = _sma_series(bars, 20); s200 = _sma_series(bars, 200); e9 = _ema(closes, MAPULL_FAST)
+    sess = _session_open_ts(bars) if MAPULL_SKIP_OPEN else None
     out = []; last = -1
     for i in range(201, n-1):
         if s200[i] is None or s20[i] is None or e9[i] is None:
@@ -671,6 +695,9 @@ def _ma_pull_signals(pk, bars, tf):
         bull = c > s200[i] and s20[i] > s200[i] and e9[i] > s20[i]
         bear = c < s200[i] and s20[i] < s200[i] and e9[i] < s20[i]
         if not (bull or bear) or i <= last:
+            continue
+        # OPEN-TIMING FILTER — skip NEW entries whose entry bar (i+1) falls in the weak post-open window.
+        if MAPULL_SKIP_OPEN and MAPULL_OPEN_LO <= (bars[i+1]['_ts'] - sess[i+1]) / 60.0 < MAPULL_OPEN_HI:
             continue
         lo = max(0, i-MAPULL_PB)
         if bull:
