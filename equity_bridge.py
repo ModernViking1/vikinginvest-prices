@@ -60,7 +60,10 @@ SYMBOLS = {
     # Added — high-priced, VikingSizingDiag-confirmed available + OK @ 0.5% at 1000 units (2026-10-21):
     'cost': 'COST.NAS', 'asml': 'ASML.NAS', 'meli': 'MELI.NAS',
     'azo': 'AZO.NYSE', 'tmo': 'TMO.NYSE', 'mck': 'MCK.NYSE', 'gs': 'GS.NYSE',
-    'lmt': 'LMT.NYSE', 'tdg': 'TDG.NYSE', 'gww': 'GWW.NYSE',
+    'gww': 'GWW.NYSE',
+    # DROPPED 2026-11-01 (user) — trimmed to 50 US names on live wins/RR. LMT (20% WR, -0.689R, n=5) and
+    # TDG (25% WR, -0.501R, n=8) were the worst-performing live names (alongside COF, dropped below).
+    #   'lmt': 'LMT.NYSE', 'tdg': 'TDG.NYSE',
     # Re-added 2026-10-21 (user) — dropped by the >=$200 price rule but PROVEN net-positive on live
     # fills, so kept despite throttled size (thin n, modest upside): COIN +$2.6k (n6), WDAY +$9.5k
     # (n3), HOOD +$2.1k (n3), BAC +$1.1k (n3, 100% WR). (ABNB +$2.1k also qualifies — held out as the
@@ -73,7 +76,7 @@ SYMBOLS = {
     # COF: PASSED a 3yr detector backtest (broker bars already exported) — positive + both-OOS on the
     # core book (volbreak +0.44R, twob +0.39R, HG-m15 +0.31R, TS-m15 +0.29R, HG +0.21R, TS +0.17R,
     # ma_pull +0.10R; fib/threepush weak as elsewhere). Live.
-    'cof': 'COF.NYSE',
+    # 'cof': 'COF.NYSE',   # DROPPED 2026-11-01 (user) — worst live record (29% WR, -0.931R, n=7); trimmed to 50 US.
     # Added 2026-10-23 — PASSED a 3yr detector backtest on the broker export (resolved-only, both-OOS,
     # trailing-runner + cost model). ma_pull_eq per name, all positive in BOTH OOS halves: AMD +0.258R,
     # AVGO +0.228R, ADBE +0.195R, AMGN +0.172R, ABBV +0.129R — with the full swing book positive
