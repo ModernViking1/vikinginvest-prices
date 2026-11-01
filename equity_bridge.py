@@ -86,6 +86,12 @@ SYMBOLS = {
     # detector backtest yet; ma_pull is proven + the EA spec-sanity guard protects sizing. ⚠ Spot-check
     # CRM/IBM/INTU/TXN identity in MT5 Specification. Re-run the MT5 export to backtest when convenient.
     'crm': 'CRM.NYSE', 'ibm': 'IBM.NYSE', 'intu': 'INTU.NAS', 'txn': 'TXN.NAS',
+    # Added 2026-11-01 (user) — browsed on a PropX market-watch (.NSDQ) but added to the IC Markets
+    # engine, mapped by listing (CVX, V both NYSE). Only the >=$200 cap-efficient names (the sub-$200
+    # financials/energy COP/XOM/C/MET/MS/PYPL/SCHW/USB/WFC skipped per the throttle rule). Added LIVE
+    # UNVALIDATED — backtest on the next MT5 export. ⚠ Spot-check CVX/V identity in Specification (CVX
+    # shown ~$236, higher than expected for Chevron — verify it isn't a mismap).
+    'cvx': 'CVX.NYSE', 'v': 'V.NYSE',
     # CAT — HELD (3yr backtest 2026-10-23). The broker returned only ~1yr of bars (1863 h1 vs 8000),
     # and on that data ma_pull_eq is flat (+0.002R) and FAILS the OOS split (+0.116 then -0.113) — the
     # hero strategy carries no edge here. Its swing book IS positive (twob +0.75R, HG-m15 +0.61R,
