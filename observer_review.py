@@ -62,28 +62,17 @@ CONC_MIN_REMAINDER = 20  # min non-top-pair fills for the remainder edge to be t
 # one lingers as live). NOTE: this set is the complete NAMED ROSTER of what trades on the cBot;
 # per-strategy live/demo/class gating is enforced in the feeds (swing_signals.DEMO_ONLY,
 # build_signals_json.DEMO_ONLY_METHODS / LIVE_CLASSES), not here.
-LIVE = {'hs', 'engulf_manip',
-        # fred_tl + fma_gold demoted 2026-09-28 (weekly review: both DROP, 2nd OOS half negative).
-        # twob + twob_cm demoted 2026-10-02 (chronic -35R/-28R live, crypto+comm); twob_ix stays.
-        # 2026-10-03 — fib/wick/macdp pilots retired; holygrail_cm (H1) demoted; cam_rev demoted.
-        # s5_rsi DEMOTED + s5_rsi_wide promotion REVERTED 2026-10-03 — the detect_s5 daily/weekly
-        # look-ahead inflated both; causal re-validation: s5_rsi -0.046R (OOS1 -0.163), s5_rsi_wide
-        # fails both-OOS (OOS1 -0.069).
-        'gbreak', 'fma_sweep_cm', 'twob_ix', 'mmove_m15',
-        'absorb_btc', 'crt_ix',
-        # 2026-09-18 — promoted to live after the 3-year both-OOS-positive backtest.
-        # holygrail_cm (H1) removed 2026-10-03; its m15 sibling holygrail_cm_m15 stays.
-        # cam_rev removed 2026-10-03 — its backtest edge was a ~13h look-ahead artifact; the causal
-        # re-validation is -0.26R/trade (both OOS halves, every class), matching the live -0.23R.
-        'mmove'}
-        # holygrail_cm_m15 removed from the LIVE roster 2026-10-31 (user) — it was stripped from the
-        # swing feed on 2026-10-20 (swing_signals.LIVE_STRATS={twob_ix,engulf_manip}); last live fill
-        # 2026-10-20. The weekly review kept flagging a STALE live-vs-model gap because this roster was
-        # never synced. (Broader desync noted: gbreak/fma_sweep_cm/mmove/hs are also listed here but are
-        # NOT in the current swing feed — reconcile this whole set against the real live emitters.)
-        # asianglitch + obfvg removed 2026-09-18 (negative 1st OOS half on the 3-year test).
-        # divg NOT included — retired at the detector (returns None), not trading.
-        # sweepfvg_ix removed 2026-09-18 — net-negative across ALL indices over 3yr, both halves.
+# RECONCILED 2026-11-01 (user) to the REAL live emitters — this set MUST match what the feeds emit,
+# or the review mis-labels (stale 'live-vs-model' flags on long-stripped strategies, e.g.
+# holygrail_cm_m15/mmove flagged for weeks after their 2026-10-20 strip). Re-add a name here ONLY when
+# it is actually re-enabled in swing_signals.LIVE_STRATS or build_signals_json.
+#   SWING feed   (swing_signals.LIVE_STRATS):            engulf_manip, twob_ix
+#   INTRADAY feed (build_signals_json dedicated emits):  mmove_m15, absorb_btc, crt_ix
+# Demoted off-live (now observers): hs, gbreak, fma_sweep_cm, mmove (swing, not in LIVE_STRATS),
+# holygrail_cm_m15 (stripped 2026-10-20), plus the earlier demotes (twob/twob_cm/cam_rev/holygrail_cm/
+# fred_tl/fma_gold/s5_rsi*/asianglitch/obfvg/sweepfvg_ix — all negative on the causal 3yr re-validation).
+LIVE = {'engulf_manip', 'twob_ix',            # swing (OANDA cBot)
+        'mmove_m15', 'absorb_btc', 'crt_ix'}  # intraday cBot
 
 
 def agg(seq):
