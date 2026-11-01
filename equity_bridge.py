@@ -92,6 +92,15 @@ SYMBOLS = {
     # UNVALIDATED — backtest on the next MT5 export. ⚠ Spot-check CVX/V identity in Specification (CVX
     # shown ~$236, higher than expected for Chevron — verify it isn't a mismap).
     'cvx': 'CVX.NYSE', 'v': 'V.NYSE',
+    # Added 2026-11-01 (user) — >=$200 cap-efficient names browsed on PropX (.NSDQ), mapped to the IC
+    # Markets engine by listing exchange. Health care, consumer-disc, industrials large-caps. Sub-$200
+    # names skipped per the throttle rule; CAT still held (thin broker history); BKNG excluded (mismap).
+    # Added LIVE UNVALIDATED — backtest on the next MT5 export. ⚠ Spot-check identity in Specification
+    # (several prices higher than long-term norms — confirm no mismaps before they size up).
+    'jnj': 'JNJ.NYSE', 'unh': 'UNH.NYSE', 'dhr': 'DHR.NYSE', 'isrg': 'ISRG.NAS',
+    'hd': 'HD.NYSE', 'low': 'LOW.NYSE',
+    'de': 'DE.NYSE', 'gd': 'GD.NYSE', 'fdx': 'FDX.NYSE', 'unp': 'UNP.NYSE',
+    'ge': 'GE.NYSE', 'hon': 'HON.NAS', 'rtx': 'RTX.NYSE',
     # CAT — HELD (3yr backtest 2026-10-23). The broker returned only ~1yr of bars (1863 h1 vs 8000),
     # and on that data ma_pull_eq is flat (+0.002R) and FAILS the OOS split (+0.116 then -0.113) — the
     # hero strategy carries no edge here. Its swing book IS positive (twob +0.75R, HG-m15 +0.61R,
