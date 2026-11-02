@@ -1,66 +1,10 @@
 {
  "schema_version": 1,
- "generated": "2026-11-02T15:00:00+00:00",
- "data_end_ts": 1793631600,
- "raw_signal_count": 13,
- "count": 5,
+ "generated": "2026-11-02T16:00:00+00:00",
+ "data_end_ts": 1793635200,
+ "raw_signal_count": 12,
+ "count": 2,
  "signals": [
-  {
-   "id": "twob_ix:jp225:1793628000",
-   "strategy": "twob_ix",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "jp225",
-   "symbol": "JP225",
-   "class": "index",
-   "dir": "bear",
-   "stop": 63754.88214286,
-   "ref_entry": 63386.2,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1793628000,
-   "created_ts": 1793631600,
-   "expiry_ts": 1793671200,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob_ix:nas100:1793628000",
-   "strategy": "twob_ix",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "nas100",
-   "symbol": "NAS100",
-   "class": "index",
-   "dir": "bear",
-   "stop": 28728.18571429,
-   "ref_entry": 28632.8,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1793628000,
-   "created_ts": 1793631600,
-   "expiry_ts": 1793671200,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bear"
-   ],
-   "suppressed": 0
-  },
   {
    "id": "twob_ix:ftse100:1793606400",
    "strategy": "twob_ix",
@@ -78,7 +22,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1793606400,
-   "created_ts": 1793631600,
+   "created_ts": 1793635200,
    "expiry_ts": 1793649600,
    "state": "triggered",
    "cofire": [
@@ -86,34 +30,6 @@
    ],
    "cofire_dirs": [
     "twob_ix:bull"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "engulf_manip:btcusd:1793581200",
-   "strategy": "engulf_manip",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "btcusd",
-   "symbol": "BTCUSD",
-   "class": "crypto",
-   "dir": "bull",
-   "stop": 77446.63378571,
-   "ref_entry": 78021.99,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1793581200,
-   "created_ts": 1793631600,
-   "expiry_ts": 1793624400,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bull"
    ],
    "suppressed": 0
   },
@@ -134,16 +50,18 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1793581200,
-   "created_ts": 1793631600,
+   "created_ts": 1793635200,
    "expiry_ts": 1793624400,
    "state": "triggered",
    "cofire": [
-    "engulf_manip"
+    "engulf_manip",
+    "mmove"
    ],
    "cofire_dirs": [
-    "engulf_manip:bull"
+    "engulf_manip:bull",
+    "mmove:bull"
    ],
-   "suppressed": 0
+   "suppressed": 1
   }
  ]
 }
