@@ -97,6 +97,20 @@ input int    InpWkndFlatMinBefore  = 10;     // flatten this many minutes before
 // (notional ~150%, risk ~8%) — leverage stacking is a real risk on live capital. Shrink-to-fit when >0.
 input double InpMaxBookNotionalPct = 0.0;    // PORTFOLIO cap: TOTAL open notional, % equity (0=OFF; set ~150 live)
 input double InpMaxBookRiskPct     = 0.0;    // PORTFOLIO cap: TOTAL open risk-to-stop, % equity (0=OFF; set ~8 live)
+input double InpSectorRiskCapPct   = 1.5;    // CORRELATION cap: max concurrent RISK-to-stop per SECTOR per
+                                             // DIRECTION, % equity (0=OFF). The real fix for a correlated
+                                             // cluster — e.g. the 2026-11-02 ma_pull run that put 11 longs
+                                             // (mostly financials) on at once and stacked the one-side risk.
+                                             // Shrink-to-fit: a new entry is sized DOWN to the sector's
+                                             // remaining budget (not rejected — a count cap bled ~50% of
+                                             // edge in the sim via first-come selection). Book-wide (ALL .EQ
+                                             // strategies count). Default from the 3yr ma_pull concurrency
+                                             // sim (~halves the sleeve's max drawdown at 1.5%); IN-SAMPLE —
+                                             // forward-validate / tune on the next MT5 export before trusting.
+input double InpDirRiskCapPct      = 6.0;    // DIRECTION cap: max TOTAL concurrent risk-to-stop on one side
+                                             // (all longs OR all shorts), % equity (0=OFF). Backstop above
+                                             // the per-sector cap (flat sizing let one side reach ~9.5% in
+                                             // the sim). Interacts with InpMaxBookRiskPct (both-sides) if set.
 input int    InpCloseOnlyRetryMin  = 3;      // after a CLOSE_ONLY reject (rc 10044 — symbol in a transient
                                              //   out-of-session/pre-open/post-close window), back off this many
                                              //   minutes per symbol then retry. The signal is KEPT (not dropped)
@@ -130,6 +144,8 @@ int OnInit()
                (string)(!InpAllowLive), InpRiskPct, InpFeedURL);
    PrintFormat("  weekend-flat=%s (%dm pre Fri close) | book caps: notional<=%.0f%%, risk<=%.1f%% of equity",
                (string)InpWeekendFlat, InpWkndFlatMinBefore, InpMaxBookNotionalPct, InpMaxBookRiskPct);
+   PrintFormat("  correlation caps: sector<=%.2f%%/dir, direction<=%.2f%% of equity (0=off)",
+               InpSectorRiskCapPct, InpDirRiskCapPct);
    if(!IsTradeableAccount())
       Print("WARNING: live account + AllowLive=false → EA will NOT place trades (demo guard).");
    return(INIT_SUCCEEDED);
@@ -340,7 +356,7 @@ void ProcessSignal(const string obj)
       if(dir<0 && (sl-price)<minDist) sl = price + minDist;
       sl = NormalizeDouble(sl, digits);
       double R = MathAbs(price - sl); if(R<=0) return;
-      double lots = LotsForRisk(sym, R, price);
+      double lots = LotsForRisk(sym, R, price, dir);
       if(lots<=0) { PrintFormat("skip %s — lot sizing <=0", id); return; }
       bool ok = (dir>0) ? trade.Buy(lots, sym, 0.0, sl, 0.0, id)
                         : trade.Sell(lots, sym, 0.0, sl, 0.0, id);
@@ -366,7 +382,7 @@ void ProcessSignal(const string obj)
    if(dir<0 && (sll-lp)<minDist) sll = lp + minDist;
    sll = NormalizeDouble(sll, digits);
    double Rl = MathAbs(lp - sll); if(Rl<=0) return;
-   double lotsL = LotsForRisk(sym, Rl, lp);
+   double lotsL = LotsForRisk(sym, Rl, lp, dir);
    if(lotsL<=0) { PrintFormat("skip %s — lot sizing <=0", id); return; }
    datetime exp = TimeCurrent() + (datetime)(InpLimitExpiryMin*60);
    bool okL = (dir>0) ? trade.BuyLimit(lotsL, lp, sym, sll, 0.0, ORDER_TIME_SPECIFIED, exp, id)
@@ -425,6 +441,65 @@ double BookRiskCcy()
    return tot;
   }
 
+// ── Sector map for the correlation cap (InpSectorRiskCapPct) ────────────────────────────────────────
+// AUTHORITATIVE copy of the symbol->sector grouping. It lives HERE (not in the feed) because the EA must
+// classify ALREADY-OPEN positions by symbol to sum sector risk, which a per-signal feed field can't do.
+// KEEP IN SYNC with equity_bridge.py's SYMBOLS universe: when a US/JP name is added there, add its base
+// ticker to the right line below (see the matching note by SYMBOLS in equity_bridge.py). Base ticker =
+// the part before the FINAL '.' (so "BRK-B.NYSE"->"BRK-B", "7267.TSE"->"7267"). Unknown names -> "OTHER"
+// (OTHER is still capped as its own bucket, so a forgotten symbol fails safe = throttled, not unlimited).
+bool InList(const string tok, const string csv)
+  {
+   string parts[]; int n = StringSplit(csv, ',', parts);
+   for(int i = 0; i < n; i++) if(parts[i] == tok) return true;
+   return false;
+  }
+string SymbolSector(const string sym)
+  {
+   int cut = StringLen(sym);
+   for(int i = StringLen(sym)-1; i >= 0; i--) if(StringGetCharacter(sym, i) == '.') { cut = i; break; }
+   string b = StringSubstr(sym, 0, cut);   // base ticker
+   if(InList(b, "AAPL,MSFT,NVDA,ASML,SNOW,WDAY,ADBE,AMD,AVGO,CRM,IBM,INTU,TXN,ACN,6758")) return "TECH";
+   if(InList(b, "AXP,JPM,BLK,MA,BRK-B,GS,COIN,HOOD,BAC,V,8306"))                           return "FIN";
+   if(InList(b, "LLY,TMO,MCK,ABBV,AMGN,JNJ,UNH,DHR,ISRG"))                                 return "HLTH";
+   if(InList(b, "AMZN,TSLA,MCD,COST,MELI,AZO,HD,LOW,7267,7974"))                           return "CONS";
+   if(InList(b, "GWW,DE,GD,FDX,UNP,GE,HON,RTX"))                                           return "IND";
+   if(InList(b, "CVX"))                                                                    return "ENERGY";
+   return "OTHER";
+  }
+
+// Open RISK-to-initial-stop on ONE DIRECTION (account ccy), from tracked gStates — mirrors BookRiskCcy.
+double DirRiskCcy(int dir)
+  {
+   double tot = 0;
+   for(int i = ArraySize(gStates)-1; i >= 0; i--)
+     {
+      if(gStates[i].dir != dir) continue;
+      if(!PositionSelectByTicket(gStates[i].ticket)) continue;
+      string s = PositionGetString(POSITION_SYMBOL);
+      double tv = SymbolInfoDouble(s, SYMBOL_TRADE_TICK_VALUE);
+      double tz = SymbolInfoDouble(s, SYMBOL_TRADE_TICK_SIZE);
+      if(tz > 0) tot += (gStates[i].R / tz) * tv * PositionGetDouble(POSITION_VOLUME);
+     }
+   return tot;
+  }
+// Open RISK-to-initial-stop on one SECTOR + DIRECTION (account ccy).
+double SectorRiskCcy(const string sec, int dir)
+  {
+   double tot = 0;
+   for(int i = ArraySize(gStates)-1; i >= 0; i--)
+     {
+      if(gStates[i].dir != dir) continue;
+      if(!PositionSelectByTicket(gStates[i].ticket)) continue;
+      string s = PositionGetString(POSITION_SYMBOL);
+      if(SymbolSector(s) != sec) continue;
+      double tv = SymbolInfoDouble(s, SYMBOL_TRADE_TICK_VALUE);
+      double tz = SymbolInfoDouble(s, SYMBOL_TRADE_TICK_SIZE);
+      if(tz > 0) tot += (gStates[i].R / tz) * tv * PositionGetDouble(POSITION_VOLUME);
+     }
+   return tot;
+  }
+
 // Weekend-flat window: true on FRIDAY within InpWkndFlatMinBefore of this symbol's last Friday session
 // close. Per-symbol (SymbolInfoSessionTrade), so US and JP each flatten at their own close. If the
 // session can't be read we return false (don't force-close at a guessed time).
@@ -444,7 +519,7 @@ bool NearWeekendClose(const string sym)
 //+------------------------------------------------------------------+
 //| Risk-based position sizing                                       |
 //+------------------------------------------------------------------+
-double LotsForRisk(const string sym, double stopDist, double price)
+double LotsForRisk(const string sym, double stopDist, double price, int dir)
   {
    double equity   = AccountInfoDouble(ACCOUNT_EQUITY);
    double riskMoney= equity * (InpRiskPct/100.0);
@@ -486,6 +561,28 @@ double LotsForRisk(const string sym, double stopDist, double price)
       double freeRisk = equity*(InpMaxBookRiskPct/100.0) - BookRiskCcy();
       lots = MathMin(lots, (freeRisk > 0 ? freeRisk/lossPerLot : 0.0));
      }
+   // CORRELATION caps (shrink-to-fit) — throttle concurrent risk per DIRECTION and per SECTOR+direction so
+   // a correlated cluster can't stack the book's one-side risk (the 2026-11-02 ma_pull financials run). A
+   // new entry is sized DOWN to the remaining budget rather than rejected (the concurrency sim showed a
+   // first-come count cap bled ~50% of edge; sizing-to-fit keeps the edge-per-dollar). Book-wide: every
+   // open .EQ position in this direction/sector counts. Uses INITIAL R (gStates.R), same basis as the book
+   // caps above. _sec is reused by the sub-vmin fit check below.
+   string _sec = SymbolSector(sym);
+   double lotsPreCorr = lots;
+   if(InpDirRiskCapPct > 0 && lossPerLot > 0)
+     {
+      double freeDir = equity*(InpDirRiskCapPct/100.0) - DirRiskCcy(dir);
+      lots = MathMin(lots, (freeDir > 0 ? freeDir/lossPerLot : 0.0));
+     }
+   if(InpSectorRiskCapPct > 0 && lossPerLot > 0)
+     {
+      double freeSec = equity*(InpSectorRiskCapPct/100.0) - SectorRiskCcy(_sec, dir);
+      lots = MathMin(lots, (freeSec > 0 ? freeSec/lossPerLot : 0.0));
+     }
+   if(InpVerbose && lots < lotsPreCorr - 1e-9)
+      PrintFormat("  corr-cap %s/%s %s: dirRisk=%.0f/%.0f secRisk=%.0f/%.0f  lots %.2f->%.2f",
+                  sym, _sec, (dir>0?"LONG":"SHORT"), DirRiskCcy(dir), equity*(InpDirRiskCapPct/100.0),
+                  SectorRiskCcy(_sec,dir), equity*(InpSectorRiskCapPct/100.0), lotsPreCorr, lots);
    // clamp to symbol volume constraints + the absolute backstop
    double vmin = SymbolInfoDouble(sym, SYMBOL_VOLUME_MIN);
    double brokerMax = SymbolInfoDouble(sym, SYMBOL_VOLUME_MAX);
@@ -497,9 +594,12 @@ double LotsForRisk(const string sym, double stopDist, double price)
    if(lots < vmin)
      {
       bool fits = (InpMaxBookNotionalPct <= 0 || BookNotionalCcy() + vmin*notionalPerLot <= equity*(InpMaxBookNotionalPct/100.0))
-               && (InpMaxBookRiskPct     <= 0 || BookRiskCcy()     + vmin*lossPerLot     <= equity*(InpMaxBookRiskPct/100.0));
+               && (InpMaxBookRiskPct     <= 0 || BookRiskCcy()     + vmin*lossPerLot     <= equity*(InpMaxBookRiskPct/100.0))
+               && (InpDirRiskCapPct      <= 0 || DirRiskCcy(dir)    + vmin*lossPerLot     <= equity*(InpDirRiskCapPct/100.0))
+               && (InpSectorRiskCapPct   <= 0 || SectorRiskCcy(_sec,dir)+vmin*lossPerLot  <= equity*(InpSectorRiskCapPct/100.0));
       if(!fits)
-        { if(InpVerbose) PrintFormat("skip %s — portfolio cap full (bookNotional=%.0f, bookRisk=%.0f)", sym, BookNotionalCcy(), BookRiskCcy()); return 0.0; }
+        { if(InpVerbose) PrintFormat("skip %s — cap full (bookNot=%.0f bookRisk=%.0f dirRisk[%s]=%.0f secRisk[%s]=%.0f)",
+             sym, BookNotionalCcy(), BookRiskCcy(), (dir>0?"L":"S"), DirRiskCcy(dir), _sec, SectorRiskCcy(_sec,dir)); return 0.0; }
       lots = vmin;
      }
    lots = MathMin(vmax, lots);

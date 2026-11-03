@@ -42,6 +42,15 @@ def _uklocal(ms):
 
 # local_key -> MT5 Market Watch symbol. The whole equity book — US + DE + UK — driven off the broker's
 # own bars through this bridge. The EA reads this bridge's LOCAL file, so every tradeable name lives here.
+# ⚠ SECTOR MAP SYNC: the EA's correlation cap (VikingEquityEA.mq5 → SymbolSector/InpSectorRiskCapPct)
+# groups these names by sector to throttle correlated clusters (the 2026-11-02 ma_pull financials run).
+# That map is AUTHORITATIVE and lives in the EA (it must classify already-open positions by symbol). When
+# you add/remove a US or JP name below, add/remove its BASE ticker on the matching line in SymbolSector:
+#   TECH: AAPL MSFT NVDA ASML SNOW WDAY ADBE AMD AVGO CRM IBM INTU TXN ACN 6758
+#   FIN:  AXP JPM BLK MA BRK-B GS COIN HOOD BAC V 8306
+#   HLTH: LLY TMO MCK ABBV AMGN JNJ UNH DHR ISRG
+#   CONS: AMZN TSLA MCD COST MELI AZO HD LOW 7267 7974
+#   IND:  GWW DE GD FDX UNP GE HON RTX      ENERGY: CVX      (anything unmapped -> OTHER, capped as its own bucket)
 SYMBOLS = {
     # US LIVE universe — RESIZED for proper risk/reward 2026-10-21. The broker hard-caps 1000 units/
     # symbol (SYMBOL_VOLUME_LIMIT == VOLUME_MAX == 1000, splitting impossible), so only ~$500+ names
