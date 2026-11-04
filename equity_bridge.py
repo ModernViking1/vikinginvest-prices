@@ -68,8 +68,11 @@ SYMBOLS = {
     'blk': 'BLK.NYSE', 'lly': 'LLY.NYSE', 'ma': 'MA.NYSE', 'brkb': 'BRK-B.NYSE',
     # Added — high-priced, VikingSizingDiag-confirmed available + OK @ 0.5% at 1000 units (2026-10-21):
     'cost': 'COST.NAS', 'asml': 'ASML.NAS', 'meli': 'MELI.NAS',
-    'azo': 'AZO.NYSE', 'tmo': 'TMO.NYSE', 'mck': 'MCK.NYSE', 'gs': 'GS.NYSE',
-    'gww': 'GWW.NYSE',
+    'mck': 'MCK.NYSE', 'gs': 'GS.NYSE',
+    # DROPPED 2026-11-04 (user) — 48-name ranking: NEGATIVE across ALL 5 live strategies (dead weight,
+    # help no book). AZO ma_pull -0.015/HG -0.049/TS -0.008/3P -0.128/fib -0.087; TMO -0.046 across;
+    # GWW -0.064 across. Still in the export/backtest universe; re-enable only if a later study earns it.
+    #   'azo': 'AZO.NYSE', 'tmo': 'TMO.NYSE', 'gww': 'GWW.NYSE',
     # DROPPED 2026-11-01 (user) — trimmed to 50 US names on live wins/RR. LMT (20% WR, -0.689R, n=5) and
     # TDG (25% WR, -0.501R, n=8) were the worst-performing live names (alongside COF, dropped below).
     #   'lmt': 'LMT.NYSE', 'tdg': 'TDG.NYSE',
@@ -109,7 +112,7 @@ SYMBOLS = {
     # names skipped per the throttle rule; CAT still held (thin broker history); BKNG excluded (mismap).
     # Added LIVE UNVALIDATED — backtest on the next MT5 export. ⚠ Spot-check identity in Specification
     # (several prices higher than long-term norms — confirm no mismaps before they size up).
-    'jnj': 'JNJ.NYSE', 'unh': 'UNH.NYSE', 'dhr': 'DHR.NYSE', 'isrg': 'ISRG.NAS',
+    'jnj': 'JNJ.NYSE', 'unh': 'UNH.NYSE', 'isrg': 'ISRG.NAS',   # dhr DROPPED 2026-11-04 (neg across all 5)
     'hd': 'HD.NYSE', 'low': 'LOW.NYSE',
     'de': 'DE.NYSE', 'gd': 'GD.NYSE', 'fdx': 'FDX.NYSE', 'unp': 'UNP.NYSE',
     'ge': 'GE.NYSE', 'hon': 'HON.NAS', 'rtx': 'RTX.NYSE',
