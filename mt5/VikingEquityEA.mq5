@@ -90,6 +90,20 @@ input bool   InpWeekendFlat        = true;   // close EA positions before the we
                                              //   the Fri->Mon gap is -0.043R / 54% adverse; a flat-before-weekend
                                              //   rule ~2x's the book's expectancy (+0.013 vs +0.006R).
 input int    InpWkndFlatMinBefore  = 10;     // flatten this many minutes before a symbol's FRIDAY session close
+input bool   InpIntradayFlat        = false;  // INTRADAY SESSION-FLAT (default OFF): don't hold the listed
+                                             // strategies past the US close. Targets the overnight GAP-THROUGH
+                                             // tail (2026-11-03: longs held overnight gapped past their stops at
+                                             // the open — COST -5.3R, ACN -3.2R; 65% of the week's ma_pull loss
+                                             // from 26% of trades). 3yr gap-aware study: the overnight hold is a
+                                             // thin edge (~+0.015R/trade) carrying ~ALL the gap tail; flattening
+                                             // keeps ~84% of the cohort's return and removes 100% of the <-1.5R
+                                             // tail. STRATEGY-SPECIFIC (swing h1/4h books are meant to hold).
+input string InpIntradayFlatStrats  = "ma_pull_eq"; // comma list of strategy tags (comment prefix) to flatten at
+                                             // the close, e.g. "ma_pull_eq,holygrail_eq_m15". Others untouched.
+input double InpIntradayFlatKeepFrac= 0.0;   // fraction of the position to KEEP overnight: 0.0 = full flat (the
+                                             // study's recommendation); 0.5 = half-size overnight (keeps ~89% of
+                                             // edge, cuts the gap tail ~70%). Trims once per day held into close.
+input int    InpIntradayFlatMinBefore = 10;  // trim/flatten this many minutes before the symbol's session close
 // PORTFOLIO caps DISABLED for demo full-strategy testing (user 2026-10-20): at 1000-units/symbol the
 // high-priced names (LLY/BLK/MA …) stack to ~300% notional, so a 150% cap blocked ~all new entries
 // incl. ma_pull_eq. On demo the only cost of high leverage is bigger P&L swings (= more test data),
@@ -121,7 +135,8 @@ CPositionInfo pos;
 
 // per-ticket trail state (rebuilt on init from open EA positions)
 struct TrailState { ulong ticket; double entry; double initStop; double R; int dir; bool armed; double best; datetime expiry;
-                    double trustedPx; int suspectN; };   // spike-guard: last trusted mark + consecutive-suspect count
+                    double trustedPx; int suspectN;      // spike-guard: last trusted mark + consecutive-suspect count
+                    int flatDay; };                      // intraday-flat: yyyymmdd it was last trimmed (once/day guard)
 TrailState gStates[];
 // per-symbol close-only backoff (rc 10044): retry-after timestamps so a transient out-of-session
 // window doesn't make us re-send every poll, while the signal stays alive to fill on reopen.
@@ -146,6 +161,8 @@ int OnInit()
                (string)InpWeekendFlat, InpWkndFlatMinBefore, InpMaxBookNotionalPct, InpMaxBookRiskPct);
    PrintFormat("  correlation caps: sector<=%.2f%%/dir, direction<=%.2f%% of equity (0=off)",
                InpSectorRiskCapPct, InpDirRiskCapPct);
+   PrintFormat("  intraday-flat=%s strats=[%s] keep=%.0f%% (%dm pre close)",
+               (string)InpIntradayFlat, InpIntradayFlatStrats, 100.0*InpIntradayFlatKeepFrac, InpIntradayFlatMinBefore);
    if(!IsTradeableAccount())
       Print("WARNING: live account + AllowLive=false → EA will NOT place trades (demo guard).");
    return(INIT_SUCCEEDED);
@@ -245,6 +262,35 @@ void ManageOpen(bool beat=false)
       // weekend-flat — close before the weekend (eod_study: holding over the Fri->Mon gap is a net drag)
       if(NearWeekendClose(sym))
         { trade.PositionClose(gStates[i].ticket); if(InpVerbose) PrintFormat("%s: WEEKEND-FLAT close", sym); continue; }
+
+      // INTRADAY SESSION-FLAT — for the configured strategies (default ma_pull_eq), don't carry past the US
+      // close. Kills the overnight gap-through tail (the 2026-11-03 blowups). Strategy comes from the position
+      // comment prefix (the signal id "strat:pair:ts"); a mangled/absent comment just fails safe (no flatten).
+      // KeepFrac=0 => full close; >0 => trim to that fraction once per day (residual keeps trailing).
+      if(InpIntradayFlat && NearSessionCloseToday(sym))
+        {
+         string cmt = PositionGetString(POSITION_COMMENT);
+         int cp = StringFind(cmt, ":"); string strat = (cp > 0) ? StringSubstr(cmt, 0, cp) : cmt;
+         MqlDateTime nd; TimeToStruct(TimeCurrent(), nd);
+         int today = nd.year*10000 + nd.mon*100 + nd.day;
+         if(InList(strat, InpIntradayFlatStrats) && gStates[i].flatDay != today)
+           {
+            double vol  = PositionGetDouble(POSITION_VOLUME);
+            double vmin = SymbolInfoDouble(sym, SYMBOL_VOLUME_MIN);
+            double vstp = SymbolInfoDouble(sym, SYMBOL_VOLUME_STEP);
+            double keep = (InpIntradayFlatKeepFrac > 0) ? vol*InpIntradayFlatKeepFrac : 0.0;
+            if(vstp > 0) keep = MathFloor(keep/vstp)*vstp;
+            if(keep < vmin)
+              { trade.PositionClose(gStates[i].ticket);          // full flat: no day-guard, retries till it closes
+                if(InpVerbose) PrintFormat("%s: INTRADAY-FLAT close (%s)", sym, strat); continue; }
+            double closeVol = vol - keep;
+            if(closeVol >= vmin && trade.PositionClosePartial(gStates[i].ticket, closeVol))
+              { gStates[i].flatDay = today;                       // trim once/day only on a SUCCESSFUL partial close
+                if(InpVerbose) PrintFormat("%s: INTRADAY-FLAT trim %.2f->%.2f (keep %.0f%%, %s)",
+                                           sym, vol, keep, 100.0*InpIntradayFlatKeepFrac, strat); }
+            // residual kept overnight — fall through so the trailing runner keeps managing it
+           }
+        }
 
       // track best price — SPIKE-GUARDED: never latch 'best' onto an unconfirmed outlier mark
       if(pxTrusted)
@@ -516,6 +562,21 @@ bool NearWeekendClose(const string sym)
    return secNow >= lastTo - InpWkndFlatMinBefore*60;
   }
 
+// Daily session-close window: true within InpIntradayFlatMinBefore of THIS symbol's session close on the
+// CURRENT weekday (any day, unlike NearWeekendClose which is Friday-only). Per-symbol via SymbolInfoSessionTrade
+// so US and JP flatten at their own close. False if the session can't be read (don't close at a guessed time).
+bool NearSessionCloseToday(const string sym)
+  {
+   MqlDateTime now; TimeToStruct(TimeCurrent(), now);
+   datetime a, b; int lastTo = -1;
+   ENUM_DAY_OF_WEEK dow = (ENUM_DAY_OF_WEEK)now.day_of_week;
+   for(int s = 0; s < 8; s++)
+     { if(!SymbolInfoSessionTrade(sym, dow, (uint)s, a, b)) break; lastTo = (int)b; }
+   if(lastTo <= 0) return false;
+   int secNow = now.hour*3600 + now.min*60 + now.sec;
+   return secNow >= lastTo - InpIntradayFlatMinBefore*60;
+  }
+
 //+------------------------------------------------------------------+
 //| Risk-based position sizing                                       |
 //+------------------------------------------------------------------+
@@ -723,6 +784,7 @@ void AddState(ulong tk, double entry, double initStop, double R, int dir, dateti
    gStates[n].R=R; gStates[n].dir=dir; gStates[n].armed=false;
    gStates[n].best=entry; gStates[n].expiry=expiry;
    gStates[n].trustedPx=0.0; gStates[n].suspectN=0;     // spike-guard seeds on the first managed tick
+   gStates[n].flatDay=0;                                // intraday-flat once/day guard (not yet trimmed)
   }
 void Remove(int i){ int n=ArraySize(gStates); if(i<0||i>=n)return; gStates[i]=gStates[n-1]; ArrayResize(gStates,n-1); }
 
