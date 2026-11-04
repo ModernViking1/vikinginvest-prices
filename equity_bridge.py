@@ -180,14 +180,19 @@ LEDGER = 'equity_trades_open.csv'          # the EA's open-trade ledger (ticket 
 # shown in its comment (bridge LOCAL KEYS, not export keys). HON/RTX aren't in the export yet, so they're
 # absent from every list — re-rank a fuller export to place them.
 STRAT_ALLOWLIST = {
-    # robust: {'blk','coin','cost','hood','intu','tsla'}
-    'ma_pull_eq':       None,
-    # robust: {'aapl','adbe','amd','amgn','amzn','asml','axp','bac','blk','brkb','coin','cost','gd','ibm','lly','nvda','snow','tsla','unh'}
-    'holygrail_eq_m15': None,
-    # robust: {'acn','adbe','amd','amzn','axp','fdx','ge','ibm','intu','isrg','jnj','jpm','mcd','meli','msft','nvda','unh','wday'}
-    'turtle_soup_eq':   None,
-    # robust: {'aapl','adbe','amd','amzn','bac','de','fdx','hood','intu','isrg','lly','mcd','meli','msft','nvda','snow','tsla'}
-    'fib_eq':           None,
+    # ENABLED 2026-11-04 (user, option 3). ma_pull = the 6 OOS-robust mean-reverters only (its realistic
+    # gap-aware edge is NEGATIVE off-list); the continuation lists add HON/RTX as PROVISIONAL keeps
+    # (untested — not in the 48-name export; keep them live meanwhile, drop on a re-rank if weak).
+    'ma_pull_eq':       {'blk', 'coin', 'cost', 'hood', 'intu', 'tsla'},
+    'holygrail_eq_m15': {'aapl', 'adbe', 'amd', 'amgn', 'amzn', 'asml', 'axp', 'bac', 'blk', 'brkb',
+                         'coin', 'cost', 'gd', 'ibm', 'lly', 'nvda', 'snow', 'tsla', 'unh',
+                         'hon', 'rtx'},                      # 19 robust + hon/rtx provisional
+    'turtle_soup_eq':   {'acn', 'adbe', 'amd', 'amzn', 'axp', 'fdx', 'ge', 'ibm', 'intu', 'isrg',
+                         'jnj', 'jpm', 'mcd', 'meli', 'msft', 'nvda', 'unh', 'wday',
+                         'hon', 'rtx'},                      # 18 robust + hon/rtx provisional
+    'fib_eq':           {'aapl', 'adbe', 'amd', 'amzn', 'bac', 'de', 'fdx', 'hood', 'intu', 'isrg',
+                         'lly', 'mcd', 'meli', 'msft', 'nvda', 'snow', 'tsla',
+                         'hon', 'rtx'},                      # 17 robust + hon/rtx provisional
 }
 def _allowed(strat, pk):
     """True unless `strat` has an active allow-list that excludes local key `pk` (None = allow all)."""
