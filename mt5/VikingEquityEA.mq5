@@ -90,8 +90,8 @@ input bool   InpWeekendFlat        = true;   // close EA positions before the we
                                              //   the Fri->Mon gap is -0.043R / 54% adverse; a flat-before-weekend
                                              //   rule ~2x's the book's expectancy (+0.013 vs +0.006R).
 input int    InpWkndFlatMinBefore  = 10;     // flatten this many minutes before a symbol's FRIDAY session close
-input bool   InpIntradayFlat        = false;  // INTRADAY SESSION-FLAT (default OFF): don't hold the listed
-                                             // strategies past the US close. Targets the overnight GAP-THROUGH
+input bool   InpIntradayFlat        = true;   // INTRADAY SESSION-FLAT (ENABLED 2026-11-04, user): don't hold the
+                                             // listed strategies past the US close. Targets the overnight GAP-THROUGH
                                              // tail (2026-11-03: longs held overnight gapped past their stops at
                                              // the open — COST -5.3R, ACN -3.2R; 65% of the week's ma_pull loss
                                              // from 26% of trades). 3yr gap-aware study: the overnight hold is a
