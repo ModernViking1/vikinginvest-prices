@@ -162,9 +162,114 @@ private async Task PublishOpenAsync()
 }
 ```
 
-**Intraday bridge** (`VikingInvestSignalBridge.cs`): add the identical method with
-`event_type: "cbot-open"` and `source: "ctrader-intraday-bridge"`; the workflow writes
-`intraday-open.json`.
+### Intraday bridge — `VikingInvestSignalBridge.cs`
+
+Same shape, but the intraday bridge uses **different helper names** (verified against the source), so
+it is NOT a verbatim copy:
+
+| concern | swing bridge | intraday bridge |
+|---|---|---|
+| strategy of a position | `StrategyOf(p)` | `StrategyFromSignalId(SignalIdFromComment(p.Comment))` |
+| tracked 1R distance | `_posR` | `_posOrigR` |
+| R from take-profit | `|entry − tp| / 2` (RR2 book) | `|entry − tp|` (intraday is **1:1**) |
+| event_type / source / file | `swing-cbot-open` / `ctrader-swing-bridge` / `swing-open.json` | `cbot-open` / `ctrader-intraday-bridge` / `intraday-open.json` |
+
+The intraday bridge has no heartbeat block; gate the publish on its own `_lastOpenPub` timer in `OnTimer`
+(after `SweepNakedStops()`). Same inputs/field as swing (`OpenPublishSeconds`, `_lastOpenPub`).
+
+**In `OnTimer()` (after the `SweepNakedStops()` try/catch):**
+```csharp
+if (AutoPublishToRepo && OpenPublishSeconds > 0 && !string.IsNullOrEmpty(GhPersonalAccessToken)
+    && (DateTime.UtcNow - _lastOpenPub).TotalSeconds >= OpenPublishSeconds)
+{
+    _lastOpenPub = DateTime.UtcNow;
+    try { _ = PublishOpenAsync(); } catch { }
+}
+```
+**New method:**
+```csharp
+private async Task PublishOpenAsync()
+{
+    long tsMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    var sb = new System.Text.StringBuilder(1024);
+    sb.Append('{');
+    F(sb, "generated_ms", tsMs); sb.Append(',');
+    F(sb, "source", "ctrader-intraday-bridge"); sb.Append(',');
+    F(sb, "account", (long)Account.Number); sb.Append(',');
+    F(sb, "account_mode", Account.IsLive ? "live" : "demo"); sb.Append(',');
+    F(sb, "balance_ccy", Account.Balance); sb.Append(',');
+    F(sb, "equity_ccy", Account.Equity); sb.Append(',');
+
+    double totFloat = 0; int n = 0;
+    var ps = new System.Text.StringBuilder(); ps.Append('[');
+    foreach (var p in Positions)
+    {
+        if (p.Label != OrderLabel || p.Symbol == null) continue;
+        bool isBuy = p.TradeType == TradeType.Buy;
+        double price = isBuy ? p.Symbol.Bid : p.Symbol.Ask;
+        double R; if (!_posOrigR.TryGetValue(p.Id, out R) || R <= 0)
+            R = (p.TakeProfit.HasValue && p.TakeProfit.Value > 0) ? Math.Abs(p.EntryPrice - p.TakeProfit.Value) : 0;  // 1:1
+        double floatR = (R > 0 && price > 0) ? ((isBuy ? price - p.EntryPrice : p.EntryPrice - price) / R) : 0;
+        if (n > 0) ps.Append(',');
+        ps.Append('{');
+        F(ps, "position_id", p.Id); ps.Append(',');
+        F(ps, "strategy", StrategyFromSignalId(SignalIdFromComment(p.Comment))); ps.Append(',');
+        F(ps, "symbol", p.Symbol.Name); ps.Append(',');
+        F(ps, "dir", isBuy ? "bull" : "bear"); ps.Append(',');
+        F(ps, "entry", p.EntryPrice); ps.Append(',');
+        F(ps, "price", price); ps.Append(',');
+        F(ps, "sl", p.StopLoss ?? 0); ps.Append(',');
+        F(ps, "tp", p.TakeProfit ?? 0); ps.Append(',');
+        F(ps, "volume_units", p.VolumeInUnits); ps.Append(',');
+        F(ps, "float_r", Math.Round(floatR, 3)); ps.Append(',');
+        F(ps, "float_ccy", p.NetProfit); ps.Append(',');
+        F(ps, "open_ms", new DateTimeOffset(p.EntryTime, TimeSpan.Zero).ToUnixTimeMilliseconds());
+        ps.Append('}');
+        totFloat += p.NetProfit; n++;
+    }
+    ps.Append(']');
+
+    int pn = 0; var po = new System.Text.StringBuilder(); po.Append('[');
+    foreach (var o in PendingOrders)
+    {
+        if (o.Label != OrderLabel || o.SymbolName == null) continue;
+        if (pn > 0) po.Append(',');
+        po.Append('{');
+        F(po, "strategy", StrategyFromSignalId(SignalIdFromComment(o.Comment))); po.Append(',');
+        F(po, "symbol", o.SymbolName); po.Append(',');
+        F(po, "dir", o.TradeType == TradeType.Buy ? "bull" : "bear"); po.Append(',');
+        F(po, "entry", o.TargetPrice); po.Append(',');
+        F(po, "sl", o.StopLoss ?? 0); po.Append(',');
+        F(po, "volume_units", o.VolumeInUnits);
+        po.Append('}');
+        pn++;
+    }
+    po.Append(']');
+
+    F(sb, "count", (long)n); sb.Append(',');
+    F(sb, "pending_count", (long)pn); sb.Append(',');
+    F(sb, "total_float_ccy", Math.Round(totFloat, 2)); sb.Append(',');
+    sb.Append("\"positions\":").Append(ps).Append(',');
+    sb.Append("\"pending\":").Append(po);
+    sb.Append('}');
+    var snapshot = sb.ToString();
+
+    try
+    {
+        var url = $"https://api.github.com/repos/{GhRepoOwner}/{GhRepoName}/dispatches";
+        var body = "{\"event_type\":\"cbot-open\",\"client_payload\":{\"snapshot\":" + snapshot + "}}";
+        using var req = new HttpRequestMessage(HttpMethod.Post, url);
+        req.Headers.Add("Accept", "application/vnd.github+json");
+        req.Headers.Add("User-Agent", "VikingInvest-cTrader-Bot/1.0");
+        req.Headers.Add("Authorization", $"Bearer {GhPersonalAccessToken}");
+        req.Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
+        var resp = await _http.SendAsync(req);
+        if ((int)resp.StatusCode == 204) HttpOk();
+        else Print($"[VikingInvest] open-snapshot dispatch returned {(int)resp.StatusCode}");
+    }
+    catch (Exception ex) { HttpFail(); Print($"[VikingInvest] open-snapshot failed (non-fatal): {ex.Message}"); }
+}
+```
 
 ---
 
@@ -208,8 +313,44 @@ jobs:
 ```
 
 (`client_payload.snapshot` arrives as a JSON object; `toJSON` re-serialises it so Python can reload and
-stamp `generated`. For the intraday bridge: copy to `ingest-intraday-open.yml`, type `cbot-open`, file
-`intraday-open.json`.)
+stamp `generated`.)
+
+**Intraday — `.github/workflows/ingest-intraday-open.yml`** (identical bar the dispatch type and filename):
+
+```yaml
+name: ingest-intraday-open
+on:
+  repository_dispatch:
+    types: [cbot-open]
+concurrency:
+  group: data-publish
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  write:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write snapshot + generated timestamp
+        env:
+          SNAP: ${{ toJSON(github.event.client_payload.snapshot) }}
+        run: |
+          python3 - "$SNAP" <<'PY'
+          import json, sys, datetime as dt
+          snap = json.loads(sys.argv[1])
+          snap["generated"] = dt.datetime.now(dt.timezone.utc).isoformat()
+          json.dump(snap, open("intraday-open.json","w"), separators=(",",":"))
+          PY
+      - name: Commit
+        run: |
+          git config user.name  "viking-data-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git pull --rebase origin main || true
+          git add intraday-open.json
+          git commit -m "data: intraday open snapshot [skip ci]" || exit 0
+          for i in 1 2 3 4; do git push && break || { git pull --rebase origin main; sleep $((2**i)); }; done
+```
 
 ---
 
