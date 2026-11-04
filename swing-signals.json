@@ -1,10 +1,96 @@
 {
  "schema_version": 1,
- "generated": "2026-11-04T05:00:00+00:00",
- "data_end_ts": 1793768400,
- "raw_signal_count": 13,
- "count": 5,
+ "generated": "2026-11-04T06:00:00+00:00",
+ "data_end_ts": 1793772000,
+ "raw_signal_count": 14,
+ "count": 6,
  "signals": [
+  {
+   "id": "twob_ix:dj30:1793768400",
+   "strategy": "twob_ix",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "dj30",
+   "symbol": "DJ30",
+   "class": "index",
+   "dir": "bull",
+   "stop": 51327.06285714,
+   "ref_entry": 51506.0,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1793768400,
+   "created_ts": 1793772000,
+   "expiry_ts": 1793811600,
+   "state": "triggered",
+   "cofire": [
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "twob_ix:bear",
+    "twob_ix:bull"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "twob_ix:nas100:1793768400",
+   "strategy": "twob_ix",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "nas100",
+   "symbol": "NAS100",
+   "class": "index",
+   "dir": "bull",
+   "stop": 27507.98928571,
+   "ref_entry": 27833.6,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1793768400,
+   "created_ts": 1793772000,
+   "expiry_ts": 1793811600,
+   "state": "triggered",
+   "cofire": [
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "twob_ix:bear",
+    "twob_ix:bull"
+   ],
+   "suppressed": 1
+  },
+  {
+   "id": "twob_ix:spx500:1793768400",
+   "strategy": "twob_ix",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "spx500",
+   "symbol": "SPX500",
+   "class": "index",
+   "dir": "bull",
+   "stop": 7467.55214286,
+   "ref_entry": 7508.6,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1793768400,
+   "created_ts": 1793772000,
+   "expiry_ts": 1793811600,
+   "state": "triggered",
+   "cofire": [
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "twob_ix:bull"
+   ],
+   "suppressed": 0
+  },
   {
    "id": "engulf_manip:solusd:1793754000",
    "strategy": "engulf_manip",
@@ -22,16 +108,18 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1793754000,
-   "created_ts": 1793768400,
+   "created_ts": 1793772000,
    "expiry_ts": 1793797200,
    "state": "triggered",
    "cofire": [
-    "engulf_manip"
+    "engulf_manip",
+    "mmove"
    ],
    "cofire_dirs": [
-    "engulf_manip:bear"
+    "engulf_manip:bear",
+    "mmove:bear"
    ],
-   "suppressed": 0
+   "suppressed": 1
   },
   {
    "id": "engulf_manip:suiusd:1793754000",
@@ -50,7 +138,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1793754000,
-   "created_ts": 1793768400,
+   "created_ts": 1793772000,
    "expiry_ts": 1793797200,
    "state": "triggered",
    "cofire": [
@@ -62,34 +150,6 @@
     "mmove:bull"
    ],
    "suppressed": 1
-  },
-  {
-   "id": "twob_ix:nas100:1793746800",
-   "strategy": "twob_ix",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "nas100",
-   "symbol": "NAS100",
-   "class": "index",
-   "dir": "bear",
-   "stop": 28355.60785714,
-   "ref_entry": 28309.2,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1793746800,
-   "created_ts": 1793768400,
-   "expiry_ts": 1793790000,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bear"
-   ],
-   "suppressed": 0
   },
   {
    "id": "twob_ix:fra40:1793718000",
@@ -108,36 +168,8 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1793718000,
-   "created_ts": 1793768400,
+   "created_ts": 1793772000,
    "expiry_ts": 1793761200,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob_ix:dj30:1793714400",
-   "strategy": "twob_ix",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "dj30",
-   "symbol": "DJ30",
-   "class": "index",
-   "dir": "bear",
-   "stop": 51987.24642857,
-   "ref_entry": 51862.5,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1793714400,
-   "created_ts": 1793768400,
-   "expiry_ts": 1793757600,
    "state": "triggered",
    "cofire": [
     "twob_ix"
