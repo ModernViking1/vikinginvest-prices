@@ -170,18 +170,29 @@ TA, TD, TH = H.TRAIL_ARM, H.TRAIL_DIST, H.TRAIL_HOLD
 MAGIC = 5204940                            # must match the EA's InpMagic
 LEDGER = 'equity_trades_open.csv'          # the EA's open-trade ledger (ticket -> entry/SL)
 
-# ── ma_pull_eq SYMBOL ALLOW-LIST (INERT until populated) ──────────────────────────
-# ma_pull is MEAN-REVERSION; the per-symbol study (equity_symbol_ranking.py) shows its edge is
-# concentrated in a few mean-reverting names, while the trending mega-caps (NVDA/MSFT/MA/LLY/SNOW…)
-# are NET-NEGATIVE for ma_pull yet strongly POSITIVE for the continuation books (holygrail/turtle/
-# fib/threepush). So ma_pull is gated to an allow-list WITHOUT touching the shared universe — every
-# other strategy keeps the full SYMBOLS set.
-#   INERT: None  ⇒  ma_pull runs on the full US universe, exactly as today (no behaviour change).
-#   To enable: set a set of SYMBOLS LOCAL KEYS (e.g. {'coin','blk','cost','hood','intu'}) — the dict
-#   keys above, NOT the export keys ('coin_nas'). FINALIZE from a FULL 50-name MT5 export run
-#   (equity_symbol_ranking.py), not the 20-name subset. Preliminary 20-name robust set:
-#     {'blk', 'coin', 'cost', 'hood', 'intu'}
-MAPULL_ALLOWLIST = None                     # None = allow all (inert); a set() of local keys = gate on
+# ── PER-STRATEGY SYMBOL ALLOW-LISTS (all INERT: None ⇒ full universe, no behaviour change) ──────────
+# Concentrate each strategy on the names where it is OOS-robust under the REALISTIC gap-aware model
+# (equity_symbol_ranking.py on the full 48-name MT5 export, 2026-11-04). ma_pull is mean-reversion and
+# gap-through destroys its edge → only 6 names survive; the continuation books trade WITH the trend so
+# they hold up gap-aware (+0.05–0.06R) on ~17–19 names each. Gating is PER STRATEGY: ma_pull gated OFF
+# on a name doesn't touch holygrail/turtle/fib on that same name. threepush_eq is intentionally absent
+# (kept on the full universe per user 2026-11-04). To enable a strategy, replace its None with the set
+# shown in its comment (bridge LOCAL KEYS, not export keys). HON/RTX aren't in the export yet, so they're
+# absent from every list — re-rank a fuller export to place them.
+STRAT_ALLOWLIST = {
+    # robust: {'blk','coin','cost','hood','intu','tsla'}
+    'ma_pull_eq':       None,
+    # robust: {'aapl','adbe','amd','amgn','amzn','asml','axp','bac','blk','brkb','coin','cost','gd','ibm','lly','nvda','snow','tsla','unh'}
+    'holygrail_eq_m15': None,
+    # robust: {'acn','adbe','amd','amzn','axp','fdx','ge','ibm','intu','isrg','jnj','jpm','mcd','meli','msft','nvda','unh','wday'}
+    'turtle_soup_eq':   None,
+    # robust: {'aapl','adbe','amd','amzn','bac','de','fdx','hood','intu','isrg','lly','mcd','meli','msft','nvda','snow','tsla'}
+    'fib_eq':           None,
+}
+def _allowed(strat, pk):
+    """True unless `strat` has an active allow-list that excludes local key `pk` (None = allow all)."""
+    al = STRAT_ALLOWLIST.get(strat)
+    return (al is None) or (pk in al)
 
 # ── Earnings blackout (2026-10-16; DISABLED 2026-10-19) ────────────────────────
 # DISABLED by the precise full-universe study (precise_earnings_study.py, 152k trades / 25 US
@@ -368,6 +379,10 @@ def build_doc(mt5, bars_n, demo):
             # on US names only; it stays in the backtest STRATS so we keep watching it elsewhere.
             if tag == 'threepush_eq' and '.NAS' not in sym and '.NYSE' not in sym:
                 continue
+            # per-strategy allow-list gate (inert while this tag's STRAT_ALLOWLIST entry is None;
+            # threepush_eq is not in the dict so it always passes — kept on the full universe)
+            if not _allowed(tag, pk):
+                continue
             bars = layers.get(tf) or []
             min_bars = 150 if tf == '4h' else 400
             if len(bars) < min_bars:
@@ -410,7 +425,7 @@ def build_doc(mt5, bars_n, demo):
         # live ON WATCH (weakest strategy in backtest too: +0.24R pooled, -0.06R on COF). Re-enable the
         # UK/FR leg only if the throttle economics change.
         _is_us = ('.NAS' in sym or '.NYSE' in sym)
-        _fib_tfs = (['h1', '4h'] if _is_us else [])
+        _fib_tfs = (['h1', '4h'] if (_is_us and _allowed('fib_eq', pk)) else [])
         for tf in _fib_tfs:
             bars = layers.get(tf) or []
             if len(bars) < (250 if tf == '4h' else 400):
@@ -438,10 +453,9 @@ def build_doc(mt5, bars_n, demo):
         # ma_pull_eq (2026-10-19) — 9EMA/20SMA pullback-runner, trailing exit. US m15 + h1,
         # DEMO-ONLY pilot (demo_only=True regardless of --demo): additive vs the existing m15 book
         # (+0.262R on the 59% non-overlapping, both OOS halves +). Let live demo fills validate it.
-        # Allow-list gate (inert while MAPULL_ALLOWLIST is None): only emit ma_pull for allow-listed
-        # names; other strategies above are unaffected (they already emitted on the full universe).
-        _mapull_ok = (MAPULL_ALLOWLIST is None) or (pk in MAPULL_ALLOWLIST)
-        for tf in (['m15', 'h1'] if (_is_us and _mapull_ok) else []):
+        # Allow-list gate via STRAT_ALLOWLIST['ma_pull_eq'] (inert while None): only emit ma_pull for
+        # allow-listed names; the other strategies above gate independently on their own entries.
+        for tf in (['m15', 'h1'] if (_is_us and _allowed('ma_pull_eq', pk)) else []):
             bars = layers.get(tf) or []
             if len(bars) < 400:
                 continue
