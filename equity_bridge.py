@@ -167,6 +167,19 @@ TA, TD, TH = H.TRAIL_ARM, H.TRAIL_DIST, H.TRAIL_HOLD
 MAGIC = 5204940                            # must match the EA's InpMagic
 LEDGER = 'equity_trades_open.csv'          # the EA's open-trade ledger (ticket -> entry/SL)
 
+# ── ma_pull_eq SYMBOL ALLOW-LIST (INERT until populated) ──────────────────────────
+# ma_pull is MEAN-REVERSION; the per-symbol study (equity_symbol_ranking.py) shows its edge is
+# concentrated in a few mean-reverting names, while the trending mega-caps (NVDA/MSFT/MA/LLY/SNOW…)
+# are NET-NEGATIVE for ma_pull yet strongly POSITIVE for the continuation books (holygrail/turtle/
+# fib/threepush). So ma_pull is gated to an allow-list WITHOUT touching the shared universe — every
+# other strategy keeps the full SYMBOLS set.
+#   INERT: None  ⇒  ma_pull runs on the full US universe, exactly as today (no behaviour change).
+#   To enable: set a set of SYMBOLS LOCAL KEYS (e.g. {'coin','blk','cost','hood','intu'}) — the dict
+#   keys above, NOT the export keys ('coin_nas'). FINALIZE from a FULL 50-name MT5 export run
+#   (equity_symbol_ranking.py), not the 20-name subset. Preliminary 20-name robust set:
+#     {'blk', 'coin', 'cost', 'hood', 'intu'}
+MAPULL_ALLOWLIST = None                     # None = allow all (inert); a set() of local keys = gate on
+
 # ── Earnings blackout (2026-10-16; DISABLED 2026-10-19) ────────────────────────
 # DISABLED by the precise full-universe study (precise_earnings_study.py, 152k trades / 25 US
 # names, real yfinance calendar, gap-aware exit). Verdict: the PRE=2 rule (a) COSTS the book
@@ -422,7 +435,10 @@ def build_doc(mt5, bars_n, demo):
         # ma_pull_eq (2026-10-19) — 9EMA/20SMA pullback-runner, trailing exit. US m15 + h1,
         # DEMO-ONLY pilot (demo_only=True regardless of --demo): additive vs the existing m15 book
         # (+0.262R on the 59% non-overlapping, both OOS halves +). Let live demo fills validate it.
-        for tf in (['m15', 'h1'] if _is_us else []):
+        # Allow-list gate (inert while MAPULL_ALLOWLIST is None): only emit ma_pull for allow-listed
+        # names; other strategies above are unaffected (they already emitted on the full universe).
+        _mapull_ok = (MAPULL_ALLOWLIST is None) or (pk in MAPULL_ALLOWLIST)
+        for tf in (['m15', 'h1'] if (_is_us and _mapull_ok) else []):
             bars = layers.get(tf) or []
             if len(bars) < 400:
                 continue
