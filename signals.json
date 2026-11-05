@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-11-05T00:41:04.260414+00:00",
-  "generated_ms": 1793839262232,
-  "detector_last_check": "2026-11-05T00:41:01.009335+00:00",
+  "generated": "2026-11-05T00:47:07.558456+00:00",
+  "generated_ms": 1793839624536,
+  "detector_last_check": "2026-11-05T00:47:03.287187+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
+    "total": 3,
     "armed": 0,
-    "triggered": 2,
+    "triggered": 3,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "btcusd:1793838600000:absorb_btc",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "absorb_btc",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 80704.89,
+      "stop": 80609.87878571,
+      "target": 80894.91242857,
+      "ew": null,
+      "tl": null,
+      "nw": null,
+      "cl": null,
+      "armedAt": 1793838600000,
+      "triggeredAt": 1793838600000,
+      "lastSeenAt": 1793839624536,
+      "source": "server-detector-absorb",
+      "event_aligned": null,
+      "held": false
+    },
     {
       "id": "xrpusd:1793834100000:mmove_m15",
       "pair": "xrpusd",
@@ -34,7 +57,7 @@
       "cl": null,
       "armedAt": 1793834100000,
       "triggeredAt": 1793834100000,
-      "lastSeenAt": 1793839262232,
+      "lastSeenAt": 1793839624536,
       "source": "server-detector-mmove",
       "event_aligned": null,
       "held": true
@@ -57,7 +80,7 @@
       "cl": null,
       "armedAt": 1793799900000,
       "triggeredAt": 1793799900000,
-      "lastSeenAt": 1793839262232,
+      "lastSeenAt": 1793839624536,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
