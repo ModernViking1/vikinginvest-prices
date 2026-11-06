@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-11-06T19:00:00+00:00",
  "data_end_ts": 1793991600,
- "raw_signal_count": 11,
- "count": 2,
+ "raw_signal_count": 13,
+ "count": 3,
  "signals": [
   {
    "id": "twob_ix:nas100:1793980800",
@@ -58,6 +58,34 @@
    ],
    "cofire_dirs": [
     "twob_ix:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "engulf_manip:nearusd:1793926800",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "nearusd",
+   "symbol": "NEARUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 3.60224071,
+   "ref_entry": 3.7647,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1793926800,
+   "created_ts": 1793991600,
+   "expiry_ts": 1793970000,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bull"
    ],
    "suppressed": 0
   }
