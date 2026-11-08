@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-11-08T13:41:01.463662+00:00",
-  "generated_ms": 1794145258520,
-  "detector_last_check": "2026-11-08T13:40:57.173392+00:00",
+  "generated": "2026-11-08T13:46:05.038396+00:00",
+  "generated_ms": 1794145562729,
+  "detector_last_check": "2026-11-08T13:46:00.839297+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 2,
+    "total": 3,
     "armed": 0,
-    "triggered": 2,
+    "triggered": 3,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "btcusd:1794144600000:absorb_btc",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "absorb_btc",
+      "r_size": 1.0,
+      "dir": "bear",
+      "state": "triggered",
+      "entry": 76064.01,
+      "stop": 76206.38435714,
+      "target": 75779.26128571,
+      "ew": null,
+      "tl": null,
+      "nw": null,
+      "cl": null,
+      "armedAt": 1794144600000,
+      "triggeredAt": 1794144600000,
+      "lastSeenAt": 1794145562729,
+      "source": "server-detector-absorb",
+      "event_aligned": null,
+      "held": false
+    },
     {
       "id": "wtiusd:1793999700000:fma_sweep_cm",
       "pair": "wtiusd",
@@ -34,7 +57,7 @@
       "cl": null,
       "armedAt": 1793999700000,
       "triggeredAt": 1793999700000,
-      "lastSeenAt": 1794145258520,
+      "lastSeenAt": 1794145562729,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
@@ -57,7 +80,7 @@
       "cl": null,
       "armedAt": 1793991600000,
       "triggeredAt": 1793991600000,
-      "lastSeenAt": 1794145258520,
+      "lastSeenAt": 1794145562729,
       "source": "server-detector-fma",
       "event_aligned": null,
       "held": true
