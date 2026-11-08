@@ -71,8 +71,14 @@ CONC_MIN_REMAINDER = 20  # min non-top-pair fills for the remainder edge to be t
 # Demoted off-live (now observers): hs, gbreak, fma_sweep_cm, mmove (swing, not in LIVE_STRATS),
 # holygrail_cm_m15 (stripped 2026-10-20), plus the earlier demotes (twob/twob_cm/cam_rev/holygrail_cm/
 # fred_tl/fma_gold/s5_rsi*/asianglitch/obfvg/sweepfvg_ix — all negative on the causal 3yr re-validation).
-LIVE = {'engulf_manip', 'twob_ix',            # swing (OANDA cBot)
-        'mmove_m15', 'absorb_btc', 'crt_ix'}  # intraday cBot
+#   EQUITY book  (equity_bridge.STRATS + ma_pull/fib):   ma_pull_eq, holygrail_eq_m15,
+#                                                         turtle_soup_eq, fib_eq, threepush_eq
+# Added 2026-11-08 (user) — the MT5 equity book was missing here, so its live strategies wrongly
+# showed as "promotion-ready observers". holygrail_eq (h1) stays OUT (dropped from live 2026-10-27).
+LIVE = {'engulf_manip', 'twob_ix',                           # swing (OANDA cBot)
+        'mmove_m15', 'absorb_btc', 'crt_ix',                 # intraday cBot
+        'ma_pull_eq', 'holygrail_eq_m15', 'turtle_soup_eq',  # MT5 equity book
+        'fib_eq', 'threepush_eq'}
 
 
 def agg(seq):
@@ -91,7 +97,7 @@ def classify(n, exp, eh, es):
 # Both execution logs: the intraday cBot (executions.json) AND the swing cBot
 # (swing-executions.json). Reading only the intraday log hid the SWING live-vs-model gap
 # entirely (the swing book's real fills never reached the gap check) — fixed 2026-10-03.
-EXEC_LOGS = ('executions.json', 'swing-executions.json')
+EXEC_LOGS = ('executions.json', 'swing-executions.json', 'equity-executions.json')
 # A single closed fill beyond +-SANE_R is a broken/garbage fill (every bracket is ~1:1..RR3),
 # e.g. the gbreak -59.97R glitch on 2026-08-20. Drop these from the live stats so one corrupt
 # row can't swamp a strategy's record — the raw row stays in the log for audit.
@@ -114,12 +120,16 @@ def live_records():
     dropped = 0
     for fn in EXEC_LOGS:
         swing = 'swing' in fn
+        equity = 'equity' in fn           # MT5 book: no 'event' field (all rows closed), carries 'strategy'
         try:
             ex = json.load(open(os.path.join(_HERE, fn))).get('executions', [])
         except Exception:
             continue
         for r in ex:
-            if r.get('event') != 'closed':
+            # cTrader logs tag each row with event (placed/closed/rejected); the equity log has no
+            # event field — every row is a closed trade. Skip non-closed only where event exists.
+            ev = r.get('event')
+            if ev is not None and ev != 'closed':
                 continue
             rr = r.get('realized_r')
             if rr is None:
@@ -127,7 +137,8 @@ def live_records():
             if abs(rr) > SANE_R:
                 dropped += 1
                 continue
-            method = _method_of(r.get('signal_id'), r.get('strategy'), swing)
+            # equity rows carry 'strategy' directly (reliable); cTrader rows derive it from the signal id
+            method = r.get('strategy') if equity else _method_of(r.get('signal_id'), r.get('strategy'), swing)
             if method:
                 out.setdefault(method, []).append(rr)
     if dropped:
