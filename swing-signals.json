@@ -1,37 +1,38 @@
 {
  "schema_version": 1,
- "generated": "2026-11-10T17:00:00+00:00",
- "data_end_ts": 1794330000,
- "raw_signal_count": 22,
- "count": 4,
+ "generated": "2026-11-10T18:00:00+00:00",
+ "data_end_ts": 1794333600,
+ "raw_signal_count": 24,
+ "count": 3,
  "signals": [
   {
-   "id": "twob_ix:spx500:1794326400",
+   "id": "twob_ix:ftse100:1794330000",
    "strategy": "twob_ix",
    "regime": null,
    "risk_mult": 1.0,
-   "pair": "spx500",
-   "symbol": "SPX500",
+   "pair": "ftse100",
+   "symbol": "FTSE100",
    "class": "index",
    "dir": "bull",
-   "stop": 7482.97071429,
-   "ref_entry": 7494.3,
+   "stop": 10750.55785714,
+   "ref_entry": 10770.5,
    "pivot": null,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "limit",
    "demo_only": false,
-   "trigger_ts": 1794326400,
-   "created_ts": 1794330000,
-   "expiry_ts": 1794369600,
+   "trigger_ts": 1794330000,
+   "created_ts": 1794333600,
+   "expiry_ts": 1794373200,
    "state": "triggered",
    "cofire": [
     "twob_ix"
    ],
    "cofire_dirs": [
+    "twob_ix:bear",
     "twob_ix:bull"
    ],
-   "suppressed": 0
+   "suppressed": 1
   },
   {
    "id": "twob_ix:jp225:1794322800",
@@ -50,7 +51,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1794322800,
-   "created_ts": 1794330000,
+   "created_ts": 1794333600,
    "expiry_ts": 1794366000,
    "state": "triggered",
    "cofire": [
@@ -78,36 +79,8 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1794312000,
-   "created_ts": 1794330000,
+   "created_ts": 1794333600,
    "expiry_ts": 1794355200,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob_ix:ftse100:1794301200",
-   "strategy": "twob_ix",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "ftse100",
-   "symbol": "FTSE100",
-   "class": "index",
-   "dir": "bear",
-   "stop": 10879.02285714,
-   "ref_entry": 10830.1,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1794301200,
-   "created_ts": 1794330000,
-   "expiry_ts": 1794344400,
    "state": "triggered",
    "cofire": [
     "twob_ix"
