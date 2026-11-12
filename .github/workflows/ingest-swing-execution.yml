@@ -54,10 +54,10 @@ jobs:
       # loop above, so no duplicate alerts. Fail-open: a Telegram hiccup never fails
       # the ingest. Extend WATCH by adding strategy names to the `if:` condition.
       - name: Telegram alert on watched-strategy execution
-        # DISABLED 2026-10-21 (user): all swing/intraday cBot trade alerts removed (cam_rev is also
-        # stripped from the live feed now). Ingestion still runs; only this Telegram send is off.
-        # Previous scope (re-enable by restoring this `if`): cam_rev + strong regime + non-crypto.
-        if: false
+        # RE-ENABLED 2026-11-12 (user): alert on every LIVE swing trade OPEN. Gated to event=='placed'
+        # (an actual fill), so closes/rejects don't notify. The swing cBot only dispatches its live
+        # roster, so every 'placed' here is a live trade. Fail-open: a Telegram hiccup never fails ingest.
+        if: ${{ github.event.client_payload.row.event == 'placed' }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

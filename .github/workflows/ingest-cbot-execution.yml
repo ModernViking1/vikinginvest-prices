@@ -128,11 +128,10 @@ jobs:
           curl -s -m 10 "https://purge.jsdelivr.net/npm/vikinginvest-prices@latest/executions.json" || echo "purge npm executions failed"
 
       - name: Telegram alert (Phase 4 — non-fatal)
-        # DISABLED 2026-10-21 (user): the per-execution "[Viking cBot · ingested]" trade alerts are
-        # removed. Ingestion above still runs (executions keep recording for the reports) — only this
-        # Telegram notification is off. Re-enable by restoring the original `if` condition below.
-        if: false
-        # if: ${{ env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != '' }}
+        # RE-ENABLED 2026-11-12 (user): alert on every LIVE intraday trade OPEN. Gated to event=='placed'
+        # (an actual fill) so closes/rejects don't notify — matches "alert when a trade is executed".
+        # The script also formats closed/rejected, but the gate below only lets opens through.
+        if: ${{ github.event.client_payload.row.event == 'placed' }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
