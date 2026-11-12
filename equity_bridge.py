@@ -161,8 +161,11 @@ SYMBOLS = {
 # (turned +$8.4k since the investor note). volbreak_eq/threepush_eq stay on watch; fib_eq is US-only.
 # (tag, timeframe, generator) — identical to the live equity feed's .EQ book.
 STRATS = [('holygrail_eq_m15', 'm15', H._holygrail_sig),
-          ('turtle_soup_eq', 'h1', H._turtlesoup_sig),
-          ('threepush_eq', '4h', H.threepush_core)]
+          ('turtle_soup_eq', 'h1', H._turtlesoup_sig)]
+          # threepush_eq DROPPED from live 2026-11-12 (user) — US-only live record was net-negative
+          # (-0.475R avgR, -$11.9k) on negligible volume. Stays OBSERVER-ONLY (shadow log keeps tracking
+          # it); removed from the live feed + observer_review.LIVE. Re-add here only if it re-earns it.
+          # ('threepush_eq', '4h', H.threepush_core)
 FRESH_MIN = {'h1': 90, 'm15': 45, '4h': 270}   # emit only a signal whose entry bar closed within this
                                            #   (4h = one bar + buffer; its signals also carry a wider
                                            #   max_age_min so the EA's 120-min cap doesn't drop them)
@@ -430,7 +433,10 @@ def build_doc(mt5, bars_n, demo):
         # live ON WATCH (weakest strategy in backtest too: +0.24R pooled, -0.06R on COF). Re-enable the
         # UK/FR leg only if the throttle economics change.
         _is_us = ('.NAS' in sym or '.NYSE' in sym)
-        _fib_tfs = (['h1', '4h'] if (_is_us and _allowed('fib_eq', pk)) else [])
+        # fib_eq DROPPED from live 2026-11-12 (user) — US-only live record net-negative (-0.095R, -$13.2k).
+        # Observer-only now (shadow log keeps tracking it). Set _fib_tfs=[] to stop live emission; re-enable
+        # by restoring (['h1','4h'] if _is_us and _allowed('fib_eq', pk) else []).
+        _fib_tfs = []
         for tf in _fib_tfs:
             bars = layers.get(tf) or []
             if len(bars) < (250 if tf == '4h' else 400):
