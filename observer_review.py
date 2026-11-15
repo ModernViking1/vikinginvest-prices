@@ -77,7 +77,7 @@ CONC_MIN_REMAINDER = 20  # min non-top-pair fills for the remainder edge to be t
 # showed as "promotion-ready observers". holygrail_eq (h1) stays OUT (dropped from live 2026-10-27).
 LIVE = {'engulf_manip', 'twob_ix',                           # swing (OANDA cBot)
         'mmove_m15', 'absorb_btc', 'crt_ix',                 # intraday cBot
-        'ma_pull_eq', 'holygrail_eq_m15', 'turtle_soup_eq'}  # MT5 equity book
+        'ma_pull_eq', 'turtle_soup_eq'}  # MT5 equity book (holygrail_eq_m15 DROPPED from live 2026-11-15)
 #   fib_eq / threepush_eq DROPPED from live 2026-11-12 (user) — observer-only now, so OUT of LIVE
 #   (they revert to 'obs' role in the review; the shadow log keeps their forward record).
 

@@ -160,8 +160,11 @@ SYMBOLS = {
 # record. Kept live: ma_pull_eq (the engine, +$121.8k) + turtle_soup_eq (+$10.8k) + holygrail_eq_m15
 # (turned +$8.4k since the investor note). volbreak_eq/threepush_eq stay on watch; fib_eq is US-only.
 # (tag, timeframe, generator) — identical to the live equity feed's .EQ book.
-STRATS = [('holygrail_eq_m15', 'm15', H._holygrail_sig),
-          ('turtle_soup_eq', 'h1', H._turtlesoup_sig)]
+STRATS = [('turtle_soup_eq', 'h1', H._turtlesoup_sig)]
+          # holygrail_eq_m15 DROPPED from live 2026-11-15 (user) — live-vs-model gap -0.618R: live
+          # -0.208R over n=211 (vs +0.409R model), net-negative after commission, "good" weeks were
+          # regime-luck. OBSERVER-ONLY now (shadow log keeps tracking it; removed from observer_review.LIVE).
+          # Re-add here only if its LIVE record turns positive. ('holygrail_eq_m15', 'm15', H._holygrail_sig)
           # threepush_eq DROPPED from live 2026-11-12 (user) — US-only live record was net-negative
           # (-0.475R avgR, -$11.9k) on negligible volume. Stays OBSERVER-ONLY (shadow log keeps tracking
           # it); removed from the live feed + observer_review.LIVE. Re-add here only if it re-earns it.
