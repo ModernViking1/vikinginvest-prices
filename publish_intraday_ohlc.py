@@ -162,7 +162,16 @@ def fetch_oanda_candles(instrument: str, api_key: str) -> list | None:
                 timeout=15,
             )
             if r.status_code in (401, 403):
-                msg = f"OANDA auth failed: HTTP {r.status_code} — token likely expired"
+                # Retry an auth error like a transient fault: OANDA's practice API intermittently
+                # returns a one-off 401 even on a valid token (observed 2026-11-15 — ~1 run in 8
+                # failed while the token worked before and after). Only treat it as a DEAD token —
+                # and refuse to overwrite — if it persists across all attempts.
+                print(f"WARN oanda {instrument} auth {r.status_code} (attempt {attempt+1}/3)",
+                      file=sys.stderr)
+                if attempt < 2:
+                    time.sleep(2 ** attempt)
+                    continue
+                msg = f"OANDA auth failed: HTTP {r.status_code} on all attempts — token likely expired"
                 print(f"FATAL: {msg}", file=sys.stderr)
                 raise OandaAuthError(msg)
             r.raise_for_status()
