@@ -225,6 +225,36 @@ def _ma_stretch_ok(bars, entry_ts):
         return False
     return abs(bars[i]['c'] - sma20) / sma20 * 100.0 >= MAPULL_MIN_STRETCH_PCT
 
+# ── turtle_soup_eq entry gate — the INVERSE of ma_pull's over-extension edge ──────
+# turtle_soup is a false-breakout reversal with a trend filter: it works best when
+# price is NEAR the SMA20 (not stretched) and RSI is in the trending MIDDLE (not an
+# exhausted extreme). On the 3.5yr broker export this lifts the live allow-list from
+# +0.150R → +0.474R/trade keeping 38% of signals, both halves OOS+ [+0.49/+0.46].
+# Feature defs mirror the validation (turtle_val.py) exactly: simple 14-bar RSI,
+# |close-SMA20|/SMA20 %. Mechanistically the opposite of ma_pull by design.
+TURTLE_MAX_STRETCH_PCT = 0.95   # near-MA: |close-SMA20|/SMA20 % must be <= this
+TURTLE_RSI_LO, TURTLE_RSI_HI = 36.0, 62.0   # trending middle, not exhausted extremes
+
+def _turtle_entry_ok(bars, entry_ts):
+    """near-MA AND mid-RSI gate at the signal bar. Needs 20 prior bars (SMA20) + 14 (RSI)."""
+    if TURTLE_MAX_STRETCH_PCT <= 0:
+        return True
+    i = bisect.bisect_left([b['_ts'] for b in bars], entry_ts)
+    if i < 20 or i >= len(bars):
+        return False
+    cl = [b['c'] for b in bars]
+    sma20 = sum(cl[i-19:i+1]) / 20.0
+    if sma20 <= 0:
+        return False
+    stretch = abs(cl[i] - sma20) / sma20 * 100.0
+    if stretch > TURTLE_MAX_STRETCH_PCT:
+        return False
+    g = l = 0.0
+    for k in range(i-13, i+1):
+        ch = cl[k] - cl[k-1]; g += max(ch, 0.0); l += max(-ch, 0.0)
+    rsi = 100.0 - 100.0 / (1.0 + (g / l if l > 0 else 999.0))
+    return TURTLE_RSI_LO <= rsi <= TURTLE_RSI_HI
+
 # ── Earnings blackout (2026-10-16; DISABLED 2026-10-19) ────────────────────────
 # DISABLED by the precise full-universe study (precise_earnings_study.py, 152k trades / 25 US
 # names, real yfinance calendar, gap-aware exit). Verdict: the PRE=2 rule (a) COSTS the book
@@ -428,6 +458,9 @@ def build_doc(mt5, bars_n, demo):
             s = max(raw, key=lambda x: x['entry_ts'])     # most recent signal for this symbol+strategy
             age = (bars[-1]['_ts'] - s['entry_ts']) / 60.0
             if age > FRESH_MIN.get(tf, 60):
+                continue
+            # turtle_soup_eq near-MA / mid-RSI gate (the found edge, see _turtle_entry_ok)
+            if tag == 'turtle_soup_eq' and not _turtle_entry_ok(bars, s['entry_ts']):
                 continue
             entry, stop, d = s['entry'], s['stop'], s['dir']
             R = abs(entry - stop)
