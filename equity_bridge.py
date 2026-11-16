@@ -189,13 +189,18 @@ STRAT_ALLOWLIST = {
     # ENABLED 2026-11-04 (user, option 3). ma_pull = the 6 OOS-robust mean-reverters only (its realistic
     # gap-aware edge is NEGATIVE off-list); the continuation lists add HON/RTX as PROVISIONAL keeps
     # (untested — not in the 48-name export; keep them live meanwhile, drop on a re-rank if weak).
-    'ma_pull_eq':       {'blk', 'coin', 'cost', 'hood', 'intu', 'tsla'},
+    # WIDENED to full universe 2026-11-16 (user): once the over-extension stretch gate
+    # (_ma_stretch_ok) is in place, the 6-name list leaves ~5x the total R on the table — the
+    # gap-aware non-list names run +0.104R/trade (both-OOS, ~zero gap-tail) vs +0.117R on the 6.
+    # The stretch GATE is the edge, not the symbol list; sector/dir risk caps handle concurrency.
+    'ma_pull_eq':       None,
     'holygrail_eq_m15': {'aapl', 'adbe', 'amd', 'amgn', 'amzn', 'asml', 'axp', 'bac', 'blk', 'brkb',
                          'coin', 'cost', 'gd', 'ibm', 'lly', 'nvda', 'snow', 'tsla', 'unh',
                          'hon', 'rtx'},                      # 19 robust + hon/rtx provisional
-    'turtle_soup_eq':   {'acn', 'adbe', 'amd', 'amzn', 'axp', 'fdx', 'ge', 'ibm', 'intu', 'isrg',
-                         'jnj', 'jpm', 'mcd', 'meli', 'msft', 'nvda', 'unh', 'wday',
-                         'hon', 'rtx'},                      # 18 robust + hon/rtx provisional
+    # WIDENED to full universe 2026-11-16 (user): with the near-MA/mid-RSI gate (_turtle_entry_ok)
+    # the full 48 runs +0.391R/trade both-OOS (sumR +1458 vs +672 on the 20-name list) — ~2x total
+    # R. Per-trade dilutes (+0.48->+0.39) but the extra names are clearly positive and OOS-robust.
+    'turtle_soup_eq':   None,
     'fib_eq':           {'aapl', 'adbe', 'amd', 'amzn', 'bac', 'de', 'fdx', 'hood', 'intu', 'isrg',
                          'lly', 'mcd', 'meli', 'msft', 'nvda', 'snow', 'tsla',
                          'hon', 'rtx'},                      # 17 robust + hon/rtx provisional

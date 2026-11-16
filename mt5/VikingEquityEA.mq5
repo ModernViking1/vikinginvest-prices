@@ -90,14 +90,16 @@ input bool   InpWeekendFlat        = true;   // close EA positions before the we
                                              //   the Fri->Mon gap is -0.043R / 54% adverse; a flat-before-weekend
                                              //   rule ~2x's the book's expectancy (+0.013 vs +0.006R).
 input int    InpWkndFlatMinBefore  = 10;     // flatten this many minutes before a symbol's FRIDAY session close
-input bool   InpIntradayFlat        = true;   // INTRADAY SESSION-FLAT (ENABLED 2026-11-04, user): don't hold the
-                                             // listed strategies past the US close. Targets the overnight GAP-THROUGH
-                                             // tail (2026-11-03: longs held overnight gapped past their stops at
-                                             // the open — COST -5.3R, ACN -3.2R; 65% of the week's ma_pull loss
-                                             // from 26% of trades). 3yr gap-aware study: the overnight hold is a
-                                             // thin edge (~+0.015R/trade) carrying ~ALL the gap tail; flattening
-                                             // keeps ~84% of the cohort's return and removes 100% of the <-1.5R
-                                             // tail. STRATEGY-SPECIFIC (swing h1/4h books are meant to hold).
+input bool   InpIntradayFlat        = false;  // INTRADAY SESSION-FLAT — DISABLED 2026-11-16 (user). It was a BLUNT
+                                             // fix for the overnight gap-through tail (2026-11-03: ma_pull longs
+                                             // gapped past stops at the open). The over-extension STRETCH GATE
+                                             // (bridge-side _ma_stretch_ok) is the PRECISE fix: it already drops the
+                                             // non-extended trades that were gapping, so what remains has enough
+                                             // mean-reversion follow-through to PAY for overnight exposure. On the
+                                             // stretch-filtered set, HOLDING earns +0.164R/trade (both-OOS) vs
+                                             // +0.117R flat — +40% total R; the cost is a fatter gap-tail (capped by
+                                             // the 4% backstop). Re-enable (true) to flatten the listed strats again;
+                                             // STRATEGY-SPECIFIC (swing h1/4h books were always meant to hold).
 input string InpIntradayFlatStrats  = "ma_pull_eq"; // comma list of strategy tags (comment prefix) to flatten at
                                              // the close, e.g. "ma_pull_eq,holygrail_eq_m15". Others untouched.
 input double InpIntradayFlatKeepFrac= 0.0;   // fraction of the position to KEEP overnight: 0.0 = full flat (the
