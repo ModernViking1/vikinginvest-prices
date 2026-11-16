@@ -18,7 +18,7 @@ SETUP (on the Windows PC where MT5 runs):
 
   python equity_bridge.py [--poll 300] [--bars 1500] [--demo 1] [--out equity-signals.json]
 """
-import argparse, json, os, sys, time
+import argparse, bisect, json, os, sys, time
 import datetime as dt
 
 import unified_shadow_harness as H
@@ -204,6 +204,26 @@ def _allowed(strat, pk):
     """True unless `strat` has an active allow-list that excludes local key `pk` (None = allow all)."""
     al = STRAT_ALLOWLIST.get(strat)
     return (al is None) or (pk in al)
+
+# ma_pull OVER-EXTENSION gate (2026-11-16). ma_pull is mean-reversion: its edge lives in GENUINE
+# over-extension from the 20SMA. The realistic (gap-aware, intraday-flat, cost) edge-hunt on the 48-name
+# export showed shallow pullbacks near the MA are NOISE (-0.17R) that dragged the strategy to breakeven,
+# while entries where |close-SMA20|/SMA20 is large are robustly +. On the 6 live allow-list names:
+# baseline +0.028R -> +0.149R with a top-~50% stretch cut, BOTH OOS halves +, keeping ~half the trades.
+# Require the signal bar's |close - SMA20(20)| / SMA20 >= this %. 0 disables. Tunable; 0.5 keeps ~half.
+MAPULL_MIN_STRETCH_PCT = 0.5
+
+def _ma_stretch_ok(bars, entry_ts):
+    """|close - SMA20| / SMA20 (%) at the signal bar >= MAPULL_MIN_STRETCH_PCT. Needs 20 prior bars."""
+    if MAPULL_MIN_STRETCH_PCT <= 0:
+        return True
+    i = bisect.bisect_left([b['_ts'] for b in bars], entry_ts)
+    if i < 19 or i >= len(bars):
+        return False
+    sma20 = sum(b['c'] for b in bars[i-19:i+1]) / 20.0
+    if sma20 <= 0:
+        return False
+    return abs(bars[i]['c'] - sma20) / sma20 * 100.0 >= MAPULL_MIN_STRETCH_PCT
 
 # ── Earnings blackout (2026-10-16; DISABLED 2026-10-19) ────────────────────────
 # DISABLED by the precise full-universe study (precise_earnings_study.py, 152k trades / 25 US
@@ -479,6 +499,9 @@ def build_doc(mt5, bars_n, demo):
             s = max(raw, key=lambda x: x['entry_ts'])
             age = (bars[-1]['_ts'] - s['entry_ts']) / 60.0
             if age > FRESH_MIN.get(tf, 60):
+                continue
+            # Over-extension gate — only take genuinely stretched pullbacks (see MAPULL_MIN_STRETCH_PCT).
+            if not _ma_stretch_ok(bars, s['entry_ts']):
                 continue
             entry, stop, d = s['entry'], s['stop'], s['dir']
             R = abs(entry - stop)
