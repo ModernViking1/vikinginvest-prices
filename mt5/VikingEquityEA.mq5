@@ -123,10 +123,21 @@ input double InpSectorRiskCapPct   = 1.5;    // CORRELATION cap: max concurrent 
                                              // strategies count). Default from the 3yr ma_pull concurrency
                                              // sim (~halves the sleeve's max drawdown at 1.5%); IN-SAMPLE —
                                              // forward-validate / tune on the next MT5 export before trusting.
-input double InpDirRiskCapPct      = 6.0;    // DIRECTION cap: max TOTAL concurrent risk-to-stop on one side
-                                             // (all longs OR all shorts), % equity (0=OFF). Backstop above
-                                             // the per-sector cap (flat sizing let one side reach ~9.5% in
-                                             // the sim). Interacts with InpMaxBookRiskPct (both-sides) if set.
+input double InpDirRiskCapPct      = 3.0;    // DIRECTION cap: max TOTAL concurrent risk-to-stop on one side
+                                             // (all longs OR all shorts), % equity (0=OFF). TIGHTENED 6->3
+                                             // 2026-11-19 (user): with overnight holds on, a market-wide gap
+                                             // can blow a whole one-sided book through its stops at the open
+                                             // (11-18/11-19: clusters of longs gapped -1.5..-2R). At 3% even a
+                                             // ~2R one-sided gap caps the new loss near ~6% of equity (was ~12%
+                                             // at 6%). Backstop above the per-sector cap. Interacts with
+                                             // InpMaxBookRiskPct (both-sides) if set.
+input bool   InpEodDirTrim         = true;   // EOD OVERNIGHT one-sided cap (user 2026-11-19): N min before the
+                                             // US close, if a side's open risk-to-stop still exceeds
+                                             // InpDirRiskCapPct, CLOSE positions on that side (UN-ARMED first —
+                                             // they carry the full gap-new-loss; trailing winners are left) until
+                                             // it's back under. The entry cap already holds this intraday, but it
+                                             // is NOT retroactive: positions opened under an older/higher cap
+                                             // would otherwise carry overnight above the new cap. Once/day.
 input int    InpCloseOnlyRetryMin  = 3;      // after a CLOSE_ONLY reject (rc 10044 — symbol in a transient
                                              //   out-of-session/pre-open/post-close window), back off this many
                                              //   minutes per symbol then retry. The signal is KEPT (not dropped)
@@ -140,6 +151,7 @@ struct TrailState { ulong ticket; double entry; double initStop; double R; int d
                     double trustedPx; int suspectN;      // spike-guard: last trusted mark + consecutive-suspect count
                     int flatDay; };                      // intraday-flat: yyyymmdd it was last trimmed (once/day guard)
 TrailState gStates[];
+int        gEodTrimDay = 0;   // yyyymmdd the EOD one-sided overnight cap last ran (once/day guard)
 // per-symbol close-only backoff (rc 10044): retry-after timestamps so a transient out-of-session
 // window doesn't make us re-send every poll, while the signal stays alive to fill on reopen.
 string   gCoSym[];
@@ -161,8 +173,8 @@ int OnInit()
                (string)(!InpAllowLive), InpRiskPct, InpFeedURL);
    PrintFormat("  weekend-flat=%s (%dm pre Fri close) | book caps: notional<=%.0f%%, risk<=%.1f%% of equity",
                (string)InpWeekendFlat, InpWkndFlatMinBefore, InpMaxBookNotionalPct, InpMaxBookRiskPct);
-   PrintFormat("  correlation caps: sector<=%.2f%%/dir, direction<=%.2f%% of equity (0=off)",
-               InpSectorRiskCapPct, InpDirRiskCapPct);
+   PrintFormat("  correlation caps: sector<=%.2f%%/dir, direction<=%.2f%% of equity (0=off) | EOD dir-trim=%s",
+               InpSectorRiskCapPct, InpDirRiskCapPct, (string)InpEodDirTrim);
    PrintFormat("  intraday-flat=%s strats=[%s] keep=%.0f%% (%dm pre close)",
                (string)InpIntradayFlat, InpIntradayFlatStrats, 100.0*InpIntradayFlatKeepFrac, InpIntradayFlatMinBefore);
    if(!IsTradeableAccount())
@@ -209,6 +221,7 @@ void OnTimer()
 //+------------------------------------------------------------------+
 void ManageOpen(bool beat=false)
   {
+   EodDirTrim();                                   // EOD one-sided overnight cap (self-guarded: window + once/day)
    for(int i=ArraySize(gStates)-1; i>=0; i--)
      {
       if(!PositionSelectByTicket(gStates[i].ticket)) { Remove(i); continue; }
@@ -577,6 +590,76 @@ bool NearSessionCloseToday(const string sym)
    if(lastTo <= 0) return false;
    int secNow = now.hour*3600 + now.min*60 + now.sec;
    return secNow >= lastTo - InpIntradayFlatMinBefore*60;
+  }
+
+// Per-position risk-to-initial-stop in account ccy (one gStates entry) — the term DirRiskCcy sums.
+double PosRiskCcy(int i)
+  {
+   if(!PositionSelectByTicket(gStates[i].ticket)) return 0.0;
+   string s = PositionGetString(POSITION_SYMBOL);
+   double tv = SymbolInfoDouble(s, SYMBOL_TRADE_TICK_VALUE);
+   double tz = SymbolInfoDouble(s, SYMBOL_TRADE_TICK_SIZE);
+   if(tz <= 0) return 0.0;
+   return (gStates[i].R / tz) * tv * PositionGetDouble(POSITION_VOLUME);
+  }
+
+// EOD OVERNIGHT one-sided cap (InpEodDirTrim). N min before the US close, enforce DirRiskCcy(dir) <= the
+// InpDirRiskCapPct budget for the overnight carry by CLOSING same-side positions — UN-ARMED first (they hold
+// the full gap-new-loss; armed/trailing winners are left to run), then by lowest profit. Once per day. The
+// entry cap already keeps this intraday, but is not retroactive (positions opened under an older/higher cap
+// would carry overnight above the new cap); this re-enforces it at the moment that matters.
+void EodDirTrim()
+  {
+   if(!InpEodDirTrim || InpDirRiskCapPct <= 0) return;
+   // trigger only inside a US symbol's session-close window (US names share one close); once/day
+   bool nearUsClose = false;
+   for(int i = ArraySize(gStates)-1; i >= 0; i--)
+     {
+      if(!PositionSelectByTicket(gStates[i].ticket)) continue;
+      string s = PositionGetString(POSITION_SYMBOL);
+      if((StringFind(s, ".NAS") >= 0 || StringFind(s, ".NYSE") >= 0) && NearSessionCloseToday(s)) { nearUsClose = true; break; }
+     }
+   if(!nearUsClose) return;
+   MqlDateTime nd; TimeToStruct(TimeCurrent(), nd);
+   int today = nd.year*10000 + nd.mon*100 + nd.day;
+   if(gEodTrimDay == today) return;                       // already enforced today
+
+   double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   double cap    = equity * (InpDirRiskCapPct/100.0);
+   for(int dir = -1; dir <= 1; dir += 2)                  // -1 short, +1 long
+     {
+      double cur = DirRiskCcy(dir);
+      if(cur <= cap) continue;
+      // rank this side's positions by close-priority: UN-ARMED first, then lowest profitR
+      int    idx[];  double score[];  int m = 0;
+      for(int i = ArraySize(gStates)-1; i >= 0; i--)
+        {
+         if(gStates[i].dir != dir) continue;
+         if(!PositionSelectByTicket(gStates[i].ticket)) continue;
+         string s = PositionGetString(POSITION_SYMBOL);
+         double px = (dir>0) ? SymbolInfoDouble(s, SYMBOL_BID) : SymbolInfoDouble(s, SYMBOL_ASK);
+         double pr = (gStates[i].R>0) ? ((dir>0) ? (px-gStates[i].entry) : (gStates[i].entry-px))/gStates[i].R : 0.0;
+         ArrayResize(idx, m+1); ArrayResize(score, m+1);
+         idx[m] = i; score[m] = (gStates[i].armed ? 1000.0 : 0.0) + pr;   // armed ranked last; lowest profit first
+         m++;
+        }
+      // simple selection sort by score ascending, closing until back under cap
+      for(int a = 0; a < m && cur > cap; a++)
+        {
+         int best = a;
+         for(int b = a+1; b < m; b++) if(score[b] < score[best]) best = b;
+         int ti = idx[best]; double ts = score[best];
+         idx[best]=idx[a]; score[best]=score[a]; idx[a]=ti; score[a]=ts;
+         double contrib = PosRiskCcy(idx[a]);
+         ulong  tk = gStates[idx[a]].ticket;
+         if(trade.PositionClose(tk))
+           { cur -= contrib;
+             if(InpVerbose) PrintFormat("EOD-DIRTRIM close ticket=%I64u (%s side risk %.0f -> %.0f, cap %.0f)",
+                                        tk, (dir>0?"LONG":"SHORT"), cur+contrib, cur, cap); }
+        }
+     }
+   // mark done only once both sides are within cap, so a rejected close retries on the next poll in-window
+   if(DirRiskCcy(1) <= cap && DirRiskCcy(-1) <= cap) gEodTrimDay = today;
   }
 
 //+------------------------------------------------------------------+
