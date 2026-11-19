@@ -197,10 +197,14 @@ STRAT_ALLOWLIST = {
     'holygrail_eq_m15': {'aapl', 'adbe', 'amd', 'amgn', 'amzn', 'asml', 'axp', 'bac', 'blk', 'brkb',
                          'coin', 'cost', 'gd', 'ibm', 'lly', 'nvda', 'snow', 'tsla', 'unh',
                          'hon', 'rtx'},                      # 19 robust + hon/rtx provisional
-    # WIDENED to full universe 2026-11-16 (user): with the near-MA/mid-RSI gate (_turtle_entry_ok)
-    # the full 48 runs +0.391R/trade both-OOS (sumR +1458 vs +672 on the 20-name list) — ~2x total
-    # R. Per-trade dilutes (+0.48->+0.39) but the extra names are clearly positive and OOS-robust.
-    'turtle_soup_eq':   None,
+    # WIDEN REVERTED 2026-11-19 (user): back to the 20-name allow-list. The full-universe widen was
+    # +EV in the gap-aware MODEL (+0.391R), but LIVE turtle nets NEGATIVE after commission (-0.179R,
+    # tight stops) AND it's a multi-day swing we can't EOD-flatten — so the widened names piled on
+    # overnight gap-through exposure on marginal symbols (11-18/11-19 opens). Keep turtle on its
+    # OOS-robust list only; re-widen only once the gated version proves net-positive on live fills.
+    'turtle_soup_eq':   {'acn', 'adbe', 'amd', 'amzn', 'axp', 'fdx', 'ge', 'ibm', 'intu', 'isrg',
+                         'jnj', 'jpm', 'mcd', 'meli', 'msft', 'nvda', 'unh', 'wday',
+                         'hon', 'rtx'},                      # 18 robust + hon/rtx provisional
     'fib_eq':           {'aapl', 'adbe', 'amd', 'amzn', 'bac', 'de', 'fdx', 'hood', 'intu', 'isrg',
                          'lly', 'mcd', 'meli', 'msft', 'nvda', 'snow', 'tsla',
                          'hon', 'rtx'},                      # 17 robust + hon/rtx provisional
