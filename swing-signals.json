@@ -1,37 +1,66 @@
 {
  "schema_version": 1,
- "generated": "2026-11-19T02:00:00+00:00",
- "data_end_ts": 1795053600,
- "raw_signal_count": 12,
- "count": 1,
+ "generated": "2026-11-19T03:00:00+00:00",
+ "data_end_ts": 1795057200,
+ "raw_signal_count": 13,
+ "count": 2,
  "signals": [
   {
-   "id": "twob_ix:spx500:1795021200",
+   "id": "twob_ix:nas100:1795053600",
+   "strategy": "twob_ix",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "nas100",
+   "symbol": "NAS100",
+   "class": "index",
+   "dir": "bear",
+   "stop": 27559.56714286,
+   "ref_entry": 27412.2,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1795053600,
+   "created_ts": 1795057200,
+   "expiry_ts": 1795096800,
+   "state": "triggered",
+   "cofire": [
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "twob_ix:bear"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "twob_ix:spx500:1795053600",
    "strategy": "twob_ix",
    "regime": null,
    "risk_mult": 1.0,
    "pair": "spx500",
    "symbol": "SPX500",
    "class": "index",
-   "dir": "bull",
-   "stop": 7288.23928571,
-   "ref_entry": 7317.1,
+   "dir": "bear",
+   "stop": 7385.08642857,
+   "ref_entry": 7366.8,
    "pivot": null,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "limit",
    "demo_only": false,
-   "trigger_ts": 1795021200,
-   "created_ts": 1795053600,
-   "expiry_ts": 1795064400,
+   "trigger_ts": 1795053600,
+   "created_ts": 1795057200,
+   "expiry_ts": 1795096800,
    "state": "triggered",
    "cofire": [
     "twob_ix"
    ],
    "cofire_dirs": [
+    "twob_ix:bear",
     "twob_ix:bull"
    ],
-   "suppressed": 0
+   "suppressed": 1
   }
  ]
 }
