@@ -1,10 +1,96 @@
 {
  "schema_version": 1,
- "generated": "2026-11-20T13:00:00+00:00",
- "data_end_ts": 1795179600,
- "raw_signal_count": 22,
- "count": 3,
+ "generated": "2026-11-20T14:00:00+00:00",
+ "data_end_ts": 1795183200,
+ "raw_signal_count": 23,
+ "count": 5,
  "signals": [
+  {
+   "id": "twob_ix:ftse100:1795179600",
+   "strategy": "twob_ix",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "ftse100",
+   "symbol": "FTSE100",
+   "class": "index",
+   "dir": "bull",
+   "stop": 10346.39857143,
+   "ref_entry": 10363.0,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1795179600,
+   "created_ts": 1795183200,
+   "expiry_ts": 1795222800,
+   "state": "triggered",
+   "cofire": [
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "twob_ix:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "twob_ix:jp225:1795179600",
+   "strategy": "twob_ix",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "jp225",
+   "symbol": "JP225",
+   "class": "index",
+   "dir": "bull",
+   "stop": 56153.06071429,
+   "ref_entry": 56356.4,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1795179600,
+   "created_ts": 1795183200,
+   "expiry_ts": 1795222800,
+   "state": "triggered",
+   "cofire": [
+    "twob_ix"
+   ],
+   "cofire_dirs": [
+    "twob_ix:bull"
+   ],
+   "suppressed": 0
+  },
+  {
+   "id": "engulf_manip:asterusd:1795172400",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "asterusd",
+   "symbol": "ASTERUSD",
+   "class": "crypto",
+   "dir": "bull",
+   "stop": 0.49393929,
+   "ref_entry": 0.5089,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1795172400,
+   "created_ts": 1795183200,
+   "expiry_ts": 1795215600,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip",
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bull",
+    "mmove:bear"
+   ],
+   "suppressed": 1
+  },
   {
    "id": "engulf_manip:solusd:1795107600",
    "strategy": "engulf_manip",
@@ -22,7 +108,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1795107600,
-   "created_ts": 1795179600,
+   "created_ts": 1795183200,
    "expiry_ts": 1795150800,
    "state": "triggered",
    "cofire": [
@@ -50,7 +136,7 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1795107600,
-   "created_ts": 1795179600,
+   "created_ts": 1795183200,
    "expiry_ts": 1795150800,
    "state": "triggered",
    "cofire": [
@@ -60,36 +146,6 @@
     "engulf_manip:bear"
    ],
    "suppressed": 0
-  },
-  {
-   "id": "engulf_manip:nearusd:1795093200",
-   "strategy": "engulf_manip",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "nearusd",
-   "symbol": "NEARUSD",
-   "class": "crypto",
-   "dir": "bear",
-   "stop": 3.48593929,
-   "ref_entry": 3.4011,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1795093200,
-   "created_ts": 1795179600,
-   "expiry_ts": 1795136400,
-   "state": "triggered",
-   "cofire": [
-    "engulf_manip",
-    "mmove"
-   ],
-   "cofire_dirs": [
-    "engulf_manip:bear",
-    "mmove:bear"
-   ],
-   "suppressed": 2
   }
  ]
 }
