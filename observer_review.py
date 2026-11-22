@@ -304,13 +304,26 @@ def _trigger_ts_of(sid):
     return None
 
 
+# timeframe -> bar duration (minutes). Used to measure fill latency from BAR CLOSE, not the
+# trigger-bar open: a signal can't be acted on until its own bar closes, so counting from the
+# trigger bar charged a 4h strategy ~4h of "latency" it never had.
+_TF_MIN = {'m5': 5, 'm15': 15, 'm30': 30, 'h1': 60, 'h2': 120, 'h4': 240, '4h': 240,
+           'daily': 1440, 'd1': 1440}
+
+
 def fill_latency_7d():
-    """(n, median_delay_min, pct_prompt) over 7d — the REAL gap from a signal's trigger bar
-    (parsed from its id) to when the cBot actually placed the fill. This is the direct
-    read on whether the external pinger keeps swing fills prompt: a rising median or a
-    collapsing '<1h' share is the dead-pinger / cron-throttle failure that caused the
-    stale-fill losses. Absurd/negative deltas (bad clock, backfilled id) are dropped."""
+    """(n, median_delay_min, pct_prompt) over 7d — REAL execution lag from each signal's BAR CLOSE
+    to the cBot's fill. FIXED 2026-11-22: previously counted from the trigger-bar OPEN, which
+    conflated the structural bar-wait (engulf_manip is 4h — it CANNOT fill before its 4h bar
+    closes) with real lag and cried wolf (showed ~1.5h median when the live book's genuine
+    post-close lag is ~1h). We add the signal's timeframe (from the shadow log) to get bar-close,
+    then floor at 0 (an intrabar / at-close fill is 0 lag). A rising median or collapsing '<1h'
+    share is still the dead-pinger / cron-throttle signal. Absurd deltas dropped."""
     cut = (datetime.datetime.now(datetime.timezone.utc).timestamp() - 7 * 86400) * 1000
+    try:
+        shadow = json.load(open(LOG)).get('signals', {})
+    except Exception:
+        shadow = {}
     delays = []
     for fn in ('executions.json', 'swing-executions.json'):
         try:
@@ -320,11 +333,17 @@ def fill_latency_7d():
         for r in ex:
             if r.get('event') != 'placed' or (r.get('ts') or 0) < cut:
                 continue
-            trig = _trigger_ts_of(r.get('signal_id'))
-            if trig is None:
-                continue
-            d = r['ts'] / 1000.0 - trig
-            if 0 <= d <= 48 * 3600:
+            sid = r.get('signal_id')
+            sg = shadow.get(sid)
+            if sg and sg.get('entry_ts') and sg.get('tf'):
+                bar_close = sg['entry_ts'] + _TF_MIN.get(sg['tf'], 60) * 60   # add the bar's own duration
+            else:
+                trig = _trigger_ts_of(sid)                                    # no shadow match → assume h1
+                if trig is None:
+                    continue
+                bar_close = trig + 60 * 60
+            d = max(r['ts'] / 1000.0 - bar_close, 0.0)                         # floor: at/before close = 0 lag
+            if d <= 48 * 3600:
                 delays.append(d / 60.0)
     if not delays:
         return (0, None, None)
