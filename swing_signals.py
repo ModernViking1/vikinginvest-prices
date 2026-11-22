@@ -257,7 +257,12 @@ LIVE_BLACKLIST = {'xptusd'}
 # asianglitch PULLED 2026-10-25 (user) — the weekly observer review flagged it a persistent
 # forward-loss drop candidate (n=46, -0.251R). Stops emitting to the live feed; stays shadow-observed
 # so evidence continues. Re-add here only if it re-earns a live-positive record.
-LIVE_STRATS = {'twob_ix', 'engulf_manip'}
+LIVE_STRATS = {'twob_ix', 'engulf_manip', 'gbreak'}
+# gbreak PROMOTED 2026-11-22 (user): H1 xauusd volatility-confirmed range breakout (RR2, 3 scaled
+# legs). Observer record +0.440R, n=97, both OOS halves +, 15/15 parameter cells robust; the cleanest
+# promotion-ready candidate (gold-only by design, so no hidden concentration; no live-vs-model flag).
+# Self-gates to xauusd in detect_gbreak; the cBot already executes gold. Watch its first live fills
+# against the +0.440R model — the swing book carries a persistent live-vs-model slippage gap.
 
 # Scaled exit for the 2:1 gold signals (2026-08-01) — bank profit progressively instead of a
 # single far TP. gbreak/gtrend are emitted as THREE legs (1/3 risk each, SHARED stop) with
