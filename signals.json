@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "generated": "2026-11-23T23:11:12.264481+00:00",
-  "generated_ms": 1795475470025,
-  "detector_last_check": "2026-11-23T23:11:09.049254+00:00",
+  "generated": "2026-11-23T23:16:21.299020+00:00",
+  "generated_ms": 1795475779256,
+  "detector_last_check": "2026-11-23T23:16:18.388884+00:00",
   "kill_switch": {
     "killed": false,
     "reason": null,
@@ -10,12 +10,35 @@
     "updated_by": "workflow-dispatch:ModernViking1"
   },
   "counts": {
-    "total": 1,
+    "total": 2,
     "armed": 0,
-    "triggered": 1,
+    "triggered": 2,
     "invalidated": 0
   },
   "signals": [
+    {
+      "id": "btcusd:1795474800000:absorb_btc",
+      "pair": "btcusd",
+      "sym": "BTCUSD",
+      "cls": "crypto",
+      "method": "absorb_btc",
+      "r_size": 1.0,
+      "dir": "bull",
+      "state": "triggered",
+      "entry": 61251.7,
+      "stop": 61053.46814286,
+      "target": 61648.16371429,
+      "ew": null,
+      "tl": null,
+      "nw": null,
+      "cl": null,
+      "armedAt": 1795474800000,
+      "triggeredAt": 1795474800000,
+      "lastSeenAt": 1795475779256,
+      "source": "server-detector-absorb",
+      "event_aligned": null,
+      "held": false
+    },
     {
       "id": "btcusd:1795471200000:absorb_btc",
       "pair": "btcusd",
@@ -34,7 +57,7 @@
       "cl": null,
       "armedAt": 1795471200000,
       "triggeredAt": 1795471200000,
-      "lastSeenAt": 1795475470025,
+      "lastSeenAt": 1795475779256,
       "source": "server-detector-absorb",
       "event_aligned": null,
       "held": true
