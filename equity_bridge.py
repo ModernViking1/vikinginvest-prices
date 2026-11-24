@@ -471,6 +471,12 @@ def build_doc(mt5, bars_n, demo):
             # turtle_soup_eq near-MA / mid-RSI gate (the found edge, see _turtle_entry_ok)
             if tag == 'turtle_soup_eq' and not _turtle_entry_ok(bars, s['entry_ts']):
                 continue
+            # turtle_soup_eq SHORT-ONLY (2026-11-24, user): its live record is a stark directional
+            # split — shorts +0.438R / +$51.3k, longs -0.294R / -$28.3k (regime-independent loser).
+            # Drop the long side outright; keep the proven short edge. Re-enable longs only if a
+            # future study shows the long side turning positive.
+            if tag == 'turtle_soup_eq' and s['dir'] == 'bull':
+                continue
             entry, stop, d = s['entry'], s['stop'], s['dir']
             R = abs(entry - stop)
             if R <= 0:
