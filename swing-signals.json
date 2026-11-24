@@ -1,37 +1,38 @@
 {
  "schema_version": 1,
- "generated": "2026-11-24T13:00:00+00:00",
- "data_end_ts": 1795525200,
- "raw_signal_count": 14,
- "count": 3,
+ "generated": "2026-11-24T14:00:00+00:00",
+ "data_end_ts": 1795528800,
+ "raw_signal_count": 13,
+ "count": 2,
  "signals": [
   {
-   "id": "twob_ix:ftse100:1795518000",
+   "id": "twob_ix:dj30:1795525200",
    "strategy": "twob_ix",
    "regime": null,
    "risk_mult": 1.0,
-   "pair": "ftse100",
-   "symbol": "FTSE100",
+   "pair": "dj30",
+   "symbol": "DJ30",
    "class": "index",
    "dir": "bull",
-   "stop": 10446.64142857,
-   "ref_entry": 10462.0,
+   "stop": 49315.40357143,
+   "ref_entry": 49433.5,
    "pivot": null,
    "rr": 2.0,
    "r_pct": 1.0,
    "entry_mode": "limit",
    "demo_only": false,
-   "trigger_ts": 1795518000,
-   "created_ts": 1795525200,
-   "expiry_ts": 1795561200,
+   "trigger_ts": 1795525200,
+   "created_ts": 1795528800,
+   "expiry_ts": 1795568400,
    "state": "triggered",
    "cofire": [
     "twob_ix"
    ],
    "cofire_dirs": [
+    "twob_ix:bear",
     "twob_ix:bull"
    ],
-   "suppressed": 0
+   "suppressed": 1
   },
   {
    "id": "twob_ix:fra40:1795510800",
@@ -50,36 +51,8 @@
    "entry_mode": "limit",
    "demo_only": false,
    "trigger_ts": 1795510800,
-   "created_ts": 1795525200,
+   "created_ts": 1795528800,
    "expiry_ts": 1795554000,
-   "state": "triggered",
-   "cofire": [
-    "twob_ix"
-   ],
-   "cofire_dirs": [
-    "twob_ix:bear"
-   ],
-   "suppressed": 0
-  },
-  {
-   "id": "twob_ix:dj30:1795485600",
-   "strategy": "twob_ix",
-   "regime": null,
-   "risk_mult": 1.0,
-   "pair": "dj30",
-   "symbol": "DJ30",
-   "class": "index",
-   "dir": "bear",
-   "stop": 49867.395,
-   "ref_entry": 49686.5,
-   "pivot": null,
-   "rr": 2.0,
-   "r_pct": 1.0,
-   "entry_mode": "limit",
-   "demo_only": false,
-   "trigger_ts": 1795485600,
-   "created_ts": 1795525200,
-   "expiry_ts": 1795528800,
    "state": "triggered",
    "cofire": [
     "twob_ix"
