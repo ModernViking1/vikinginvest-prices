@@ -264,6 +264,34 @@ def _turtle_entry_ok(bars, entry_ts):
     rsi = 100.0 - 100.0 / (1.0 + (g / l if l > 0 else 999.0))
     return TURTLE_RSI_LO <= rsi <= TURTLE_RSI_HI
 
+# ── Day-trend veto (2026-11-24) — don't fade a runaway ──────────────────────────────
+# Mean-reversion/reversal entries fail on a strong trend DAY with no pullback (the 11-23 blow-up:
+# shorts stopped out as the market gapped up and kept rising). This veto is the regime-ADAPTIVE fix
+# the directional hardcode (turtle short-only) could not be: skip a SHORT if the last K bars rallied
+# more than MAX_PCT, skip a LONG if they fell more than MAX_PCT — i.e. refuse to fade a sharp
+# counter-move, on EITHER side, so the book stays directionally flexible as the regime turns.
+# K=6 bars / 1.0% validated gap-aware on the 45-name US export, both OOS halves: ma_pull
+# +0.117R->+0.128R, turtle +0.474R->+0.499R.
+DAYTREND_K = 6
+DAYTREND_MAX_PCT = 1.0
+
+def _daytrend_veto(bars, entry_ts, direction):
+    """True = SKIP (fading a runaway). K-bar momentum on the signal's own timeframe."""
+    if DAYTREND_MAX_PCT <= 0:
+        return False
+    i = bisect.bisect_left([b['_ts'] for b in bars], entry_ts)
+    if i < DAYTREND_K or i >= len(bars):
+        return False
+    c0 = bars[i - DAYTREND_K]['c']
+    if c0 <= 0:
+        return False
+    mom = (bars[i]['c'] - c0) / c0 * 100.0
+    if direction == 'bear' and mom > DAYTREND_MAX_PCT:    # shorting into a strong up-move
+        return True
+    if direction == 'bull' and mom < -DAYTREND_MAX_PCT:   # buying into a strong down-move
+        return True
+    return False
+
 # ── Earnings blackout (2026-10-16; DISABLED 2026-10-19) ────────────────────────
 # DISABLED by the precise full-universe study (precise_earnings_study.py, 152k trades / 25 US
 # names, real yfinance calendar, gap-aware exit). Verdict: the PRE=2 rule (a) COSTS the book
@@ -471,11 +499,11 @@ def build_doc(mt5, bars_n, demo):
             # turtle_soup_eq near-MA / mid-RSI gate (the found edge, see _turtle_entry_ok)
             if tag == 'turtle_soup_eq' and not _turtle_entry_ok(bars, s['entry_ts']):
                 continue
-            # turtle_soup_eq SHORT-ONLY (2026-11-24, user): its live record is a stark directional
-            # split — shorts +0.438R / +$51.3k, longs -0.294R / -$28.3k (regime-independent loser).
-            # Drop the long side outright; keep the proven short edge. Re-enable longs only if a
-            # future study shows the long side turning positive.
-            if tag == 'turtle_soup_eq' and s['dir'] == 'bull':
+            # day-trend veto — don't fade a runaway (regime-adaptive; replaces the 2026-11-24
+            # turtle short-only hardcode, which the full-universe backtest showed was regime-overfit:
+            # turtle longs are +0.428R both-OOS across the cycle, the live -0.294R was just the recent
+            # downtrend). The veto keeps turtle both-sided and lifts it +0.474R->+0.499R, both-OOS.
+            if _daytrend_veto(bars, s['entry_ts'], s['dir']):
                 continue
             entry, stop, d = s['entry'], s['stop'], s['dir']
             R = abs(entry - stop)
@@ -550,6 +578,9 @@ def build_doc(mt5, bars_n, demo):
                 continue
             # Over-extension gate — only take genuinely stretched pullbacks (see MAPULL_MIN_STRETCH_PCT).
             if not _ma_stretch_ok(bars, s['entry_ts']):
+                continue
+            # day-trend veto — don't fade a runaway counter-move (see _daytrend_veto; +0.117R->+0.128R)
+            if _daytrend_veto(bars, s['entry_ts'], s['dir']):
                 continue
             entry, stop, d = s['entry'], s['stop'], s['dir']
             R = abs(entry - stop)
