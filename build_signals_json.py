@@ -26,6 +26,7 @@ after detect_triggers.py commits the alerts-state. Manual:
 from __future__ import annotations
 
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -299,6 +300,38 @@ def _signal_row(pair: str, info: dict, kind: str, now_ms: int, demo_bypass_livec
     }
 
 
+# ── SMA200 trend-alignment filter for the LIVE intraday roster (2026-11-25) ──────────────────
+# Same directional filter now on the swing feed. mmove_m15 is validated both-OOS
+# (+0.235->+0.335R); absorb_btc / crt_ix are applied at the user's request but are UNVALIDATED
+# (no shadow detector to backtest) and are micro-structure reversals — WATCH them and revert via
+# _INTRADAY_TREND_FILTER if they degrade. Applied ONLY to NEW triggers (state=='triggered', not
+# held), so a held position keeps re-emitting and the cBot never force-exits mid-trade.
+_INTRADAY_TREND_FILTER = {'mmove_m15', 'absorb_btc', 'crt_ix'}
+_SMA_CACHE = None
+
+def _intraday_trend_aligned(pair, direction, price, n=200):
+    """True if the entry is SMA200(m15)-aligned (long above / short below). Fail-open on missing or
+    short data so a stale OHLC file never silences the feed. Loads historical-ohlc.json once."""
+    global _SMA_CACHE
+    if _SMA_CACHE is None:
+        _SMA_CACHE = {}
+        try:
+            here = os.path.dirname(os.path.abspath(__file__))
+            pr = json.load(open(os.path.join(here, 'historical-ohlc.json'))).get('pairs', {})
+            for pk, lay in pr.items():
+                cl = [b.get('c') for b in (lay.get('m15') or [])[-(n + 5):]
+                      if isinstance(b, dict) and b.get('c')]
+                if len(cl) >= n:
+                    _SMA_CACHE[pk] = sum(cl[-n:]) / n
+        except Exception:
+            _SMA_CACHE = {}
+    sma = _SMA_CACHE.get(pair)
+    if not sma or not price:
+        return True
+    up = price > sma
+    return up if str(direction) in ('bull', 'buy', 'long') else (not up)
+
+
 def build_signals(state: dict) -> dict:
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     pairs = state.get("pairs", {}) or {}
@@ -343,6 +376,9 @@ def build_signals(state: dict) -> dict:
             # flowing or the cBot would flatten it mid-trade (the bug we just fixed).
             if row["pair"] in cooloff_pairs and row.get("state") == "triggered" and not row.get("held"):
                 continue
+            if 'mmove_m15' in _INTRADAY_TREND_FILTER and row.get("state") == "triggered" and not row.get("held") \
+               and not _intraday_trend_aligned(row["pair"], row.get("dir"), row.get("entry")):
+                continue
             out.append(row)
     except Exception as e:
         print(f"[build_signals_json] mmove_m15 emit skipped: {e}", file=sys.stderr)
@@ -354,6 +390,9 @@ def build_signals(state: dict) -> dict:
         from absorb_live import build_absorb_rows
         for row in build_absorb_rows(now_ms):
             if row["pair"] in cooloff_pairs and row.get("state") == "triggered" and not row.get("held"):
+                continue
+            if 'absorb_btc' in _INTRADAY_TREND_FILTER and row.get("state") == "triggered" and not row.get("held") \
+               and not _intraday_trend_aligned(row["pair"], row.get("dir"), row.get("entry")):
                 continue
             out.append(row)
     except Exception as e:
@@ -384,6 +423,9 @@ def build_signals(state: dict) -> dict:
         from crt_live import build_crt_rows
         for row in build_crt_rows(now_ms):
             if row["pair"] in cooloff_pairs and row.get("state") == "triggered" and not row.get("held"):
+                continue
+            if 'crt_ix' in _INTRADAY_TREND_FILTER and row.get("state") == "triggered" and not row.get("held") \
+               and not _intraday_trend_aligned(row["pair"], row.get("dir"), row.get("entry")):
                 continue
             out.append(row)
     except Exception as e:

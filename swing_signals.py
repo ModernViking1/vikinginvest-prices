@@ -17,7 +17,7 @@ inheriting the intraday cBot's pullback-limit / 45-min-expiry logic.
 
 Writes swing-signals.json ONLY (nothing the intraday cBot or dashboard reads).
 """
-import json, os
+import json, os, bisect
 from datetime import datetime, timezone, timedelta
 from detect_triggers import PAIR_CLASS
 from backtest_rsi_per_class import _bars_norm
@@ -258,6 +258,26 @@ LIVE_BLACKLIST = {'xptusd'}
 # forward-loss drop candidate (n=46, -0.251R). Stops emitting to the live feed; stays shadow-observed
 # so evidence continues. Re-add here only if it re-earns a live-positive record.
 LIVE_STRATS = {'twob_ix', 'engulf_manip', 'gbreak'}
+
+# ── SMA200 trend-alignment filter on the LIVE feed (2026-11-25) ──────────────────────────────
+# Validated both-OOS on every testable live swing strategy (historical-ohlc, live-model scoring):
+# twob_ix +0.118->+0.177R, engulf_manip +0.071->+0.241R (fixes OOS instability), gbreak
+# +0.311->+0.377R, mmove_m15 +0.235->+0.335R. Same mechanism the equity book uses — the directional
+# piece the regime-STRENGTH gate (passes_gate) was missing: keep longs above the SMA200, shorts below.
+# Applied ONLY to the live roster (TREND_FILTER_STRATS); observers are logged ungated by the harness.
+TREND_FILTER_STRATS = {'twob_ix', 'engulf_manip', 'gbreak'}
+
+def _trend_aligned(bars, entry_ts, direction, n=200):
+    """SMA{n} directional alignment: longs only above the SMA, shorts only below. Fail-open on cold
+    history (live feeds always carry >200 bars; this only trims if data is unexpectedly short)."""
+    if len(bars) < n + 1:
+        return True
+    i = bisect.bisect_left([b['_ts'] for b in bars], entry_ts)
+    if i < n or i >= len(bars):
+        return True
+    sma = sum(b['c'] for b in bars[i - n:i]) / n
+    up = bars[i]['c'] > sma
+    return up if direction in ('bull', 'buy', 'long') else (not up)
 # gbreak PROMOTED 2026-11-22 (user): H1 xauusd volatility-confirmed range breakout (RR2, 3 scaled
 # legs). Observer record +0.440R, n=97, both OOS halves +, 15/15 parameter cells robust; the cleanest
 # promotion-ready candidate (gold-only by design, so no hidden concentration; no live-vs-model flag).
@@ -466,6 +486,11 @@ def main():
             _reg = m15_regime if (s.get('tf') == 'm15' and m15_regime) else h1_regime
             if not passes_gate(s['strategy'], _reg, s['entry_ts']):
                 continue
+            # SMA200 trend-alignment filter on the LIVE roster (see TREND_FILTER_STRATS note above).
+            if s['strategy'] in TREND_FILTER_STRATS:
+                _tb = m15 if (s.get('tf') == 'm15') else h1
+                if not _trend_aligned(_tb, s['entry_ts'], s['dir']):
+                    continue
             # STOP-INVALIDATION guard (2026-09-09). The cBot fills at market whenever it first
             # sees a fresh signal within the 12h window, and the feed runs on GitHub's laggy
             # hourly cron — so a signal can be published (and filled) hours after its trigger.
