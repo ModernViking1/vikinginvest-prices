@@ -17,9 +17,11 @@ Run: python observer_review.py
 """
 import json
 import os
+import bisect
 import datetime
 import urllib.request
 import urllib.parse
+from backtest_rsi_per_class import _bars_norm
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 LOG = os.path.join(_HERE, 'swing-shadow-log.json')
@@ -85,6 +87,41 @@ LIVE = {'engulf_manip', 'twob_ix', 'gbreak',                 # swing (OANDA cBot
 def agg(seq):
     r = [x for x in seq if x is not None]; n = len(r); w = sum(1 for x in r if x > 0)
     return n, (100.0 * w / n if n else 0.0), (sum(r) / n if n else 0.0)
+
+
+# ── Forward trend-filter (2026-11-25) — re-score every shadow-logged strategy under the SMA200
+# directional filter now live on the swing/intraday book, so DEMOTED strategies accrue a FILTERED
+# forward verdict and can re-earn promotion on the right basis (not on an unfiltered model number).
+# cam_rev is the lead re-observation candidate: filtered forward flipped -0.012R -> +0.195R, both-OOS,
+# n=485. OHLC from the committed historical-ohlc.json; FAIL-OPEN (keep the signal) when a pair/tf is
+# not covered (e.g. the MT5 equity names), so the filter never silently drops an uncheckable strategy.
+_FWD_OHLC = None
+_FWD_NORM = {}
+
+def _fwd_bars(pair, tf):
+    global _FWD_OHLC
+    if _FWD_OHLC is None:
+        try:
+            _FWD_OHLC = json.load(open(os.path.join(_HERE, 'historical-ohlc.json'))).get('pairs', {})
+        except Exception:
+            _FWD_OHLC = {}
+    key = (pair, tf)
+    if key not in _FWD_NORM:
+        lay = _FWD_OHLC.get(pair) or {}
+        _FWD_NORM[key] = _bars_norm(lay.get(tf) or lay.get('h1') or [])
+    return _FWD_NORM[key]
+
+def _trend_aligned_fwd(pair, tf, ets, price, direction, n=200):
+    """SMA200 directional alignment for a shadow-logged signal. Fail-open (True) on no coverage."""
+    b = _fwd_bars(pair, tf or 'h1')
+    if len(b) < n + 1 or not price:
+        return True
+    i = bisect.bisect_left([x['_ts'] for x in b], ets)
+    if i < n or i >= len(b):
+        return True
+    sma = sum(x['c'] for x in b[i - n:i]) / n
+    up = b[i]['c'] > sma
+    return up if direction in ('bull', 'buy', 'long') else (not up)
 
 
 def classify(n, exp, eh, es):
@@ -171,7 +208,7 @@ def review():
     base = log.get('baseline_data_end') or 0
     end = log.get('last_run_data_end') or 0
     track = log.get('tracking', {})
-    by = {}; by_pair = {}
+    by = {}; by_pair = {}; by_f = {}
     for s in log.get('signals', {}).values():
         st = s.get('strategy')
         # Genuine forward = entry AFTER this strategy's OWN tracking start (when it was
@@ -185,6 +222,9 @@ def review():
             continue
         by.setdefault(st, []).append((s['entry_ts'], s['r']))
         by_pair.setdefault(st, {}).setdefault(s.get('pair', '?'), []).append(s['r'])
+        # FILTERED forward record — same signal, kept only if SMA200 trend-aligned (fail-open).
+        if _trend_aligned_fwd(s.get('pair'), s.get('tf'), s['entry_ts'], s.get('entry'), s.get('dir')):
+            by_f.setdefault(st, []).append((s['entry_ts'], s['r']))
     rows = []
     for st, rec in by.items():
         rec.sort(); seq = [r for _, r in rec]; n, wr, exp = agg(seq); m = len(rec) // 2
@@ -212,8 +252,14 @@ def review():
                 conc = {'pair': toppk, 'share': share, 'ex_exp': ex_exp, 'ex_n': ex_n, 'held': True}
             elif share > CONC_MAX:   # top-heavy but the remainder is a real edge — keep PROMOTE, flag it
                 conc = {'pair': toppk, 'share': share, 'ex_exp': ex_exp, 'ex_n': ex_n, 'held': False}
+        # FILTERED forward verdict (SMA200-aligned subset) — the basis for re-observing demoted strats.
+        recf = sorted(by_f.get(st, [])); seqf = [r for _, r in recf]; mf = len(recf) // 2
+        nf, wrf, expf = agg(seqf)
+        _, _, ehf = agg([r for _, r in recf[:mf]]); _, _, esf = agg([r for _, r in recf[mf:]])
+        verdictf = classify(nf, expf, ehf, esf)
         rows.append({'st': st, 'n': n, 'wr': wr, 'exp': exp, 'eh': eh, 'es': es,
-                     'verdict': verdict, 'days': days, 'live': st in LIVE, 'conc': conc})
+                     'verdict': verdict, 'days': days, 'live': st in LIVE, 'conc': conc,
+                     'nf': nf, 'expf': expf, 'ehf': ehf, 'esf': esf, 'verdictf': verdictf})
     rows.sort(key=lambda r: ({'PROMOTE': 0, 'DROP': 1, 'WATCH': 2}[r['verdict']], -r['exp']))
     return rows, base, end
 
@@ -226,6 +272,21 @@ def fmt_table(rows):
         td = f" {r['days']}d" if r['days'] is not None else ""
         out.append(f"{r['st']:<16}{role:<5}{r['n']:>4} {r['wr']:>4.0f}% {r['exp']:>+7.3f}R  "
                    f"[{r['eh']:>+6.3f}/{r['es']:>+6.3f}]  {r['verdict']}{td}")
+    return "\n".join(out)
+
+
+def fmt_filtered(rows):
+    """Re-observation bench: every shadow strategy re-scored under the live SMA200 trend filter.
+    Flags demoted/observer strategies the filter flips toward PROMOTE; cam_rev is the lead."""
+    cand = [r for r in rows if r.get('nf', 0) >= 25]
+    cand.sort(key=lambda r: -r.get('expf', 0))
+    out = ["FILTERED-FORWARD (SMA200 trend filter) — re-observation bench (demoted strats re-scored):",
+           f"  {'strategy':<15}{'n_f':>5}{'raw exp':>9}{'filt exp':>10}   raw->filt"]
+    for r in cand:
+        flip = r['verdict'] in ('DROP', 'WATCH') and r['verdictf'] == 'PROMOTE'
+        lead = '   <= LEAD re-observe' if r['st'] == 'cam_rev' else ('   <= re-observe' if (flip and not r['live']) else '')
+        out.append(f"  {r['st']:<15}{r['nf']:>5}{r['exp']:>+9.3f}{r['expf']:>+10.3f}   "
+                   f"{r['verdict']:>7}->{r['verdictf']:<7}{lead}")
     return "\n".join(out)
 
 
@@ -411,6 +472,14 @@ def telegram_digest(rows, gaps):
             me = f"{g['model_exp']:+.3f}R" if g['model_exp'] is not None else "n/a"
             lines.append(f"  • {g['st']}  live {g['live_exp']:+.3f}R (n={g['live_n']}) "
                          f"vs model {me}  → gap {g['gap']:+.3f}R")
+    reobs = [r for r in rows if not r['live'] and r.get('verdictf') == 'PROMOTE'
+             and r['verdict'] in ('DROP', 'WATCH')]
+    reobs.sort(key=lambda r: -r.get('expf', 0))
+    if reobs:
+        lines.append("\n\U0001F501 <b>Filtered re-observation</b> (raw DROP/WATCH → PROMOTE under the live SMA200 trend filter — a FILTERED-MODEL signal, not a live green light):")
+        for r in reobs[:8]:
+            lead = " ← LEAD" if r['st'] == 'cam_rev' else ""
+            lines.append(f"  • {r['st']}  n_f={r['nf']}  {r['exp']:+.3f}R → {r['expf']:+.3f}R{lead}")
     if not promote and not drop:
         lines.append("\nNo promotions or drops this week — all observers still accruing.")
     lines.append(f"\n{len(watch)} observer(s) on watch. Full table in the job log.")
@@ -458,6 +527,12 @@ def main():
     drop = [r['st'] for r in rows if r['verdict'] == 'DROP']
     print("\nPROMOTION-READY observers:", ', '.join(promote) or 'none')
     print("DROP candidates:", ', '.join(drop) or 'none')
+    print("\n" + "=" * 84)
+    print(fmt_filtered(rows))
+    reobs = [r['st'] for r in rows if not r['live'] and r.get('verdictf') == 'PROMOTE'
+             and r['verdict'] in ('DROP', 'WATCH')]
+    print("\nFILTERED re-observation candidates (raw DROP/WATCH -> filtered PROMOTE):",
+          ', '.join(reobs) or 'none', "| LEAD: cam_rev" if 'cam_rev' in reobs else "")
     gaps = gap_rows(rows, live_records())
     print("\n" + "=" * 84)
     print(fmt_gap_table(gaps))
