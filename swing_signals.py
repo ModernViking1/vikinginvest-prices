@@ -131,7 +131,7 @@ PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'cam_rev': 4, 'fibg
 # so they graduate from demo-only pilots to live strategies — now inside the per-pair exposure
 # cap (no more stacking on top of a live position) and priced into PRIORITY above. fma_gold
 # stays a demo pilot (thin n, 2nd-half edge marginal); mmove_c4 was demoted outright.
-DEMO_ONLY = {'fma_gold', 'sweeprev', 'volbreak', 'zbreak_crypto'}   # 2026-10-16 promotions, demo-first
+DEMO_ONLY = {'fma_gold', 'sweeprev', 'volbreak', 'zbreak_crypto', 'cam_rev'}   # demo-first (cam_rev added 2026-11-25)
 
 # Demoted to observer-only — genuine-forward decay on live data since tracking began
 # (see swing-shadow-log.json GENUINE FORWARD). The harness still runs each detector and
@@ -176,7 +176,13 @@ DEMO_ONLY = {'fma_gold', 'sweeprev', 'volbreak', 'zbreak_crypto'}   # 2026-10-16
 # gold pilot). The harness keeps observing both, so they can re-earn a slot on a durable turn.
 DEMOTED = {'tl_nowick', 'fib_gz', 'wm', 'w5_pullback', 'gtrend', 'threepush', 'ob',
            'asianglitch', 'obfvg', 'mmove_c4', 'fred_tl', 'fma_gold', 'twob', 'twob_cm',
-           'holygrail_cm', 'cam_rev', 's5_rsi', 's5_rsi_wide'}
+           'holygrail_cm', 's5_rsi', 's5_rsi_wide'}
+# cam_rev RE-PROMOTED 2026-11-25 (user, demo): removed from DEMOTED. Its UNFILTERED edge is a DROP
+# (-0.063R fwd, and it ran -0.226R live before) — but under the now-live SMA200 trend filter its
+# genuine forward record flips to PROMOTE (+0.089R, both-OOS, n=260). Promoted FILTERED (in
+# TREND_FILTER_STRATS) and DEMO-FIRST (in DEMO_ONLY): trades on the demo account to accrue real
+# filtered-live evidence, skipped on any live account until that record confirms. FX/index/comm +
+# crypto pilot only — no equities (separate MT5 book).
 # s5_rsi + s5_rsi_wide DEMOTED 2026-10-03 — their edge was inflated by the same daily/weekly
 # look-ahead (detect_s5 read the containing 21:00 bar; fixed to the last fully-closed bar). On the
 # causal 3-yr re-validation: s5_rsi -0.046R (1st OOS half -0.163) — negative; s5_rsi_wide +0.033R
@@ -257,7 +263,7 @@ LIVE_BLACKLIST = {'xptusd'}
 # asianglitch PULLED 2026-10-25 (user) — the weekly observer review flagged it a persistent
 # forward-loss drop candidate (n=46, -0.251R). Stops emitting to the live feed; stays shadow-observed
 # so evidence continues. Re-add here only if it re-earns a live-positive record.
-LIVE_STRATS = {'twob_ix', 'engulf_manip', 'gbreak'}
+LIVE_STRATS = {'twob_ix', 'engulf_manip', 'gbreak', 'cam_rev'}  # cam_rev demo-first, filtered (2026-11-25)
 
 # ── SMA200 trend-alignment filter on the LIVE feed (2026-11-25) ──────────────────────────────
 # Validated both-OOS on every testable live swing strategy (historical-ohlc, live-model scoring):
@@ -265,7 +271,7 @@ LIVE_STRATS = {'twob_ix', 'engulf_manip', 'gbreak'}
 # +0.311->+0.377R, mmove_m15 +0.235->+0.335R. Same mechanism the equity book uses — the directional
 # piece the regime-STRENGTH gate (passes_gate) was missing: keep longs above the SMA200, shorts below.
 # Applied ONLY to the live roster (TREND_FILTER_STRATS); observers are logged ungated by the harness.
-TREND_FILTER_STRATS = {'twob_ix', 'engulf_manip', 'gbreak'}
+TREND_FILTER_STRATS = {'twob_ix', 'engulf_manip', 'gbreak', 'cam_rev'}
 
 def _trend_aligned(bars, entry_ts, direction, n=200):
     """SMA{n} directional alignment: longs only above the SMA, shorts only below. Fail-open on cold

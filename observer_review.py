@@ -77,7 +77,7 @@ CONC_MIN_REMAINDER = 20  # min non-top-pair fills for the remainder edge to be t
 #                                                         turtle_soup_eq, fib_eq, threepush_eq
 # Added 2026-11-08 (user) — the MT5 equity book was missing here, so its live strategies wrongly
 # showed as "promotion-ready observers". holygrail_eq (h1) stays OUT (dropped from live 2026-10-27).
-LIVE = {'engulf_manip', 'twob_ix', 'gbreak',                 # swing (OANDA cBot); gbreak promoted 2026-11-22
+LIVE = {'engulf_manip', 'twob_ix', 'gbreak', 'cam_rev',      # swing (OANDA cBot); gbreak 2026-11-22, cam_rev 2026-11-25 (demo-first, filtered)
         'mmove_m15', 'absorb_btc', 'crt_ix',                 # intraday cBot
         'ma_pull_eq', 'turtle_soup_eq'}  # MT5 equity book (holygrail_eq_m15 DROPPED from live 2026-11-15)
 #   fib_eq / threepush_eq DROPPED from live 2026-11-12 (user) — observer-only now, so OUT of LIVE
