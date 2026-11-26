@@ -131,7 +131,7 @@ PRIORITY = {'s5_rsi_wide': 0, 's5_rsi': 1, 'hs': 2, 'ob': 3, 'cam_rev': 4, 'fibg
 # so they graduate from demo-only pilots to live strategies — now inside the per-pair exposure
 # cap (no more stacking on top of a live position) and priced into PRIORITY above. fma_gold
 # stays a demo pilot (thin n, 2nd-half edge marginal); mmove_c4 was demoted outright.
-DEMO_ONLY = {'fma_gold', 'sweeprev', 'volbreak', 'zbreak_crypto', 'cam_rev'}   # demo-first (cam_rev added 2026-11-25)
+DEMO_ONLY = {'fma_gold', 'sweeprev', 'volbreak', 'zbreak_crypto'}   # demo-first (cam_rev promoted to live exec 2026-11-26)
 
 # Demoted to observer-only — genuine-forward decay on live data since tracking began
 # (see swing-shadow-log.json GENUINE FORWARD). The harness still runs each detector and
@@ -263,7 +263,7 @@ LIVE_BLACKLIST = {'xptusd'}
 # asianglitch PULLED 2026-10-25 (user) — the weekly observer review flagged it a persistent
 # forward-loss drop candidate (n=46, -0.251R). Stops emitting to the live feed; stays shadow-observed
 # so evidence continues. Re-add here only if it re-earns a live-positive record.
-LIVE_STRATS = {'twob_ix', 'engulf_manip', 'gbreak', 'cam_rev'}  # cam_rev demo-first, filtered (2026-11-25)
+LIVE_STRATS = {'twob_ix', 'engulf_manip', 'gbreak', 'cam_rev'}  # cam_rev live exec, trend-filtered (2026-11-26)
 
 # ── SMA200 trend-alignment filter on the LIVE feed (2026-11-25) ──────────────────────────────
 # Validated both-OOS on every testable live swing strategy (historical-ohlc, live-model scoring):
