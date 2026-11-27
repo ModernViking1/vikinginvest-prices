@@ -32,6 +32,9 @@ HEARTBEAT_STALE_MIN = 25                # cBot pings every ~10 min; no ping this
 # toggles the state back and forth (the cause of the Telegram spam).
 RECOVER_CONFIRM_MIN = 20                 # must stay healthy this long before the "back up" all-clear
 ESCALATE_MIN = 60                        # still down this long after the first alert = one reminder ping
+REMIND_EVERY_MIN = 180                    # after that, re-ping this often while still down IN SESSION, so a
+                                         # STOPPED/escalation alert missed overnight re-surfaces — notably
+                                         # one ping at session re-open if the bot is still down at 07:00Z.
 # Equity MT5 bridge liveness (independent book). The bridge pings every ~15 min while it + MT5 are up.
 EQ_STATE = "equity-watchdog-state.json"
 EQUITY_HB_STALE_MIN = 40                 # no bridge heartbeat this long (in equity hours) = bridge/MT5 down
@@ -175,17 +178,28 @@ def main():
                        f"— restart the VikingSwingBridge instance and re-enter the Publish params.")
             _tg(msg)
             st = {"alerted": True, "down_since": nowt, "escalated": False,
-                  "recovering_since": None, "last_swing_ts": swing, "updated": stamp}
+                  "recovering_since": None, "last_reminder_ts": nowt,
+                  "last_swing_ts": swing, "updated": stamp}
         else:
-            # Still down — stay silent. Reset any partial recovery; escalate ONCE if it drags on.
+            # Still down. One escalation reminder after ESCALATE_MIN, then a recurring re-ping every
+            # REMIND_EVERY_MIN while the outage persists IN SESSION — so a STOPPED/escalation alert
+            # missed overnight re-surfaces (notably one ping at session re-open if still down). The
+            # `down` branch is only reached in session (hb_down requires in_session), so overnight is
+            # silent by construction; the re-ping lands on the first in-session tick after the gap.
             st["recovering_since"] = None
             ds = st.get("down_since") or nowt
+            lr = st.get("last_reminder_ts") or ds
             if not st.get("escalated") and (nowt - ds) >= ESCALATE_MIN * 60:
                 _tg(f"🔴 <b>Swing cBot STILL DOWN</b>\n<b>{(nowt - ds) / 60:.0f} min</b> with no recovery. "
                     f"The restart hasn't taken — check cTrader is connected and the VikingSwingBridge instance "
                     f"is running (Publish params re-entered).")
-                st["escalated"] = True
-            st["down_since"] = ds
+                st["escalated"] = True; lr = nowt
+            elif st.get("escalated") and in_session and (nowt - lr) >= REMIND_EVERY_MIN * 60:
+                _tg(f"🔴 <b>Swing cBot STILL DOWN</b>\n<b>{(nowt - ds) / 3600:.1f}h</b> since it stopped "
+                    f"(last activity {f(st.get('last_swing_ts') or swing)}). Restart cTrader + the "
+                    f"VikingSwingBridge instance and re-enter the Publish params.")
+                lr = nowt
+            st["down_since"] = ds; st["last_reminder_ts"] = lr
             st["last_swing_ts"] = swing; st["updated"] = stamp
     else:
         if st.get("alerted"):
