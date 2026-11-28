@@ -2,8 +2,8 @@
  "schema_version": 1,
  "generated": "2026-11-28T01:00:00+00:00",
  "data_end_ts": 1795827600,
- "raw_signal_count": 30,
- "count": 8,
+ "raw_signal_count": 31,
+ "count": 9,
  "signals": [
   {
    "id": "cam_rev:gbpcad:1795799700",
@@ -116,6 +116,36 @@
     "cam_rev:bear"
    ],
    "suppressed": 0
+  },
+  {
+   "id": "engulf_manip:taousd:1795791600",
+   "strategy": "engulf_manip",
+   "regime": null,
+   "risk_mult": 1.0,
+   "pair": "taousd",
+   "symbol": "TAOUSD",
+   "class": "crypto",
+   "dir": "bear",
+   "stop": 190.70571429,
+   "ref_entry": 182.64,
+   "pivot": null,
+   "rr": 2.0,
+   "r_pct": 1.0,
+   "entry_mode": "limit",
+   "demo_only": false,
+   "trigger_ts": 1795791600,
+   "created_ts": 1795827600,
+   "expiry_ts": 1795834800,
+   "state": "triggered",
+   "cofire": [
+    "engulf_manip",
+    "mmove"
+   ],
+   "cofire_dirs": [
+    "engulf_manip:bear",
+    "mmove:bear"
+   ],
+   "suppressed": 1
   },
   {
    "id": "cam_rev:nzdusd:1795786200",
